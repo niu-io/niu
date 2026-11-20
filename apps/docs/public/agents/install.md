@@ -7,7 +7,7 @@ Niu supports two connection tracks against any deployment origin (`{ORIGIN}`, su
 
 Always check the active deployment origin selected by the user and verify release identity (`SHA256SUMS` and `SOURCE_COMMIT`) before installation. Release assets for `v0.3.1` are published at `https://github.com/niu-io/niu/releases/tag/v0.3.1`:
 
-- `niu-io-mcp-0.1.0.tgz` — standalone `@niu-io/mcp` stdio server (`0.1.0` package tarball inside release `v0.3.1`).
+- `niu-io-mcp-0.3.1.tgz` — standalone `@niu-io/mcp` stdio server (release `v0.3.1`).
 - `niu-agent-marketplace.tar.gz` — native marketplace bundle for Claude Code and Codex.
 - `niu-deepseek-harness.tar.gz` — native Cordis bundle for DeepSeek Harness.
 
@@ -131,7 +131,7 @@ Verify the new connection immediately with `GET {ORIGIN}/v1/key` and `GET {ORIGI
 If your agent supports stdio MCP servers and does not already bundle Niu:
 
 ```sh
-npm install --global https://github.com/niu-io/niu/releases/download/v0.3.1/niu-io-mcp-0.1.0.tgz
+npm install --global https://github.com/niu-io/niu/releases/download/v0.3.1/niu-io-mcp-0.3.1.tgz
 ```
 
 For hosted Niu (`https://niu.io/v1`): configure command `niu-mcp` with `args: ["--hosted"]`. For any self-hosted or local deployment: omit `--hosted` and pass `NIU_BASE_URL="{ORIGIN}/v1"`. Prefer `NIU_CREDENTIAL_FILE` or `~/.config/niu/credential.json` from `/connect`, or pass a workspace key via `NIU_API_KEY` env without hardcoding secrets in tracked files. See [MCP guide](/docs/guides/mcp/).

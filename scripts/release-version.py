@@ -52,7 +52,7 @@ README_FLAG_VERSION_PATTERN = re.compile(
     r"(--version\s+v)([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)"
 )
 MCP_RPC_VERSION_PATTERN = re.compile(
-    r'(serverInfo:\s*\{\s*name:\s*"niu",\s*version:\s*")([^"]+)("\s*\})'
+    r'((?:export\s+const\s+MCP_SERVER_VERSION\s*=\s*"|serverInfo:\s*\{\s*name:\s*"niu",\s*version:\s*"))([^"]+)("(?:;|\s*\}))'
 )
 CONVENTIONAL_COMMIT_PATTERN = re.compile(
     r"^(?P<type>[a-zA-Z]+)(?:\((?P<scope>[^)]+)\))?(?P<breaking>!)?:\s*(?P<subject>.+)$"

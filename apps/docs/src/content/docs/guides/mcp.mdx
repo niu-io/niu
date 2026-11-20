@@ -18,7 +18,7 @@ For any coding agent (including Claude Code, Codex, DeepSeek Harness, Cursor, Wi
 Verify the release identity (`SHA256SUMS` and `SOURCE_COMMIT`) from [Niu v0.3.1](https://github.com/niu-io/niu/releases/tag/v0.3.1), then install the standalone MCP package with npm:
 
 ```sh
-npm install --global https://github.com/niu-io/niu/releases/download/v0.3.1/niu-io-mcp-0.1.0.tgz
+npm install --global https://github.com/niu-io/niu/releases/download/v0.3.1/niu-io-mcp-0.3.1.tgz
 ```
 
 Use `niu-mcp` as the command in your agent's MCP configuration. It can start from your application's workspace. If the editor does not inherit your shell's PATH, replace the command with the absolute executable path returned by `command -v niu-mcp`; JSON configuration does not expand shell variables or `~`. Do not use a path relative to the Niu repository.
@@ -156,7 +156,7 @@ Use `node` as the command and the **absolute path** to that checkout's `sdks/mcp
 验证来自 [Niu v0.3.1](https://github.com/niu-io/niu/releases/tag/v0.3.1) 的发布版本标识（`SHA256SUMS` 与 `SOURCE_COMMIT`）后，可通过 npm 安装独立 MCP 软件包：
 
 ```sh
-npm install --global https://github.com/niu-io/niu/releases/download/v0.3.1/niu-io-mcp-0.1.0.tgz
+npm install --global https://github.com/niu-io/niu/releases/download/v0.3.1/niu-io-mcp-0.3.1.tgz
 ```
 
 在智能体的 MCP 配置中将命令设置为 `niu-mcp`。它可以从你的应用程序工作区直接启动。如果编辑器未继承你终端 Shell 的 `PATH`，请将该命令替换为 `command -v niu-mcp` 返回的可执行文件绝对路径；JSON 配置文件不会展开 Shell 变量或 `~`。请勿使用相对于 Niu 代码仓库的相对路径。
