@@ -4,7 +4,7 @@ import {join} from 'node:path';
 
 export async function credentialEnvironment(env) {
   if(env.NIU_API_KEY?.trim())return env;
-  const path=env.NIU_CREDENTIAL_FILE || join(homedir(),'.config','niu','credential.json');
+  const path=env.NIU_CREDENTIAL_FILE?.trim() || join(homedir(),'.config','niu','credential.json');
   let file;
   try {
     file=await open(path,constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
@@ -16,7 +16,8 @@ export async function credentialEnvironment(env) {
     const mount=saved.base_path ?? '';
     if(typeof mount!=='string' || (mount!=='' && !/^\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(mount)))throw new Error('invalid deployment path');
     const base=`${origin.origin}${mount}/v1`;
-    if(env.NIU_BASE_URL && env.NIU_BASE_URL.replace(/\/$/,'')!==base)throw new Error('origin mismatch');
+    const configuredBase=env.NIU_BASE_URL?.trim();
+    if(configuredBase && configuredBase.replace(/\/$/,'')!==base)throw new Error('origin mismatch');
     return {...env,NIU_API_KEY:saved.token,NIU_BASE_URL:base,NIU_LOG_PAYLOADS:env.NIU_LOG_PAYLOADS || 'false'};
   }catch{
     throw new Error('Niu login is missing, invalid or does not match this gateway. Run niu-login for this Niu origin and retry.');

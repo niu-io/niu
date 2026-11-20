@@ -33,7 +33,10 @@ function isWithinRoot(rootPath, candidatePath) {
 
 const hostedSource = readFileSync(new URL("../hosted/niu.io.json", import.meta.url), "utf8");
 
-start(process.argv.slice(2), { ...process.env, NIU_API_KEY: process.env.NIU_API_KEY || "not-connected", NIU_BASE_URL: process.env.NIU_BASE_URL || (process.env.NIU_API_KEY?.trim() ? undefined : "https://niu.io/v1") }, {
+const envApiKey = process.env.NIU_API_KEY?.trim();
+const envBaseUrl = process.env.NIU_BASE_URL?.trim();
+
+start(process.argv.slice(2), { ...process.env, NIU_API_KEY: envApiKey || "not-connected", NIU_BASE_URL: envBaseUrl || (envApiKey ? undefined : "https://niu.io/v1") }, {
   resolveEnvironment: () => credentialEnvironment(process.env),
   hostedSource,
   lines: readline.createInterface({ input: process.stdin, crlfDelay: Infinity }),

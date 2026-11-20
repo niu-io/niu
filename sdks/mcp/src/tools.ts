@@ -32,6 +32,7 @@ import {
   type GatewayClient,
   type GatewayMeta,
   type GatewayRequestOptions,
+  type RoutingContext,
 } from "./gateway.js";
 
 export type ToolContentItem =
@@ -354,6 +355,33 @@ function optionalString(value: unknown, field: string): string | undefined {
   return value;
 }
 
+const ROUTING_CONTEXT_TOKEN_PATTERN = /^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/;
+
+function parseRoutingContext(value: unknown): RoutingContext | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("routing_context must be an object with task and/or stage");
+  }
+  const input = rejectUnknownKeys(value, ["task", "stage"], "routing_context");
+  const task = input.task;
+  const stage = input.stage;
+  if (task === undefined && stage === undefined) {
+    throw new Error("routing_context requires task or stage");
+  }
+  for (const token of [task, stage]) {
+    if (
+      token !== undefined &&
+      (typeof token !== "string" || token.length > 64 || !ROUTING_CONTEXT_TOKEN_PATTERN.test(token))
+    ) {
+      throw new Error("routing_context task and stage must be lowercase tokens up to 64 characters");
+    }
+  }
+  return {
+    ...(task === undefined ? {} : { task: task as string }),
+    ...(stage === undefined ? {} : { stage: stage as string }),
+  };
+}
+
 function parseListModelsArgs(raw: unknown): { search?: string; pricedOnly?: boolean } {
   const input = parseObjectArgs(raw, ["search", "priced_only"], "list_models");
   const search = optionalString(input.search, "search")?.toLowerCase();
@@ -455,7 +483,7 @@ const CHAT_BODY_KEYS = [
   "parallel_tool_calls",
 ] as const;
 
-const CHAT_OPTION_KEYS = ["log_payloads", "evaluation", "task_id"] as const;
+const CHAT_OPTION_KEYS = ["log_payloads", "evaluation", "routing_context", "task_id"] as const;
 
 function parseChatArgs(
   raw: unknown,
@@ -484,6 +512,7 @@ function parseChatArgs(
   const options: GatewayRequestOptions = {
     logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
     evaluation: optionalString(input.evaluation, "evaluation"),
+    routingContext: parseRoutingContext(input.routing_context),
     taskId: optionalString(input.task_id, "task_id"),
   };
   return { body, options };
@@ -508,6 +537,7 @@ async function runCompareModels(client: GatewayClient, raw: unknown): Promise<un
       "reasoning_effort",
       "log_payloads",
       "evaluation",
+      "routing_context",
       "task_id",
     ],
     "compare_models",
@@ -534,6 +564,7 @@ async function runCompareModels(client: GatewayClient, raw: unknown): Promise<un
   const options: GatewayRequestOptions = {
     logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
     evaluation: optionalString(input.evaluation, "evaluation"),
+    routingContext: parseRoutingContext(input.routing_context),
     taskId: optionalString(input.task_id, "task_id"),
   };
 
@@ -627,6 +658,7 @@ function parseResponsesArgs(
       "store",
       "log_payloads",
       "evaluation",
+      "routing_context",
       "task_id",
     ],
     "create_response",
@@ -665,6 +697,7 @@ function parseResponsesArgs(
     options: {
       logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
       evaluation: optionalString(input.evaluation, "evaluation"),
+      routingContext: parseRoutingContext(input.routing_context),
       taskId: optionalString(input.task_id, "task_id"),
     },
   };
@@ -734,6 +767,7 @@ function parseMessagesArgs(
       "anthropic_beta",
       "log_payloads",
       "evaluation",
+      "routing_context",
       "task_id",
     ],
     "create_message",
@@ -778,6 +812,7 @@ function parseMessagesArgs(
       anthropicBeta,
       logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
       evaluation: optionalString(input.evaluation, "evaluation"),
+      routingContext: parseRoutingContext(input.routing_context),
       taskId: optionalString(input.task_id, "task_id"),
     },
   };
@@ -799,6 +834,7 @@ function parseGenerateContentArgs(raw: unknown): {
       "generationConfig",
       "log_payloads",
       "evaluation",
+      "routing_context",
       "task_id",
     ],
     "generate_content",
@@ -828,6 +864,7 @@ function parseGenerateContentArgs(raw: unknown): {
     options: {
       logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
       evaluation: optionalString(input.evaluation, "evaluation"),
+      routingContext: parseRoutingContext(input.routing_context),
       taskId: optionalString(input.task_id, "task_id"),
     },
   };
@@ -838,7 +875,7 @@ function parseEmbeddingsArgs(
 ): { body: Record<string, unknown>; options: GatewayRequestOptions } {
   const input = parseObjectArgs(
     raw,
-    ["model", "input", "encoding_format", "dimensions", "user", "log_payloads", "evaluation", "task_id"],
+    ["model", "input", "encoding_format", "dimensions", "user", "log_payloads", "evaluation", "routing_context", "task_id"],
     "create_embeddings",
   );
   const model = assertModelName(input.model, "model");
@@ -860,7 +897,8 @@ function parseEmbeddingsArgs(
     options: {
       logPayloads: optionalBoolean(input.log_payloads, "log_payloads"),
       evaluation: optionalString(input.evaluation, "evaluation"),
-    taskId: optionalString(input.task_id, "task_id"),
+      routingContext: parseRoutingContext(input.routing_context),
+      taskId: optionalString(input.task_id, "task_id"),
     },
   };
 }
@@ -1629,6 +1667,17 @@ async function handleMediaImageIngestions(
   }
 }
 
+const ROUTING_CONTEXT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  description:
+    "Optional x-niu-routing-context object ({ task?, stage? }) for version 2 Auto workspace routing policies (pool/<slug>). Provide task, stage, or both as lowercase tokens up to 64 characters.",
+  properties: {
+    task: { type: "string", pattern: "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$", maxLength: 64 },
+    stage: { type: "string", pattern: "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$", maxLength: 64 },
+  },
+} as const;
+
 export const toolDefinitions = [
   ...evaluationToolDefinitions,
   ...eventToolDefinitions,
@@ -1758,6 +1807,7 @@ export const toolDefinitions = [
           description: "Set false to send x-niu-log-payloads: false and opt out of 24h request/response payload retention.",
         },
         evaluation: { type: "string", description: "Opt-in evaluation-slug@revision/sample binding. Requires evaluations:read and an exact protocol-bound input hash. Inference remains charged; discover existing attempts after an uncertain response." },
+        routing_context: ROUTING_CONTEXT_SCHEMA,
         task_id: {
           type: "string",
           description: "Optional X-Niu-Task-ID correlation tag (1-200 printable ASCII chars) to group related requests in workspace activity.",
@@ -1795,6 +1845,7 @@ export const toolDefinitions = [
         reasoning_effort: { type: "string", enum: ["low", "medium", "high"] },
         log_payloads: { type: "boolean" },
         evaluation: { type: "string", description: "Opt-in evaluation-slug@revision/sample binding. Requires evaluations:read and an exact protocol-bound input hash. Inference remains charged; discover existing attempts after an uncertain response." },
+        routing_context: ROUTING_CONTEXT_SCHEMA,
         task_id: { type: "string" },
       },
     },
@@ -1838,6 +1889,7 @@ export const toolDefinitions = [
         store: { type: "boolean", enum: [false] },
         log_payloads: { type: "boolean" },
         evaluation: { type: "string", description: "Opt-in evaluation-slug@revision/sample binding. Requires evaluations:read and an exact protocol-bound input hash. Inference remains charged; discover existing attempts after an uncertain response." },
+        routing_context: ROUTING_CONTEXT_SCHEMA,
         task_id: { type: "string" },
       },
     },
@@ -1879,6 +1931,7 @@ export const toolDefinitions = [
         },
         log_payloads: { type: "boolean" },
         evaluation: { type: "string", description: "Opt-in evaluation-slug@revision/sample binding. Requires evaluations:read and an exact protocol-bound input hash. Inference remains charged; discover existing attempts after an uncertain response." },
+        routing_context: ROUTING_CONTEXT_SCHEMA,
         task_id: { type: "string" },
       },
     },
@@ -1921,6 +1974,7 @@ export const toolDefinitions = [
         },
         log_payloads: { type: "boolean" },
         evaluation: { type: "string", description: "Opt-in evaluation-slug@revision/sample binding. Requires evaluations:read and an exact protocol-bound input hash. Inference remains charged; discover existing attempts after an uncertain response." },
+        routing_context: ROUTING_CONTEXT_SCHEMA,
         task_id: { type: "string" },
       },
     },
@@ -1946,6 +2000,7 @@ export const toolDefinitions = [
         user: { type: "string" },
         log_payloads: { type: "boolean" },
         evaluation: { type: "string", description: "Opt-in evaluation-slug@revision/sample binding. Requires evaluations:read and an exact protocol-bound input hash. Inference remains charged; discover existing attempts after an uncertain response." },
+        routing_context: ROUTING_CONTEXT_SCHEMA,
         task_id: { type: "string" },
       },
     },

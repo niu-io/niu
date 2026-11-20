@@ -16,8 +16,9 @@ export {
   type GatewayFetch,
   type GatewayResponse,
   type GatewayHeaders,
+  type RoutingContext,
 } from "./gateway.js";
-export { dispatch } from "./rpc.js";
+export { dispatch, MCP_SERVER_VERSION } from "./rpc.js";
 export { callTool, toolDefinitions, type ToolResult, type ToolContentItem } from "./tools.js";
 export { readResource, resourceDefinitions, resourceTemplates } from "./resources.js";
 export { getPrompt, promptDefinitions } from "./prompts.js";

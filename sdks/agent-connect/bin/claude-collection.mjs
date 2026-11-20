@@ -144,6 +144,10 @@ export class ClaudeCollectionReceiver {
           },
           body: JSON.stringify(record),
         });
+        if (response.status === 404) {
+          this.#notice('Niu returned HTTP 404 for the legacy /executions endpoint; Niu 0.3 gateways do not expose this ingestion API. Collected activity remains queued locally.');
+          break;
+        }
         if (response.status !== 200 && response.status !== 201) {
           this.#notice(`Niu did not accept collected activity (HTTP ${response.status}); it remains queued.`);
           break;

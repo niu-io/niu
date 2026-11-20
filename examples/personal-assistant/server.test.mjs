@@ -30,3 +30,28 @@ test('real HTTP boundary, durable edits, failure recovery and secrets',async()=>
  } finally {await app.close();await new Promise(r=>upstream.close(r));rmSync(directory,{recursive:true,force:true});}
 });
 test('missing setup prevents inference',async()=>{const app=await createAssistant({database:':memory:',key:'',model:'',withUi:false});const url=await listen(app.server);try{assert.equal((await fetch(url+'/api/work',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).status,503);}finally{await app.close();}});
+
+test('hardening: rejects non-loopback HTTP, creates nested database dirname, and blocks redirects',async()=>{
+ await assert.rejects(createAssistant({database:':memory:',baseURL:'http://example.com/v1',withUi:false}),/Invalid NIU_BASE_URL/);
+ const directory=mkdtempSync(join(tmpdir(),'niu-example-hardening-'));
+ let redirectTargetHit=false;
+ const redirectTarget=http.createServer((_req,res)=>{redirectTargetHit=true;res.writeHead(200);res.end('{}');});
+ const targetUrl=await listen(redirectTarget);
+ const redirectOrigin=http.createServer((_req,res)=>{res.writeHead(302,{Location:`${targetUrl}/steal`});res.end();});
+ const originUrl=await listen(redirectOrigin);
+ const nestedDb=join(directory,'nested','subdir','saved.db');
+ const app=await createAssistant({database:nestedDb,key:'secret-test-value',model:'test-model',baseURL:originUrl,withUi:false});
+ const url=await listen(app.server);
+ try {
+  const res=await fetch(url+'/api/work',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Redirect check',notes:'notes',goal:'goal'})});
+  assert.equal(res.status,502);
+  const body=await res.json();
+  assert.equal(body.work.status,'interrupted');
+  assert.equal(redirectTargetHit,false,'redirect target must never be contacted or receive credentials');
+ } finally {
+  await app.close();
+  await new Promise(r=>redirectOrigin.close(r));
+  await new Promise(r=>redirectTarget.close(r));
+  rmSync(directory,{recursive:true,force:true});
+ }
+});

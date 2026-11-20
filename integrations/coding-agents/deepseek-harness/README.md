@@ -1,6 +1,8 @@
 # Niu for DeepSeek Harness
 
-Native Cordis bundle for the Niu 0.3 development candidate. Publication is held.
+Native Cordis bundle for the Niu 0.3 release line. Install from a verified
+`niu-deepseek-harness.tar.gz` release archive (checking `SHA256SUMS`) or build
+from source.
 The initial compatibility target is DeepSeek Harness 0.2.1-rc.5; the package does
 not claim compatibility with every preview release or operating system.
 
@@ -16,12 +18,13 @@ from the Claude Code/Codex connection. If the host explicitly supplies
 passes `--client "DeepSeek Harness"` and `--credentials` to the bundled login
 client. Never reuse its expiring management credential as a production app key.
 
-Build from the Niu source with `scripts/build-deepseek-plugin.py --output` and a
-new output directory. The output includes prebuilt JavaScript and needs no
-install-time build script. Inspect the generated package and use Harness's
-native `dsh plugin --profile <chosen-profile> add <local-package>` mechanism.
+Use a verified release archive or build from the Niu source with
+`scripts/build-deepseek-plugin.py --output` and a new output directory. The
+package includes prebuilt JavaScript and needs no install-time build script.
+Inspect the package and use Harness's native
+`dsh plugin --profile <chosen-profile> add <local-package>` mechanism.
 Use `--dump-config` to verify composition before starting the profile. Do not
-replace a user's profile or advertise a nonexistent published package.
+replace a user's profile or install an unverified archive.
 
 The host's tools use the `mcp__niu__` namespace. Discovery works before login;
 operations requiring Niu authority fail until authorization. MCP reloads the
@@ -49,7 +52,7 @@ key can access it and that both `tool_calls` and `streaming_tool_calls` are true
     providers:
       niu:
         api: openai-completions
-        baseURL: https://staging.niu.io/v1
+        baseURL: https://niu.io/v1
         apiKeyEnv: NIU_API_KEY
         compat:
           supportsStore: true
@@ -89,4 +92,4 @@ macOS: same-process credential reload, six granted capabilities and pool,
 evaluation and event-subscription reads. The disposable key was revoked and the
 package removed afterward. This verifies connection/read behavior; live model
 quality, paid execution and other operating systems remain outside that evidence.
-See the dated 0.3.0 verification record in the source repository.
+See the dated 0.3 verification record in the source repository.

@@ -733,7 +733,9 @@ test('stdio serves initialize, resources, and a hosted completion with binary fi
     const nextLine = readLines(child.stdout);
     child.stdin.write(`${rpc('initialize', { protocolVersion: '2025-03-26' })}\n`);
     const initialized = JSON.parse(await nextLine());
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
     assert.equal(initialized.result.serverInfo.name, 'niu');
+    assert.equal(initialized.result.serverInfo.version, pkg.version);
     assert.equal(initialized.result.protocolVersion, '2025-03-26');
     assert.ok(initialized.result.capabilities.tools);
     assert.ok(initialized.result.capabilities.resources);
@@ -976,3 +978,24 @@ function listen(handler) {
     });
   });
 }
+
+test('MCP package includes LICENSE, synced server version, and zero orphaned dist files', async () => {
+  const { existsSync, readdirSync } = await import('node:fs');
+  const { MCP_SERVER_VERSION } = await import('../dist/index.js');
+  const pkgRoot = new URL('..', import.meta.url);
+  const pkg = JSON.parse(readFileSync(new URL('package.json', pkgRoot), 'utf8'));
+  assert.equal(MCP_SERVER_VERSION, pkg.version);
+  assert.ok(pkg.files.includes('LICENSE'), 'package.json files must include LICENSE');
+  assert.ok(existsSync(new URL('LICENSE', pkgRoot)), 'LICENSE file must exist in sdks/mcp');
+  const srcModules = new Set(
+    readdirSync(new URL('src', pkgRoot))
+      .filter((name) => name.endsWith('.ts'))
+      .map((name) => name.slice(0, -3)),
+  );
+  const distJsFiles = readdirSync(new URL('dist', pkgRoot)).filter((name) => name.endsWith('.js'));
+  assert.ok(distJsFiles.length > 0);
+  for (const file of distJsFiles) {
+    const stem = file.slice(0, -3);
+    assert.ok(srcModules.has(stem), `orphaned dist artifact without src/${stem}.ts: dist/${file}`);
+  }
+});

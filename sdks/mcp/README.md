@@ -4,7 +4,7 @@
 
 ## Quick start
 
-For a release archive, follow the [installation contract](https://github.com/niu-io/niu/blob/release/0.3/apps/docs/public/install.md) and verify its checksum and source commit against the selected tag before installing. The published v0.3.0 archive has a source-commit mismatch. The v0.3.1 archive is pending publication.
+For a release archive, follow the [installation contract](https://github.com/niu-io/niu/blob/release/0.3/apps/docs/public/install.md) and verify its `SHA256SUMS` checksum and `SOURCE_COMMIT` provenance against the selected release tag before installing.
 
 To use a source build, check out your selected commit from `release/0.3` and run these commands from the checkout root:
 
@@ -44,33 +44,49 @@ node /absolute/path/to/niu/sdks/mcp/bin/niu-mcp.mjs
 - `list_catalog_models` (`GET /catalog/v1/models`): List public catalog models with customer metadata and supported protocol capabilities (`chat_completions`, `streaming`, `embeddings`, `messages`, `messages_streaming`, `generate_content`, `responses`).
 - `get_generation` (`GET /v1/generations/{id}`): Retrieve exact token breakdown (`prompt_tokens`, `completion_tokens`, `cached_input_tokens`, `cache_write_input_tokens`, `reasoning_output_tokens`), latency phases (`dispatch_ms`, `headers_ms`, `first_output_ms`, `total_ms`), `output_guardrail_outcome`, and settled `customer_charge` for an `attempt_id`.
 
-### Workspace model policies (0.3.0 development candidate)
+### Workspace routing policies
 
-These six tools require a deployment implementing `/v1/pools` and explicitly delegated `pools:read` or `pools:write` capabilities. Discover grants with `inspect_key`; ordinary inference keys do not gain management access. The candidate is not a published deployment guarantee.
+These six tools call `/v1/routing` and require explicitly delegated `pools:read` or `pools:write` capabilities. Discover grants with `inspect_key`; ordinary inference keys do not gain management access.
 
-- `list_pools`, `get_pool`: retrieve scoped policies and current revisions.
-- `preview_pool`: validate `configuration` and optionally simulate request `context` against shared policy/metadata filters; returns exclusions and selection weights without persistence or inference. It does not validate full input, reserve capacity or establish live qualification.
-- `set_pool`: save `configuration` using revision zero to create or the current expected revision to update; read back and reconcile conflicts without automatic replay.
-- `get_pool_history`: retrieve immutable prior configurations, following `next_before`.
-- `get_pool_selections`: retrieve the latest 100 selections with policy revision and execution references. HTTP status does not establish generation completion or quality; use linked diagnostics for terminal state, usage and customer charges.
+- `list_pools` (`GET /v1/routing`), `get_pool` (`GET /v1/routing/{slug}`): retrieve scoped policies and current revisions.
+- `preview_pool` (`POST /v1/routing/preview`): validate `configuration` and optionally simulate request `context` (including `task` and `stage` for version 2 Auto strategies) against shared policy/metadata filters; returns exclusions and selection weights without persistence or inference. It does not validate full input, reserve capacity or establish live qualification.
+- `set_pool` (`PUT /v1/routing/{slug}`): save `configuration` using revision zero to create or the current expected revision to update; read back and reconcile conflicts without automatic replay.
+- `get_pool_history` (`GET /v1/routing/{slug}/history`): retrieve immutable prior configurations, following `next_before`.
+- `get_pool_selections` (`GET /v1/routing/{slug}/selections`): retrieve the latest 100 selections with policy revision and execution references. HTTP status does not establish generation completion or quality; use linked diagnostics for terminal state, usage and customer charges.
 
-Invoke a policy as `pool/<slug>` only when execution is authorized and the caller permits its concrete candidates. The selected model keeps its ordinary inference, guardrail and billing path. Platform supply pools and procurement data remain separate. See the [agent workflow](https://niu.io/docs/pools.md) and generated REST schemas for exact bounds and evidence limits.
+Invoke a policy as `pool/<slug>` only when execution is authorized and the caller permits its concrete candidates. Pass optional `routing_context` (`{ task?, stage? }`, forwarded as `x-niu-routing-context`) on inference tools when targeting a version 2 Auto policy. The selected model keeps its ordinary inference, guardrail and billing path. Platform supply pools and procurement data remain separate. See the [workspace routing workflow](https://niu.io/docs/routing.md) and generated REST schemas for exact bounds and evidence limits.
 
-### Workspace resource events (0.3.0 development candidate)
+### Workspace evaluations
 
-`list_workspace_events` reads scoped event evidence without needing a public receiver. `list_event_subscriptions`, `get_event_subscription`, `get_event_subscription_history` and `get_event_deliveries` require events:read. `set_event_subscription` and `test_event_subscription` require events:write and an authorized public HTTPS destination. Ordinary inference keys do not acquire these grants.
+These nine tools call `/v1/evaluations` and require explicitly delegated `evaluations:read` or `evaluations:write` capabilities. Discover grants with `inspect_key`; ordinary inference keys do not gain evaluation management access.
+
+- `list_evaluations` (`GET /v1/evaluations`): list workspace task/rubric definitions (`evaluations:read`), paginating with `next_after`.
+- `get_evaluation` (`GET /v1/evaluations/{slug}`): read the current or pinned revision of an evaluation definition (`evaluations:read`).
+- `set_evaluation` (`PUT /v1/evaluations/{slug}`): create (`revision: 0`) or update a task/rubric definition and sample request hashes (`evaluations:write`); read back after uncertain responses without blind replay.
+- `fingerprint_evaluation_request` (`POST /v1/evaluations/fingerprint`): compute the protocol-bound version 1 input hash (`evaluations:read`) without running inference or saving raw input.
+- `list_evaluation_attempts` (`GET /v1/evaluations/{slug}/attempts`): discover admitted inference attempts for a pinned `revision` and `sample` (`evaluations:read`) after uncertain responses.
+- `list_evaluation_runs` (`GET /v1/evaluations/{slug}/runs`): list immutable attributed run receipts (`evaluations:read`), paginating with `next_after`.
+- `record_evaluation_run` (`POST /v1/evaluations/{slug}/runs`): record submitter-reported agent/check verdicts and evaluator version (`evaluations:write`) with linked operation-attempt customer charges.
+- `get_evaluation_run` (`GET /v1/evaluations/{slug}/runs/{run}`): read an immutable evaluation run receipt (`evaluations:read`).
+- `compare_evaluation_runs` (`GET /v1/evaluations/{slug}/compare`): compare two runs across verified matched samples (`evaluations:read`), preserving unknown charges and shared-operation warnings.
+
+See the [evaluation workflow](https://niu.io/docs/evaluations.md) for fingerprinting, request binding (`evaluation` / `x-niu-evaluation`), and evidence limits.
+
+### Workspace resource events & incidents
+
+`list_workspace_events` (`GET /v1/events/log`) reads immutable workspace event evidence without needing a public receiver, and `get_workspace_incident` (`GET /v1/incidents/{reference}`) reconciles an incident event reference (`incident-<32 hex>`) within the current workspace without exposing Provider identity, procurement data, or other tenant information. `list_event_subscriptions`, `get_event_subscription`, `get_event_subscription_history`, `get_event_deliveries`, `list_workspace_events`, and `get_workspace_incident` require `events:read`. `set_event_subscription` and `test_event_subscription` require `events:write` and an authorized public HTTPS destination. Ordinary inference keys do not acquire these grants.
 
 Creation and explicit rotation prepare private local storage before the remote mutation, save the one-time signing secret there and return only `signing_secret_file`. Never print or commit it. If a remote mutation succeeds but local persistence fails, inspect the saved revision, repair storage and explicitly rotate; do not replay blindly. Changing destination requires rotation. Disabling prevents future attempts but cannot recall a request already transmitted.
 
-A targeted test returns queued evidence; inspect delivery acknowledgement separately. Production events currently cover saved workspace pool revisions. Notifications do not establish receiver processing, host wake or task success. See the [agent event workflow](https://niu.io/docs/events.md) for signing, deduplication, cursor recovery, current limits and verification evidence.
+A targeted test returns queued evidence; inspect delivery acknowledgement separately. Workspace event subscriptions support `pool.changed`, `evaluation.recorded`, `incident.opened`, and `incident.resolved`. Notifications do not establish receiver processing, host wake or task success. See the [agent event workflow](https://niu.io/docs/events.md) for signing, deduplication, cursor recovery, current limits and verification evidence.
 
 ### 2. Multi-protocol inference & parallel model consultation
-- `create_chat_completion` (`POST /v1/chat/completions`): OpenAI-compatible Chat Completions with sampling controls, structured `response_format` (`text`, `json_object`, `json_schema`), `reasoning` / `reasoning_effort`, function `tools` / `tool_choice`, `log_payloads`, and `task_id`. Returns `choices`, `usage`, and `attempt_id`.
-- `compare_models`: Run the same chat messages concurrently across 1–5 explicit Niu models to compare responses, latency (`duration_ms`), token usage, and `attempt_id` side-by-side.
-- `create_response` (`POST /v1/responses`): OpenAI Responses API text generation with `instructions`, `max_output_tokens`, `metadata`, and extracted `output_text`.
-- `create_message` (`POST /v1/messages`): Native Anthropic Messages API with `system`, `max_tokens`, `stop_sequences`, and client `tools`.
-- `generate_content` (`POST /v1beta/models/{model}:generateContent`): Native buffered Gemini `generateContent`.
-- `create_embeddings` (`POST /v1/embeddings`): OpenAI-compatible text embeddings (`float` or `base64`, optional `dimensions`).
+- `create_chat_completion` (`POST /v1/chat/completions`): OpenAI-compatible Chat Completions with sampling controls, structured `response_format` (`text`, `json_object`, `json_schema`), `reasoning` / `reasoning_effort`, function `tools` / `tool_choice`, `log_payloads`, `evaluation`, `routing_context` (`x-niu-routing-context`), and `task_id`. Returns `choices`, `usage`, and `attempt_id`.
+- `compare_models`: Run the same chat messages concurrently across 1–5 explicit Niu models to compare responses, latency (`duration_ms`), token usage, and `attempt_id` side-by-side (supports `log_payloads`, `evaluation`, `routing_context`, and `task_id`).
+- `create_response` (`POST /v1/responses`): OpenAI Responses API text generation with `instructions`, `max_output_tokens`, `metadata`, `routing_context`, and extracted `output_text`.
+- `create_message` (`POST /v1/messages`): Native Anthropic Messages API with `system`, `max_tokens`, `stop_sequences`, `routing_context`, and client `tools`.
+- `generate_content` (`POST /v1beta/models/{model}:generateContent`): Native buffered Gemini `generateContent` with optional `routing_context`.
+- `create_embeddings` (`POST /v1/embeddings`): OpenAI-compatible text embeddings (`float` or `base64`, optional `dimensions`, optional `routing_context`).
 
 ### 3. Video generation, estimation, polling, diagnostics & result downloads
 - `list_video_models` (`GET /v1/video/models`): Discover configured video models, input types, control schemas, output dimensions, and billing meters (`video_tokens` / `seconds`).

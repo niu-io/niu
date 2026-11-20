@@ -89,3 +89,44 @@ test('login rejects unsafe storage before requesting authorization and preserves
   }
  } finally {await rm(root,{recursive:true,force:true});}
 });
+
+test('niu-login respects NIU_CREDENTIAL_FILE when --credentials is omitted and preserves --credentials precedence',async()=>{
+ const {mkdtemp,readFile,rm}=await import('node:fs/promises');
+ const {createServer}=await import('node:http');
+ const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const {spawn}=await import('node:child_process');
+ const root=await mkdtemp(join(tmpdir(),'niu-env-cred-'));
+ const server=createServer((req,res)=>{
+  res.setHeader('content-type','application/json');
+  if(req.method==='POST' && req.url==='/api/v1/auth/agents'){res.statusCode=201;res.end(JSON.stringify(start));return;}
+  if(req.method==='POST' && req.url==='/api/v1/auth/agents/token'){res.statusCode=200;res.end(JSON.stringify({token,token_type:'Bearer'}));return;}
+  if(req.method==='GET' && req.url==='/v1/key'){res.statusCode=200;res.end(JSON.stringify({data:{invocation_allowed:false}}));return;}
+  if(req.method==='GET' && req.url==='/v1/models'){res.statusCode=200;res.end(JSON.stringify({object:'list',data:[]}));return;}
+  res.statusCode=404;res.end('{}');
+ });
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const origin=`http://127.0.0.1:${server.address().port}`;
+ const runLogin=(args,env)=>new Promise(resolve=>{
+  const child=spawn(process.execPath,[new URL('../bin/niu-login.mjs',import.meta.url).pathname,...args],{env:{...process.env,...env},stdio:['ignore','pipe','pipe']});
+  let stdout='',stderr='';child.stdout.on('data',d=>stdout+=d);child.stderr.on('data',d=>stderr+=d);
+  child.once('close',code=>resolve({code,stdout,stderr}));
+ });
+ try {
+  const envPath=join(root,'from-env','credential.json');
+  const first=await runLogin(['--origin',origin,'--no-open'],{NIU_CREDENTIAL_FILE:envPath});
+  assert.equal(first.code,0,first.stderr);
+  const savedFromEnv=JSON.parse(await readFile(envPath,'utf8'));
+  assert.equal(savedFromEnv.token,token);
+  assert.equal(savedFromEnv.origin,origin);
+
+  const cliPath=join(root,'from-cli','credential.json');
+  const second=await runLogin(['--origin',origin,'--credentials',cliPath,'--no-open'],{NIU_CREDENTIAL_FILE:join(root,'unused','credential.json')});
+  assert.equal(second.code,0,second.stderr);
+  const savedFromCli=JSON.parse(await readFile(cliPath,'utf8'));
+  assert.equal(savedFromCli.token,token);
+  await assert.rejects(readFile(join(root,'unused','credential.json'),'utf8'));
+ } finally {
+  await new Promise(resolve=>server.close(resolve));
+  await rm(root,{recursive:true,force:true});
+ }
+});

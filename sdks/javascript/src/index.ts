@@ -1343,6 +1343,7 @@ export class NiuClient {
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: options.signal,
+      redirect: 'error',
     });
     await notifyResponse(response, options);
     if (!response.ok) {

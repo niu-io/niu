@@ -1,6 +1,6 @@
 {
   "name": "@niu-io/mcp",
-  "version": "0.1.0",
+  "version": "0.3.1",
   "description": "Stdio MCP server that calls a Niu gateway with a workspace API key",
   "license": "MIT",
   "type": "module",
@@ -15,9 +15,9 @@
   "bin": {
     "niu-mcp": "./bin/niu-mcp.mjs"
   },
-  "files": ["dist", "bin", "hosted", "README.md"],
+  "files": ["dist", "bin", "hosted", "LICENSE", "README.md"],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node -e \"import('node:fs').then(({ rmSync }) => rmSync('dist', { recursive: true, force: true }))\" && tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm build && node --test test/*.test.mjs"
   },

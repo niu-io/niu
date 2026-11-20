@@ -6,7 +6,7 @@ import {authorizeDevice} from '../src/auth/device.mjs';
 import {prepareCredentialStorage,saveCredential} from '../src/auth/credentials.mjs';
 
 const args=process.argv.slice(2);
-const options={origin:'https://niu.io',client:'Codex',credentials:join(homedir(),'.config','niu','credential.json'),open:true,capabilities:[],task:undefined,workspace:undefined};
+const options={origin:'https://niu.io',client:'Codex',credentials:process.env.NIU_CREDENTIAL_FILE?.trim() || join(homedir(),'.config','niu','credential.json'),open:true,capabilities:[],task:undefined,workspace:undefined};
 try {
  for(let i=0;i<args.length;i++) {
   const flag=args[i];

@@ -72,3 +72,43 @@ test('contextual pool preview schema matches the handler and sends only a non-di
   assert.equal((await callTool(client, 'preview_pool', { configuration, context })).isError, undefined);
   assert.deepEqual(proposal, { configuration, context });
 });
+
+test('MCP inference tools validate and forward routing_context as x-niu-routing-context', async () => {
+  const sentHeaders = [];
+  const client = {
+    baseURL: 'https://niu.example/v1',
+    apiKey: 'fixture',
+    fetch: async (_url, init) => {
+      sentHeaders.push(init.headers);
+      return { ok: true, status: 200, text: async () => JSON.stringify({ choices: [], output: [], content: [], candidates: [], data: [] }) };
+    },
+  };
+  const routing_context = { task: 'code-review', stage: 'final_check' };
+  const calls = [
+    ['create_chat_completion', { model: 'pool/assistant', messages: [{ role: 'user', content: 'hi' }], routing_context }],
+    ['compare_models', { models: ['pool/assistant'], messages: [{ role: 'user', content: 'hi' }], routing_context }],
+    ['create_response', { model: 'pool/assistant', input: 'hi', routing_context }],
+    ['create_message', { model: 'pool/assistant', max_tokens: 16, messages: [{ role: 'user', content: 'hi' }], routing_context }],
+    ['generate_content', { model: 'pool/assistant', contents: [{ role: 'user', parts: [{ text: 'hi' }] }], routing_context }],
+    ['create_embeddings', { model: 'pool/assistant', input: 'hi', routing_context }],
+  ];
+  for (const [tool, args] of calls) {
+    const result = await callTool(client, tool, args);
+    assert.equal(result.isError, undefined, `${tool} failed: ${JSON.stringify(result)}`);
+    assert.equal(sentHeaders.at(-1)['x-niu-routing-context'], JSON.stringify(routing_context), `${tool} missing header`);
+  }
+  assert.equal(sentHeaders.length, 6);
+
+  // Reject invalid routing_context before transport
+  let rejectedCalls = 0;
+  const strictClient = { ...client, fetch: async () => { rejectedCalls++; throw new Error('must not dispatch'); } };
+  for (const bad of [{}, { task: 'UPPER' }, { stage: '-bad' }, { task: 'a'.repeat(65) }, { unknown: 'x' }, 'string', []]) {
+    const result = await callTool(strictClient, 'create_chat_completion', {
+      model: 'pool/assistant',
+      messages: [{ role: 'user', content: 'hi' }],
+      routing_context: bad,
+    });
+    assert.equal(result.isError, true, `expected error for routing_context=${JSON.stringify(bad)}`);
+  }
+  assert.equal(rejectedCalls, 0);
+});

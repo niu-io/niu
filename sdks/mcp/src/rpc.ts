@@ -4,6 +4,7 @@ import { getPrompt, promptDefinitions } from "./prompts.js";
 import type { GatewayClient } from "./gateway.js";
 
 const SUPPORTED_PROTOCOLS = ["2024-11-05", "2025-03-26", "2025-06-18"];
+export const MCP_SERVER_VERSION = "0.3.1";
 
 type RpcMessage = {
   jsonrpc?: unknown;
@@ -78,7 +79,7 @@ function initialize(params: unknown): unknown {
       resources: { subscribe: false, listChanged: false },
       prompts: { listChanged: false },
     },
-    serverInfo: { name: "niu", version: "0.1.0" },
+    serverInfo: { name: "niu", version: MCP_SERVER_VERSION },
     instructions:
       "Use inspect_key, list_models, and list_catalog_models to inspect workspace permissions, model capabilities, and customer pricing. Call create_chat_completion, compare_models, create_response, create_message, generate_content, or create_embeddings with an explicit model id. Use get_generation with attempt_id to inspect token breakdowns, latency phases, and customer charges. Use list_video_models, estimate_video, create_video_job, wait_for_video_job, and download_video_result for video workflows. Each model call is a billed Niu request; the server never chooses or substitutes a model.",
   };
