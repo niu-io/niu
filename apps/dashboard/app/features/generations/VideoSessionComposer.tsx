@@ -83,6 +83,23 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
   const [error, setError] = useState('');
   const [unquotedConfirmation, setUnquotedConfirmation] = useState<string | null>(null);
   const submitLock = useRef(false);
+  const mountedRef = useRef(true);
+  const scopeIdentity = JSON.stringify([token, workspace?.id, context.session?.operator?.id, session.id]);
+  const scopeRef = useRef(scopeIdentity);
+  scopeRef.current = scopeIdentity;
+  const generateControllerRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      generateControllerRef.current?.abort();
+      generateControllerRef.current = null;
+    };
+  }, []);
+  useEffect(() => () => {
+    generateControllerRef.current?.abort();
+    generateControllerRef.current = null;
+  }, [scopeIdentity]);
   const generateRef = useRef<HTMLButtonElement>(null);
   const modelIdRef = useRef(modelId);
   modelIdRef.current = modelId;
@@ -108,7 +125,10 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
   const confirmationMatches = unquotedOwnerFunded && unquotedConfirmation === confirmationIdentity;
   const restoringDraft=Boolean(token&&workspace&&!session.archived)&&!draft.ready&&!draft.error;
   useEffect(()=>{onKeySelectionReadyChange(!restoringDraft&&!busy&&!loading);},[restoringDraft,busy,loading,onKeySelectionReadyChange]);
-  const navigation=useDraftNavigation({hasUnsavedChanges:()=>!busy&&edited&&(!draft.ready||draft.dirty),flush:async()=>Boolean(await draft.flush())});
+  const navigation = useDraftNavigation({
+    hasUnsavedChanges: () => submitLock.current || (edited && (!draft.ready || draft.dirty)),
+    flush: async () => (submitLock.current ? false : Boolean(await draft.flush())),
+  });
   useEffect(() => {
     const controller = new AbortController();
     setError('');
@@ -173,43 +193,60 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
     setUnquotedConfirmation(null);
     submitLock.current = true;
     setBusy(true);
+    const runScope = scopeRef.current;
+    const controller = new AbortController();
+    generateControllerRef.current = controller;
+    const isStale = () => !mountedRef.current || controller.signal.aborted || scopeRef.current !== runScope;
     let preparingSavedDraft = false;
+    let preparationAttempted = false;
     let preparedReference = '';
     try {
       const ticket=await draft.flush();
+      if (isStale()) return;
       if (latestConfirmationIdentity.current !== confirmationIdentity) throw new Error("The request or access changed. Close this dialog and review the current request.");
       if (!unquotedOwnerFunded) {
         const estimate = await fetch('/v1/video/estimate', {
           method: 'POST', headers: {authorization: `Bearer ${token}`, 'x-niu-key-id': activeKeyId, 'content-type': 'application/json'},
           body: JSON.stringify(request),
-      });
-      const estimated = await estimate.json().catch(() => null);
-      if (!estimate.ok) throw new Error(estimated?.error?.message ?? 'The video could not be estimated.');
+          signal: controller.signal,
+        });
+        if (isStale()) return;
+        const estimated = await estimate.json().catch(() => null);
+        if (isStale()) return;
+        if (!estimate.ok) throw new Error(estimated?.error?.message ?? 'The video could not be estimated.');
       }
       const {intentId, turnId} = ticket
         ? await videoDraftSubmissionIds(ticket.identity, ticket.revision)
         : {intentId: crypto.randomUUID(), turnId: crypto.randomUUID()};
+      if (isStale()) return;
       const intent = new VideoIntent(client, {organizationId: workspace.organization_id, projectId: workspace.id}, intentId);
       preparingSavedDraft = Boolean(ticket);
+      preparationAttempted = true;
       const prepared = await prepareVideoSessionIntent(client, {organizationId: workspace.organization_id, projectId: workspace.id}, {
         sessionId: session.id, turnId, intentId, keyId: activeKeyId, title: titleFor(prompt, model.id), request,
       });
+      if (isStale()) return;
       if (!prepared.intent.reference) throw new Error('The saved video request identity does not match this link.');
       preparedReference = prepared.intent.reference;
       updatePendingReference(preparedReference);
       // The input now belongs to a durable, actor-private saved request. Retire
       // only its matching draft before dispatch, so a lost response or reload
       // cannot present the same input as a fresh generation.
-      if (ticket && !await draft.clearMatching(ticket)) {
+      const cleared = ticket ? await draft.clearMatching(ticket) : true;
+      if (isStale()) return;
+      if (ticket && !cleared) {
         throw new Error('The request was saved, but its unfinished draft remains. Open the saved request before submitting.');
       }
       setPrompt('');setReferences([]);setEdited(false);setRestored(false);
       draft.reload();
       await intent.restore();
+      if (isStale()) return;
       await intent.submit();
+      if (isStale()) return;
       updatePendingReference(null);
       onSubmitted();
     } catch (caught) {
+      if (isStale()) return;
       if (caught instanceof NiuAPIError && caught.status === 401) {
         invalidateQueries(workspaceKeyPath(workspace.id));
         available.reload();
@@ -217,10 +254,13 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       setError(preparingSavedDraft && !preparedReference
         ? 'Could not confirm the saved request. Your draft is retained. Retrying this unchanged draft uses the same request.'
         : message(caught));
-      onSubmitted();
+      if (preparationAttempted) onSubmitted();
     } finally {
+      if (generateControllerRef.current === controller) {
+        generateControllerRef.current = null;
+      }
       submitLock.current = false;
-      setBusy(false);
+      if (mountedRef.current) setBusy(false);
     }
   }
   async function recoverSubmission() {

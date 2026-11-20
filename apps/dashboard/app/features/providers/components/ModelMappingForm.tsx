@@ -40,7 +40,7 @@ function choiceVisible(key: CapabilityKey, adapter?: ProviderAdapter) {
   return adapter === 'openrouter' || adapter === 'openai' || adapter === 'ark' || adapter === 'gemini';
 }
 
-export default function ModelMappingForm({ ownerFunded = false, accessScope, adapter, initialAlias = "", model, catalog, catalogLoading, catalogError, disabled, onCancel, onSave, onRetryCatalog }: {
+export default function ModelMappingForm({ ownerFunded = false, accessScope, adapter, initialAlias = "", model, catalog, catalogLoading, catalogError, disabled, withinModal = false, onSubViewChange, onCancel, onSave, onRetryCatalog }: {
   ownerFunded?: boolean;
   accessScope?: 'commercial' | 'personal' | 'internal';
   adapter?: ProviderAdapter;
@@ -50,6 +50,8 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
   catalogLoading: boolean;
   catalogError: string;
   disabled: boolean;
+  withinModal?: boolean;
+  onSubViewChange?: (active: boolean) => void;
   onCancel: () => void;
   onRetryCatalog?: () => void;
   onSave: (input: ModelWrite) => Promise<void>;
@@ -66,7 +68,16 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
   const [catalogQuery, setCatalogQuery] = useState('');
   const [catalogOpen, setCatalogOpen] = useState(false);
   const catalogSearch = useRef<HTMLInputElement>(null);
+  const videoTriggerRef = useRef<HTMLButtonElement>(null);
   const [videoEditing, setVideoEditing] = useState(false);
+  const wasVideoEditing = useRef(false);
+  useEffect(() => {
+    onSubViewChange?.(withinModal && videoEditing);
+    if (wasVideoEditing.current && !videoEditing && withinModal) {
+      requestAnimationFrame(() => videoTriggerRef.current?.focus());
+    }
+    wasVideoEditing.current = videoEditing;
+  }, [onSubViewChange, videoEditing, withinModal]);
 
   const [saveError, setSaveError] = useState('');
   const visibleCatalog = catalog
@@ -161,7 +172,7 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
     });
   }
 
-  return <form className="model-mapping-form" onSubmit={event => void submit(event).catch(reason => setSaveError(reason instanceof Error ? reason.message : 'Unable to save this model route.'))}>
+  return <><form hidden={withinModal && videoEditing} className={withinModal && videoEditing ? "hidden" : "model-mapping-form"} onSubmit={event => void submit(event).catch(reason => setSaveError(reason instanceof Error ? reason.message : 'Unable to save this model route.'))}>
     {saveError && <p role="alert" className="error-text">{uiT(saveError)}</p>}
     <div className="model-form-heading"><div><h3>{model ? uiT("Edit model") : uiT("Add model")}</h3><p>{uiT("Map the name clients use to the provider’s upstream model ID.")}</p></div></div>
     <div className="model-form-fields">
@@ -227,10 +238,9 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
       {personal ? <p className="text-sm text-muted-foreground">{uiT("Private model. Available only to the account that owns this API key.")}</p> : <Label className="model-switch"><Checkbox checked={publicCatalog} disabled={disabled} onCheckedChange={value => setPublicCatalog(value === true)} /><span><strong>{uiT("Show in public catalog")}</strong><small>{internalShared ? uiT("Shared with internal workspaces; also publish this alias in the unauthenticated model list.") : uiT("Publish this alias in the unauthenticated model list.")}</small></span></Label>}
     </div>
     <div className="grid gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">{uiT("Video configuration")}</h3><p className="text-sm text-muted-foreground">{capabilities.video_schema ? uiF("Configured · {0}", [capabilities.video_schema.channel]) : uiT("No video schema configured")}</p></div><Button type="button" variant="outline" disabled={disabled || !alias.trim() || !upstreamModel.trim()} onClick={() => setVideoEditing(true)}>{capabilities.video_schema ? uiT("Edit video configuration") : uiT("Configure video")}</Button></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">{uiT("Video configuration")}</h3><p className="text-sm text-muted-foreground">{capabilities.video_schema ? uiF("Configured · {0}", [capabilities.video_schema.channel]) : uiT("No video schema configured")}</p></div><Button ref={videoTriggerRef} type="button" variant="outline" disabled={disabled || !alias.trim() || !upstreamModel.trim()} onClick={() => setVideoEditing(true)}>{capabilities.video_schema ? uiT("Edit video configuration") : uiT("Configure video")}</Button></div>
       {!ownerFunded && !internalShared && capabilities.video_schema && <p className="text-sm text-muted-foreground">{uiT("Changes can pause affected offers. Review the rates and enable them again after updating the connection.")}</p>}
     </div>
-    {videoEditing && <VideoSchemaEditor modelAlias={alias.trim()} upstreamModel={upstreamModel.trim()} schema={capabilities.video_schema} onClose={() => setVideoEditing(false)} onApply={schema => { setCapabilities(current => { const next = {...current}; if (schema) next.video_schema = schema; else delete next.video_schema; return next; }); setVideoEditing(false); }} />}
     <fieldset className="model-capabilities" disabled={disabled}>
       <legend>{uiT("Optional capabilities")}</legend>
       <p>{uiT("These declarations are off by default. Enable only after checking the selected upstream model and endpoint.")}</p>
@@ -256,5 +266,7 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
         <Button type="submit" disabled={disabled || !alias.trim() || !upstreamModel.trim()}>{disabled ? uiT("Saving…") : model ? uiT("Save changes") : uiT("Add model")}</Button>
       </div>
     </div>
-  </form>;
+  </form>
+  {videoEditing && <VideoSchemaEditor inline={withinModal} modelAlias={alias.trim()} upstreamModel={upstreamModel.trim()} schema={capabilities.video_schema} onClose={() => setVideoEditing(false)} onApply={schema => { setCapabilities(current => { const next = {...current}; if (schema) next.video_schema = schema; else delete next.video_schema; return next; }); setVideoEditing(false); }} />}
+  </>;
 }

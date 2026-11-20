@@ -1,7 +1,7 @@
 import { readLocale as readUILocale, translateUI, useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
 import { ScanFace } from 'lucide-react';
-import { IconChevronDown, IconFolder, IconPlus, IconUpload } from '@tabler/icons-react';
+import { IconArrowLeft, IconChevronDown, IconFolder, IconPlus, IconUpload } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,6 +54,7 @@ export default function VolcengineView({
   onContextChange,
   initialSection = 'materials',
   hideSectionTabs = false,
+  withinModal = false,
 }: {
   workspaceName: string;
   model?: string;
@@ -62,6 +63,7 @@ export default function VolcengineView({
   onContextChange?: (selection: NativeMaterialsContext) => void;
   initialSection?: string;
   hideSectionTabs?: boolean;
+  withinModal?: boolean;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const inRouter = useInRouterContext();
@@ -88,6 +90,21 @@ export default function VolcengineView({
   const [previewUrl, setPreviewUrl] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
   const autoSelected = useRef('');
+  const dialogOpener = useRef<HTMLElement | null>(null);
+  const subviewRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!withinModal) return;
+    if (dialog !== null) {
+      const frame = requestAnimationFrame(() => {
+        (subviewRef.current?.querySelector<HTMLElement>('input:not([disabled]), button:not([disabled])') ?? subviewRef.current)?.focus();
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+    if (dialogOpener.current?.isConnected) {
+      dialogOpener.current.focus();
+      dialogOpener.current = null;
+    }
+  }, [dialog, withinModal]);
   const contextLocked = busy || dialog !== null;
   const retainedSelection = useRef(selection);
   if (!contextLocked) retainedSelection.current = selection;
@@ -204,6 +221,9 @@ export default function VolcengineView({
   }, [data.autoSelection?.keyId, data.autoSelection?.model]);
 
   function open(value: DialogKind, asset?: MediaAsset) {
+    if (dialog === null && document.activeElement instanceof HTMLElement) {
+      dialogOpener.current = document.activeElement;
+    }
     setTargetAsset(asset ?? null);
     setName(value === 'edit' ? selected?.name ?? '' : value === 'rename-asset' ? asset?.name ?? '' : '');
     setUrl('');
@@ -461,7 +481,100 @@ export default function VolcengineView({
     });
   }
 
+  const closeDialog = () => {
+    if (busy) return;
+    setDialog(null);
+    setTargetAsset(null);
+    setDialogUnconfirmed(null);
+  };
+  const dialogTitle = dialog === 'group' ? uiT('New material group') : dialog === 'edit' ? uiT('Edit group') : dialog === 'delete-group' ? uiT('Delete material group') : dialog === 'material' ? uiT('Add material') : dialog === 'inspect-asset' ? uiT('Material details') : dialog === 'rename-asset' ? uiT('Rename material') : dialog === 'delete-asset' ? uiT('Delete material') : uiT('Human verification');
+  const dialogDescription = dialog === 'verification' ? uiT('The person completes verification on the Provider’s page. Niu then checks the result.') : dialog === 'inspect-asset' ? uiT('Inspect saved material readiness and Provider observation status. Source URLs and opaque Provider references remain private.') : dialog === 'delete-asset' ? uiT('Confirm material deletion from this Provider group.') : dialog === 'delete-group' ? uiT('Confirm material group deletion from the Provider.') : uiT('Manage materials in this workspace.');
+  const dialogBody = dialog === 'inspect-asset' && targetAsset ? <div className="space-y-3 text-sm">
+          <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div><dt className="text-xs text-muted-foreground">{uiT('Name')}</dt><dd className="font-medium break-words">{targetAsset.name || uiT('Untitled material')}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">{uiT('Material type')}</dt><dd className="font-medium">{uiT(targetAsset.kind)}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">{uiT('Group')}</dt><dd className="font-medium break-words">{selected?.name ?? uiT('Current group')}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">{uiT('Readiness status')}</dt><dd className="font-medium">{translateUI(assetStatusDescriptions[targetAsset.status])}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">{uiT('Saved revision')}</dt><dd className="font-medium">{uiF('Revision {0}', [targetAsset.revision])}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">{uiT('Last updated')}</dt><dd className="font-medium">{new Date(targetAsset.updated_at_ms).toLocaleString(readUILocale())}</dd></div>
+            <div className="sm:col-span-2"><dt className="text-xs text-muted-foreground">{uiT('Provider observation')}</dt><dd className="font-medium">{targetAsset.observation ? uiF('Observed {0}{1} at {2}', [targetAsset.observation.status, targetAsset.observation.name ? ` (“${targetAsset.observation.name}”)` : '', new Date(targetAsset.observation.observed_at_ms).toLocaleString(readUILocale())]) : uiT('No Provider status observation recorded yet. Use Check status to query the Provider.')}</dd></div>
+          </dl>
+          <p className="text-xs text-muted-foreground">{uiT('Workspace:')}{' '}{workspaceName}</p>
+        </div> : isDestructiveDialog ? <div className="space-y-3 text-sm">
+          <p>{dialog === 'delete-asset' ? uiF('Delete material “{0}” from {1}? This removes the material from the Provider and cannot be undone.', [targetAsset?.name || uiT('Untitled material'), selected?.name ?? uiT('this group')]) : uiF('Delete material group “{0}”? This removes the group from the Provider and cannot be undone.', [selected?.name ?? uiT('Untitled group')])}</p>
+          <p className="text-muted-foreground">{uiT('Workspace:')}{' '}{workspaceName}</p>
+        </div> : <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="provider-tool-name">{dialog === 'verification' ? uiT('Person name') : dialog === 'material' || dialog === 'rename-asset' ? uiT('Material name') : uiT('Group name')}</Label>
+            <Input id="provider-tool-name" disabled={formLocked} value={name} onChange={event => { editAttempt(); setName(event.target.value); }} maxLength={64} />
+          </div>
+          {dialog === 'material' && <>
+            <Tabs value={sourceMode} onValueChange={value => changeMaterialSource(value as MaterialSource)}>
+              <TabsList className="w-full">
+                <TabsTrigger value="url">{uiT('Public link')}</TabsTrigger>
+                <TabsTrigger value="workspace">{uiT('Workspace media')}</TabsTrigger>
+              </TabsList>
+              <TabsContent value="url" className="space-y-2">
+                <Label htmlFor="material-url">{uiT('Material URL')}</Label>
+                <Input id="material-url" aria-invalid={dialogError === 'Use a public HTTPS material URL.'} aria-describedby={dialogError ? 'provider-tool-dialog-error' : 'material-url-help'} disabled={formLocked} type="url" value={url} onChange={event => { editAttempt(); setUrl(event.target.value); }} />
+                <p id="material-url-help" className="text-xs text-muted-foreground">{uiT('The Provider downloads this file from a public HTTPS URL. Workspace media is private and cannot be reached by the Provider; use a public HTTPS link to the same file instead.')}</p>
+              </TabsContent>
+              <TabsContent value="workspace" className="space-y-2">
+                <Label>{uiT('Workspace media')}</Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="min-w-0 max-w-full" disabled={formLocked || workspaceLoading}>
+                        <span className="min-w-0 truncate">{selectedWorkspaceAsset?.name ?? (workspaceLoading ? uiT('Loading…') : uiT('Choose media'))}</span>
+                        <IconChevronDown className="shrink-0" size={16} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="max-h-64 max-w-[calc(100vw-2rem)] overflow-y-auto">
+                      <DropdownMenuRadioGroup value={workspaceAssetId} onValueChange={chooseWorkspaceAsset}>
+                        {workspaceAssets.map(asset => <DropdownMenuRadioItem key={asset.id} value={asset.id}>
+                          <span className="min-w-0 whitespace-normal break-words">{asset.name}</span>
+                        </DropdownMenuRadioItem>)}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button variant="outline" disabled={formLocked || uploading} onClick={() => fileInput.current?.click()}>
+                    <IconUpload size={16} />{uploading ? uiT('Uploading…') : uiT('Upload')}
+                  </Button>
+                  <Input ref={fileInput} type="file" className="hidden" accept={WORKSPACE_MEDIA_TYPES[kind].accept} onChange={event => { const file = event.target.files?.[0]; if (file) void uploadWorkspaceFile(file); }} />
+                </div>
+                {previewUrl && <img src={previewUrl} alt={selectedWorkspaceAsset?.name ?? ''} className="h-24 w-24 rounded-md object-cover" />}
+                {selectedWorkspaceAsset && <p className="text-xs text-muted-foreground">{selectedWorkspaceAsset.name} · {selectedWorkspaceAsset.content_type} · {mediaSize(selectedWorkspaceAsset.byte_length)}</p>}
+                {!selectedWorkspaceAsset && !workspaceLoading && <p className="text-xs text-muted-foreground">{uiT('No saved media of this type.')}</p>}
+                {workspaceError && <p role="alert" className="text-xs text-destructive">{uiT(workspaceError)}</p>}
+                <p className="text-xs text-muted-foreground">{uiT('The Provider receives a short-lived link to this workspace file. The link is not saved.')}</p>
+              </TabsContent>
+            </Tabs>
+            <div className="space-y-2">
+              <Label>{uiT('Material type')}</Label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild><Button variant="outline" disabled={formLocked}>{uiT(kind)}<IconChevronDown size={16} /></Button></DropdownMenuTrigger>
+                <DropdownMenuContent><DropdownMenuRadioGroup value={kind} onValueChange={value => changeKind(value as typeof kind)}>{['image', 'video', 'audio'].map(value => <DropdownMenuRadioItem key={value} value={value}>{uiT(value)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </>}
+          <p className="text-sm text-muted-foreground">{uiT('Workspace:')}{' '}{workspaceName}</p>
+        </div>;
+  const dialogActions = dialog === 'inspect-asset' && targetAsset ? <>
+            <Button variant="ghost" disabled={busy} onClick={closeDialog}>{uiT('Close')}</Button>
+            <Button variant="outline" disabled={busy || !data.canWrite || !data.client} onClick={() => void act(async () => { const refreshed = await data.client!.assets.refresh(targetAsset.id, data.model!); setTargetAsset(refreshed.data); })}>{busy ? uiT('Checking…') : uiT('Check status')}</Button>
+            <Button variant="outline" disabled={busy || !data.canWrite || targetAsset.status === 'unknown'} onClick={() => open('rename-asset', targetAsset)}>{uiT('Rename material')}</Button>
+            <Button variant="destructive" disabled={busy || !data.canWrite || targetAsset.status === 'unknown'} onClick={() => open('delete-asset', targetAsset)}>{uiT('Delete material')}</Button>
+          </> : <>
+            <Button variant="ghost" disabled={busy} onClick={closeDialog}>{uiT('Close')}</Button>
+            {dialogUnconfirmed?.id && <Button variant="outline" disabled={busy || checking} onClick={() => void checkSaved()}>{checking ? uiT('Checking…') : uiT('Check status')}</Button>}
+            {dialogUnconfirmed && (!dialogUnconfirmed.id || dialogUnconfirmed.status === 'prepared') && <Button variant="outline" disabled={busy} onClick={() => void save()}>{busy ? uiT('Sending…') : dialogUnconfirmed.status === 'prepared' ? uiT('Send queued change') : uiT('Try again')}</Button>}
+            {!dialogUnconfirmed && <Button variant={isDestructiveDialog ? 'destructive' : 'default'} disabled={busy || (requiresNameInput && !name.trim()) || (dialog === 'material' && !materialSourceReady)} onClick={() => void save()}>
+              {busy ? isDestructiveDialog ? uiT('Deleting…') : uiT('Saving…') : dialog === 'verification' ? uiT('Start verification') : dialog === 'group' ? uiT('Create group') : dialog === 'delete-group' ? uiT('Delete group') : dialog === 'delete-asset' ? uiT('Delete material') : uiT('Save')}
+            </Button>}
+          </>;
+
   return <div className="w-full min-w-0">
+    <div hidden={withinModal && dialog !== null} className={withinModal && dialog !== null ? 'hidden' : undefined}>
     {(unconfirmed || operationError) && <div role="status" className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted/40 px-3 py-2 text-sm">
       <span>{operationError || (unconfirmed?.status === 'prepared'
         ? uiT('A saved change is waiting to be sent. Check its status before starting another attempt.')
@@ -610,100 +723,27 @@ export default function VolcengineView({
         </Table> : <Unavailable heading="Verification sessions" title={!data.client ? data.loading ? uiT('Loading native context…') : data.selectedKeyIpRestricted ? uiT('Source IP restricted for this API key') : uiT('Choose an API key and model') : uiT('Verify a person')} description={!data.client ? data.selectedKeyIpRestricted ? uiT('Choose another API key or update this key’s source IP allowlist to use human verification.') : uiT('Select a discovered native context before reading or starting verification.') : uiT('The person verifies on the Provider’s page. A separate status check confirms the result.')} />}
       </TabsContent>
     </Tabs>
-    <Dialog open={dialog !== null} onOpenChange={value => { if (!value && !busy) { setDialog(null); setTargetAsset(null); setDialogUnconfirmed(null); } }}>
+    </div>
+    {withinModal ? (dialog !== null && <section ref={subviewRef} tabIndex={-1} aria-labelledby="volcengine-subview-title" className="space-y-4">
+      <Button type="button" variant="ghost" size="sm" data-dialog-back disabled={busy} onClick={closeDialog}><IconArrowLeft size={16} aria-hidden="true" />{uiT('Back to materials & verification', '返回素材与核验')}</Button>
+      <header className="space-y-1">
+        <h3 id="volcengine-subview-title" className="text-base font-semibold">{dialogTitle}</h3>
+        <p className="text-sm text-muted-foreground">{dialogDescription}</p>
+      </header>
+      {dialogBody}
+      {dialogError && <p id="provider-tool-dialog-error" role="alert" className="text-sm text-destructive">{uiT(dialogError)}</p>}
+      <div className="flex flex-wrap justify-end gap-2">{dialogActions}</div>
+    </section>) : <Dialog open={dialog !== null} onOpenChange={value => { if (!value) closeDialog(); }}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{dialog === 'group' ? uiT('New material group') : dialog === 'edit' ? uiT('Edit group') : dialog === 'delete-group' ? uiT('Delete material group') : dialog === 'material' ? uiT('Add material') : dialog === 'inspect-asset' ? uiT('Material details') : dialog === 'rename-asset' ? uiT('Rename material') : dialog === 'delete-asset' ? uiT('Delete material') : uiT('Human verification')}</DialogTitle>
-          <DialogDescription>{dialog === 'verification' ? uiT('The person completes verification on the Provider’s page. Niu then checks the result.') : dialog === 'inspect-asset' ? uiT('Inspect saved material readiness and Provider observation status. Source URLs and opaque Provider references remain private.') : dialog === 'delete-asset' ? uiT('Confirm material deletion from this Provider group.') : dialog === 'delete-group' ? uiT('Confirm material group deletion from the Provider.') : uiT('Manage materials in this workspace.')}</DialogDescription>
+          <DialogTitle>{dialogTitle}</DialogTitle>
+          <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
-        {dialog === 'inspect-asset' && targetAsset ? <div className="space-y-3 text-sm">
-          <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <div><dt className="text-xs text-muted-foreground">{uiT('Name')}</dt><dd className="font-medium break-words">{targetAsset.name || uiT('Untitled material')}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">{uiT('Material type')}</dt><dd className="font-medium">{uiT(targetAsset.kind)}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">{uiT('Group')}</dt><dd className="font-medium break-words">{selected?.name ?? uiT('Current group')}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">{uiT('Readiness status')}</dt><dd className="font-medium">{translateUI(assetStatusDescriptions[targetAsset.status])}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">{uiT('Saved revision')}</dt><dd className="font-medium">{uiF('Revision {0}', [targetAsset.revision])}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">{uiT('Last updated')}</dt><dd className="font-medium">{new Date(targetAsset.updated_at_ms).toLocaleString(readUILocale())}</dd></div>
-            <div className="sm:col-span-2"><dt className="text-xs text-muted-foreground">{uiT('Provider observation')}</dt><dd className="font-medium">{targetAsset.observation ? uiF('Observed {0}{1} at {2}', [targetAsset.observation.status, targetAsset.observation.name ? ` (“${targetAsset.observation.name}”)` : '', new Date(targetAsset.observation.observed_at_ms).toLocaleString(readUILocale())]) : uiT('No Provider status observation recorded yet. Use Check status to query the Provider.')}</dd></div>
-          </dl>
-          <p className="text-xs text-muted-foreground">{uiT('Workspace:')}{' '}{workspaceName}</p>
-        </div> : isDestructiveDialog ? <div className="space-y-3 text-sm">
-          <p>{dialog === 'delete-asset' ? uiF('Delete material “{0}” from {1}? This removes the material from the Provider and cannot be undone.', [targetAsset?.name || uiT('Untitled material'), selected?.name ?? uiT('this group')]) : uiF('Delete material group “{0}”? This removes the group from the Provider and cannot be undone.', [selected?.name ?? uiT('Untitled group')])}</p>
-          <p className="text-muted-foreground">{uiT('Workspace:')}{' '}{workspaceName}</p>
-        </div> : <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="provider-tool-name">{dialog === 'verification' ? uiT('Person name') : dialog === 'material' || dialog === 'rename-asset' ? uiT('Material name') : uiT('Group name')}</Label>
-            <Input id="provider-tool-name" disabled={formLocked} value={name} onChange={event => { editAttempt(); setName(event.target.value); }} maxLength={64} />
-          </div>
-          {dialog === 'material' && <>
-            <Tabs value={sourceMode} onValueChange={value => changeMaterialSource(value as MaterialSource)}>
-              <TabsList className="w-full">
-                <TabsTrigger value="url">{uiT('Public link')}</TabsTrigger>
-                <TabsTrigger value="workspace">{uiT('Workspace media')}</TabsTrigger>
-              </TabsList>
-              <TabsContent value="url" className="space-y-2">
-                <Label htmlFor="material-url">{uiT('Material URL')}</Label>
-                <Input id="material-url" aria-invalid={dialogError === 'Use a public HTTPS material URL.'} aria-describedby={dialogError ? 'provider-tool-dialog-error' : 'material-url-help'} disabled={formLocked} type="url" value={url} onChange={event => { editAttempt(); setUrl(event.target.value); }} />
-                <p id="material-url-help" className="text-xs text-muted-foreground">{uiT('The Provider downloads this file from a public HTTPS URL. Workspace media is private and cannot be reached by the Provider; use a public HTTPS link to the same file instead.')}</p>
-              </TabsContent>
-              <TabsContent value="workspace" className="space-y-2">
-                <Label>{uiT('Workspace media')}</Label>
-                <div className="flex flex-wrap items-center gap-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="min-w-0 max-w-full" disabled={formLocked || workspaceLoading}>
-                        <span className="min-w-0 truncate">{selectedWorkspaceAsset?.name ?? (workspaceLoading ? uiT('Loading…') : uiT('Choose media'))}</span>
-                        <IconChevronDown className="shrink-0" size={16} />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="max-h-64 max-w-[calc(100vw-2rem)] overflow-y-auto">
-                      <DropdownMenuRadioGroup value={workspaceAssetId} onValueChange={chooseWorkspaceAsset}>
-                        {workspaceAssets.map(asset => <DropdownMenuRadioItem key={asset.id} value={asset.id}>
-                          <span className="min-w-0 whitespace-normal break-words">{asset.name}</span>
-                        </DropdownMenuRadioItem>)}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Button variant="outline" disabled={formLocked || uploading} onClick={() => fileInput.current?.click()}>
-                    <IconUpload size={16} />{uploading ? uiT('Uploading…') : uiT('Upload')}
-                  </Button>
-                  <Input ref={fileInput} type="file" className="hidden" accept={WORKSPACE_MEDIA_TYPES[kind].accept} onChange={event => { const file = event.target.files?.[0]; if (file) void uploadWorkspaceFile(file); }} />
-                </div>
-                {previewUrl && <img src={previewUrl} alt={selectedWorkspaceAsset?.name ?? ''} className="h-24 w-24 rounded-md object-cover" />}
-                {selectedWorkspaceAsset && <p className="text-xs text-muted-foreground">{selectedWorkspaceAsset.name} · {selectedWorkspaceAsset.content_type} · {mediaSize(selectedWorkspaceAsset.byte_length)}</p>}
-                {!selectedWorkspaceAsset && !workspaceLoading && <p className="text-xs text-muted-foreground">{uiT('No saved media of this type.')}</p>}
-                {workspaceError && <p role="alert" className="text-xs text-destructive">{uiT(workspaceError)}</p>}
-                <p className="text-xs text-muted-foreground">{uiT('The Provider receives a short-lived link to this workspace file. The link is not saved.')}</p>
-              </TabsContent>
-            </Tabs>
-            <div className="space-y-2">
-              <Label>{uiT('Material type')}</Label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild><Button variant="outline" disabled={formLocked}>{uiT(kind)}<IconChevronDown size={16} /></Button></DropdownMenuTrigger>
-                <DropdownMenuContent><DropdownMenuRadioGroup value={kind} onValueChange={value => changeKind(value as typeof kind)}>{['image', 'video', 'audio'].map(value => <DropdownMenuRadioItem key={value} value={value}>{uiT(value)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </>}
-          <p className="text-sm text-muted-foreground">{uiT('Workspace:')}{' '}{workspaceName}</p>
-        </div>}
+        {dialogBody}
         {dialogError && <p id="provider-tool-dialog-error" role="alert" className="text-sm text-destructive">{uiT(dialogError)}</p>}
-        <DialogFooter className="flex-wrap gap-2 sm:flex-wrap">
-          {dialog === 'inspect-asset' && targetAsset ? <>
-            <Button variant="ghost" disabled={busy} onClick={() => { setDialog(null); setTargetAsset(null); }}>{uiT('Close')}</Button>
-            <Button variant="outline" disabled={busy || !data.canWrite || !data.client} onClick={() => void act(async () => { const refreshed = await data.client!.assets.refresh(targetAsset.id, data.model!); setTargetAsset(refreshed.data); })}>{busy ? uiT('Checking…') : uiT('Check status')}</Button>
-            <Button variant="outline" disabled={busy || !data.canWrite || targetAsset.status === 'unknown'} onClick={() => open('rename-asset', targetAsset)}>{uiT('Rename material')}</Button>
-            <Button variant="destructive" disabled={busy || !data.canWrite || targetAsset.status === 'unknown'} onClick={() => open('delete-asset', targetAsset)}>{uiT('Delete material')}</Button>
-          </> : <>
-            <Button variant="ghost" disabled={busy} onClick={() => { setDialog(null); setTargetAsset(null); setDialogUnconfirmed(null); }}>{uiT('Close')}</Button>
-            {dialogUnconfirmed?.id && <Button variant="outline" disabled={busy || checking} onClick={() => void checkSaved()}>{checking ? uiT('Checking…') : uiT('Check status')}</Button>}
-            {dialogUnconfirmed && (!dialogUnconfirmed.id || dialogUnconfirmed.status === 'prepared') && <Button variant="outline" disabled={busy} onClick={() => void save()}>{busy ? uiT('Sending…') : dialogUnconfirmed.status === 'prepared' ? uiT('Send queued change') : uiT('Try again')}</Button>}
-            {!dialogUnconfirmed && <Button variant={isDestructiveDialog ? 'destructive' : 'default'} disabled={busy || (requiresNameInput && !name.trim()) || (dialog === 'material' && !materialSourceReady)} onClick={() => void save()}>
-              {busy ? isDestructiveDialog ? uiT('Deleting…') : uiT('Saving…') : dialog === 'verification' ? uiT('Start verification') : dialog === 'group' ? uiT('Create group') : dialog === 'delete-group' ? uiT('Delete group') : dialog === 'delete-asset' ? uiT('Delete material') : uiT('Save')}
-            </Button>}
-          </>}
-        </DialogFooter>
+        <DialogFooter className="flex-wrap gap-2 sm:flex-wrap">{dialogActions}</DialogFooter>
       </DialogContent>
-    </Dialog>
+    </Dialog>}
   </div>;
 }
 

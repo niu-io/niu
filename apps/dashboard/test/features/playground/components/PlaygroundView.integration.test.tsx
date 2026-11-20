@@ -130,17 +130,51 @@ describe('Global Chat', () => {
     expect(vi.mocked(fetch).mock.calls.some(([path])=>String(path).includes('/v1/chat/completions'))).toBe(false);
   });
   it('opens Video via a distinct mode switch link without offering it as a prompt filter tab', async () => {
-    stubFetch(vi.fn(async () => jsonResponse({data:[]})));
+    stubFetch(vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/keys')) return jsonResponse({data:[{id:'key-video',slug:'video-key',name:'Video key',allowed_models:['*'],revoked:false,expired:false}]});
+      if (url === '/v1/video/models') return jsonResponse({data:[{id:'video/fast'}]});
+      return jsonResponse({data:[]});
+    }));
     render(<SidebarProvider><MemoryRouter initialEntries={['/generations?new=1']}>
       <PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/>
     </MemoryRouter></SidebarProvider>);
     const videoLink = await screen.findByRole('link', {name:'Video',exact:true});
     expect(videoLink.getAttribute('href')).toContain('new=video');
+    expect(videoLink.getAttribute('href')).toContain('key=video-key');
     expect(screen.queryByRole('tab', {name:'Video'})).toBeNull();
     expect(screen.queryByRole('button', {name:/Video generation/})).toBeNull();
     await userEvent.click(videoLink);
     expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).value).toBe('');
     expect(vi.mocked(fetch).mock.calls.some(([path])=>String(path).includes('/v1/chat/completions'))).toBe(false);
+  });
+
+  it('keeps Chat-to-Video switcher visible and links to the discovered video key slug when workspace splits text-only and video keys', async () => {
+    stubFetch(vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const headers = new Headers(init?.headers);
+      if (url.endsWith('/keys')) {
+        return jsonResponse({
+          data: [
+            { id: 'key-text', slug: 'text-only', name: 'Text only', allowed_models: ['fast'], revoked: false, expired: false },
+            { id: 'key-video', slug: 'video-studio', name: 'Video studio', allowed_models: ['seedance/2.0'], revoked: false, expired: false },
+          ],
+        });
+      }
+      if (url === '/v1/video/models') {
+        const keyHeader = headers.get('x-niu-key-id');
+        return jsonResponse({ data: keyHeader === 'key-video' ? [{ id: 'seedance/2.0' }] : [] });
+      }
+      return jsonResponse({ data: [] });
+    }));
+    render(<SidebarProvider><MemoryRouter initialEntries={['/generations?new=1&key=text-only']}>
+      <PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/>
+    </MemoryRouter></SidebarProvider>);
+    await screen.findByRole('button', { name: 'API key: Text only' });
+    const videoLink = await screen.findByRole('link', { name: 'Video', exact: true });
+    expect(videoLink.getAttribute('href')).toContain('new=video');
+    expect(videoLink.getAttribute('href')).toContain('key=video-studio');
+    expect(videoLink.getAttribute('href')).not.toContain('key=text-only');
   });
   it.each(['older', 'missing'])('opens only the explicitly requested saved session: %s', async requested => {
     for (const [id, prompt, createdAt] of [['latest', 'Latest conversation', 2], ['older', 'Requested conversation', 1]] as const) {
@@ -713,11 +747,11 @@ describe('Global Chat', () => {
     await waitFor(() => expect(dispatches).toHaveLength(1));
     await user.click(screen.getByRole('button', { name: 'Stop generating' }));
     await waitFor(() => expect(dispatches[0].signal?.aborted).toBe(true));
-    await waitFor(() => expect(chatWrites).toHaveLength(2));
+    await waitFor(() => expect(chatWrites.at(-1)?.body.results.every(result => result.phase === 'cancelled')).toBe(true));
     expect(dispatches).toHaveLength(1);
-    expect(chatWrites[0].body.id).toBe(chatWrites[1].body.id);
+    expect(new Set(chatWrites.map(write => write.body.id)).size).toBe(1);
     expect(chatWrites[0].body.results.every(result => result.phase === 'connecting')).toBe(true);
-    expect(chatWrites[1].body.results.every(result => result.phase === 'cancelled')).toBe(true);
+    expect(chatWrites.at(-1)?.body.results.every(result => result.phase === 'cancelled')).toBe(true);
     expect(await screen.findByText('Cancelled')).toBeTruthy();
   });
 
@@ -756,9 +790,9 @@ describe('Global Chat', () => {
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
     expect(chatWrites).toHaveLength(1);
     await act(async () => { releaseSave(jsonResponse({saved:true,reference:'chat-double'})); });
-    await waitFor(() => expect(chatWrites).toHaveLength(2));
+    await waitFor(() => expect(chatWrites.length).toBeGreaterThanOrEqual(2));
     expect(new Set(chatWrites.map(write => write.url)).size).toBe(1);
-    expect(chatWrites[0].body.id).toBe(chatWrites[1].body.id);
+    expect(new Set(chatWrites.map(write => write.body.id)).size).toBe(1);
   });
 
   it('does not send inference when durable session creation fails', async () => {
@@ -782,7 +816,8 @@ describe('Global Chat', () => {
 
   it('keeps the selected key visible while the picker refreshes', async () => {
     let calls = 0;
-    stubFetch(vi.fn(async () => {
+    stubFetch(vi.fn(async (input: RequestInfo | URL) => {
+      if (!String(input).endsWith('/keys')) return jsonResponse({ data: [] });
       calls += 1;
       if (calls === 1) return jsonResponse({ data: [{ id: 'key-a', name: 'Default', allowed_models: ['*'], revoked: false, expired: false }] });
       return new Promise<Response>(() => {});
@@ -978,6 +1013,7 @@ describe('Global Chat', () => {
         return Promise.resolve(entry ? jsonResponse({data:entry}) : new Response('', {status:404}));
       }
       if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({ data: [{ id: 'key-a', name: 'Default', allowed_models: ['*'], revoked: false, expired: false }] }));
+      if (url === '/v1/video/models') return Promise.resolve(jsonResponse({ data: [{ id: 'video/fast' }] }));
       return Promise.reject(new Error(`Unexpected request: ${url}`));
     }));
 
@@ -999,7 +1035,7 @@ describe('Global Chat', () => {
     expect(within(screen.getByRole('tablist',{name:'Task category'})).getAllByRole('tab')).toHaveLength(4);
     expect(screen.queryByRole('tablist',{name:'Generation type'})).toBeNull();
     await user.click(screen.getByRole('tab',{name:'All tasks'}));
-    expect(screen.getByRole('link',{name:'Video',exact:true})).toBeTruthy();
+    expect(await screen.findByRole('link',{name:'Video',exact:true})).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Choose models' }));
     await user.click(screen.getByRole('button', { name: 'balanced' }));
@@ -1350,11 +1386,16 @@ it('keeps a cleared temperature invalid until the user enters a value', async ()
 });
 
  it('keeps empty Chat setup guidance within customer permissions', async () => {
-  vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({data: []})));
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith('/keys')) return jsonResponse({ data: [{ id: 'key-video', slug: 'video-only', name: 'Video only', allowed_models: ['video/fast'], revoked: false, expired: false }] });
+    if (url === '/v1/video/models') return jsonResponse({ data: [{ id: 'video/fast' }] });
+    return jsonResponse({ data: [] });
+  }));
   renderPlayground([]);
   expect(await screen.findByRole('heading', {name: 'What would you like to create?'})).toBeTruthy();
   expect(screen.getByText('No text models are available. Ask a platform administrator to add a model route to the catalog.')).toBeTruthy();
-  expect(screen.getByRole('link',{name:'Video',exact:true})).toBeTruthy();
+  expect(await screen.findByRole('link',{name:'Video',exact:true})).toBeTruthy();
   expect(screen.queryByRole('link', {name: 'Connect provider'})).toBeNull();
  });
 

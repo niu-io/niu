@@ -261,7 +261,7 @@ describe('operator administration workflow', () => {
     expect((await screen.findByLabelText('Access token') as HTMLInputElement).value).toBe('niu_once_session_operator-a');
     expect(api.calls.some(call => call.path === '/api/v1/operators/operator-a/sessions' && call.method === 'POST')).toBe(true);
 
-    await user.click(screen.getByRole('button', { name: 'Close', exact: true }));
+    await user.click(screen.getByRole('button', { name: 'Back to members', exact: true }));
     await user.click(screen.getByRole('button', { name: 'Morgan', exact: true }));
     await waitFor(() => expect(screen.queryByDisplayValue('niu_once_session_operator-a')).toBeNull());
     expect(screen.getByRole('heading', { name: 'Morgan' })).toBeTruthy();
@@ -322,7 +322,7 @@ describe('operator administration workflow', () => {
     await user.click(screen.getByRole('button', { name: 'Load older' }));
     await waitFor(() => expect(api.calls.some(call => call.path.includes('cursor=event-cursor'))).toBe(true));
 
-    await user.click(screen.getByRole('button', { name: 'Close', exact: true }));
+    await user.click(screen.getByRole('button', { name: 'Back to members', exact: true }));
     await user.click(screen.getByRole('button', { name: 'Morgan', exact: true }));
     expect(await screen.findByRole('heading', { name: 'Morgan' })).toBeTruthy();
     expect(await screen.findByText('No activity recorded yet.')).toBeTruthy();

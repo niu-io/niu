@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { expect, it, vi } from 'vitest';
 import PlatformSettingsRoute from '@/features/platform-settings/page';
 import { PlatformUnitsSetting } from '@/features/platform-settings/platform-units';
@@ -61,8 +62,8 @@ it('shows a clean purchase rate and one billing-mode switch without atom or scal
 it('separates General and Branded Credits & billing mode into tabs on Admin Settings', async () => {
   saveLocale('en');
   const user = userEvent.setup();
-  render(<PlatformSettingsRoute />);
-  expect(screen.getByRole('tab', { name: 'General' }).getAttribute('aria-selected')).toBe('true');
+  render(<MemoryRouter><PlatformSettingsRoute /></MemoryRouter>);
+  expect(screen.getByRole('tab', { name: 'General & currency' }).getAttribute('aria-selected')).toBe('true');
   expect(screen.getByRole('tab', { name: 'Branded Credits & billing mode' }).getAttribute('aria-selected')).toBe('false');
   expect(screen.getByRole('region', { name: 'Platform currency' })).toBeTruthy();
 

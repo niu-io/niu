@@ -66,4 +66,16 @@ describe('workspace spending controls', () => {
     render(<WorkspaceSpendingLimits {...props}/>);await screen.findByText('Spending limits unavailable');
     expect(screen.queryByRole('button',{name:'Add CNY spending limit'})).toBeNull();
   });
+  it('renders matched fullwidth parentheses in zh-CN lifetime limit label', async () => {
+    window.localStorage.setItem('niu-dashboard-locale', 'zh-CN');
+    try {
+      vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [account] })));
+      render(<WorkspaceSpendingLimits {...props} />);
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: /CNY/ }));
+      expect(screen.getByLabelText('累计限额（CNY）')).toBeTruthy();
+    } finally {
+      window.localStorage.removeItem('niu-dashboard-locale');
+    }
+  });
 });

@@ -70,6 +70,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
   const [limit, setLimit] = useState(20);
   const opener = useRef<HTMLElement | null>(null);
   const [editor, setEditor] = useState<{ connectionId: string; model: ProviderModel | null; initialAlias?: string } | null>(null);
+  const [videoSubViewOpen, setVideoSubViewOpen] = useState(false);
   const [catalog, setCatalog] = useState<ProviderCatalogModel[]>([]);
   const [discovery, setDiscovery] = useState<ProviderDiscoveryEvidence | null>(null);
   const [catalogError, setCatalogError] = useState('');
@@ -116,6 +117,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
     });
   function openEditor(value: NonNullable<typeof editor>) {
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setVideoSubViewOpen(false);
     setEditor(value);
   }
   const selectedConnection = connections.find(connection => connection.id === editor?.connectionId);
@@ -269,16 +271,25 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
       </Table>}
       {aliases.length > limit && <Button variant="outline" onClick={() => setLimit(value => value + 20)}>{uiF("Show more models ({0} remaining)", [aliases.length - limit])}</Button>}
     </>}
-    <Dialog open={!!editor} onOpenChange={open => { if (!open && !busy) setEditor(null); }}>
-      <DialogContent onCloseAutoFocus={event => { event.preventDefault(); opener.current?.focus(); }} className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader><DialogTitle>{editor?.model ? uiF("Edit {0}", [editor.model.alias]) : uiT("Add model")}</DialogTitle><DialogDescription>{uiT("Choose a saved API key and configure the model it connects to.")}</DialogDescription></DialogHeader>
+    <Dialog open={!!editor} onOpenChange={open => { if (!open && !busy) { setVideoSubViewOpen(false); setEditor(null); } }}>
+      <DialogContent
+        onEscapeKeyDown={event => {
+          const back = (event.currentTarget as HTMLElement).querySelector<HTMLButtonElement>('[data-dialog-back]');
+          if (back) { event.preventDefault(); if (!back.disabled) back.click(); }
+        }}
+        onCloseAutoFocus={event => { event.preventDefault(); opener.current?.focus(); }}
+        className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"
+      >
+        <DialogHeader className={videoSubViewOpen ? "sr-only" : undefined}><DialogTitle>{editor?.model ? uiF("Edit {0}", [editor.model.alias]) : uiT("Add model")}</DialogTitle><DialogDescription>{uiT("Choose a saved API key and configure the model it connects to.")}</DialogDescription></DialogHeader>
         {editor && selectedConnection && <>
-          <div className="space-y-2"><Label>{uiT("Provider API key")}</Label>{editor.model ? <p>{selectedConnection.name}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={busy}>{selectedConnection.name || uiT("Unnamed API key")}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuRadioGroup value={selectedConnection.id} onValueChange={connectionId => setEditor({...editor, connectionId, model: null})}>{connections.map(connection => <DropdownMenuRadioItem key={connection.id} value={connection.id}>{connection.name || uiT("Unnamed API key")}{!connection.enabled ? uiT("· Disabled") : ''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}</div>
-          {discovery && !catalogLoading && !catalogError && <div className="space-y-1 text-sm text-muted-foreground" role="status">
-            <p>{integrationLabels[discovery.integration.effective_type]} · {discovery.inventory_scope === 'credential_filtered' ? uiT("Credential-filtered inventory") : uiT("Instance-reported inventory")}</p>
-            <p>{commercialEnabled ? uiT("Catalog read succeeded. Inference and management access have not been verified. Review the selected model and its route settings before saving. Advertised prices do not set purchase rates or customer prices.") : uiT("Catalog read succeeded. Inference and management access have not been verified. Review the selected model and its route settings before saving.")}</p>
-          </div>}
-          <ModelMappingForm key={`${selectedConnection.id}:${editor.model?.alias ?? 'new'}`} initialAlias={editor.initialAlias} adapter={selectedConnection.adapter} ownerFunded={selectedConnection.owner_funded} accessScope={selectedConnection.access_scope} model={editor.model} catalog={catalog} catalogLoading={catalogLoading} catalogError={catalogError} onRetryCatalog={() => void loadCatalog()} disabled={busy} onCancel={() => setEditor(null)} onSave={input => save(input)} />
+          <div hidden={videoSubViewOpen} className={videoSubViewOpen ? "hidden" : "space-y-4"}>
+            <div className="space-y-2"><Label>{uiT("Provider API key")}</Label>{editor.model ? <p>{selectedConnection.name}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={busy}>{selectedConnection.name || uiT("Unnamed API key")}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuRadioGroup value={selectedConnection.id} onValueChange={connectionId => setEditor({...editor, connectionId, model: null})}>{connections.map(connection => <DropdownMenuRadioItem key={connection.id} value={connection.id}>{connection.name || uiT("Unnamed API key")}{!connection.enabled ? uiT("· Disabled") : ''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}</div>
+            {discovery && !catalogLoading && !catalogError && <div className="space-y-1 text-sm text-muted-foreground" role="status">
+              <p>{integrationLabels[discovery.integration.effective_type]} · {discovery.inventory_scope === 'credential_filtered' ? uiT("Credential-filtered inventory") : uiT("Instance-reported inventory")}</p>
+              <p>{commercialEnabled ? uiT("Catalog read succeeded. Inference and management access have not been verified. Review the selected model and its route settings before saving. Advertised prices do not set purchase rates or customer prices.") : uiT("Catalog read succeeded. Inference and management access have not been verified. Review the selected model and its route settings before saving.")}</p>
+            </div>}
+          </div>
+          <ModelMappingForm key={`${selectedConnection.id}:${editor.model?.alias ?? 'new'}`} withinModal onSubViewChange={setVideoSubViewOpen} initialAlias={editor.initialAlias} adapter={selectedConnection.adapter} ownerFunded={selectedConnection.owner_funded} accessScope={selectedConnection.access_scope} model={editor.model} catalog={catalog} catalogLoading={catalogLoading} catalogError={catalogError} onRetryCatalog={() => void loadCatalog()} disabled={busy} onCancel={() => { setVideoSubViewOpen(false); setEditor(null); }} onSave={input => save(input)} />
         </>}
       </DialogContent>
     </Dialog>

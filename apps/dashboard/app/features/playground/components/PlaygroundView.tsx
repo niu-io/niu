@@ -790,7 +790,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const noAvailableKeys = workspaceKeysReady && !keyLoadError && !availableKeys.loading && !availableKeys.error && keyChoices.length === 0 && availableKeys.keys.length === 0;
   const selectedKey = sessionKeys.find(key => key.id === selectedKeyId);
   const managedKey = workspaceKeys.find(key => key.id === selectedKeyId);
-  const videoKey = useWorkspaceVideo(dashboard, managedKey?.id ?? '');
+  const videoKey = useWorkspaceVideo(dashboard.token ? dashboard : { ...dashboard, token }, managedKey?.id, workspaceKeysReady ? workspaceKeys : null);
   const billingSources = selectedModels.map(alias => dashboard.models?.find(model => model.id === alias)?.billing_source);
   const billingSummary = !managedKey
     ? uiT("Usage is billed according to the workspace of your API key. Choose a saved workspace key to see how usage is billed.")
@@ -1132,7 +1132,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                 ? <div className="playground-first-run">
                   {videoKey && <div className="flex justify-center gap-2" aria-label={uiT("Generation mode", "生成模式")}>
                     <Button variant="secondary" size="sm" aria-pressed="true"><IconMessageChatbot size={16} />{uiT("Chat", "对话")}</Button>
-                    <Button variant="ghost" size="sm" asChild><Link to={`/generations?new=video${currentWorkspaceSegment ? `&workspace=${encodeURIComponent(currentWorkspaceSegment)}` : ''}&key=${encodeURIComponent(managedKey?.slug || videoKey)}`}><Video size={16} />{uiT("Video", "视频")}</Link></Button>
+                    <Button variant="ghost" size="sm" asChild><Link to={`/generations?new=video${currentWorkspaceSegment ? `&workspace=${encodeURIComponent(currentWorkspaceSegment)}` : ''}&key=${encodeURIComponent(videoKey)}`}><Video size={16} />{uiT("Video", "视频")}</Link></Button>
                   </div>}
                   <div className="playground-first-run-heading"><h2>{uiT("What would you like to create?")}</h2>{videoKey && <p>{uiT("Write, build, compare models or generate a video.")}</p>}{modelsLoading ? <ListRowsSkeleton rows={2} label={uiT("Loading model catalog…")} /> : !modelsError && modelAliases.length===0 ? <p>{uiT("No text models are available. Ask a platform administrator to add a model route to the catalog.")}</p> : null}</div>
                   <div className="playground-starter-picker" aria-label={uiT("Example tasks")}>

@@ -269,7 +269,7 @@ it('keeps imported commercial routes disabled and unpriced until an offer qualif
 it('links to API key management instead of embedding a second credential editor',async()=>{
  setup(); render(<MemoryRouter><ProviderModels {...props}/></MemoryRouter>);
  await screen.findByText('team/chat');
- const link=screen.getByRole('link',{name:'Manage keys'});
+ const link=screen.getByRole('link',{name:'Manage connections'});
  expect(link.getAttribute('href')).toBe('/admin/providers/example/keys');
  expect(screen.queryByRole('button',{name:'Edit key'})).toBeNull();
 });
@@ -309,4 +309,19 @@ it('retries catalog discovery inside the model editor without losing its draft',
  await user.click(screen.getByRole('button',{name:'Retry model catalog'}));
  await screen.findByText('1 model reported by the upstream catalog');
  expect((screen.getByLabelText('Niu model alias') as HTMLInputElement).value).toBe('team/custom');
+});
+it('renders video configuration as an inline in-dialog subview without nesting dialogs and handles Escape back',async()=>{
+ setup(); render(<MemoryRouter><ProviderModels {...props}/></MemoryRouter>);
+ const user=userEvent.setup();
+ await user.click(await screen.findByRole('button',{name:'Edit model',exact:true}));
+ expect(screen.getAllByRole('dialog')).toHaveLength(1);
+ const configureVideo=screen.getByRole('button',{name:'Configure video'});
+ await user.click(configureVideo);
+ expect(screen.getAllByRole('dialog')).toHaveLength(1);
+ const subview=screen.getByRole('region',{name:'Video configuration'});
+ expect(within(subview).getByRole('button',{name:'Back to model'}).hasAttribute('data-dialog-back')).toBe(true);
+ await user.keyboard('{Escape}');
+ await waitFor(()=>expect(screen.queryByRole('region',{name:'Video configuration'})).toBeNull());
+ expect(screen.getAllByRole('dialog')).toHaveLength(1);
+ await waitFor(()=>expect(document.activeElement).toBe(configureVideo));
 });

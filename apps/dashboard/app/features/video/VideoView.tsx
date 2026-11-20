@@ -165,6 +165,8 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   const loadedIntent=useRef<VideoIntent|null>(null);
   const restoredDraftIdentity=useRef('');
   const [submittedPrompt,setSubmittedPrompt]=useState('');
+  const submittedIntentId=useRef('');
+  const previousIntentId=useRef('');
   const lock=useRef(false);
   const historyTriggerRef=useRef<HTMLButtonElement>(null);
   const unquotedTriggerRef=useRef<HTMLElement|null>(null);
@@ -246,7 +248,18 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
       if(force)composerEdits.current={prompt:false,key:false,model:false,controls:false,references:false,images:false};
     }});
   useEffect(()=>{setDraftRestored(false);setSubmittedPrompt('');setPrompt('');setDraftReferences([]);setDraftSessionId(null);setComposerEdited(false);restoredComposer.current=null;composerEdits.current={prompt:false,key:false,model:false,controls:false,references:false,images:false};acceptDraft.current=false;dispatchAttempted.current=false;},[composerIdentity]);
-  const draftNavigation=useDraftNavigation({hasUnsavedChanges:()=>mutableComposer&&!busy&&composerEdited&&(!draft.ready||draft.dirty),flush:async()=>Boolean(await draft.flush())});
+  const draftNavigation=useDraftNavigation({
+    hasUnsavedChanges:()=>mutableComposer&&!busy&&!lock.current&&composerEdited&&(!draft.ready||draft.dirty),
+    flush:async()=>Boolean(await draft.flush()),
+    shouldBlock:({currentLocation,nextLocation})=>{
+      if(currentLocation.pathname!==nextLocation.pathname)return true;
+      const left=new URLSearchParams(currentLocation.search);
+      const right=new URLSearchParams(nextLocation.search);
+      left.delete('model');right.delete('model');left.delete('key');right.delete('key');
+      left.sort();right.sort();
+      return left.toString()!==right.toString();
+    },
+  });
   const keyScopeIdentity=JSON.stringify([token,scopePath]);
   const savedModel=intentDocument?.model??savedTask?.model;
   const submissionStopped=intentDocument?.submission_state==='not_dispatched';
@@ -378,9 +391,15 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   useEffect(()=>{estimateController.current?.abort();setQuote(null);return()=>estimateController.current?.abort();},[prompt,controls,images,draftReferences,base,modelId]);
   useEffect(()=>{
     const controller=new AbortController();
-    loadedIntent.current=null;setIntentDocument(null);setIntentError('');setRestoringIntent(false);setSubmittedPrompt('');
-    if(!retainedIntent){restoredDraftIdentity.current='';return;}
     if(busy === 'create')return;
+    const nextIntentId=retainedIntent?.id??'';
+    if(submittedIntentId.current && nextIntentId !== submittedIntentId.current)return;
+    const intentChanged=previousIntentId.current!==nextIntentId;
+    previousIntentId.current=nextIntentId;
+    loadedIntent.current=null;setIntentError('');setRestoringIntent(false);
+    if(!retainedIntent){setIntentDocument(null);setSubmittedPrompt('');submittedIntentId.current='';restoredDraftIdentity.current='';return;}
+    if(intentChanged){setIntentDocument(null);if(submittedIntentId.current!==nextIntentId)setSubmittedPrompt('');}
+    if(submittedIntentId.current===nextIntentId)submittedIntentId.current='';
     setRestoringIntent(true);setUncertain(true);
     const restoring=new VideoIntent(intentClient!,{organizationId:workspace!.organization_id,projectId:workspace!.id},intentReference);
     void restoring.restore({signal:controller.signal}).then(document=>{
@@ -590,7 +609,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
         const intent=retainedIntent && !intentDocument?.job ? loadedIntent.current : new VideoIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},crypto.randomUUID());
         if(!intent)throw new Error('Restore the saved video request before submitting.');
         if(retainedIntent&&intentDocument?.session_binding===undefined)throw new Error('The saved session context could not be confirmed. Reload before continuing.');
-        ownedIntentId=intent.id;routeIntent.current=intent.id;
+        ownedIntentId=intent.id;routeIntent.current=intent.id;submittedIntentId.current=intent.id;
         const originalBinding=intentDocument?.id===intent.id?intentDocument.session_binding:null;
         const sessionId=originalBinding?.session_id??(selectedReference?followUpSessionId:search.get('session')??draftSessionId)??crypto.randomUUID();
         const turnId=originalBinding?.turn_id??search.get('turn')??crypto.randomUUID();
@@ -760,7 +779,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
           </div>
         </form>
         <Dialog open={Boolean(unquotedConfirmation)} onOpenChange={open=>{if(!open)setUnquotedConfirmation(null);}}><DialogContent onCloseAutoFocus={event=>{event.preventDefault();unquotedTriggerRef.current?.focus();}}><DialogHeader><DialogTitle>{uiT("Generate video with your Provider account")}</DialogTitle><DialogDescription>{uiT("No output estimate is available for this video configuration. Your Provider may charge your account. This sends the request once; an uncertain outcome must be checked before another submission.")}</DialogDescription></DialogHeader><p className="break-words text-sm">{model?.id}</p>{!confirmationMatches&&<p role="alert" className="text-sm text-destructive">{uiT("The request or access changed. Close this dialog and review the current request.")}</p>}<DialogFooter><Button variant="outline" onClick={()=>setUnquotedConfirmation(null)}>{uiT("Cancel")}</Button><Button disabled={!confirmationMatches||submissionStopped||!canWrite||!base||Boolean(busy)||uncertain||readingImages||restoringIntent} onClick={()=>{if(!confirmationMatches)return;setUnquotedConfirmation(null);void saveOrSubmitRequest('submit',true);}}>{uiT("Generate video")}</Button></DialogFooter></DialogContent></Dialog>
-        <Dialog open={providerToolsOpen&&Boolean(toolsModule)} onOpenChange={setProviderToolsOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>{uiT("Reference materials & verification")}</DialogTitle><DialogDescription>{uiT("Manage reference materials and human verification required by this video model.")}</DialogDescription></DialogHeader>{toolsModule&&<ProviderGenerationTools toolsKey={toolsIdentity} workspaceName={workspace ? workspaceDisplayName(workspace.name) : 'Current workspace'} modelId={modelId} keyId={keyId} module={toolsModule}/>}</DialogContent></Dialog>
+        <Dialog open={providerToolsOpen&&Boolean(toolsModule)} onOpenChange={setProviderToolsOpen}><DialogContent onEscapeKeyDown={event=>{const back=(event.currentTarget as HTMLElement).querySelector<HTMLButtonElement>('[data-dialog-back]');if(back){event.preventDefault();if(!back.disabled)back.click();}}} className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>{uiT("Reference materials & verification")}</DialogTitle><DialogDescription>{uiT("Manage reference materials and human verification required by this video model.")}</DialogDescription></DialogHeader>{toolsModule&&<ProviderGenerationTools toolsKey={toolsIdentity} workspaceName={workspace ? workspaceDisplayName(workspace.name) : 'Current workspace'} modelId={modelId} keyId={keyId} module={toolsModule}/>}</DialogContent></Dialog>
         </>}
       </div>
     </section>

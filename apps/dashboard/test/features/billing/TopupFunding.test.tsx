@@ -3,6 +3,10 @@ vi.mock('../../../app/shell/platform-currency',()=>({usePlatformCurrency:()=>cur
 import { beforeEach, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
+import SettingsDialog from '../../../app/features/account/settings-dialog';
+import AccountBilling from '../../../app/features/billing/AccountBilling';
+import type { DashboardContext } from '../../../app/shell/dashboard-context';
 import TopupFunding, { TOPUP_STATUS_POLL_MS } from '../../../app/features/billing/TopupFunding';
 const id = '12345678-1234-4234-8234-123456789abc';
 beforeEach(()=>{currencyState.currency='CNY'; vi.spyOn(window,'open').mockReturnValue(null);});
@@ -118,7 +122,7 @@ it('keeps the saved order and a truthful fallback when the payment page is block
   const fallback = screen.getByRole('link', { name: 'Open payment page' });
   expect(fallback.getAttribute('href')).toBe(order.checkout_url);
   expect(fallback.getAttribute('rel')).toBe('noopener noreferrer');
-  expect(within(screen.getByRole('dialog', { name: 'Top-up', exact: true })).getByText('Awaiting payment')).toBeTruthy();
+  expect(within(screen.getByRole('region', { name: 'Top-up', exact: true })).getByText('Awaiting payment')).toBeTruthy();
   expect(posts).toHaveLength(1);
   expect(onPaid).not.toHaveBeenCalled();
   expect(screen.getByRole('button', { name: 'Check payment status' })).toBeTruthy();
@@ -132,7 +136,7 @@ it('keeps the saved order when the browser refuses to open a payment window', as
   await user.click(screen.getByRole('button', { name: 'Continue', exact: true }));
   expect(await screen.findByText(fallbackMessage)).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Open payment page' }).getAttribute('href')).toBe(order.checkout_url);
-  expect(within(screen.getByRole('dialog', { name: 'Top-up', exact: true })).getByText('Awaiting payment')).toBeTruthy();
+  expect(within(screen.getByRole('region', { name: 'Top-up', exact: true })).getByText('Awaiting payment')).toBeTruthy();
   expect(posts).toHaveLength(1);
 });
 it('keeps the saved order when the opened tab cannot navigate to the checkout', async () => {
@@ -243,12 +247,12 @@ it('checks a pending checkout in the background and credits only after confirmat
     expect(screen.getByText(fallbackMessage)).toBeTruthy();
     await act(async () => { await vi.advanceTimersByTimeAsync(TOPUP_STATUS_POLL_MS); });
     expect(statusReads).toHaveBeenCalledTimes(1);
-    expect(within(screen.getByRole('dialog', { name: 'Top-up', exact: true })).getByText('Awaiting payment')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Top-up', exact: true })).getByText('Awaiting payment')).toBeTruthy();
     expect(onPaid).not.toHaveBeenCalled();
     saved = { ...order, status: 'paid', checkout_url: null };
     await act(async () => { await vi.advanceTimersByTimeAsync(TOPUP_STATUS_POLL_MS); });
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-    expect(within(screen.getByRole('dialog', { name: 'Top-up', exact: true })).getByText('Paid')).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Top-up', exact: true })).getByText('Paid')).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Open payment page' })).toBeNull();
     expect(onPaid).toHaveBeenCalled();
   } finally {
@@ -271,7 +275,7 @@ it('checks the selected saved order directly and removes a paid checkout link', 
   await screen.findByRole('link', { name: 'Open payment page' });
   settle();
   await user.click(screen.getByRole('button', { name: 'Check payment status' }));
-  await within(screen.getByRole('dialog', { name: 'Top-up', exact: true })).findByText('Paid');
+  await within(screen.getByRole('region', { name: 'Top-up', exact: true })).findByText('Paid');
   expect(screen.queryByRole('link', { name: 'Open payment page' })).toBeNull();
   expect(posts).toHaveLength(0); expect(onPaid).toHaveBeenCalled();
 });
@@ -280,7 +284,7 @@ it.each(['paid', 'closed', 'reconciliation_required', 'pending'])('opens saved %
   const {posts} = setup({canCreate:false,saved:[{...order,status,checkout_url:null}]});
   const user=userEvent.setup();
   await user.click(await screen.findByRole('button',{name:'View details'}));
-  const detail=screen.getByRole('dialog',{name:'Top-up',exact:true});
+  const detail=screen.getByRole('region',{name:'Top-up',exact:true});
   expect(within(detail).getByText({paid:'Paid',closed:'Closed',reconciliation_required:'Checking payment',pending:'Awaiting payment'}[status]!)).toBeTruthy();
   expect(within(detail).getByRole('button',{name:'Check payment status'})).toBeTruthy();
   expect(within(detail).queryByRole('link',{name:'Open payment page'})).toBeNull();
@@ -329,7 +333,7 @@ it('prevents replacing the checkout while payment status is pending', async () =
  expect((screen.getByRole('button',{name:'Add credits',hidden:true}) as HTMLButtonElement).disabled).toBe(true);
  expect((screen.getByRole('button',{name:'Continue payment',hidden:true}) as HTMLButtonElement).disabled).toBe(true);
  await act(async()=>{savedOrder={...order,status:'paid',checkout_url:null};finish(Response.json({data:savedOrder}));});
- await within(screen.getByRole('dialog',{name:'Top-up',exact:true})).findByText('Paid');
+ await within(screen.getByRole('region',{name:'Top-up',exact:true})).findByText('Paid');
  expect(screen.queryByRole('link',{name:'Open payment page'})).toBeNull();
  expect((screen.getByRole('button',{name:'Add credits',hidden:true}) as HTMLButtonElement).disabled).toBe(false);
 });
@@ -415,4 +419,71 @@ it('returns keyboard focus to the funding or order action after dismissal', asyn
   await user.click(resume);
   await user.keyboard('{Escape}');
   await waitFor(()=>expect(document.activeElement).toBe(resume));
+});
+
+it('keeps Settings open and returns to Credits when pressing Escape inside Top-up or Low balance warning subviews', async () => {
+  let resolveTopup!: (response: Response) => void;
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    if (path.endsWith('/billing/balance')) {
+      return Response.json({ data: [{ currency: 'CNY', balance_nanos: '1000000000', available_nanos: '1000000000', reserved_nanos: '0', credit_limit_nanos: '0', warning_threshold_nanos: null, policy_revision: '1', low_balance: false }] });
+    }
+    if (path.endsWith('/billing/transactions')) return Response.json({ data: [], next_cursor: null });
+    if (path.includes('/payment-methods')) return Response.json({ data: availability });
+    if (path.endsWith('/topups') && init?.method === 'POST') return new Promise<Response>(resolve => { resolveTopup = resolve; });
+    if (path.endsWith('/topups')) return Response.json({ data: [order], next_cursor: null });
+    return Response.json({ data: null });
+  }));
+  const settingsContext = {
+    token: 'test',
+    session: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } },
+    organization: { id: 'company', name: 'Company' },
+    workspace: { id: 'ws-1', name: 'Default', organization_id: 'company' },
+    workspaces: [{ id: 'ws-1', name: 'Default', organization_id: 'company' }],
+  } as unknown as DashboardContext;
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter initialEntries={['/settings/billing']}>
+      <SettingsDialog context={settingsContext} pendingSection="billing">
+        <AccountBilling token="test" organization="company" canConfigure section="all" />
+      </SettingsDialog>
+    </MemoryRouter>,
+  );
+
+  // 1. Low balance warning opens inline (no nested dialog) and Escape returns to Credits without closing Settings.
+  const configureWarning = await screen.findByRole('button', { name: 'Configure CNY low balance warning' });
+  await user.click(configureWarning);
+  expect(screen.getAllByRole('dialog')).toHaveLength(1);
+  expect(screen.getByRole('region', { name: 'Low balance warning' })).toBeTruthy();
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByRole('region', { name: 'Low balance warning' })).toBeNull());
+  expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
+  await waitFor(() => expect(document.activeElement).toBe(configureWarning));
+
+  // 2. Top-up subview returns to Payment orders on Escape without closing Settings.
+  const addCredits = await screen.findByRole('button', { name: 'Add credits' });
+  await user.click(addCredits);
+  expect(screen.getAllByRole('dialog')).toHaveLength(1);
+  const topupRegion = screen.getByRole('region', { name: 'Add credits' });
+  expect(within(topupRegion).getByRole('button', { name: 'Close' }).hasAttribute('data-settings-back')).toBe(true);
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByLabelText('Amount (¥)')).toBeNull());
+  expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
+  await waitFor(() => expect(document.activeElement).toBe(addCredits));
+
+  // 3. While Top-up submission is busy, Escape closes neither Top-up nor Settings.
+  await user.click(addCredits);
+  const busyRegion = screen.getByRole('region', { name: 'Add credits' });
+  await user.type(within(busyRegion).getByLabelText('Amount (¥)'), '10');
+  await user.click(within(busyRegion).getByRole('button', { name: 'Continue', exact: true }));
+  await waitFor(() => expect((within(busyRegion).getByRole('button', { name: 'Close' }) as HTMLButtonElement).disabled).toBe(true));
+  await user.keyboard('{Escape}');
+  expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
+  expect(screen.getByLabelText('Amount (¥)')).toBeTruthy();
+  await act(async () => resolveTopup(Response.json({ data: { ...order, amount_nanos: '10000000000' } })));
+  const backButton = await screen.findByRole('button', { name: 'Back to payment orders' });
+  expect(backButton.hasAttribute('data-settings-back')).toBe(true);
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Back to payment orders' })).toBeNull());
+  expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
 });

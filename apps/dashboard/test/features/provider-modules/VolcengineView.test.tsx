@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { expect, it, vi } from 'vitest';
 import WorkspaceAssetsRoute from '@/features/assets/page';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import VolcengineView from '@/features/provider-modules/volcengine/VolcengineView';
 
 const workspaceId = '11111111-1111-4111-8111-111111111111';
@@ -966,4 +967,44 @@ it('uploads a workspace image and creates a Provider material from it', async ()
     name: 'uploaded',
     kind: 'image',
   });
+});
+
+it('renders material actions as inline subviews when mounted inside an outer Dialog and supports Escape back', async () => {
+  const createBodies: unknown[] = [];
+  vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => providerMaterialFetch(input, init, createBodies)));
+  const user = userEvent.setup();
+  const onOpenChange = vi.fn();
+  render(
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent
+        onEscapeKeyDown={event => {
+          const back = (event.currentTarget as HTMLElement).querySelector<HTMLButtonElement>('[data-dialog-back]');
+          if (back) {
+            event.preventDefault();
+            if (!back.disabled) back.click();
+          }
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>Reference materials &amp; verification</DialogTitle>
+        </DialogHeader>
+        <VolcengineView workspaceName="Media Workspace" nativeContext={{ keyId, model: 'seedance-2.5' }} withinModal />
+      </DialogContent>
+    </Dialog>,
+  );
+
+  expect(await screen.findByText('Ready Group')).toBeTruthy();
+  expect(screen.getAllByRole('dialog')).toHaveLength(1);
+  const addButton = screen.getAllByRole('button', { name: 'Add material' })[0];
+  await user.click(addButton);
+
+  expect(screen.getAllByRole('dialog')).toHaveLength(1);
+  const subview = await screen.findByRole('region', { name: 'Add material' });
+  expect(within(subview).getByRole('button', { name: 'Back to materials & verification' }).hasAttribute('data-dialog-back')).toBe(true);
+
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByRole('region', { name: 'Add material' })).toBeNull());
+  expect(onOpenChange).not.toHaveBeenCalled();
+  expect(screen.getAllByRole('dialog')).toHaveLength(1);
+  await waitFor(() => expect(document.activeElement).toBe(addButton));
 });

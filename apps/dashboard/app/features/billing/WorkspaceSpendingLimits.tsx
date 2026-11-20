@@ -321,7 +321,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
             </DialogHeader>
             <form onSubmit={save} className="grid gap-4">
               <div className="space-y-2">
-                <Label htmlFor="workspace-spending-amount">{uiT("Lifetime limit (")}{editing.currency})</Label>
+                <Label htmlFor="workspace-spending-amount">{uiF("Lifetime limit ({0})", [editing.currency])}</Label>
                 <Input
                   autoFocus
                   id="workspace-spending-amount"
@@ -403,7 +403,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
             </DialogHeader>
             <form onSubmit={submitUnitLimit} className="grid gap-4">
               <div className="space-y-2">
-                <Label htmlFor="workspace-unit-spending-amount">{uiT("Lifetime limit (")}{activeUnitName})</Label>
+                <Label htmlFor="workspace-unit-spending-amount">{uiF("Lifetime limit ({0})", [activeUnitName])}</Label>
                 <Input
                   autoFocus
                   id="workspace-unit-spending-amount"

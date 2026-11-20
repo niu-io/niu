@@ -76,7 +76,8 @@ describe('organization switching', () => {
     await user.click(within(within(settingsDialog).getByRole('navigation', { name: 'Settings navigation' })).getByRole('link', { name: 'Organization' }));
     await within(settingsDialog).findByRole('heading', { name: 'Organization', exact: true });
     await user.click(await within(settingsDialog).findByRole('button', { name: 'Create workspace' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Create workspace' });
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    const dialog = await within(settingsDialog).findByRole('region', { name: 'Create workspace' });
     expect(within(dialog).getByText(/In New organization/)).toBeTruthy();
     await user.type(within(dialog).getByLabelText('Workspace name'), 'First workspace');
     await user.click(within(dialog).getByRole('button', { name: 'Create workspace' }));
@@ -212,7 +213,8 @@ describe('organization switching', () => {
     await user.click(within(within(settingsDialog).getByRole('navigation', { name: 'Settings navigation' })).getByRole('link', { name: 'Organization' }));
     await within(settingsDialog).findByRole('heading', { name: 'Organization', exact: true });
     await user.click(await within(settingsDialog).findByRole('button', { name: 'Create organization' }));
-    const createDialog = await screen.findByRole('dialog', { name: 'Create organization' });
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    const createDialog = await within(settingsDialog).findByRole('region', { name: 'Create organization' });
     expect(within(createDialog).getByText(/New organizations start with 0 credits/)).toBeTruthy();
     await user.type(within(createDialog).getByLabelText('Organization name'), 'Studio Alpha');
     expect((within(createDialog).getByLabelText('Slug') as HTMLInputElement).value).toBe('studio-alpha');

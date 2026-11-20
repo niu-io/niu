@@ -1,15 +1,20 @@
 import { act,render,screen,waitFor } from '@testing-library/react';
-import { StrictMode } from 'react';
+import { createContext, StrictMode, useContext, useState, type ComponentProps, type ReactNode } from 'react';
 import userEvent from '@testing-library/user-event';
 import { expect,it,vi } from 'vitest';
-import { MemoryRouter, useLocation, useNavigate } from 'react-router';
+import { createMemoryRouter, RouterProvider, useLocation, useNavigate } from 'react-router';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import SessionView from '@/features/video/VideoView';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import type { VideoModel } from '@niu-io/sdk';
 import { initialControls,videoRequest } from '@/features/video/request';
 import GenerationsLayout from '@/features/generations/GenerationsLayout';
-import type { ComponentProps } from 'react';
+const RouterChildrenContext = createContext<ReactNode>(null);
+function RouterChildrenOutlet() { return <>{useContext(RouterChildrenContext)}</>; }
+function MemoryRouter({ initialEntries = ['/'], children }: { initialEntries?: string[]; children: ReactNode }) {
+  const [router] = useState(() => createMemoryRouter([{ path: '*', Component: RouterChildrenOutlet }], { initialEntries }));
+  return <RouterChildrenContext.Provider value={children}><RouterProvider router={router} /></RouterChildrenContext.Provider>;
+}
 function VideoView(props: ComponentProps<typeof SessionView>) { return <GenerationsLayout><SessionView {...props} /></GenerationsLayout>; }
 
 const workspace={id:'11111111-1111-4111-8111-111111111111',organization_id:'22222222-2222-4222-8222-222222222222',name:'Review workspace',organization_name:'Review'};
@@ -733,7 +738,7 @@ it('keeps saved prompt in the conversation and submits a fresh draft with a new 
   expect(calls.filter(call=>call.path.endsWith('/submit'))).toHaveLength(1);
   expect(calls.find(call=>call.path.endsWith('/submit'))!.path).not.toContain(intent);
   await waitFor(()=>expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe(''));
-  expect(screen.getByText('A fresh sunrise scene')).toBeTruthy();
+  await waitFor(()=>expect(screen.getByText('A fresh sunrise scene')).toBeTruthy());
 });
 
 it('places video API key in the header consistently with Chat',async()=>{

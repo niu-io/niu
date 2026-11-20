@@ -34,7 +34,7 @@ it('localizes account balance and transaction failures', async () => {
   }
 });
 
-it('renders the low-balance warning dialog in Chinese', async () => {
+it('renders the low-balance warning inline view in Chinese with matched punctuation', async () => {
   window.localStorage.setItem('niu-dashboard-locale', 'zh-CN');
   try {
     vi.stubGlobal('fetch', vi.fn(async url => Response.json({data: String(url).endsWith('/billing/balance') ? [{currency:'CNY',balance_nanos:'1000000000',available_nanos:'1000000000',reserved_nanos:'0',credit_limit_nanos:'0',warning_threshold_nanos:null,policy_revision:'0',low_balance:false}] : []})));
@@ -42,10 +42,12 @@ it('renders the low-balance warning dialog in Chinese', async () => {
     await screen.findByRole('region', {name: '账户余额'});
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', {name: /设置 CNY 余额提醒/}));
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('余额不足提醒')).toBeTruthy();
-    expect(within(dialog).getByLabelText('启用提醒')).toBeTruthy();
-    expect(within(dialog).getByRole('button', {name: '保存'})).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    const view = await screen.findByRole('region', {name: '余额不足提醒'});
+    expect(within(view).getByText('余额不足提醒')).toBeTruthy();
+    expect(within(view).getByLabelText('启用提醒')).toBeTruthy();
+    expect(within(view).getByLabelText('提醒金额（CNY）')).toBeTruthy();
+    expect(within(view).getByRole('button', {name: '保存'})).toBeTruthy();
   } finally {
     window.localStorage.removeItem('niu-dashboard-locale');
   }

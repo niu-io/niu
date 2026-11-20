@@ -3,11 +3,10 @@ import { readLocale, useLocale } from '@/shell/ui-locale';
 import { amountFromNanos } from '@/lib/money';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useEffect, useRef, useState } from 'react';
-import { IconCoins, IconReceipt, IconRefresh } from '@tabler/icons-react';
+import { IconArrowLeft, IconCoins, IconReceipt, IconRefresh } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,7 +49,7 @@ function checkedTransactions(result:{data:BalanceTransaction[];next_cursor?:stri
 }
 
 export default function AccountBilling({token, organization, canConfigure = false, section = 'all'}: {token: string; organization: string; canConfigure?: boolean; section?: 'all' | 'billing' | 'payments'}) {
- const { t } = useLocale();
+ const { t, format: uiF } = useLocale();
  const {currency:platformCurrency, billingMode:platformBillingMode, unit:platformUnit}=usePlatformCurrency();
  const accessGeneration = useRef({token,organization,value:0});
  if (accessGeneration.current.token !== token || accessGeneration.current.organization !== organization) {
@@ -97,6 +96,15 @@ export default function AccountBilling({token, organization, canConfigure = fals
  const companyAccess = true;
  const [editing,setEditing] = useState<Balance | null>(null);
  const warningOpener = useRef<HTMLButtonElement | null>(null);
+ const warningView = useRef<HTMLElement | null>(null);
+ useEffect(() => {
+  if (editing) {
+   (warningView.current?.querySelector<HTMLElement>('button[role="checkbox"], input:not([disabled])') ?? warningView.current)?.focus();
+  } else if (warningOpener.current?.isConnected) {
+   warningOpener.current.focus();
+   warningOpener.current = null;
+  }
+ }, [editing]);
  const [warningEnabled,setWarningEnabled] = useState(false);
  const [threshold,setThreshold] = useState('');
  const [saving,setSaving] = useState(false);
@@ -195,6 +203,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
   finally {if (!controller.signal.aborted) setLoadingOlder(false);}
  };
  return <div className="billing-balance-content">
+ <div hidden={editing !== null} className={editing !== null ? "hidden" : "grid min-w-0 gap-6"}>
  {!accounts && !accountError && (section === 'payments' ? <FormSectionSkeleton fields={2} label={t("Loading payment options…")} /> : <MetricStripSkeleton count={2} label={t("Loading account balance…")} />)}
  {section === 'payments' && accountError && <Alert variant="destructive"><AlertTitle>{t("Payment options unavailable")}</AlertTitle><AlertDescription>{t("Could not load the account data needed for payment options.")}<Button variant="outline" disabled={refreshing} onClick={() => setRevision(value => value + 1)}>{t("Retry payment options")}</Button></AlertDescription></Alert>}
         {companyAccess && section !== 'payments' && Boolean(accounts || accountError || unitSnapshot || unitSnapshotError) && <section aria-label={t("Account balance")} className="billing-account-section">
@@ -262,16 +271,30 @@ export default function AccountBilling({token, organization, canConfigure = fals
             </Table>
           </> : !transactionError && (transactionsLoading ? <TableSkeleton columns={3} rows={3} label={t("Loading transactions…")} /> : <Empty className="mt-2 min-h-32 rounded-xl bg-muted/55 py-6"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{t("No transactions yet.")}</EmptyDescription></EmptyHeader></Empty>)}
         </section>}
-<Dialog open={editing !== null} onOpenChange={open=>{if (!open && !saving) setEditing(null);}}>
- <DialogContent onCloseAutoFocus={event=>{if(warningOpener.current?.isConnected){event.preventDefault();warningOpener.current.focus();}}}>
-  <DialogHeader><DialogTitle>{t("Low balance warning")}</DialogTitle><DialogDescription>{t("Show an in-app warning when your account balance falls below this amount. Credit allowances are excluded.")}</DialogDescription></DialogHeader>
-  <form onSubmit={event=>{event.preventDefault();void saveWarning();}} className="grid gap-4">
-  <div className="flex items-center gap-3"><Checkbox id="balance-warning-enabled" checked={warningEnabled} disabled={saving} onCheckedChange={value=>setWarningEnabled(value===true)}/><Label htmlFor="balance-warning-enabled">{t("Enable warning", "启用提醒")}</Label></div>
-  <div className="grid gap-2"><Label htmlFor="balance-warning-threshold">{t("Threshold (")}{editing?.currency})</Label><Input id="balance-warning-threshold" inputMode="decimal" value={threshold} disabled={!warningEnabled || saving} onChange={event=>setThreshold(event.target.value)}/></div>
-  {saveError && <Alert variant="destructive"><AlertDescription>{t(saveError)}{conflict && <Button type="button" variant="outline" disabled={saving} onClick={()=>void reloadWarning()}>{t("Reload current settings")}</Button>}</AlertDescription></Alert>}
-  <DialogFooter><Button type="button" variant="ghost" disabled={saving} onClick={()=>setEditing(null)}>{t("Cancel")}</Button><Button type="submit" disabled={saving || conflict || !warningChanged}>{saving ? t('Saving…', '正在保存…') : t("Save")}</Button></DialogFooter>
+ </div>
+ {editing !== null && <section
+  ref={warningView}
+  tabIndex={-1}
+  aria-labelledby="low-balance-warning-title"
+  className="grid min-w-0 gap-4"
+  onKeyDown={event => {
+   if (event.key === 'Escape' && !event.defaultPrevented && !saving && warningView.current?.contains(event.target as Node) && !warningView.current.closest('[data-global-settings-dialog]')) {
+    event.preventDefault();
+    setEditing(null);
+   }
+  }}
+ >
+  <Button type="button" variant="ghost" size="sm" className="justify-self-start" data-settings-back disabled={saving} onClick={() => setEditing(null)}><IconArrowLeft size={16} aria-hidden="true" />{t("Back to credits", "返回额度与充值")}</Button>
+  <header className="space-y-1">
+   <h3 id="low-balance-warning-title" className="text-base font-semibold">{t("Low balance warning")}</h3>
+   <p className="text-sm text-muted-foreground">{t("Show an in-app warning when your account balance falls below this amount. Credit allowances are excluded.")}</p>
+  </header>
+  <form onSubmit={event=>{event.preventDefault();void saveWarning();}} className="grid max-w-md gap-4">
+   <div className="flex items-center gap-3"><Checkbox id="balance-warning-enabled" checked={warningEnabled} disabled={saving} onCheckedChange={value=>setWarningEnabled(value===true)}/><Label htmlFor="balance-warning-enabled">{t("Enable warning", "启用提醒")}</Label></div>
+   <div className="grid gap-2"><Label htmlFor="balance-warning-threshold">{uiF("Threshold ({0})", [editing.currency])}</Label><Input id="balance-warning-threshold" inputMode="decimal" value={threshold} disabled={!warningEnabled || saving} onChange={event=>setThreshold(event.target.value)}/></div>
+   {saveError && <Alert variant="destructive"><AlertDescription>{t(saveError)}{conflict && <Button type="button" variant="outline" disabled={saving} onClick={()=>void reloadWarning()}>{t("Reload current settings")}</Button>}</AlertDescription></Alert>}
+   <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="ghost" disabled={saving} onClick={()=>setEditing(null)}>{t("Cancel")}</Button><Button type="submit" disabled={saving || conflict || !warningChanged}>{saving ? t('Saving…', '正在保存…') : t("Save")}</Button></div>
   </form>
- </DialogContent>
-</Dialog>
+ </section>}
 </div>;
 }

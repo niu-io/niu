@@ -2139,7 +2139,7 @@ function RoutePoolAuditDialog({
                           </Badge>
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          {t('Supplier min:', '上游最低：')}{' '}
+                          {t('Provider min:', '上游最低：')}{' '}
                           {formatRatePerMillion(cand.min_supplier_prompt_rate, cand.retail_currency ?? audit.pool_tariff.currency)} /{' '}
                           {formatRatePerMillion(cand.min_supplier_completion_rate, cand.retail_currency ?? audit.pool_tariff.currency)}
                         </div>

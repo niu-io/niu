@@ -533,3 +533,66 @@ it('keeps loaded admin offers when continuation fails and retries the same curso
   await screen.findByText('later/model');
   expect(requests.find(row=>row.path.includes('/offers?limit=100&after='))?.path).toContain('after=example%2Fmodel');
 });
+
+it('creates a new Provider in Provider Administration, resolves ownership via /supplier (never /provider), and opens it without 404', async () => {
+  const createdVendorId = '11111111-1111-4111-8111-111111111111';
+  const createdSupplierId = '22222222-2222-4222-8222-222222222222';
+  fixture.context = {
+    token: 'installation-token-create-provider',
+    session: { kind: 'installation', operating_mode: 'resale', operator: { name: 'Administrator' } },
+  } as unknown as DashboardContext;
+
+  const providers = [{ id: supplierId, name: 'Example provider', slug: 'example-provider', members: 0 }];
+  const requests: { path: string; method: string }[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    const method = init?.method ?? 'GET';
+    requests.push({ path, method });
+    if (path === `/api/v1/vendors/${createdVendorId}/provider`) {
+      return Response.json({ error: { message: 'Not found' } }, { status: 404 });
+    }
+    if (path === '/api/v1/vendors' && method === 'POST') {
+      providers.push({ id: createdSupplierId, name: 'New Supply Co', slug: 'new-supply-co', members: 0 });
+      return Response.json({ data: { id: createdVendorId } }, { status: 201 });
+    }
+    if (path === `/api/v1/vendors/${createdVendorId}/supplier` && method === 'GET') {
+      return Response.json({ data: { id: createdSupplierId, name: 'New Supply Co' } });
+    }
+    if (path === '/api/v1/providers') {
+      return Response.json({ data: providers });
+    }
+    if (path.startsWith('/api/v1/vendors')) {
+      return Response.json({ data: [] });
+    }
+    if (path.includes('/administration?')) {
+      return Response.json({
+        data: { balances: [], consumption: [], settlements: [], earnings: [], offers_has_more: false, offers: [] },
+      });
+    }
+    if (path.includes('/members')) {
+      return Response.json({ data: [] });
+    }
+    return Response.json({ data: [] });
+  }));
+
+  const router = createMemoryRouter(
+    [
+      { path: '/admin/providers', element: <ProviderAdministration /> },
+      { path: '/admin/providers/:providerId/:section?', element: <ProviderAdministration /> },
+    ],
+    { initialEntries: ['/admin/providers?create=provider'] },
+  );
+  render(<RouterProvider router={router} />);
+  const user = userEvent.setup();
+  const dialog = await screen.findByRole('dialog');
+  await user.type(within(dialog).getByLabelText('Provider name'), 'New Supply Co');
+  await user.type(within(dialog).getByLabelText('Provider API key'), 'sk-test-new-supply');
+  await user.click(within(dialog).getByRole('button', { name: 'Create provider' }));
+
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  await screen.findByText('Provider created. Add models and agreed rates to continue setup.');
+  expect(screen.queryByText(/Provider details could not be opened/)).toBeNull();
+  expect(requests.some(req => req.path === `/api/v1/vendors/${createdVendorId}/supplier` && req.method === 'GET')).toBe(true);
+  expect(requests.some(req => req.path.endsWith('/provider'))).toBe(false);
+  await waitFor(() => expect(requests.some(req => req.path.includes(`/api/v1/providers/${createdSupplierId}/administration`))).toBe(true));
+});
