@@ -136,21 +136,21 @@ describe('dashboard route layout', () => {
     const router = renderAt('/admin/providers/example-supplier');
     const user = userEvent.setup();
     const navigation = await screen.findByRole('navigation', { name: 'Admin navigation' }, { timeout: 10000 });
-    expect(within(navigation).getByRole('link', { name: 'Payment gateways' })).toBeTruthy();
+    expect(within(navigation).getByRole('link', { name: 'Payments' })).toBeTruthy();
     expect(screen.queryByRole('tablist', { name: 'Admin sections' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Switch provider' })).toBeNull();
     const breadcrumb = within(await screen.findByLabelText('Breadcrumb'));
     expect(breadcrumb.queryByText('Admin')).toBeNull();
     expect(breadcrumb.getByRole('link', {name:'Providers'}).getAttribute('href')).toBe('/admin/providers');
     const tabs = await screen.findByRole('tablist', { name: 'Provider sections' });
-    await user.click(within(tabs).getByRole('tab', { name: 'Keys' }));
+    await user.click(within(tabs).getByRole('tab', { name: 'Connections' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-supplier/keys'));
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'Keys' }).getAttribute('aria-selected')).toBe('true'));
-    await user.click(within(navigation).getByRole('link', { name: 'Payment gateways' }));
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Connections' }).getAttribute('aria-selected')).toBe('true'));
+    await user.click(within(navigation).getByRole('link', { name: 'Payments' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/payments'));
     await waitFor(() => expect(screen.queryByRole('tablist', { name: 'Provider sections' })).toBeNull());
     expect(within(screen.getByLabelText('Breadcrumb')).queryByText('Admin')).toBeNull();
-    expect(within(screen.getByLabelText('Breadcrumb')).getByRole('heading', {name:'Payment gateways'})).toBeTruthy();
+    expect(within(screen.getByLabelText('Breadcrumb')).getByRole('heading', {name:'Payments'})).toBeTruthy();
   });
   it('uses the shared loading page while checking the browser session and redirecting to sign in', async () => {
     mockHealth(); const originalFetch = globalThis.fetch;
@@ -250,7 +250,7 @@ describe('dashboard route layout', () => {
     const router = renderAt('/workspaces/production?period=month#activity');
     await screen.findByRole('heading', {name:'Overview',level:1});
     await userEvent.click(screen.getByRole('button',{name:'Account menu'}));
-    await userEvent.click(screen.getByRole('menuitem',{name:'Settings',exact:true}));
+    await userEvent.click(screen.getByRole('menuitem',{name:'Account & org settings',exact:true}));
     await waitFor(() => expect(router.state.location.pathname).toBe('/settings/appearance'));
     const settingsDialog = await screen.findByRole('dialog', { name: 'Settings' });
     expect(within(settingsDialog).getByRole('navigation',{name:'Settings navigation'})).toBeTruthy();
@@ -370,7 +370,7 @@ describe('dashboard route layout', () => {
     const router = renderAt('/workspaces/production');
     const user = userEvent.setup();
     const nav = await screen.findByRole('navigation',{name:'Main navigation'});
-    expect(within(nav).getByRole('link',{name:'Settings',exact:true}).getAttribute('href')).toBe('/workspaces/production/settings');
+    expect(within(nav).getByRole('link',{name:'Workspace settings',exact:true}).getAttribute('href')).toBe('/workspaces/production/settings');
     await user.click(screen.getByRole('button',{name:'Switch workspace'}));
     await user.click(screen.getByRole('menuitem',{name:'Create workspace'}));
     await user.type(await screen.findByLabelText('Workspace name'),'New workspace');
@@ -383,7 +383,8 @@ describe('dashboard route layout', () => {
     mockHealth();
     renderAt('/workspaces/default/billing');
     expect(await screen.findByRole('heading', { name: 'Billing and rates', exact: true })).toBeTruthy();
-    expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Settings', exact: true }).getAttribute('href')).toBe('/workspaces/default/settings');
+    expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Usage', exact: true }).getAttribute('data-active')).toBe('true');
+    expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Workspace settings', exact: true }).getAttribute('href')).toBe('/workspaces/default/settings');
     expect((await within(screen.getByLabelText('Breadcrumb')).findByRole('link', {name: 'Default', exact: true})).getAttribute('href')).toBe('/workspaces/default');
     expect(screen.queryByRole('heading', { name: 'Not Found' })).toBeNull();
   });
@@ -418,7 +419,7 @@ describe('dashboard route layout', () => {
   it('renders the current page title as plain text without a duplicate page switcher', async () => {
     mockHealth();
     renderAt('/workspaces/production/settings');
-    const heading = await screen.findByRole('heading', {name: 'Settings', exact: true});
+    const heading = await screen.findByRole('heading', {name: 'Workspace settings', exact: true});
     expect(heading.closest('button')).toBeNull();
     expect(screen.queryByRole('button', {name: 'Switch workspace page'})).toBeNull();
     const breadcrumb = within(screen.getByLabelText('Breadcrumb'));
@@ -519,7 +520,7 @@ describe('dashboard route layout', () => {
     expect(screen.queryByText(/check the gateway version/i)).toBeNull();
     workspaceServiceReady = true;
     await user.click(screen.getByRole('button', {name: 'Retry workspace access'}));
-    expect(await screen.findByRole('heading', {name: 'Settings', level: 1})).toBeTruthy();
+    expect(await screen.findByRole('heading', {name: 'Workspace settings', level: 1})).toBeTruthy();
     expect(router.state.location.pathname).toBe('/workspaces/production/settings');
   });
   it('renders the workspace overview and connects the sidebar to real routes', async () => {
@@ -528,7 +529,7 @@ describe('dashboard route layout', () => {
     const router = renderAt('/workspaces/default/');
 
     expect(await screen.findByRole('heading', { name: 'Overview' })).toBeTruthy();
-    expect((await screen.findByRole('link', { name: 'Connect provider' })).getAttribute('href')).toBe('/admin/providers');
+    expect((await screen.findByRole('link', { name: 'Admin setup' })).getAttribute('href')).toBe('/admin');
 
     expect(screen.queryByText('Requests today')).toBeNull();
 
@@ -599,7 +600,7 @@ describe('dashboard route layout', () => {
     trigger.focus();
     await user.keyboard('{Enter}');
     expect(await screen.findByRole('menuitem', { name: 'Sign out' })).toBeTruthy();
-    expect(screen.getByRole('menuitem', { name: 'Settings', exact: true })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Account & org settings', exact: true })).toBeTruthy();
     expect(screen.queryByRole('menuitemradio', { name: 'Light' })).toBeNull();
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('menu')).toBeNull();
@@ -981,7 +982,7 @@ describe('dashboard route layout', () => {
     const router = renderAt('/admin/providers');
     const adminNav = await screen.findByRole('navigation', { name: 'Admin navigation' });
     expect(within(adminNav).getByRole('link', { name: 'Providers', exact: true }).getAttribute('data-active')).toBe('true');
-    expect(within(adminNav).getByRole('link', { name: 'Settings', exact: true }).getAttribute('href')).toBe('/admin/settings');
+    expect(within(adminNav).getByRole('link', { name: 'General & billing', exact: true }).getAttribute('href')).toBe('/admin/settings');
     expect(screen.queryByRole('tablist', { name: 'Admin sections' })).toBeNull();
     expect(screen.queryByText('Administrator access required')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Connect your agent', exact: true })).toBeNull();

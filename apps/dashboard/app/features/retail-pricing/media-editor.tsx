@@ -18,10 +18,10 @@ import type { RetailPriceRecord, RetailPublicationResult, RetailSchedule, Retail
 
 type MediaSchedule = Extract<RetailSchedule, { kind: 'media' }>;
 /** Explicit media dimensions and metering; price configuration is not qualification. */
-export function MediaStandardEditor({ token, previous, open = true, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; open?: boolean; onClose: (pending: boolean) => void; onSaved: () => void }) {
+export function MediaStandardEditor({ token, previous, initialModel = '', open = true, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onClose: (pending: boolean) => void; onSaved: () => void }) {
   const { t: uiT, format: uiF } = useUILocale();
   const original = previous?.schedule.kind === 'media' ? previous.schedule : undefined;
-  const [model, setModel] = useState(previous?.model_alias ?? '');
+  const [model, setModel] = useState(previous?.model_alias ?? initialModel);
   const {currency:platformCurrency}=usePlatformCurrency();
   const currency=previous?.currency ?? platformCurrency;
   const [modelsRevision, setModelsRevision] = useState(0);
@@ -39,7 +39,19 @@ export function MediaStandardEditor({ token, previous, open = true, onClose, onS
     if (previous) return;
     const controller = new AbortController();
     setModelsLoaded(false); setModelsError('');
-    void registeredRetailModelChoices(token, controller.signal).then(choices => { if (!controller.signal.aborted) setModels(choices.filter(choice => choice.media)); }).catch(failure => { if (!controller.signal.aborted) setModelsError(failure instanceof Error ? failure.message : 'Registered models unavailable.'); }).finally(()=>{if(!controller.signal.aborted)setModelsLoaded(true);});
+    void registeredRetailModelChoices(token, controller.signal).then(choices => {
+      if (controller.signal.aborted) return;
+      const mediaChoices = choices.filter(choice => choice.media);
+      setModels(mediaChoices);
+      if (initialModel) {
+        const matched = mediaChoices.find(item => item.model_alias === initialModel)?.media;
+        if (matched) {
+          setChannel(current => current || matched.channel);
+          setMeter(current => current || matched.meter);
+          setResolution(current => current || (matched.resolutions.length === 1 ? matched.resolutions[0] : ''));
+        }
+      }
+    }).catch(failure => { if (!controller.signal.aborted) setModelsError(failure instanceof Error ? failure.message : 'Registered models unavailable.'); }).finally(()=>{if(!controller.signal.aborted)setModelsLoaded(true);});
     return () => controller.abort();
   }, [token, previous, modelsRevision]);
   const selected = models.find(item => item.model_alias === model)?.media;

@@ -2,7 +2,7 @@
   "note": "Modules above the 800-line reviewability threshold. Split by domain or record a reviewable reason. Regenerate with: pnpm --dir apps/dashboard exec node scripts/check-module-size.mjs --update-baseline",
   "exceptions": {
     "app/shell/locale-messages.ts": {
-      "lines": 4994,
+      "lines": 5009,
       "reason": "Data-only system UI message table. Entries are append-only translations reviewed by check:i18n; splitting would add import indirection without reducing the review surface."
     },
     "app/features/route-pools/page.tsx": {
@@ -34,8 +34,8 @@
       "reason": "Execution log table and detail state. Split the activity query/data hook from the view under niu-4rp.15. Key reference/label derivation is extracted to features/keys/key-labels.ts, charge grouping to charge-groups.ts, charge summary card to ChargeSummaryCard.tsx, and request detail sheet to GatewayRequestDetailSheet.tsx; the view adds only its memoized lookup. Session recovery adds one shared authenticated-fetch import; no additional view logic."
     },
     "app/features/provider-business/admin.tsx": {
-      "lines": 1005,
-      "reason": "Provider business administration view. Split pending with provider domain modules under niu-4rp.15."
+      "lines": 1006,
+      "reason": "Provider business administration view. Split pending with provider domain modules under niu-4rp.15. Adds one explicit commercial purchase offer step row to the Provider overview checklist."
     },
     "app/lib/query-cache.ts": {
       "lines": 1004,

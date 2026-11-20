@@ -224,8 +224,8 @@ export function AdminProviderTabs({
         <TabsList variant="line" aria-label={t('Provider sections', '供应商详情分区')}>
           {[
             ['overview', t('Overview', '概览')],
-            ['keys', t('Keys', '密钥')],
-            ['models', t('Models', '模型')],
+            ['keys', t('Connections', '上游连接')],
+            ['models', operatingMode === 'internal' ? t('Models', '模型') : t('Models & offers', '模型与报价')],
             ['usage', t('Usage', '调用量')],
             ['settlements', t('Settlements', '结算账单')],
             ['members', t('Members', '成员')],

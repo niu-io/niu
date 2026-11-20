@@ -58,7 +58,7 @@ function Standards({ token }: { token: string }) {
   const [cursor, setCursor] = useState<string | null>(() => initialPage?.next_after ?? null);
   const [loading, setLoading] = useState(() => !initialPage), [error, setError] = useState(''), [filter, setFilter] = useState('');
   const [failed, setFailed] = useState<string>(), [selected, setSelected] = useState<RetailPriceRecord | null>(null);
-  const [editor, setEditor] = useState<{ kind: 'text' | 'media'; previous: RetailPriceRecord | null } | null>(null);
+  const [editor, setEditor] = useState<{ kind: 'text' | 'media'; previous: RetailPriceRecord | null; initialModel?: string } | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const legacyOpener = useRef<HTMLButtonElement>(null);
@@ -87,6 +87,19 @@ function Standards({ token }: { token: string }) {
   }
   const reloadFresh = () => { invalidateQueries(base); void load(undefined, true); };
   useEffect(() => { void load(); return () => active.current?.abort(); }, [token]);
+  const requestedModel = search.get('model')?.trim() ?? '';
+  const requestedPublish = search.get('publish');
+  useEffect(() => {
+    if (!requestedModel || (requestedPublish !== 'text' && requestedPublish !== 'media')) return;
+    setFilter(requestedModel);
+    if (mode !== 'currency' || !currency || loading || error || editor) return;
+    const existing = rows.find(row => row.model_alias === requestedModel && row.schedule.kind === requestedPublish) ?? null;
+    setEditor({ kind: requestedPublish, previous: existing, initialModel: requestedModel });
+    setEditorOpen(true);
+    const next = new URLSearchParams(search);
+    next.delete('publish');
+    setSearch(next, { replace: true });
+  }, [requestedModel, requestedPublish, mode, currency, loading, error, editor, rows, search, setSearch]);
   const visible = rows.filter(row => row.model_alias.toLowerCase().includes(filter.trim().toLowerCase()));
   return <div className="empty-region space-y-6"><PageHeader title={uiT("Pricing")} /><p className="text-sm text-muted-foreground">{uiT("Set the customer prices charged across workspaces. Settlement currency and Branded Credits use separate pricing tables; choose a tab to review or prepare either mode. Promotions apply to currency prices. Models also need available supply and permission to be used.")} <Link to="/admin/settings" className="underline underline-offset-4">{uiT("Manage the platform billing mode", "管理平台计费模式")}</Link></p>
     {editor && !editorOpen && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("A price publication is awaiting confirmation. Reopen it to check or retry before leaving this page.")}</span><Button type="button" variant="outline" onClick={() => setEditorOpen(true)}>{uiT("Return to publication")}</Button></AlertDescription></Alert>}
@@ -117,8 +130,8 @@ function Standards({ token }: { token: string }) {
       <TabsContent value="credits" className="space-y-4"><BrandedUnitTariffsSection token={token} filter={filter} /></TabsContent>
     </Tabs>
     {legacyOpen && <LegacyMediaContracts token={token} returnFocus={legacyOpener} onClose={() => setLegacyOpen(false)}/>}
-    {editor?.kind === 'text' && <TextStandardEditor token={token} previous={editor.previous} open={editorOpen} onClose={pending => { setEditorOpen(false); if (!pending) { setEditor(null); reloadFresh(); } }} onSaved={() => { setEditor(null); setNotice(uiT("Text standard price published.")); reloadFresh(); }} />}
-    {editor?.kind === 'media' && <MediaStandardEditor token={token} previous={editor.previous} open={editorOpen} onClose={pending => { setEditorOpen(false); if (!pending) { setEditor(null); reloadFresh(); } }} onSaved={() => { setEditor(null); setNotice(uiT("Media standard price published.")); reloadFresh(); }} />}
+    {editor?.kind === 'text' && <TextStandardEditor token={token} previous={editor.previous} initialModel={editor.initialModel} open={editorOpen} onClose={pending => { setEditorOpen(false); if (!pending) { setEditor(null); reloadFresh(); } }} onSaved={() => { setEditor(null); setNotice(uiT("Text standard price published.")); reloadFresh(); }} />}
+    {editor?.kind === 'media' && <MediaStandardEditor token={token} previous={editor.previous} initialModel={editor.initialModel} open={editorOpen} onClose={pending => { setEditorOpen(false); if (!pending) { setEditor(null); reloadFresh(); } }} onSaved={() => { setEditor(null); setNotice(uiT("Media standard price published.")); reloadFresh(); }} />}
     {managed && <PromotionsManager token={token} price={managed} onClose={() => { setManaged(null); reloadFresh(); }} onPublish={baseline => { setManaged(null); setPromotion(baseline); }} />}
     {promotion && <PromotionEditor token={token} baseline={promotion} onClose={() => { setPromotion(null); reloadFresh(); }} onSaved={() => { setPromotion(null); setNotice('Finite promotion published. Existing request prices are unchanged.'); reloadFresh(); }} />}
     {selected && <History key={selected.price_id} token={token} price={selected} onClose={() => setSelected(null)} />}

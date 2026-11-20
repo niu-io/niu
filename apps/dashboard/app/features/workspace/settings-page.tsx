@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import {
+  Link,
   Navigate,
   useFetcher,
   useLocation,
   useSearchParams,
   type ActionFunctionArgs,
 } from 'react-router';
+import { settingsHref } from '@/features/account/settings-routes';
 import { ApiRequestError } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -302,6 +304,31 @@ export default function WorkspaceSettings() {
           canConfigure={canConfigureSpending}
           refresh={0}
         />
+      )}
+      {context.organization && context.session?.permissions?.manage_operators && (
+        <section aria-labelledby="workspace-members-link-title" className="space-y-3 py-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-1">
+              <h2 id="workspace-members-link-title" className="text-base font-semibold">
+                {t('Workspace members', '工作空间成员')}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {t(
+                  'Members, roles, and organization-wide credits are managed in Account & organization settings.',
+                  '成员、角色与组织共享额度统一在「账户与组织设置」中管理。',
+                )}
+              </p>
+            </div>
+            <Button asChild variant="outline" size="sm">
+              <Link
+                state={{ settingsReturnTo: location.pathname + location.search + location.hash }}
+                to={`${settingsHref('members')}?workspace=${encodeURIComponent(workspace.slug || workspace.route_slug || workspace.id)}`}
+              >
+                {t('Manage members', '管理成员')}
+              </Link>
+            </Button>
+          </div>
+        </section>
       )}
       {canDelete && !workspace.is_default && (
         <section aria-labelledby="workspace-delete-title" className="space-y-3 py-5">

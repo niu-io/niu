@@ -42,7 +42,7 @@ describe('organization switching', () => {
     await screen.findByRole('heading', { name: 'Keys' });
     await waitFor(() => expect(requests.some(item => item.path === '/api/v1/models?organization_id=org-2&project_id=project-2')).toBe(true));
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Settings', exact: true }));
+    await user.click(screen.getByRole('menuitem', { name: 'Account & org settings', exact: true }));
     let settingsDialog = await screen.findByRole('dialog', { name: 'Settings' });
     await user.click(within(within(settingsDialog).getByRole('navigation', { name: 'Settings navigation' })).getByRole('link', { name: 'Organization' }));
     await within(settingsDialog).findByRole('heading', { name: 'Organization', exact: true });
@@ -71,7 +71,7 @@ describe('organization switching', () => {
     expect(screen.queryByRole('menuitemradio')).toBeNull();
     await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Settings', exact: true }));
+    await user.click(screen.getByRole('menuitem', { name: 'Account & org settings', exact: true }));
     settingsDialog = await screen.findByRole('dialog', { name: 'Settings' });
     await user.click(within(within(settingsDialog).getByRole('navigation', { name: 'Settings navigation' })).getByRole('link', { name: 'Organization' }));
     await within(settingsDialog).findByRole('heading', { name: 'Organization', exact: true });
@@ -207,7 +207,7 @@ describe('organization switching', () => {
     // Self-service organization creation is available from organization settings.
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
     expect(screen.queryByRole('menuitem', { name: 'Create organization' })).toBeNull();
-    await user.click(screen.getByRole('menuitem', { name: 'Settings', exact: true }));
+    await user.click(screen.getByRole('menuitem', { name: 'Account & org settings', exact: true }));
     const settingsDialog = await screen.findByRole('dialog', { name: 'Settings' });
     await user.click(within(within(settingsDialog).getByRole('navigation', { name: 'Settings navigation' })).getByRole('link', { name: 'Organization' }));
     await within(settingsDialog).findByRole('heading', { name: 'Organization', exact: true });

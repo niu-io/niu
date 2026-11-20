@@ -6,7 +6,9 @@ import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { TriangleAlert, FlaskConical, CheckCircle2, CircleDashed, PauseCircle, Settings2 } from 'lucide-react';
 import { IconBrandStripe, IconBrandAlipay, IconBrandWechat } from '@tabler/icons-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { NavLink } from 'react-router';
+import { NavLink, useSearchParams } from 'react-router';
+import PageHeader from '@/components/PageHeader';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { request } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
@@ -26,6 +28,8 @@ export default function PlatformConfiguration() {
 }
 function PaymentConfiguration({token}: {token: string}) {
   const { t: uiT, format: uiF } = useUILocale();
+  const [search, setSearch] = useSearchParams();
+  const activeTab = search.get('tab') === 'bank' ? 'bank' : 'gateways';
   const scope = token || 'public';
   const mutation = useRef<AbortController | null>(null);
   useEffect(() => () => mutation.current?.abort(), []);
@@ -148,13 +152,28 @@ function PaymentConfiguration({token}: {token: string}) {
     }
   }
   return <section className="@container space-y-5">
-    <BankConfiguration token={token}/>
-    {configuration && <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{uiT("Verify payment setup before offering a gateway to customers.")}</p><Button variant="outline" size="sm" disabled={verificationBusy} onClick={()=>void refreshVerification()}>{verificationBusy?uiT("Refreshing status…"):uiT("Refresh verification")}</Button></div>}
-    {verificationError && <p role="alert" className="text-sm text-destructive">{uiT(verificationError)}</p>}
+    <PageHeader title={uiT("Payments", "收款配置")} />
+    <Tabs
+      value={activeTab}
+      onValueChange={value => {
+        const next = new URLSearchParams(search);
+        if (value === 'bank') next.set('tab', 'bank');
+        else next.delete('tab');
+        setSearch(next, { replace: true });
+      }}
+    >
+      <TabsList variant="line" aria-label={uiT("Payment sections", "收款配置分区")}>
+        <TabsTrigger value="gateways">{uiT("Payment gateways", "支付网关")}</TabsTrigger>
+        <TabsTrigger value="bank">{uiT("Bank transfer", "对公转账")}</TabsTrigger>
+      </TabsList>
 
-    {mockError && !mockOpen && <p role="alert">{uiT(mockError)}<Button variant="ghost" onClick={() => {setMockError('');setRevision(value => value+1);}}>{uiT("Retry mock gateway")}</Button></p>}
-    {error && !open && <p role="alert">{uiT(error)}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
-    {loading && !configuration ? <MetricStripSkeleton count={2} label={uiT("Loading payment gateways…")} /> : configuration ? <div className="grid grid-cols-1 gap-4 @min-[42rem]:grid-cols-2" aria-label={uiT("Supported payment gateways")}>
+      <TabsContent value="gateways" className="space-y-5 pt-2">
+        {configuration && <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{uiT("Verify payment setup before offering a gateway to customers.")}</p><Button variant="outline" size="sm" disabled={verificationBusy} onClick={()=>void refreshVerification()}>{verificationBusy?uiT("Refreshing status…"):uiT("Refresh verification")}</Button></div>}
+        {verificationError && <p role="alert" className="text-sm text-destructive">{uiT(verificationError)}</p>}
+
+        {mockError && !mockOpen && <p role="alert">{uiT(mockError)}<Button variant="ghost" onClick={() => {setMockError('');setRevision(value => value+1);}}>{uiT("Retry mock gateway")}</Button></p>}
+        {error && !open && <p role="alert">{uiT(error)}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
+        {loading && !configuration ? <MetricStripSkeleton count={2} label={uiT("Loading payment gateways…")} /> : configuration ? <div className="grid grid-cols-1 gap-4 @min-[42rem]:grid-cols-2" aria-label={uiT("Supported payment gateways")}>
       {configuration.payment_gateways.map(gateway => {
         const epay = gateway.name === 'EPay';
         const configured = gateway.configured && !(gateway.name === 'Stripe' && mock?.available);
@@ -182,6 +201,14 @@ function PaymentConfiguration({token}: {token: string}) {
         <CardFooter><Button variant="outline" size="sm" aria-label={uiT("Configure mock payments")} onClick={() => {setMockEnabled(mock.enabled);setMockError('');setMockOpen(true);}}><Settings2 aria-hidden="true"/>{uiT("Configure")}</Button></CardFooter>
       </Card>}
     </div> : null}
+      </TabsContent>
+
+      <TabsContent value="bank" className="pt-2">
+        <div className="rounded-[var(--radius-panel)] bg-card p-5">
+          <BankConfiguration token={token} />
+        </div>
+      </TabsContent>
+    </Tabs>
 
     <Dialog open={mockOpen} onOpenChange={value => {if (!mockBusy) setMockOpen(value);}}><DialogContent className="max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{uiT("Configure mock payments")}</DialogTitle><DialogDescription>{uiT("Test checkout, notifications and account funding without a real payment merchant. Saved changes apply immediately and persist across restarts.")}</DialogDescription></DialogHeader><Alert className="mock-payment-warning"><TriangleAlert aria-hidden="true"/><AlertTitle className="line-clamp-none">{uiT("LLM calls still cost real money")}</AlertTitle><AlertDescription>{uiT("Only payments are simulated. LLM requests still incur upstream Provider charges. Simulated funds do not pay for upstream usage.")}</AlertDescription></Alert><div className="flex items-center gap-2"><Checkbox id="mock-enabled" checked={mockEnabled} disabled={mockBusy} onCheckedChange={value => setMockEnabled(value === true)}/><Label htmlFor="mock-enabled">{uiT("Enable mock payments")}</Label></div><p className="text-sm text-muted-foreground">{uiT("Disable other payment gateways before enabling. Turning this off stops new mock checkouts; notifications for existing test orders continue.")}</p>{mockError && <p role="alert" className="text-destructive">{uiT(mockError)}</p>}<DialogFooter><Button variant="outline" disabled={mockBusy} onClick={() => setMockOpen(false)}>{uiT("Cancel")}</Button><Button disabled={mockBusy} onClick={() => void saveMock()}>{mockBusy ? uiT("Saving…") : uiT("Save")}</Button></DialogFooter></DialogContent></Dialog>
     <Dialog open={open} onOpenChange={value => {if (!busy) {setOpen(value);setKey('');}}}><DialogContent className="niu-modal max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{uiT("Configure EPay")}</DialogTitle><DialogDescription>{uiT("Connect your domestic payment gateway to organization balance top-ups.")}</DialogDescription></DialogHeader>{settings && <form className="space-y-4" onSubmit={event => void save(event)}>

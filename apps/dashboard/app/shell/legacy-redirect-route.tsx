@@ -39,7 +39,7 @@ export function getActiveNavigationHash(): string {
 }
 
 export function providerSectionPath(section: string): string {
-  return section === 'configuration' || section === 'api-keys'
+  return section === 'configuration' || section === 'api-keys' || section === 'connections'
     ? 'keys'
     : section === 'consumption'
       ? 'usage'
@@ -57,6 +57,7 @@ const ADMIN_PROVIDER_STATIC_SECTIONS = new Set([
   'settlements',
   'members',
   'keys',
+  'connections',
   'api-keys',
   'configuration',
   'settings',
@@ -178,7 +179,7 @@ export function resolveLegacyRedirectTarget(
         if (!sp.has('view')) sp.set('view', 'text');
         return `/admin/providers/${encodeURIComponent(providerId)}/models${sp.size ? '?' + sp.toString() : ''}${hash}`;
       }
-      if (actionSec === 'api-keys' || actionSec === 'configuration') {
+      if (actionSec === 'api-keys' || actionSec === 'configuration' || actionSec === 'connections') {
         return `/admin/providers/${encodeURIComponent(providerId)}/keys${suffix}`;
       }
       if (actionSec === 'consumption') {

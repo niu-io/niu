@@ -62,6 +62,9 @@ export const routeImporters = {
   register: memoImport('register', () => import('@/features/login/register-page')),
   installation: memoImport('installation', () => import('@/features/login/installation-page')),
   invite: memoImport('invite', () => import('@/features/invitations/accept-page')),
+  adminOverview: memoImport('adminOverview', () => import('@/features/admin-overview/page')),
+  adminRegistrations: memoImport('adminRegistrations', () => import('@/features/registrations/page')),
+  platformRegistrationPolicy: memoImport('platformRegistrationPolicy', () => import('@/features/platform-settings/registration-page')),
   commercialPosition: memoImport('commercialPosition', () => import('@/features/commercial-position/page')),
   platformSettings: memoImport('platformSettings', () => import('@/features/platform-settings/page')),
   customers: memoImport('customers', () => import('@/features/customers/page')),
@@ -141,15 +144,19 @@ export function preloadRouteChunk(pathname: string): void {
     return;
   }
   if (parts[0] === 'admin') {
-    const sub = parts[1] ?? 'providers';
-    if (sub === 'providers' || sub === 'suppliers') void routeImporters.providers();
+    const sub = parts[1] ?? '';
+    if (!sub) void routeImporters.adminOverview();
+    else if (sub === 'providers' || sub === 'suppliers') void routeImporters.providers();
     else if (sub === 'routing' || sub === 'pools' || sub === 'route-pools' || sub === 'model-pools') void routeImporters.routePools();
     else if (sub === 'customers' || sub === 'balances' || sub === 'customer-accounts' || sub === 'account-balances') void routeImporters.customers();
+    else if (sub === 'registrations') void routeImporters.adminRegistrations();
     else if (sub === 'reports' || sub === 'commercial' || sub === 'financial-reports') void routeImporters.commercialPosition();
     else if (sub === 'pricing') void routeImporters.retailPricing();
     else if (sub === 'payments' || sub === 'payment-gateways') void routeImporters.payments();
     else if (sub === 'branding') void routeImporters.branding();
     else if (sub === 'audit' || sub === 'audit-logs') void routeImporters.auditLogs();
+    else if (sub === 'incidents') void routeImporters.incidents();
+    else if (sub === 'settings' && parts[2] === 'registration') void routeImporters.platformRegistrationPolicy();
     else if (sub === 'settings') void routeImporters.platformSettings();
     return;
   }

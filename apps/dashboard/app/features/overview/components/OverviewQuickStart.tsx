@@ -25,7 +25,7 @@ export default function OverviewQuickStart({ workspaceRoot, modelsHref, canWrite
       ? { to: `${workspaceRoot}/keys`, label: uiT("Create an API key"), detail: uiT("Choose the models this workspace may call.") }
       : { to: `${workspaceRoot}/keys`, label: uiT("Keys"), detail: uiT("Ask a workspace administrator to create or share a key.") }
     : canManagePlatform
-      ? { to: '/admin/providers', label: uiT("Connect provider"), detail: uiT("Connect a Provider and import its models.") }
+      ? { to: '/admin', label: uiT("Open Admin setup", "打开管理后台配置"), detail: uiT("Follow the Admin setup checklist to connect Providers and make models ready.", "按管理后台上线清单接入供应商并完成模型配置。") }
       : { to: modelsHref, label: uiT("Browse models"), detail: uiT("Ask a platform administrator to make a model available.") };
   const steps: Step[] = [
     firstStep,
