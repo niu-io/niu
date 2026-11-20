@@ -40,5 +40,5 @@ export const navigation: Array<NavItem> = [
   { destination: 'Workspace', to: 'billing', label: 'Billing and rates', labelZh: '账单与费率', icon: CreditCard, hidden: true, parentTo: 'usage' },
   { destination: 'Administration', to: '/admin', label: 'Admin', labelZh: '管理后台', icon: IconShieldLock },
   { destination: 'Providers', to: '/providers', label: 'Providers', labelZh: '模型供应商', icon: ProviderConnection },
-  { destination: 'Workspace', to: 'settings', label: 'Settings', labelZh: '设置', icon: IconSettings },
+  { destination: 'Workspace', to: 'settings', label: 'Workspace settings', labelZh: '工作空间设置', icon: IconSettings },
 ];

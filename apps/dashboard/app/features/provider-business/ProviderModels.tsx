@@ -194,7 +194,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
           <DropdownMenuContent align="end">{connections.map(connection => <DropdownMenuItem key={connection.id} disabled={busy} onSelect={() => void importModels(connection)}>{uiF('Import from {0}', [connection.name || uiT("Unnamed API key")])}</DropdownMenuItem>)}</DropdownMenuContent>
         </DropdownMenu>}
         <Button size="sm" variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}>{uiT("Refresh")}</Button>
-        <Button asChild size="sm" variant="ghost"><Link to={keysHref}>{uiT("Manage keys")}</Link></Button>
+        <Button asChild size="sm" variant="ghost"><Link to={keysHref}>{uiT("Manage connections")}</Link></Button>
       </div>
     </div>
     {notice && <p role="status" className="text-sm">{uiT(notice)}</p>}
@@ -248,6 +248,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
               {(commercial || offer) ? <div className="inline-flex items-center gap-1">
                 <Badge variant={offer?.active && offer?.route_ready ? "secondary" : "outline"} className="font-normal">{supplyStatus}</Badge>
                 <Button size="xs" variant="ghost" className="px-1.5" onClick={() => onOffer(alias, media)}>{uiT("Manage offer")}</Button>
+                {offer?.active && offer?.route_ready && <Button asChild size="xs" variant="ghost" className="px-1.5"><Link to={`/admin/pricing?model=${encodeURIComponent(alias)}&publish=${media ? 'media' : 'text'}`}>{uiT("Set price")}</Link></Button>}
               </div> : <span className="text-xs text-muted-foreground">—</span>}
             </TableCell>}
             <TableCell className="align-middle whitespace-nowrap text-right">

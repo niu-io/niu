@@ -133,30 +133,36 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
               ? t('Installation administration', '实例管理')
               : t('Sign in', '登录')
               : supplierArea
-                ? ({
-                    customers: t('Customers', '客户管理'),
-                    reports: t('Financial reports', '财务报表'),
-                    oauth: t('OAuth providers', 'OAuth 服务商'),
-                    payments: t('Payment gateways', '支付网关'),
-                    pricing: t('Pricing', '定价配置'),
-                    branding: t('Branding', '品牌定制'),
-                    audit: t('Audit logs', '审计日志'),
-                    incidents: t('Incidents', '事故'),
-                    pools: t('Routing', '模型路由'),
-                    routing: t('Routing', '模型路由'),
-                    overview: t('Overview', '概览'),
-                    keys: t('Keys', '密钥'),
-                    models: t('Models', '模型'),
-                    usage: t('Usage', '调用量'),
-                    settlements: t('Settlements', '结算账单'),
-                    members: t('Members', '成员'),
-                    settings: location.pathname === '/admin/settings' ? t('Settings', '实例设置') : t('Settings', '设置'),
-                  }[location.pathname.split('/').pop() ?? ''] ??
-                  (location.pathname === '/admin/providers' || location.pathname === '/admin/suppliers'
-                    ? t('Providers', '模型供应商')
-                    : supplierManagement
-                      ? t('Overview', '概览')
-                      : t('Providers', '模型供应商')))
+                ? normalizedPath === '/admin'
+                  ? t('Overview', '总览')
+                  : normalizedPath === '/admin/settings/registration'
+                    ? t('Registration policy', '注册策略')
+                    : ({
+                        customers: t('Customers', '客户管理'),
+                        registrations: t('Registrations', '注册审批'),
+                        reports: t('Financial reports', '财务报表'),
+                        oauth: t('OAuth providers', 'OAuth 服务商'),
+                        payments: t('Payments', '收款配置'),
+                        pricing: t('Pricing', '客户定价'),
+                        branding: t('Branding', '品牌定制'),
+                        audit: t('Audit logs', '审计日志'),
+                        incidents: t('Incidents', '连接事故'),
+                        pools: t('Custom models', '自定义模型'),
+                        routing: t('Custom models', '自定义模型'),
+                        overview: t('Overview', '概览'),
+                        keys: t('Connections', '上游连接'),
+                        connections: t('Connections', '上游连接'),
+                        models: t('Models', '模型'),
+                        usage: t('Usage', '调用量'),
+                        settlements: t('Settlements', '结算账单'),
+                        members: t('Members', '成员'),
+                        settings: normalizedPath === '/admin/settings' ? t('General & billing', '基础与计费') : t('Settings', '设置'),
+                      }[normalizedPath.split('/').pop() ?? ''] ??
+                      (normalizedPath === '/admin/providers' || normalizedPath === '/admin/suppliers'
+                        ? t('Providers', '模型供应商')
+                        : supplierManagement
+                          ? t('Overview', '概览')
+                          : t('Providers', '模型供应商')))
                 : activePath === 'keys/new'
                   ? t('New key', '新建密钥')
                   : activePath.startsWith('keys/')

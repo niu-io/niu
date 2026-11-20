@@ -52,7 +52,7 @@ export default function OverviewRoute() {
     <PageHeader title={t('Overview', '概览')} action={token && <div className="overview-primary-actions">{models.length
       ? <Button asChild><Link to={`/generations?${chatSearch}`} className="header-icon-action" aria-label={t('Open Generations', '开始生成')} title={t('Open Generations', '开始生成')}><IconSparkles aria-hidden="true" /><span>{t('Open Generations', '开始生成')}</span></Link></Button>
       : canManagePlatform
-        ? <Button asChild><Link to="/admin/providers" className="header-icon-action" aria-label={t('Connect provider', '接入供应商')} title={t('Connect provider', '接入供应商')}><Network aria-hidden="true" /><span>{t('Connect provider', '接入供应商')}</span></Link></Button>
+        ? <Button asChild><Link to="/admin" className="header-icon-action" aria-label={t('Admin setup', '进入管理后台')} title={t('Admin setup', '进入管理后台')}><Network aria-hidden="true" /><span>{t('Admin setup', '进入管理后台')}</span></Link></Button>
         : <Button asChild><Link to={modelsHref} className="header-icon-action" aria-label={t('Browse models', '浏览模型')} title={t('Browse models', '浏览模型')}><Network aria-hidden="true" /><span>{t('Browse models', '浏览模型')}</span></Link></Button>}</div>} />
 
     <section className="cost-workbench" aria-label={uiT("Recent gateway requests")}>

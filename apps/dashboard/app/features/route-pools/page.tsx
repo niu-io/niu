@@ -174,7 +174,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
   return (
     <div className="empty-region space-y-6">
       <PageHeader
-        title={t('Routing', '模型路由')}
+        title={t('Custom models', '自定义模型')}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="outline">
@@ -197,8 +197,8 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
       />
       <p className="text-sm text-muted-foreground">
         {t(
-          'Combine multiple Provider model routes into one callable model alias with conditional routing rules, priority/weight failover, unified custom-model pricing or per-candidate pass-through billing, and strategy auditing.',
-          '将多个 Provider 模型路由组合为一个可直接调用的模型别名，支持条件分流规则、优先级与权重容灾、自定义模型统一定价或按命中模型分别计费，以及路由策略审计。',
+          'Optional: combine multiple Provider model routes into one callable custom model alias with conditional routing rules, priority/weight failover, unified or pass-through billing, and strategy auditing. Direct Provider models work without creating custom models.',
+          '可选能力：将多个 Provider 模型路由组合为一个可直接调用的自定义模型别名，支持条件分流规则、优先级与权重容灾、统一定价或按命中模型计费以及策略审计。若只需直连单个模型，可跳过此页。',
         )}
       </p>
 

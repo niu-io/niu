@@ -406,6 +406,7 @@ export function RegistrationRequestsQueue({
     } else {
       setNoticeKind('rejected');
     }
+    window.dispatchEvent(new Event('niu:registrations-updated'));
     void loadQueue(statusFilter);
   }
 

@@ -1,4 +1,4 @@
-import { Navigate, redirect, type RouteObject } from 'react-router';
+import type { RouteObject } from 'react-router';
 import Administration from '../Administration';
 import { bindLazy } from '../lazy-route';
 import {
@@ -12,9 +12,7 @@ import {
   legacyAdminSupplierDetailLoader,
   legacyPathRedirectLoader,
   legacyProviderOverviewLoader,
-  requestSuffix,
 } from '../legacy-redirects';
-import { shouldDeferLegacyRedirect } from '../legacy-redirect-route';
 import LegacyRedirectRoute, {
   clientLoader as legacyRedirectLoader,
 } from '../legacy-redirect-route';
@@ -30,6 +28,7 @@ export const ADMIN_PROVIDER_SECTIONS = [
   'settlements',
   'members',
   'keys',
+  'connections',
   'api-keys',
   'configuration',
   'settings',
@@ -54,11 +53,11 @@ export const adminRoute: RouteObject = {
     {
       id: 'admin-index',
       index: true,
-      loader: ({ request, context }) =>
-        shouldDeferLegacyRedirect(request, context)
-          ? null
-          : redirect(`/admin/providers${requestSuffix(request)}`),
-      element: <Navigate to="providers" replace />,
+      lazy: bindLazy(routeImporters.adminOverview, {
+        destination: 'Administration',
+        navTo: '/admin',
+        title: { en: 'Overview', zh: '总览' },
+      }),
     },
     {
       path: 'commercial',
@@ -100,12 +99,30 @@ export const adminRoute: RouteObject = {
       element: <LegacyPathRedirect to="/admin/customers" />,
     },
     {
+      id: 'admin-settings-registration',
+      path: 'settings/registration',
+      lazy: bindLazy(routeImporters.platformRegistrationPolicy, {
+        destination: 'Administration',
+        navTo: '/admin/settings/registration',
+        title: { en: 'Registration policy', zh: '注册策略' },
+      }),
+    },
+    {
       id: 'admin-settings',
       path: 'settings',
       lazy: bindLazy(routeImporters.platformSettings, {
         destination: 'Administration',
         navTo: '/admin/settings',
-        title: { en: 'Settings', zh: '设置' },
+        title: { en: 'General & billing', zh: '基础与计费' },
+      }),
+    },
+    {
+      id: 'admin-registrations',
+      path: 'registrations',
+      lazy: bindLazy(routeImporters.adminRegistrations, {
+        destination: 'Administration',
+        navTo: '/admin/registrations',
+        title: { en: 'Registrations', zh: '注册审批' },
       }),
     },
     {
@@ -170,7 +187,7 @@ export const adminRoute: RouteObject = {
       lazy: bindLazy(routeImporters.payments, {
         destination: 'Administration',
         navTo: '/admin/payments',
-        title: { en: 'Payment gateways', zh: '支付网关' },
+        title: { en: 'Payments', zh: '收款配置' },
       }),
     },
     {
@@ -208,7 +225,7 @@ export const adminRoute: RouteObject = {
       lazy: bindLazy(routeImporters.routePools, {
         destination: 'Administration',
         navTo: '/admin/routing',
-        title: { en: 'Routing', zh: '模型路由' },
+        title: { en: 'Custom models', zh: '自定义模型' },
       }),
     },
     ...ADMIN_PROVIDER_SECTIONS.map(section => ({
@@ -224,6 +241,11 @@ export const adminRoute: RouteObject = {
         navTo: '/admin/providers',
         title: { en: 'Overview', zh: '概览' },
       }),
+    },
+    {
+      path: 'providers/:providerId/connections',
+      loader: legacyAdminProviderDetailLoader('keys'),
+      element: <LegacyAdminProviderDetailRedirect section="keys" />,
     },
     {
       path: 'providers/:providerId/api-keys',

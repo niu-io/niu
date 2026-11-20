@@ -11,21 +11,21 @@ vi.mock('../../../app/shell/dashboard-context', () => ({ useDashboardContext: ()
 vi.mock('../../../app/features/executions/components/GatewayActivity', () => ({ default: () => <div>Customer activity</div> }));
 
 describe('customer model workflow', () => {
-  it('lets an installation administrator connect the first upstream route', () => {
+  it('lets an installation administrator open Admin setup for the first upstream route', () => {
     fixture.context = {
       token: 'test-session', models: [], workspace: null,
       session: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } },
     } as unknown as DashboardContext;
-    const { container } = render(<MemoryRouter><OverviewRoute /></MemoryRouter>);
-    expect(screen.getByRole('link', { name: 'Connect provider' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Connect provider' }).getAttribute('href')).toBe('/admin/providers');
+    render(<MemoryRouter><OverviewRoute /></MemoryRouter>);
+    expect(screen.getByRole('link', { name: 'Admin setup' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Admin setup' }).getAttribute('href')).toBe('/admin');
   });
-  it('allows a user account with platform administration permissions to connect a Provider', () => {
+  it('allows a user account with platform administration permissions to open Admin setup', () => {
     fixture.context = {token: 'test-session', models: [], workspace: null,
       session: {kind: 'operator', permissions: {platform_admin: true, manage_operators: true}},
     } as unknown as DashboardContext;
     render(<MemoryRouter><OverviewRoute /></MemoryRouter>);
-    expect(screen.getByRole('link', {name: 'Connect provider'}).getAttribute('href')).toBe('/admin/providers');
+    expect(screen.getByRole('link', {name: 'Admin setup'}).getAttribute('href')).toBe('/admin');
   });
   it('keeps operator setup in the model catalog instead of upstream configuration', () => {
     fixture.context = {

@@ -16,10 +16,10 @@ import type { RetailPriceRecord, RetailPublicationResult, RetailStandardPublicat
 import { categories, ratesFrom, checkedRates, type Rates, type Tier } from './text-terms';
 
 /** Full text selling terms; optional categories stay distinct from explicit zero. */
-export function TextStandardEditor({ token, previous, open = true, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; open?: boolean; onClose: (pending: boolean) => void; onSaved: () => void }) {
+export function TextStandardEditor({ token, previous, initialModel = '', open = true, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onClose: (pending: boolean) => void; onSaved: () => void }) {
   const { t: uiT } = useUILocale();
   const original = previous?.schedule.kind === 'text' ? previous.schedule : undefined;
-  const [model, setModel] = useState(previous?.model_alias ?? '');
+  const [model, setModel] = useState(previous?.model_alias ?? initialModel);
   const {currency:platformCurrency}=usePlatformCurrency();
   const currency=previous?.currency ?? platformCurrency;
   const [models, setModels] = useState<string[]>([]), [modelsError, setModelsError] = useState(''), [query, setQuery] = useState('');

@@ -1,28 +1,34 @@
 import {
-  IconAdjustmentsHorizontal,
-  IconAlertTriangle,
   IconArrowLeft,
   IconBook,
-  IconChartLine,
-  IconCreditCard,
   IconExternalLink,
-  IconHistory,
   IconLayoutSidebarLeftCollapse as PanelLeftClose,
   IconLayoutSidebarLeftExpand as PanelLeftOpen,
-  IconPalette,
-  IconPlugConnected,
-  IconRoute,
   IconShieldLock,
   IconSparkles,
-  IconUsers,
 } from '@tabler/icons-react';
+import type { PlatformRegistrationQueuePage } from '@niu-io/sdk';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import AgentConnection from './AgentConnection';
-import { createContext, useContext, useEffect, type RefObject } from 'react';
+import { createContext, useContext, useEffect, useState, type RefObject } from 'react';
 import { useLocation } from 'react-router';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import { navigation } from './navigation';
-import { useSidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
+import { getAdminNavGroups, isAdminNavItemActive } from './admin-navigation';
+import {
+  useSidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+} from '@/components/ui/sidebar';
+import { request } from '@/lib/api-client';
 import AccountMenu from './AccountMenu';
 import ThemeMenu from './ThemeMenu';
 import ProductRailLink from './ProductRailLink';
@@ -52,9 +58,40 @@ export function ShellNavigation({
   const { settings, logo } = useBranding();
   const { pathname } = useLocation();
   const { isMobile, openMobile, state, toggleSidebar } = useSidebar();
-  if (!value) return null;
-  const { context, workspacePath, generationsHref } = value;
-  const adminScope = (pathname === '/admin' || pathname.startsWith('/admin/')) && canManagePlatform(context.session);
+  const [pendingRegistrations, setPendingRegistrations] = useState(0);
+  const context = value?.context;
+  const adminScope = Boolean(context && (pathname === '/admin' || pathname.startsWith('/admin/')) && canManagePlatform(context.session));
+  const isInternalAdmin = context?.session?.operating_mode === 'internal';
+  const adminToken = context?.token ?? '';
+  useEffect(() => {
+    if (!adminScope || !adminToken || isInternalAdmin) {
+      setPendingRegistrations(0);
+      return;
+    }
+    let cancelled = false;
+    const loadCount = () => {
+      void request<PlatformRegistrationQueuePage>(
+        adminToken,
+        '/api/v1/platform/registrations?status=pending&limit=1',
+        'GET',
+      )
+        .then(page => {
+          if (!cancelled) setPendingRegistrations(page.counts.pending);
+        })
+        .catch(() => {
+          // Leave badge absent when pending count cannot be read.
+        });
+    };
+    loadCount();
+    const onUpdated = () => loadCount();
+    window.addEventListener('niu:registrations-updated', onUpdated);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('niu:registrations-updated', onUpdated);
+    };
+  }, [adminScope, adminToken, isInternalAdmin]);
+  if (!value || !context) return null;
+  const { workspacePath, generationsHref } = value;
   const expanded = isMobile ? openMobile : state === 'expanded';
   const targetArea = adminArea || adminScope
     ? t('admin navigation')
@@ -98,18 +135,7 @@ export function ShellNavigation({
     </Button>
   );
   if (adminScope) {
-    const adminEntries = [
-      { to: '/admin/providers', label: t('Providers', '模型供应商'), icon: IconPlugConnected },
-      { to: '/admin/routing', label: t('Routing', '模型路由'), icon: IconRoute },
-      { to: '/admin/customers', label: t('Customers', '客户管理'), icon: IconUsers },
-      { to: '/admin/reports', label: t('Financial reports', '财务报表'), icon: IconChartLine },
-      { to: '/admin/pricing', label: t('Pricing', '定价配置'), icon: IconCreditCard },
-      { to: '/admin/payments', label: t('Payment gateways', '支付网关'), icon: IconCreditCard },
-      { to: '/admin/branding', label: t('Branding', '品牌定制'), icon: IconPalette },
-      { to: '/admin/audit', label: t('Audit logs', '审计日志'), icon: IconHistory },
-      { to: '/admin/incidents', label: t('Incidents', '事故'), icon: IconAlertTriangle },
-      { to: '/admin/settings', label: t('Settings', '实例设置'), icon: IconAdjustmentsHorizontal },
-    ].filter(item => context.session?.operating_mode !== 'internal' || !['/admin/customers', '/admin/reports', '/admin/pricing', '/admin/payments'].includes(item.to));
+    const adminGroups = getAdminNavGroups(context.session?.operating_mode);
     return <>
       <SidebarHeader className="sidebar-header-row flex-row items-center justify-between gap-1 px-3 py-2.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
         <div className="sidebar-header-brand flex h-9 min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 font-semibold text-sidebar-foreground group-data-[collapsible=icon]:hidden" title={t('Platform admin', '管理后台')}>
@@ -118,15 +144,42 @@ export function ShellNavigation({
         </div>
         {toggleButton}
       </SidebarHeader>
-      <SidebarContent className="px-3 group-data-[collapsible=icon]:px-0">
-        <nav aria-label={t('Admin navigation', '管理后台导航')}><SidebarMenu>{adminEntries.map(item => {
-          const active = pathname === item.to || pathname.startsWith(`${item.to}/`) || (item.to === '/admin/providers' && pathname.startsWith('/admin/suppliers'));
-          return <SidebarMenuItem key={item.to}>
-            <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
-              <ProductRailLink to={item.to} aria-label={item.label}><item.icon aria-hidden="true" /><span>{item.label}</span></ProductRailLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>;
-        })}</SidebarMenu></nav>
+      <SidebarContent className="px-2 pb-2 group-data-[collapsible=icon]:px-0">
+        <nav aria-label={t('Admin navigation', '管理后台导航')} className="space-y-1">
+          {adminGroups.map(group => (
+            <SidebarGroup key={group.id} className="px-1 py-1 group-data-[collapsible=icon]:px-0">
+              {group.labelEn && (
+                <SidebarGroupLabel className="h-6 px-2 text-[11px] font-medium tracking-wider uppercase text-sidebar-foreground/60">
+                  {isZh ? group.labelZh : group.labelEn}
+                </SidebarGroupLabel>
+              )}
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {group.items.map(item => {
+                    const label = isZh ? item.labelZh : item.labelEn;
+                    const active = isAdminNavItemActive(item, pathname);
+                    const badgeCount = item.badgeKey === 'pendingRegistrations' ? pendingRegistrations : 0;
+                    return (
+                      <SidebarMenuItem key={item.to}>
+                        <SidebarMenuButton asChild isActive={active} tooltip={label}>
+                          <ProductRailLink to={item.to} end={item.end} aria-label={label}>
+                            <item.icon aria-hidden="true" />
+                            <span className="min-w-0 flex-1 truncate">{label}</span>
+                            {badgeCount > 0 && (
+                              <Badge variant="default" className="ml-auto h-5 min-w-5 justify-center px-1.5 text-[11px] group-data-[collapsible=icon]:hidden">
+                                {badgeCount}
+                              </Badge>
+                            )}
+                          </ProductRailLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))}
+        </nav>
       </SidebarContent>
     </>;
   }
@@ -134,7 +187,8 @@ export function ShellNavigation({
   const workspaceAreas = Boolean(context.session?.operator || context.session?.kind === 'installation');
   const workspaceAssetsActive = /^\/workspaces\/[^/]+\/(assets|library|video)(\/|$)/.test(pathname);
   const workspaceModelsChildActive = /^\/workspaces\/[^/]+\/(models|routing|evaluations)(\/|$)/.test(pathname);
-  const workspaceSettingsChildActive = /^\/workspaces\/[^/]+\/(settings|guardrails|billing|events)(\/|$)/.test(pathname);
+  const workspaceUsageChildActive = /^\/workspaces\/[^/]+\/(usage|billing)(\/|$)/.test(pathname);
+  const workspaceSettingsChildActive = /^\/workspaces\/[^/]+\/(settings|guardrails|events)(\/|$)/.test(pathname);
   const entries = workspaceAreas ? [
     ...navigation.filter(item => item.destination === 'Workspace' && !item.hidden).map(item => {
       const to = item.to === '.' ? workspacePath : `${workspacePath}/${item.to}`;
@@ -142,9 +196,11 @@ export function ShellNavigation({
         ? pathname === to || pathname === `${to}/`
         : item.to === 'models'
           ? workspaceModelsChildActive || pathname.startsWith('/models')
-          : item.to === 'settings'
-            ? workspaceSettingsChildActive || pathname === to || pathname.startsWith(`${to}/`)
-            : pathname === to || pathname.startsWith(`${to}/`);
+          : item.to === 'usage'
+            ? workspaceUsageChildActive
+            : item.to === 'settings'
+              ? workspaceSettingsChildActive || pathname === to || pathname.startsWith(`${to}/`)
+              : pathname === to || pathname.startsWith(`${to}/`);
       return { to, end: item.to === '.', label: isZh ? item.labelZh : item.label, icon: item.icon, active };
     }),
   ] : [];
@@ -181,7 +237,7 @@ export function ShellAccount() {
   const returnWorkspaceName = value.context.workspace ? workspaceDisplayName(value.context.workspace.name) : '';
   const footerLinks = adminScope
     ? workspaceAreas ? [{ to: value.workspacePath, label: t('Back to workspace', '返回工作空间'), tooltip: returnWorkspaceName ? `${t('Back to workspace', '返回工作空间')} · ${returnWorkspaceName}` : t('Back to workspace', '返回工作空间'), subtitle: returnWorkspaceName, icon: IconArrowLeft, active: false }] : []
-    : canManagePlatform(value.context.session) ? [{ to: '/admin/providers', label: t('Admin', '管理后台'), tooltip: t('Admin', '管理后台'), subtitle: '', icon: IconShieldLock, active: pathname.startsWith('/admin') }] : [];
+    : canManagePlatform(value.context.session) ? [{ to: '/admin', label: t('Admin', '管理后台'), tooltip: t('Admin', '管理后台'), subtitle: '', icon: IconShieldLock, active: pathname === '/admin' || pathname.startsWith('/admin/') }] : [];
   return <SidebarFooter className="gap-2 p-3 group-data-[collapsible=icon]:px-0">
     <SidebarMenu>
       {workspaceAreas && !adminScope && <SidebarMenuItem><AgentConnection context={value.context} sidebar /></SidebarMenuItem>}

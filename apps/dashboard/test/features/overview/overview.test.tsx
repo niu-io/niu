@@ -45,10 +45,10 @@ describe('workspace overview quick start', () => {
     expect(screen.getByText('Ask a workspace administrator to create or share a key.')).toBeTruthy();
   });
 
-  it('points administrators without models at Provider configuration', () => {
+  it('points administrators without models at Admin setup', () => {
     render(quickStart({hasModels: false, canManagePlatform: true}));
     expect(screen.getByRole('heading', {name: 'Connect your agent'})).toBeTruthy();
-    expect(screen.getByRole('link', {name: 'Connect provider'}).getAttribute('href')).toBe('/admin/providers');
+    expect(screen.getByRole('link', {name: 'Open Admin setup'}).getAttribute('href')).toBe('/admin');
   });
 
   it('points other members without models at the workspace model catalog', () => {

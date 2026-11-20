@@ -57,12 +57,22 @@ export default function ShellSectionTabs({ context }: {
       : /\/routing(\/|$)/.test(location.pathname)
         ? `${routeWorkspaceBase}/routing`
         : `${routeWorkspaceBase}/models`;
-  } else if (/^\/workspaces\/[^/]+\/(settings|guardrails|billing|events)(\/|$)/.test(location.pathname) && routeWorkspaceBase) {
-    label = t('Workspace settings sections', '工作空间设置页面');
+  } else if (/^\/workspaces\/[^/]+\/(usage|billing)(\/|$)/.test(location.pathname) && routeWorkspaceBase) {
     const internal = context.session?.operating_mode === 'internal';
+    if (!internal) {
+      label = t('Usage and billing sections', '用量与账单页面');
+      entries = [
+        { path: `${routeWorkspaceBase}/usage`, label: t('Usage', '用量') },
+        { path: `${routeWorkspaceBase}/billing`, label: t('Billing and rates', '账单与费率') },
+      ];
+      selected = location.pathname.includes('/billing')
+        ? `${routeWorkspaceBase}/billing`
+        : `${routeWorkspaceBase}/usage`;
+    }
+  } else if (/^\/workspaces\/[^/]+\/(settings|guardrails|events)(\/|$)/.test(location.pathname) && routeWorkspaceBase) {
+    label = t('Workspace settings sections', '工作空间设置页面');
     entries = [
       { path: `${routeWorkspaceBase}/settings`, label: t('General', '常规设置') },
-      ...(!internal ? [{ path: `${routeWorkspaceBase}/billing`, label: t('Billing and rates', '账单与费率') }] : []),
       { path: `${routeWorkspaceBase}/guardrails`, label: t('Guardrails', '安全护栏') },
       { path: `${routeWorkspaceBase}/events`, label: t('Events', '事件订阅') },
     ];
@@ -70,9 +80,7 @@ export default function ShellSectionTabs({ context }: {
       ? `${routeWorkspaceBase}/guardrails`
       : location.pathname.includes('/events')
         ? `${routeWorkspaceBase}/events`
-        : location.pathname.includes('/billing') && !internal
-          ? `${routeWorkspaceBase}/billing`
-          : `${routeWorkspaceBase}/settings`;
+        : `${routeWorkspaceBase}/settings`;
   }
 
   if (!entries.length) return null;
