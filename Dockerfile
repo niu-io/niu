@@ -41,6 +41,7 @@ COPY tests/extensions/reference-extension tests/extensions/reference-extension
 COPY vendor/litellm-rust vendor/litellm-rust
 COPY config config
 COPY branding branding
+COPY contracts/generated/public-openapi.json contracts/generated/public-openapi.yaml contracts/generated/
 COPY --from=dashboard /workspace/apps/dashboard/dist apps/dashboard/dist
 COPY --from=dashboard /workspace/apps/docs/dist apps/docs/dist
 COPY --from=dashboard /workspace/apps/catalog/dist apps/catalog/dist

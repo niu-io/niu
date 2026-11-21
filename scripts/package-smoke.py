@@ -828,6 +828,12 @@ def main():
 
     status, _, _ = request("GET", "/healthz")
     assert status == 200, f"liveness returned HTTP {status}"
+    openapi_json_status, openapi_json, openapi_json_type = request("GET", "/openapi.json")
+    assert openapi_json_status == 200 and "application/json" in openapi_json_type
+    assert openapi_json.get("openapi", "").startswith("3.1")
+    openapi_yaml_status, openapi_yaml, openapi_yaml_type = request("GET", "/openapi.yaml")
+    assert openapi_yaml_status == 200 and "yaml" in openapi_yaml_type
+    assert "openapi: 3.1" in (openapi_yaml if isinstance(openapi_yaml, str) else openapi_yaml.decode("utf-8"))
     # Community root opens the workspace; the marketing artifact is optional.
     with LOCAL_OPENER.open(f"{BASE_URL}/", timeout=5) as response:
         assert response.url.endswith("/workspaces/default/")
@@ -885,7 +891,7 @@ def main():
         "/chat",
         "/activity",
         "/activity/logs",
-        "/installation",
+        "/setup",
         "/admin/suppliers",
         "/admin/reports",
         "/admin/balances",
