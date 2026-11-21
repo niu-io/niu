@@ -5633,6 +5633,10 @@ Content type: `application/json`.
     "demo_login": {
       "type": "boolean"
     },
+    "setup_required": {
+      "type": "boolean",
+      "description": "True when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /installation is required."
+    },
     "registration_mode": {
       "type": "string",
       "enum": [
@@ -5644,6 +5648,87 @@ Content type: `application/json`.
   }
 }
 ```
+
+## Create the first platform administrator account during initial setup
+
+`POST /api/v1/auth/installation/setup`
+
+One-time first-run bootstrap for a blank deployment where browser password authentication is enabled and no active password-enabled platform administrator exists yet. Requires the configured browser Origin and a valid administrator token from NIU_ADMIN_TOKENS. Creates the first owner account with platform administration enabled in the default workspace, issues an eight-hour HttpOnly browser session cookie with platform administrator mode active, and rejects subsequent calls with 409 Conflict. Responses are not cached.
+
+Implementation: `implemented`. Operation: `completeInitialInstallationSetup`.
+
+### Authentication
+
+No OpenAPI security scheme is required. Signature and other request validation still apply as described above.
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "administrator_token",
+    "email",
+    "password"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "administrator_token": {
+      "type": "string",
+      "description": "Bootstrap administrator credential configured in NIU_ADMIN_TOKENS."
+    },
+    "name": {
+      "type": "string",
+      "description": "Optional display name for the initial platform administrator (max 100 characters)."
+    },
+    "email": {
+      "type": "string",
+      "format": "email"
+    },
+    "password": {
+      "type": "string",
+      "minLength": 15,
+      "description": "Account password (at least 15 characters and at most 1024 bytes)."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 201: Initial platform administrator created and browser session established.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "session"
+  ],
+  "properties": {
+    "session": {
+      "type": "object"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid email, display name, or password policy violation.
+
+HTTP 401: Configured NIU_ADMIN_TOKENS credential did not match.
+
+HTTP 403: Browser origin rejected.
+
+HTTP 409: Initial administrator setup has already been completed or the email is already in use.
+
+HTTP 429: Setup admission limit reached.
+
+HTTP 501: Browser password authentication is not configured.
 
 ## List platform operation audit logs
 

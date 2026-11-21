@@ -11,7 +11,7 @@ import type { PlatformRegistrationQueuePage } from '@niu-io/sdk';
 import { Button } from '@/components/ui/button';
 import AgentConnection from './AgentConnection';
 import { createContext, useContext, useEffect, useState, type RefObject } from 'react';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import { navigation } from './navigation';
 import { getAdminNavGroups } from './admin-navigation';
@@ -197,16 +197,23 @@ export function ShellNavigation({
 export function ShellAccount() {
   const value = useContext(ShellNavigationContext);
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { t } = useLocale();
   if (!value) return null;
-  const adminScope = (pathname === '/admin' || pathname.startsWith('/admin/')) && canManagePlatform(value.context.session);
-  const workspaceAreas = Boolean(value.context.session?.operator || value.context.session?.kind === 'installation');
+  const session = value.context.session;
+  const hasActiveAdmin = canManagePlatform(session);
+  const canActivateAdmin = Boolean(session?.admin_mode?.available);
+  const adminScope = (pathname === '/admin' || pathname.startsWith('/admin/')) && hasActiveAdmin;
+  const workspaceAreas = Boolean(session?.operator || session?.kind === 'installation');
   const docsLabel = t('Docs', '文档');
   const docsLinkLabel = t('Docs (opens in a new tab)', '文档（在新标签页打开）');
   const returnWorkspaceName = value.context.workspace ? workspaceDisplayName(value.context.workspace.name) : '';
+  const roleSwitch = value.context.roleSwitch;
   const footerLinks = adminScope
-    ? workspaceAreas ? [{ to: value.workspacePath, label: t('Back to workspace', '返回工作空间'), tooltip: returnWorkspaceName ? `${t('Back to workspace', '返回工作空间')} · ${returnWorkspaceName}` : t('Back to workspace', '返回工作空间'), subtitle: returnWorkspaceName, icon: IconArrowLeft, active: false }] : []
-    : canManagePlatform(value.context.session) ? [{ to: '/admin', label: t('Admin', '管理后台'), tooltip: t('Admin', '管理后台'), subtitle: '', icon: IconShieldLock, active: pathname === '/admin' || pathname.startsWith('/admin/') }] : [];
+    ? workspaceAreas ? [{ to: value.workspacePath, label: t('Back to workspace', '返回工作空间'), tooltip: returnWorkspaceName ? `${t('Back to workspace', '返回工作空间')} · ${returnWorkspaceName}` : t('Back to workspace', '返回工作空间'), subtitle: returnWorkspaceName, icon: IconArrowLeft, active: false, activateAdmin: false }] : []
+    : (hasActiveAdmin || canActivateAdmin)
+      ? [{ to: '/admin', label: t('Admin', '管理后台'), tooltip: t('Admin', '管理后台'), subtitle: '', icon: IconShieldLock, active: pathname === '/admin' || pathname.startsWith('/admin/'), activateAdmin: !hasActiveAdmin && canActivateAdmin }]
+      : [];
   return <SidebarFooter className="gap-2 p-3 group-data-[collapsible=icon]:px-0">
     <SidebarMenu>
       {workspaceAreas && !adminScope && <SidebarMenuItem><AgentConnection context={value.context} sidebar /></SidebarMenuItem>}
@@ -219,7 +226,36 @@ export function ShellAccount() {
           </a>
         </SidebarMenuButton>
       </SidebarMenuItem>
-      {footerLinks.map(item => <SidebarMenuItem key={item.to}><SidebarMenuButton asChild tooltip={item.tooltip} isActive={item.active}><ProductRailLink to={item.to} aria-label={item.label}><item.icon aria-hidden="true" /><span className="truncate group-data-[collapsible=icon]:hidden">{item.label}</span>{item.subtitle && <span className="ml-auto max-w-24 truncate text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">{item.subtitle}</span>}</ProductRailLink></SidebarMenuButton></SidebarMenuItem>)}
+      {footerLinks.map(item => (
+        <SidebarMenuItem key={item.to}>
+          {item.activateAdmin ? (
+            <SidebarMenuButton
+              type="button"
+              tooltip={item.tooltip}
+              isActive={item.active}
+              disabled={roleSwitch?.saving}
+              aria-label={item.label}
+              onClick={() => {
+                if (!roleSwitch) return;
+                void roleSwitch.setRole('admin').then(switched => {
+                  if (switched) navigate('/admin');
+                });
+              }}
+            >
+              <item.icon aria-hidden="true" />
+              <span className="truncate group-data-[collapsible=icon]:hidden">{roleSwitch?.saving ? t('Opening Admin…', '正在进入管理后台…') : item.label}</span>
+            </SidebarMenuButton>
+          ) : (
+            <SidebarMenuButton asChild tooltip={item.tooltip} isActive={item.active}>
+              <ProductRailLink to={item.to} aria-label={item.label}>
+                <item.icon aria-hidden="true" />
+                <span className="truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
+                {item.subtitle && <span className="ml-auto max-w-24 truncate text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">{item.subtitle}</span>}
+              </ProductRailLink>
+            </SidebarMenuButton>
+          )}
+        </SidebarMenuItem>
+      ))}
     </SidebarMenu>
     <div className="flex items-center gap-1 pt-1 group-data-[collapsible=icon]:justify-center">
       <div className="min-w-0 flex-1 group-data-[collapsible=icon]:flex-none"><AccountMenu context={value.context} workspacePath={value.workspacePath} supplierArea={pathname.startsWith('/admin/providers')} mobile sidebar showDestinations={false} /></div>

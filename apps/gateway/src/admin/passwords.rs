@@ -580,6 +580,10 @@ pub async fn logout(
 ///                 "demo_login": {
 ///                   "type": "boolean"
 ///                 },
+///                 "setup_required": {
+///                   "type": "boolean",
+///                   "description": "True when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /installation is required."
+///                 },
 ///                 "registration_mode": {
 ///                   "type": "string",
 ///                   "enum": [
@@ -599,22 +603,183 @@ pub async fn logout(
 /// ```
 pub async fn configuration(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
     let password_login = state.password_auth.is_some();
-    let registration_mode = if password_login {
-        state
+    let (setup_required, registration_mode) = if password_login {
+        let has_admin = state
+            .store
+            .has_platform_admin_password_account()
+            .await
+            .map_err(ApiError::from_store)?;
+        let registration_mode = state
             .store
             .registration_policy()
             .await
             .map_err(ApiError::from_store)?
-            .mode
+            .mode;
+        (!has_admin, registration_mode)
     } else {
-        niu_storage::RegistrationMode::Disabled
+        (false, niu_storage::RegistrationMode::Disabled)
     };
     Ok(Json(json!({
         "password_login": password_login,
         "browser_token_login": password_login,
         "demo_login": state.password_auth.as_ref().is_some_and(|auth| auth.demo_login.is_some()),
+        "setup_required": setup_required,
         "registration_mode": registration_mode.as_str(),
     })))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InstallationSetupInput {
+    administrator_token: String,
+    email: String,
+    password: String,
+    #[serde(default)]
+    name: Option<String>,
+}
+
+/// # OpenAPI
+/// ```openapi
+/// {
+///   "path": "/api/v1/auth/installation/setup",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "completeInitialInstallationSetup",
+///     "tags": ["Authentication"],
+///     "summary": "Create the first platform administrator account during initial setup",
+///     "description": "One-time first-run bootstrap for a blank deployment where browser password authentication is enabled and no active password-enabled platform administrator exists yet. Requires the configured browser Origin and a valid administrator token from NIU_ADMIN_TOKENS. Creates the first owner account with platform administration enabled in the default workspace, issues an eight-hour HttpOnly browser session cookie with platform administrator mode active, and rejects subsequent calls with 409 Conflict. Responses are not cached.",
+///     "security": [],
+///     "x-niu-implementation": "implemented",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "required": ["administrator_token", "email", "password"],
+///             "additionalProperties": false,
+///             "properties": {
+///               "administrator_token": {
+///                 "type": "string",
+///                 "description": "Bootstrap administrator credential configured in NIU_ADMIN_TOKENS."
+///               },
+///               "name": {
+///                 "type": "string",
+///                 "description": "Optional display name for the initial platform administrator (max 100 characters)."
+///               },
+///               "email": {
+///                 "type": "string",
+///                 "format": "email"
+///               },
+///               "password": {
+///                 "type": "string",
+///                 "minLength": 15,
+///                 "description": "Account password (at least 15 characters and at most 1024 bytes)."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "201": {
+///         "description": "Initial platform administrator created and browser session established.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": ["session"],
+///               "properties": {
+///                 "session": {
+///                   "type": "object"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {"description": "Invalid email, display name, or password policy violation."},
+///       "401": {"description": "Configured NIU_ADMIN_TOKENS credential did not match."},
+///       "403": {"description": "Browser origin rejected."},
+///       "409": {"description": "Initial administrator setup has already been completed or the email is already in use."},
+///       "429": {"description": "Setup admission limit reached."},
+///       "501": {"description": "Browser password authentication is not configured."}
+///     }
+///   }
+/// }
+/// ```
+pub async fn complete_installation_setup(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    input: Result<Json<InstallationSetupInput>, JsonRejection>,
+) -> Result<Response, ApiError> {
+    let auth = runtime(&state)?;
+    auth.require_origin(&headers)?;
+    let Json(input) =
+        input.map_err(|_| ApiError::invalid_request("Invalid installation setup request"))?;
+    let client_ip = crate::request_source::current_ip().map(|ip| ip.to_string());
+    let rate_key = if niu_storage::is_valid_email_address(&input.email) {
+        input.email.as_str()
+    } else {
+        "installation-setup@invalid.local"
+    };
+    if !state
+        .store
+        .admit_member_password_login_with_ip(rate_key, client_ip.as_deref())
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::sign_in_limited());
+    }
+    let admin_token = input.administrator_token.trim();
+    if admin_token.is_empty() || admin_token.len() > 512 {
+        return Err(ApiError::invalid_installation_token());
+    }
+    let bearer = format!("Bearer {admin_token}");
+    if !state.admin_tokens.matches(Some(bearer.as_str())) {
+        return Err(ApiError::invalid_installation_token());
+    }
+    if input.email.len() > 254 || !niu_storage::is_valid_email_address(&input.email) {
+        return Err(ApiError::invalid_request("Enter a valid email address"));
+    }
+    if let Some(name) = input.name.as_deref().map(str::trim)
+        && (name.chars().count() > 100 || name.chars().any(char::is_control))
+    {
+        return Err(ApiError::invalid_request(
+            "Display name must be at most 100 characters without control characters",
+        ));
+    }
+    if state
+        .store
+        .has_platform_admin_password_account()
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::installation_already_initialized());
+    }
+    let hash = auth.hash_password_bounded(input.password).await?;
+    let issued = state
+        .store
+        .complete_initial_installation(&input.email, input.name.as_deref(), &hash)
+        .await
+        .map_err(|error| match error {
+            niu_storage::StoreError::Conflict => ApiError::installation_already_initialized(),
+            niu_storage::StoreError::RegistrationEmailExists => {
+                ApiError::registration_email_exists()
+            }
+            niu_storage::StoreError::InvalidOperator => {
+                ApiError::invalid_request("Invalid installation setup request")
+            }
+            other => ApiError::from_store(other),
+        })?;
+    let cookie = auth.cookie_header(&issued.token, 28800)?;
+    let mut response = (
+        StatusCode::CREATED,
+        Json(json!({ "session": issued.session })),
+    )
+        .into_response();
+    response.headers_mut().insert("set-cookie", cookie);
+    Ok(response)
 }
 
 #[derive(Deserialize)]

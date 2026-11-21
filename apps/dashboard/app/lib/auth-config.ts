@@ -4,11 +4,16 @@ export type AuthConfig = {
   password_login?: boolean;
   browser_token_login?: boolean;
   demo_login?: boolean;
+  setup_required?: boolean;
   registration_mode?: 'disabled' | 'approval_required';
   [key: string]: unknown;
 };
 
 export const AUTH_CONFIG_ENDPOINT = '/api/v1/auth/config';
+
+export function invalidateAuthConfigCache(): void {
+  invalidateQueries(key => key.startsWith(`public::${AUTH_CONFIG_ENDPOINT}`));
+}
 
 export async function loadAuthConfig(options?: {
   signal?: AbortSignal;

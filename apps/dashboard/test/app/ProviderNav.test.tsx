@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { ProviderNav } from '@/shell/AppLayout';
+import { ShellAccount, ShellNavigationContext } from '@/shell/ShellNavigation';
 import type { DashboardContext } from '@/shell/dashboard-context';
 
 it('keeps Admin sections independent of the Provider directory', () => {
@@ -110,4 +111,49 @@ it('opens a two-level flyout menu for Admin groups when the sidebar is collapsed
   await user.click(commerceTrigger);
   const paymentsItem = await screen.findByRole('menuitem', { name: 'Payments' });
   expect(paymentsItem.getAttribute('href')).toBe('/admin/payments');
+});
+
+function PathEcho() {
+  const { pathname } = useLocation();
+  return <div data-testid="path-echo">{pathname}</div>;
+}
+
+it('lets a platform administrator signed in as a normal user activate Admin from the sidebar footer in one click', async () => {
+  const setRole = vi.fn(async () => true);
+  const context = {
+    token: 'niu-browser-member-session',
+    session: {
+      kind: 'operator',
+      operator: { id: 'op-1', name: 'Founder', role: 'owner', organization_id: 'org-1', project_id: null },
+      permissions: { read: true, write: true, manage_operators: true, platform_admin: false },
+      admin_mode: { available: true, enabled: false },
+      roles: { active: 'user', available: ['user', 'admin'], switchable: true },
+      profile: { name: 'Founder', email: 'founder@example.test', avatar_data_url: null, revision: 0 },
+    },
+    workspace: { id: 'ws-1', name: 'Default' },
+    workspaces: [{ id: 'ws-1', name: 'Default' }],
+    organizations: [],
+    organization: null,
+    roleSwitch: { available: ['user', 'admin'], active: 'user', saving: false, error: '', setRole },
+    signOut: vi.fn(),
+    selectOrganization: vi.fn(),
+  } as unknown as DashboardContext;
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter initialEntries={['/workspaces/default/']}>
+      <SidebarProvider>
+        <ShellNavigationContext.Provider value={{ context, workspacePath: '/workspaces/default/', modelsHref: '/workspaces/default/models', generationsHref: '/generations' }}>
+          <ShellAccount />
+          <Routes>
+            <Route path="*" element={<PathEcho />} />
+          </Routes>
+        </ShellNavigationContext.Provider>
+      </SidebarProvider>
+    </MemoryRouter>,
+  );
+
+  const adminButton = screen.getByRole('button', { name: 'Admin' });
+  await user.click(adminButton);
+  expect(setRole).toHaveBeenCalledWith('admin');
+  expect(await screen.findByText('/admin')).toBeTruthy();
 });
