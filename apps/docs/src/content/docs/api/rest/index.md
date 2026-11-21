@@ -303,7 +303,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`GET /api/v1/organizations/{organization}/billing/balance` — Read shared company account balances](/docs/api/rest/getcustomerbalance/)
 - [`GET /api/v1/organizations/{organization}/billing/charge-reconciliation` — Compare customer charge records with prepaid ledger debits](/docs/api/rest/getcustomerchargereconciliation/)
 - [`POST /api/v1/organizations/{organization}/billing/entries/{entry}/reversal` — Record a balance refund or settled-funding reversal](/docs/api/rest/reversecustomerbalanceentry/)
-- [`POST /api/v1/organizations/{organization}/billing/funding/settled` — Record an externally verified settled customer payment](/docs/api/rest/recordsettledcustomerfunding/)
+- [`POST /api/v1/organizations/{organization}/billing/funding/settled` — Record settled customer account top-up](/docs/api/rest/recordsettledcustomerfunding/)
 - [`GET /api/v1/organizations/{organization}/billing/media-rate-models` — Read named qualified commercial video configuration choices](/docs/api/rest/listcustomermediaratemodels/)
 - [`GET /api/v1/organizations/{organization}/billing/media-rates` — Read bounded immutable customer selling history](/docs/api/rest/listcustomermediarates/)
 - [`POST /api/v1/organizations/{organization}/billing/media-rates` — Publish an immutable customer video selling schedule](/docs/api/rest/publishcustomermediarate/)
