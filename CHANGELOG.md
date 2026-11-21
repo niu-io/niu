@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-21
+
+### Added
+- **api**: expose root /openapi.{json,yaml}, unify slug-or-UUID workspace lookup, and add /credits endpoints
+- **auth**: add first-run /installation admin setup, clean email+password /login, and one-click Admin switch
+- **dashboard**: add expandable two-level Admin sidebar and clarify admin token sign-in (niu-mvzr)
+
+### Changed
+- **api**: consolidate platform routes under /api/v1/admin/* and isolate /v1/* inference plane
+- **api**: delete all legacy /projects routes and unify /api/v1/workspaces/{workspace}/*
+- **api**: harden /api/v1/setup, rename /setup route, drop /admin/v1 dual routes and /session/mode (niu-iu8e.1)
+- **api**: rename initial setup endpoint to POST /api/v1/setup
+
+### Fixed
+- **docker**: refresh workspace Rust source mtimes before cached cargo build
+- **contracts**: register /api/v1/auth/installation/setup in root OpenAPI
+
 ## [0.3.2] - 2026-11-20
 
 Admin workflow redesign, pre-release security/protocol hardening, commercial catalog readiness gating, and native multi-arch release builds.
@@ -627,7 +644,8 @@ Agent-oriented UX, documentation and native coding-agent integrations.
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/niu-io/niu/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/niu-io/niu/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/niu-io/niu/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/niu-io/niu/compare/v0.2.31...v0.3.0
