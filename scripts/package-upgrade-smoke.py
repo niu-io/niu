@@ -294,10 +294,14 @@ def assert_records_persist(organization, project, key):
     assert any(item["id"] == organization["id"] for item in organizations["data"])
     _, projects = request(
         "GET",
-        f"/api/v1/workspaces?organization_id={organization['id']}",
+        "/api/v1/workspaces",
         admin=True,
     )
-    assert any(item["id"] == project["id"] for item in projects["data"])
+    assert any(
+        item["id"] == project["id"]
+        and item.get("organization_id", organization["id"]) == organization["id"]
+        for item in projects["data"]
+    )
     _, keys = request(
         "GET",
         f"/api/v1/workspaces/{project['id']}/keys",
@@ -326,8 +330,24 @@ def assert_records_persist(organization, project, key):
     assert [item["id"] for item in models["data"]] == ["upgrade-smoke"]
 
 
-def video_request(method, path, *, bearer_token=None, **kwargs):
-    status, body = request(method, path, token=bearer_token, **kwargs)
+def translate_v03_path(path):
+    if path.startswith("/api/v1/admin/providers/connections"):
+        return "/api/v1/vendors" + path[len("/api/v1/admin/providers/connections"):]
+    if path.startswith("/api/v1/admin/providers"):
+        return "/api/v1/providers" + path[len("/api/v1/admin/providers"):]
+    if path.startswith("/api/v1/members"):
+        return "/api/v1/operators" + path[len("/api/v1/members"):]
+    return path
+
+
+def previous_request(method, path, *, legacy_v03=False, **kwargs):
+    return request(method, translate_v03_path(path) if legacy_v03 else path, **kwargs)
+
+
+def video_request(method, path, *, bearer_token=None, legacy_v03=False, **kwargs):
+    status, body = previous_request(
+        method, path, legacy_v03=legacy_v03, token=bearer_token, **kwargs
+    )
     return status, body, "application/json"
 
 
@@ -366,18 +386,19 @@ def video_counts():
     return counts
 
 
-def prepare_video_upgrade(organization):
+def prepare_video_upgrade(organization, *, legacy_v03=False):
     fund_video_account(organization)
-    configuration = PACKAGE_VIDEO.configure_video(video_request, organization,
+    req = lambda method, path, **kw: video_request(method, path, legacy_v03=legacy_v03, **kw)
+    configuration = PACKAGE_VIDEO.configure_video(req, organization,
         "http://127.0.0.1:24678", PROVIDER_KEY,
         lambda supplier: database_value(f"SELECT id FROM provider_offers WHERE provider_id='{str(uuid.UUID(supplier))}' AND model_alias='package-video'"))
-    video = PACKAGE_VIDEO.create_video(video_request, organization, defer_completion=True)
+    video = PACKAGE_VIDEO.create_video(req, organization, defer_completion=True)
     # Preserve a known upstream identity through the image change, then query
     # and settle using the original admission tariff in the upgraded package.
-    PACKAGE_VIDEO.replace_fixture_customer_rate(video_request, organization, configuration)
-    PACKAGE_VIDEO.create_video_reader(video_request, organization, video)
-    uncertain = PACKAGE_VIDEO.create_uncertain_video(video_request, configuration, fund_video_account)
-    PACKAGE_VIDEO.assert_uncertain_video_retained(video_request, uncertain)
+    PACKAGE_VIDEO.replace_fixture_customer_rate(req, organization, configuration)
+    PACKAGE_VIDEO.create_video_reader(req, organization, video)
+    uncertain = PACKAGE_VIDEO.create_uncertain_video(req, configuration, fund_video_account)
+    PACKAGE_VIDEO.assert_uncertain_video_retained(req, uncertain)
     video_counts()
     return video, uncertain
 
@@ -461,12 +482,19 @@ def run_upgrade(previous_image, image):
     previous_migrations = applied_migrations()
     previous_receipts = migration_receipts()
     pending_migration = first_pending_migration(previous_migrations)
+    try:
+        probe_status, _ = request("GET", "/api/v1/admin/providers", admin=True)
+    except urllib.error.HTTPError as error:
+        probe_status = error.code
+        error.close()
+    legacy_v03 = probe_status == 404
     organization, project, key = create_upgrade_records()
     assert_records_persist(organization, project, key)
-    video_state = prepare_video_upgrade(organization["id"]) if VIDEO_UPGRADE else None
+    video_state = prepare_video_upgrade(organization["id"], legacy_v03=legacy_v03) if VIDEO_UPGRADE else None
     if ASSET_UPGRADE and previous_version < 159:
         raise RuntimeError("asset upgrade verification requires a previous package with asset request retention")
-    asset_state = PACKAGE_ASSETS.prepare_asset_upgrade(request, database_value, organization["id"], project["id"]) if ASSET_UPGRADE else None
+    prev_req = lambda method, path, **kw: previous_request(method, path, legacy_v03=legacy_v03, **kw)
+    asset_state = PACKAGE_ASSETS.prepare_asset_upgrade(prev_req, database_value, organization["id"], project["id"]) if ASSET_UPGRADE else None
 
     docker("stop", "--time", "10", APP)
     docker("rm", APP)

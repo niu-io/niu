@@ -141,5 +141,24 @@ class PackageUpgradeSmokeTests(unittest.TestCase):
             UPGRADE_SMOKE.first_pending_migration({versions[-1] + 1}, versions)
 
 
+    def test_translate_v03_path_maps_pre_v04_admin_and_member_paths(self):
+        self.assertEqual(
+            UPGRADE_SMOKE.translate_v03_path("/api/v1/admin/providers/connections/123/asset-management"),
+            "/api/v1/vendors/123/asset-management",
+        )
+        self.assertEqual(
+            UPGRADE_SMOKE.translate_v03_path("/api/v1/admin/providers/123/media-offers"),
+            "/api/v1/providers/123/media-offers",
+        )
+        self.assertEqual(
+            UPGRADE_SMOKE.translate_v03_path("/api/v1/members"),
+            "/api/v1/operators",
+        )
+        self.assertEqual(
+            UPGRADE_SMOKE.translate_v03_path("/api/v1/workspaces"),
+            "/api/v1/workspaces",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

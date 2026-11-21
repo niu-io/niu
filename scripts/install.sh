@@ -373,7 +373,7 @@ cmd_install() {
   echo ""
   echo "Niu ${tag} is running at http://127.0.0.1:${port}"
   echo "  Dashboard:      http://127.0.0.1:${port}/workspaces/default/"
-  echo "  Setup Console:  http://127.0.0.1:${port}/installation"
+  echo "  Setup Console:  http://127.0.0.1:${port}/setup"
   echo "  Model Catalog:  http://127.0.0.1:${port}/models/"
   echo "  Documentation:  http://127.0.0.1:${port}/docs/"
 }
