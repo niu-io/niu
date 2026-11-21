@@ -1,15 +1,15 @@
 ---
 title: "List scoped ordinary asset-listing outcomes and timing"
-description: "GET /api/v1/vendors/{id}/asset-management/listings"
+description: "GET /api/v1/admin/providers/connections/{id}/asset-management/listings"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/vendors/{id}/asset-management/listings`
+`GET /api/v1/admin/providers/connections/{id}/asset-management/listings`
 
 Platform administrator only. Durable audit metadata survives page-content deletion and grant revocation. No upstream request, credential release or billing mutation. Unresolved means no durable outcome, not running work or replay permission. Durations measure gateway execution; no Provider queue/run intervals or complete inventory are inferred. Upstream identities, cursors, descriptive content and procurement data are excluded. Stable newest-first cursor pagination, Cache-Control no-store.
 
-Operation: `get--api-v1-vendors--id--asset-management-listings`.
+Operation: `get--api-v1-admin-providers-connections--id--asset-management-listings`.
 
 ## Authentication
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/listings" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/asset-management/listings" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   --url-query 'organization_id=<ORGANIZATION_ID>' \
   --url-query 'project_id=<PROJECT_ID>'

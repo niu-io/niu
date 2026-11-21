@@ -1374,7 +1374,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/vendors/{vendor}/incidents": {
+    "/api/v1/admin/providers/connections/{vendor}/incidents": {
       "get": {
         "operationId": "listVendorIncidents",
         "summary": "Read upstream connection incidents and recovery evidence",
@@ -1506,7 +1506,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/incidents": {
+    "/api/v1/admin/incidents": {
       "get": {
         "operationId": "listConnectionIncidents",
         "summary": "Read platform upstream connection incidents",
@@ -1883,7 +1883,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/incidents/{incident}/connection": {
+    "/api/v1/admin/incidents/{incident}/connection": {
       "get": {
         "operationId": "resolveIncidentConnection",
         "summary": "Resolve a platform incident to its connection",
@@ -5170,6 +5170,100 @@
         }
       }
     },
+    "/api/v1/public/config": {
+      "get": {
+        "operationId": "getPublicConfig",
+        "summary": "Read public instance configuration, branding, currency, and sign-in capabilities",
+        "description": "Public safe projection combining authentication capabilities, initial setup state, registration mode, branding defaults, and configured platform currency in a single request. No credentials, actors, or commercial rates are exposed.",
+        "security": [],
+        "x-niu-implementation": "implemented",
+        "responses": {
+          "200": {
+            "description": "Public instance configuration in data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "password_login",
+                        "browser_token_login",
+                        "demo_login",
+                        "setup_required",
+                        "registration_mode",
+                        "branding",
+                        "currency",
+                        "billing_mode",
+                        "unit"
+                      ],
+                      "properties": {
+                        "password_login": {
+                          "type": "boolean"
+                        },
+                        "browser_token_login": {
+                          "type": "boolean"
+                        },
+                        "demo_login": {
+                          "type": "boolean"
+                        },
+                        "setup_required": {
+                          "type": "boolean"
+                        },
+                        "registration_mode": {
+                          "type": "string",
+                          "enum": [
+                            "disabled",
+                            "approval_required"
+                          ]
+                        },
+                        "branding": {
+                          "type": "object",
+                          "required": [
+                            "revision",
+                            "settings"
+                          ],
+                          "properties": {
+                            "revision": {
+                              "type": "string"
+                            },
+                            "settings": {
+                              "$ref": "#/components/schemas/BrandingSettings"
+                            }
+                          }
+                        },
+                        "currency": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "billing_mode": {
+                          "type": "string"
+                        },
+                        "unit": {
+                          "type": [
+                            "object",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Durable storage unavailable."
+          }
+        }
+      }
+    },
     "/api/v1/setup": {
       "post": {
         "operationId": "completeSetup",
@@ -5286,7 +5380,7 @@
         }
       }
     },
-    "/api/v1/platform/audit-events": {
+    "/api/v1/admin/audit": {
       "get": {
         "operationId": "listPlatformAuditEvents",
         "summary": "List platform operation audit logs",
@@ -5831,7 +5925,7 @@
         }
       }
     },
-    "/api/v1/platform/registration": {
+    "/api/v1/admin/registration": {
       "get": {
         "operationId": "getPlatformRegistrationPolicy",
         "summary": "Read Limited Preview registration policy",
@@ -5959,7 +6053,7 @@
         }
       }
     },
-    "/api/v1/platform/registrations": {
+    "/api/v1/admin/registrations": {
       "get": {
         "operationId": "listPlatformRegistrations",
         "summary": "List Limited Preview registration requests",
@@ -6033,7 +6127,7 @@
         }
       }
     },
-    "/api/v1/platform/registrations/{registration}/approve": {
+    "/api/v1/admin/registrations/{registration}/approve": {
       "post": {
         "operationId": "approvePlatformRegistration",
         "summary": "Approve a Limited Preview registration",
@@ -6130,7 +6224,7 @@
         }
       }
     },
-    "/api/v1/platform/registrations/{registration}/reject": {
+    "/api/v1/admin/registrations/{registration}/reject": {
       "post": {
         "operationId": "rejectPlatformRegistration",
         "summary": "Reject a Limited Preview registration",
@@ -6324,7 +6418,7 @@
         }
       }
     },
-    "/api/v1/vendors/{vendor}/cooldown": {
+    "/api/v1/admin/providers/connections/{vendor}/cooldown": {
       "get": {
         "operationId": "getVendorCooldown",
         "summary": "Read credential safe-failure cooldown",
@@ -6423,7 +6517,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/vendors/{vendor}/request-rate-limit": {
+    "/api/v1/admin/providers/connections/{vendor}/request-rate-limit": {
       "get": {
         "operationId": "getVendorRequestRateLimit",
         "summary": "Read upstream credential request limit",
@@ -6575,7 +6669,7 @@
         }
       }
     },
-    "/api/v1/vendors/{vendor}/request-rate-limit/history": {
+    "/api/v1/admin/providers/connections/{vendor}/request-rate-limit/history": {
       "get": {
         "operationId": "listVendorRequestRateLimitHistory",
         "summary": "Read credential request-limit history",
@@ -9704,7 +9798,7 @@
         }
       }
     },
-    "/api/v1/commercial-position": {
+    "/api/v1/admin/finance/position": {
       "get": {
         "operationId": "getCommercialPosition",
         "summary": "Compare installation commercial Provider positions",
@@ -9999,7 +10093,7 @@
         }
       }
     },
-    "/api/v1/financial-summary": {
+    "/api/v1/admin/finance/summary": {
       "get": {
         "operationId": "getCustomerFinancialSummary",
         "summary": "Read platform customer revenue and cash receipt summary",
@@ -10518,7 +10612,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds": {
+    "/api/v1/admin/providers/{supplier}/offers/{offer}/media-liability-bounds": {
       "post": {
         "operationId": "publishMediaLiabilityQualification",
         "summary": "Publish an evidenced route media liability bound",
@@ -11053,7 +11147,7 @@
         }
       }
     },
-    "/api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds/{revision}/retire": {
+    "/api/v1/admin/providers/{supplier}/offers/{offer}/media-liability-bounds/{revision}/retire": {
       "post": {
         "operationId": "retireMediaLiabilityQualification",
         "summary": "Retire a route media liability bound",
@@ -12610,7 +12704,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/platform/customer-accounts": {
+    "/api/v1/admin/customers": {
       "get": {
         "operationId": "listPlatformCustomerAccounts",
         "summary": "Discover named customer accounts and Credits summaries for platform financial administration",
@@ -12786,7 +12880,7 @@
         }
       }
     },
-    "/api/v1/pricing/targets": {
+    "/api/v1/admin/pricing/targets": {
       "get": {
         "operationId": "listPlatformPricingTargets",
         "summary": "Discover named platform pricing targets",
@@ -12888,7 +12982,7 @@
         }
       }
     },
-    "/api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs": {
+    "/api/v1/admin/pricing/organizations/{organization}/workspaces/{project}/tariffs": {
       "get": {
         "operationId": "listPlatformCustomerTariffs",
         "summary": "Page current customer selling tariffs",
@@ -13122,7 +13216,7 @@
         }
       }
     },
-    "/api/v1/pricing/models": {
+    "/api/v1/admin/pricing/models": {
       "get": {
         "operationId": "listPlatformPricingModels",
         "summary": "List models eligible for customer tariff publication",
@@ -13402,7 +13496,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/pricing/standard-prices": {
+    "/api/v1/admin/pricing/standard-prices": {
       "post": {
         "operationId": "publishRetailStandard",
         "summary": "Publish a platform standard selling-price revision",
@@ -13538,7 +13632,7 @@
         ]
       }
     },
-    "/api/v1/pricing/standard-prices/{price}/promotions": {
+    "/api/v1/admin/pricing/standard-prices/{price}/promotions": {
       "post": {
         "operationId": "publishRetailPromotion",
         "summary": "Publish one finite global or customer price",
@@ -13821,7 +13915,7 @@
         }
       }
     },
-    "/api/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire": {
+    "/api/v1/admin/pricing/standard-prices/{price}/promotions/{promotion}/retire": {
       "post": {
         "operationId": "retireRetailPromotion",
         "summary": "Append a promotion eligibility cutoff",
@@ -13900,7 +13994,7 @@
         ]
       }
     },
-    "/api/v1/pricing/standard-prices/{price}/history": {
+    "/api/v1/admin/pricing/standard-prices/{price}/history": {
       "get": {
         "operationId": "getRetailPriceHistory",
         "summary": "Read immutable standard and promotion history",
@@ -14014,7 +14108,7 @@
         ]
       }
     },
-    "/api/v1/pricing/standard-prices/{price}/preview": {
+    "/api/v1/admin/pricing/standard-prices/{price}/preview": {
       "get": {
         "operationId": "previewRetailPrice",
         "summary": "Preview a customer applicable price",
@@ -14313,7 +14407,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/pricing/standard-prices/models": {
+    "/api/v1/admin/pricing/standard-prices/models": {
       "get": {
         "operationId": "listRegisteredRetailModels",
         "summary": "List registered shared models for standard-price preparation",
@@ -14429,7 +14523,7 @@
         }
       }
     },
-    "/api/v1/pricing/customers": {
+    "/api/v1/admin/pricing/customers": {
       "get": {
         "operationId": "listRetailCustomerTargets",
         "summary": "List named companies for customer-specific promotions",
@@ -17097,7 +17191,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history": {
+    "/api/v1/admin/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history": {
       "get": {
         "operationId": "listPlatformCustomerTariffHistory",
         "summary": "Read platform customer selling-price history",
@@ -17221,7 +17315,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/v1/branding": {
+    "/api/v1/public/branding": {
       "get": {
         "operationId": "getPublicBranding",
         "summary": "Read public branding and theme defaults",
@@ -17245,7 +17339,7 @@
         }
       }
     },
-    "/api/v1/platform/branding": {
+    "/api/v1/admin/branding": {
       "get": {
         "operationId": "getBranding",
         "summary": "Read platform branding and theme configuration",
@@ -17350,7 +17444,7 @@
         }
       }
     },
-    "/v1/currency": {
+    "/api/v1/public/currency": {
       "get": {
         "operationId": "getPlatformCurrency",
         "summary": "Read the configured platform currency",
@@ -17364,7 +17458,7 @@
         }
       }
     },
-    "/api/v1/platform/currency": {
+    "/api/v1/admin/currency": {
       "put": {
         "operationId": "configurePlatformCurrency",
         "summary": "Configure the installation currency once",
@@ -17405,7 +17499,7 @@
         }
       }
     },
-    "/api/v1/platform/units/mode/previews": {
+    "/api/v1/admin/units/mode/previews": {
       "post": {
         "operationId": "prepareCustomerUnitMode",
         "summary": "Save a billing-mode change preview",
@@ -17670,7 +17764,7 @@
         }
       }
     },
-    "/api/v1/platform/units/mode/previews/{preview}": {
+    "/api/v1/admin/units/mode/previews/{preview}": {
       "get": {
         "operationId": "getSavedCustomerUnitModePreview",
         "summary": "Read an original saved billing-mode preview",
@@ -17916,7 +18010,7 @@
         ]
       }
     },
-    "/api/v1/platform/units/mode": {
+    "/api/v1/admin/units/mode": {
       "put": {
         "operationId": "publishCustomerUnitMode",
         "summary": "Publish a preview-confirmed installation billing mode",
@@ -19257,7 +19351,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/platform/units": {
+    "/api/v1/admin/units": {
       "get": {
         "operationId": "getCustomerUnitConfiguration",
         "summary": "Read branded-unit configuration",
@@ -19415,7 +19509,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/platform/units/definitions": {
+    "/api/v1/admin/units/definitions": {
       "post": {
         "operationId": "publishCustomerUnitDefinition",
         "summary": "Publish an immutable consumption-unit definition",
@@ -19533,7 +19627,7 @@
         }
       }
     },
-    "/api/v1/platform/units/rules": {
+    "/api/v1/admin/units/rules": {
       "post": {
         "operationId": "publishCustomerUnitPurchaseRule",
         "summary": "Publish an immutable Credits purchase rule",
@@ -19668,7 +19762,7 @@
         }
       }
     },
-    "/api/v1/platform/units/tariffs": {
+    "/api/v1/admin/units/tariffs": {
       "get": {
         "security": [
           {
@@ -20611,7 +20705,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/platform/units/media/tariffs": {
+    "/api/v1/admin/units/media/tariffs": {
       "get": {
         "operationId": "listCustomerUnitMediaTariffs",
         "summary": "List latest explicit Credits media tariffs",
@@ -22107,7 +22201,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/platform/financial-recovery": {
+    "/api/v1/admin/finance/recovery": {
       "get": {
         "x-niu-implementation": "implemented",
         "operationId": "getFinancialRecoveryDiagnostics",
@@ -22204,7 +22298,7 @@
         }
       }
     },
-    "/api/v1/platform/payments/epay": {
+    "/api/v1/admin/payments/epay": {
       "get": {
         "operationId": "getPlatformEPayConfiguration",
         "summary": "Read EPay configuration with platform administrator read access",
@@ -22435,7 +22529,7 @@
         ]
       }
     },
-    "/api/v1/platform/payments/stripe/verification": {
+    "/api/v1/admin/payments/stripe/verification": {
       "get": {
         "operationId": "getStripeVerification",
         "summary": "Read Stripe verification evidence",
@@ -22524,7 +22618,7 @@
         }
       }
     },
-    "/api/v1/platform/payments/integrations": {
+    "/api/v1/admin/payments/integrations": {
       "get": {
         "operationId": "listPaymentIntegrations",
         "summary": "List supported payment integrations",
@@ -23712,7 +23806,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/integration": {
+    "/api/v1/admin/providers/{provider}/integration": {
       "get": {
         "operationId": "getProviderIntegration",
         "summary": "Read provider integration identity",
@@ -23973,7 +24067,7 @@
         }
       }
     },
-    "/api/v1/vendors/{id}/integration": {
+    "/api/v1/admin/providers/connections/{id}/integration": {
       "get": {
         "operationId": "getVendorIntegration",
         "summary": "Read vendor integration identity",
@@ -24238,7 +24332,7 @@
         }
       }
     },
-    "/api/v1/provider-memberships": {
+    "/api/v1/admin/providers/memberships": {
       "get": {
         "operationId": "listProviderMemberships",
         "summary": "Read the retired Provider portal membership directory",
@@ -24321,7 +24415,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/offers/{offer}/authorization": {
+    "/api/v1/admin/providers/{provider}/offers/{offer}/authorization": {
       "put": {
         "operationId": "authorizeProviderOffer",
         "x-niu-implementation": "implemented",
@@ -24416,7 +24510,7 @@
         }
       }
     },
-    "/api/v1/providers/{provider}/offers/{offer}/authorization/{authorization}": {
+    "/api/v1/admin/providers/{provider}/offers/{offer}/authorization/{authorization}": {
       "delete": {
         "operationId": "revokeProviderOfferAuthorization",
         "x-niu-implementation": "implemented",
@@ -24495,7 +24589,7 @@
         }
       }
     },
-    "/api/v1/providers": {
+    "/api/v1/admin/providers": {
       "post": {
         "operationId": "createProviderBusiness",
         "summary": "Create a Provider business identity",
@@ -24713,7 +24807,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}": {
+    "/api/v1/admin/providers/{provider}": {
       "get": {
         "operationId": "getProviderProfile",
         "summary": "Read Provider business profile",
@@ -25019,7 +25113,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/members/{operator}": {
+    "/api/v1/admin/providers/{provider}/members/{operator}": {
       "put": {
         "operationId": "setProviderMembership",
         "summary": "Grant, change or disable a Provider membership",
@@ -25128,7 +25222,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/offers": {
+    "/api/v1/admin/providers/{provider}/offers": {
       "post": {
         "operationId": "publishProviderPayoutRates",
         "x-niu-implementation": "implemented",
@@ -25556,7 +25650,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/offers/{offer}/revisions/{revision}": {
+    "/api/v1/admin/providers/{provider}/offers/{offer}/revisions/{revision}": {
       "get": {
         "operationId": "getProviderOfferRevision",
         "summary": "Read an immutable Provider procurement quote",
@@ -25634,7 +25728,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/settlements": {
+    "/api/v1/admin/providers/{provider}/settlements": {
       "post": {
         "operationId": "recordExternalProviderPayment",
         "summary": "Record an already completed external Provider payment",
@@ -25963,7 +26057,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/settlements/preview": {
+    "/api/v1/admin/providers/{provider}/settlements/preview": {
       "get": {
         "operationId": "previewProviderPeriodSettlement",
         "summary": "Preview an unpaid Provider balance through a cutoff",
@@ -26097,7 +26191,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/members": {
+    "/api/v1/admin/providers/{provider}/members": {
       "get": {
         "operationId": "listProviderMembers",
         "summary": "List Provider business members",
@@ -26188,7 +26282,7 @@
         }
       }
     },
-    "/api/v1/platform/configuration": {
+    "/api/v1/admin/configuration": {
       "get": {
         "operationId": "getPlatformConfiguration",
         "summary": "Read platform payment configuration presence",
@@ -26313,7 +26407,7 @@
         }
       }
     },
-    "/api/v1/providers/{provider}/offers/{offer}/revisions": {
+    "/api/v1/admin/providers/{provider}/offers/{offer}/revisions": {
       "get": {
         "operationId": "listProviderOfferHistory",
         "summary": "List immutable Provider quote history",
@@ -26426,7 +26520,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/earnings": {
+    "/api/v1/admin/providers/{provider}/earnings": {
       "get": {
         "operationId": "listProviderEarnings",
         "summary": "Page platform Provider accrued and paid obligations",
@@ -26655,7 +26749,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/presets": {
+    "/api/v1/admin/providers/presets": {
       "get": {
         "operationId": "listProviderPresets",
         "summary": "Discover supported Provider service adapters",
@@ -26673,7 +26767,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/pricing": {
+    "/api/v1/admin/providers/{provider}/pricing": {
       "get": {
         "operationId": "discoverProviderPricing",
         "summary": "Read Provider-adapter advertised price evidence",
@@ -26735,7 +26829,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/metadata": {
+    "/api/v1/admin/providers/{provider}/metadata": {
       "get": {
         "operationId": "discoverProviderMetadata",
         "summary": "Read normalized metadata through a Provider credential",
@@ -26776,7 +26870,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/pricing/{revision}": {
+    "/api/v1/admin/providers/{provider}/pricing/{revision}": {
       "get": {
         "operationId": "getProviderPriceEvidence",
         "summary": "Read an immutable Provider quote version",
@@ -26818,7 +26912,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/estimate": {
+    "/api/v1/admin/providers/{provider}/estimate": {
       "post": {
         "operationId": "estimateProviderQuoteCost",
         "summary": "Estimate supplied billable quantities against an immutable quote",
@@ -26903,7 +26997,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/pricing/history": {
+    "/api/v1/admin/providers/{provider}/pricing/history": {
       "get": {
         "operationId": "listProviderPriceHistory",
         "summary": "Inspect captured quote versions and recover uncertain refreshes",
@@ -26951,7 +27045,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/providers/{provider}/configuration-usage": {
+    "/api/v1/admin/providers/{provider}/configuration-usage": {
       "get": {
         "operationId": "getProviderConfigurationUsage",
         "summary": "Inspect operational usage of Provider-owned configurations",
@@ -27218,7 +27312,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/vendors": {
+    "/api/v1/admin/providers/connections": {
       "get": {
         "operationId": "listVendors",
         "parameters": [
@@ -27332,7 +27426,7 @@
         "description": " Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned."
       }
     },
-    "/api/v1/vendors/{id}/retire": {
+    "/api/v1/admin/providers/connections/{id}/retire": {
       "post": {
         "operationId": "retireVendorConnection",
         "summary": "Retire a Provider API-key connection without deleting history",
@@ -27385,7 +27479,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/vendors/{id}": {
+    "/api/v1/admin/providers/connections/{id}": {
       "put": {
         "operationId": "updateVendor",
         "summary": "Update one Provider API-key configuration or rotate its credential",
@@ -27454,7 +27548,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/vendors/{id}/models": {
+    "/api/v1/admin/providers/connections/{id}/models": {
       "get": {
         "operationId": "listVendorModels",
         "summary": "List model bindings for one Provider API-key configuration",
@@ -27577,7 +27671,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/vendors/{id}/catalog": {
+    "/api/v1/admin/providers/connections/{id}/catalog": {
       "get": {
         "operationId": "listProviderModelCatalog",
         "summary": "Discover upstream models for a Provider API-key configuration",
@@ -27736,7 +27830,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/vendors/{id}/check": {
+    "/api/v1/admin/providers/connections/{id}/check": {
       "post": {
         "operationId": "checkVendorModel",
         "summary": "Check provider reachability and whether a mapped model is listed",
@@ -27863,7 +27957,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/vendors/{id}/supplier": {
+    "/api/v1/admin/providers/connections/{id}/supplier": {
       "get": {
         "operationId": "getConfigurationProvider",
         "summary": "Read the Provider owning an API configuration",
@@ -28004,7 +28098,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/vendors/{id}/import": {
+    "/api/v1/admin/providers/connections/{id}/import": {
       "post": {
         "operationId": "importPersonalProviderModels",
         "security": [
@@ -28042,7 +28136,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/routing-registry": {
+    "/api/v1/admin/routing/registry": {
       "get": {
         "operationId": "getRoutingRegistryStatus",
         "summary": "Read the active routing generation",
@@ -28107,7 +28201,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/routing": {
+    "/api/v1/admin/routing": {
       "put": {
         "operationId": "setModelRoutePool",
         "security": [
@@ -28396,7 +28490,7 @@
         }
       }
     },
-    "/api/v1/routing/history": {
+    "/api/v1/admin/routing/history": {
       "get": {
         "operationId": "listModelRoutePoolHistory",
         "security": [
@@ -28479,7 +28573,7 @@
         "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access."
       }
     },
-    "/api/v1/routing/index": {
+    "/api/v1/admin/routing/index": {
       "get": {
         "operationId": "listModelRoutePools",
         "summary": "List platform-managed model route pools",
@@ -28559,7 +28653,7 @@
         }
       }
     },
-    "/api/v1/routing/{reference}": {
+    "/api/v1/admin/routing/{reference}": {
       "get": {
         "operationId": "getPool",
         "security": [
@@ -28618,7 +28712,7 @@
         "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Reference is the canonical unpadded base64url encoding of the exact alias, not a percent-encoded alias; noncanonical or invalid references return 400."
       }
     },
-    "/api/v1/routing/{reference}/history": {
+    "/api/v1/admin/routing/{reference}/history": {
       "get": {
         "operationId": "listPoolHistory",
         "security": [
@@ -28705,7 +28799,7 @@
         "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Reference is the canonical unpadded base64url encoding of the exact alias, not a percent-encoded alias; noncanonical or invalid references return 400."
       }
     },
-    "/api/v1/routing/{reference}/preview": {
+    "/api/v1/admin/routing/{reference}/preview": {
       "post": {
         "operationId": "previewPool",
         "security": [
@@ -28835,7 +28929,7 @@
         "x-niu-implementation": "implemented"
       }
     },
-    "/api/v1/routing/{reference}/audit": {
+    "/api/v1/admin/routing/{reference}/audit": {
       "get": {
         "operationId": "auditPool",
         "security": [
@@ -36377,7 +36471,7 @@
         }
       }
     },
-    "/api/v1/operators/{operator}": {
+    "/api/v1/members/{operator}": {
       "patch": {
         "operationId": "updateOperatorRole",
         "summary": "Change a scoped customer member role",

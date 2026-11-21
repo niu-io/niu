@@ -1,11 +1,11 @@
 ---
 title: "Read Provider business profile"
-description: "GET /api/v1/providers/{provider}"
+description: "GET /api/v1/admin/providers/{provider}"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/providers/{provider}`
+`GET /api/v1/admin/providers/{provider}`
 
 Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or review evidence. Internal identity is for routing, not display.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/{provider}" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

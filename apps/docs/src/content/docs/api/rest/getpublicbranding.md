@@ -1,11 +1,11 @@
 ---
 title: "Read public branding and theme defaults"
-description: "GET /v1/branding"
+description: "GET /api/v1/public/branding"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /v1/branding`
+`GET /api/v1/public/branding`
 
 Public safe projection only; no authentication required. Returns display name, normalized logo/favicon PNG data URLs, default appearance and light/dark token maps; excludes actors, credentials and commercial settings. When no saved configuration exists, returns revision string 0 and Niu defaults. Theme fields are part of settings; there is no separate theme endpoint.
 
@@ -24,7 +24,7 @@ No OpenAPI security scheme is required. Other request validation still applies.
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/v1/branding"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/public/branding"
 ```
 
 ## Parameters

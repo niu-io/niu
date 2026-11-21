@@ -41,7 +41,7 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
     const controller = new AbortController();
     setProviderLoading(true);
     setProviderError('');
-    void request<{ data: Array<{ id: string; name: string }> }>(token, '/api/v1/providers', 'GET', undefined, controller.signal)
+    void request<{ data: Array<{ id: string; name: string }> }>(token, '/api/v1/admin/providers', 'GET', undefined, controller.signal)
       .then(result => { if (!controller.signal.aborted) setProviders(result.data); })
       .catch(() => { if (!controller.signal.aborted) setProviderError('Provider list could not be loaded.'); })
       .finally(() => { if (!controller.signal.aborted) setProviderLoading(false); });

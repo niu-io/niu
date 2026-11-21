@@ -26,7 +26,7 @@ import { prefetchRouteIntent } from '@/shell/prefetch';
 import { prefetchGet, request, writeMayHaveCommitted } from './api';
 
 type ProviderSummary = ProviderSetup & { id: string; slug?: string; name: string; logo_url?: string; api_keys?: number; models?: number; members: number };
-const PROVIDERS_PATH = '/api/v1/providers';
+const PROVIDERS_PATH = '/api/v1/admin/providers';
 export default function ProviderList() {
   const { t: uiT, format: uiF } = useUILocale();
   const { token, session } = useDashboardContext();
@@ -77,7 +77,7 @@ export default function ProviderList() {
   useEffect(() => {
     const controller = new AbortController();
     setPresetsLoading(true); setPresetError(''); setProviderPresets([]);
-    void request<{data:ProviderServiceDescriptor[]}>(token, '/api/v1/providers/presets', 'GET', undefined, controller.signal)
+    void request<{data:ProviderServiceDescriptor[]}>(token, '/api/v1/admin/providers/presets', 'GET', undefined, controller.signal)
       .then(result => { if (!controller.signal.aborted) setProviderPresets(result.data.map(providerPreset)); })
       .catch(reason => { if (!controller.signal.aborted) setPresetError(reason instanceof Error ? reason.message : 'Could not load Provider presets.'); })
       .finally(() => { if (!controller.signal.aborted) setPresetsLoading(false); });
@@ -92,7 +92,7 @@ export default function ProviderList() {
     event.preventDefault(); if (busy || (dialog === 'delete' && deletionBlocked)) return;
     setBusy(true); setError('');
     try {
-      const result = await request<{ data?: { id?: string; slug?: string } }>(token, '/api/v1/providers' + (selected ? '/' + encodeURIComponent(selected.id) : ''), dialog === 'delete' ? 'DELETE' : 'POST', dialog === 'delete' ? undefined : {
+      const result = await request<{ data?: { id?: string; slug?: string } }>(token, '/api/v1/admin/providers' + (selected ? '/' + encodeURIComponent(selected.id) : ''), dialog === 'delete' ? 'DELETE' : 'POST', dialog === 'delete' ? undefined : {
         name: name.trim(),
         ...(description.trim() && { description: description.trim() }),
         ...(website.trim() && { website_url: website.trim() }),
@@ -128,7 +128,7 @@ export default function ProviderList() {
       <h2 className="text-[15px] font-semibold">{uiT("Configured Providers")}</h2>
       {error && !dialog && <p role="alert">{uiT(error)}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
       {loading ? <TableSkeleton columns={3} rows={5} label={uiT("Loading Providers…")} /> : !visible.length ? !error && <Empty className="min-h-36 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconPlugConnected size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No Providers yet. Choose one below to connect.")}</EmptyDescription></EmptyHeader></Empty> : <ul className="space-y-2" aria-label={uiT("Configured Providers")}>
-        {visible.map(provider => { const availability = providerAvailability(provider, session?.operating_mode); const warmProvider = () => { prefetchRouteIntent('providers'); if (token) prefetchGet(token, `/api/v1/providers/${encodeURIComponent(provider.id)}`); }; return <li key={provider.id} className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5">
+        {visible.map(provider => { const availability = providerAvailability(provider, session?.operating_mode); const warmProvider = () => { prefetchRouteIntent('providers'); if (token) prefetchGet(token, `/api/v1/admin/providers/${encodeURIComponent(provider.id)}`); }; return <li key={provider.id} className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5">
           <div className="flex min-w-48 flex-1 items-center gap-3"><ProviderMark url={provider.logo_url} preset={providerPresets.find(item => item.name.toLowerCase() === provider.name.toLowerCase() || item.id === identifyProvider(provider.name)?.id)} /><Link className="min-w-0 break-words font-medium hover:underline" to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider))} onMouseEnter={warmProvider} onFocus={warmProvider}>{provider.name}</Link></div>
           <div className="min-w-48 flex-[2]"><Badge className="whitespace-normal" variant={availability.usable ? "secondary" : "outline"}>{uiT(availability.label)}</Badge>{availability.detail !== 'Internal use. Upstream fees are paid directly; no commercial approval is required.' && <p className="mt-1 text-xs text-muted-foreground">{availability.label === 'Ready to supply' ? uiF("{0} of {1} offers ready · Set customer prices in Pricing", [provider.ready_offers ?? 0, provider.offers ?? '—']) : uiT(availability.detail)}</p>}</div>
           <div className="flex items-center gap-2"><Button asChild={availability.section !== 'refresh'} onClick={availability.section === 'refresh' ? () => setRevision(value => value + 1) : undefined} variant="outline" size="sm">{availability.section === 'refresh' ? uiT(availability.action) : <Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider)) + '/' + availability.section} onMouseEnter={warmProvider} onFocus={warmProvider}>{uiT(availability.action)}</Link>}</Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" ref={node => { if (node) actionTriggers.current.set(provider.id, node); else actionTriggers.current.delete(provider.id); }} onClick={event => { dialogTrigger.current = event.currentTarget; }} onFocus={event => { dialogTrigger.current = event.currentTarget; }} aria-label={uiF("Actions for {0}", [provider.name])}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem asChild><Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider))} onMouseEnter={warmProvider} onFocus={warmProvider}>{uiT("Open Provider")}</Link></DropdownMenuItem><DropdownMenuItem asChild><Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider)) + '/settings'} onMouseEnter={warmProvider} onFocus={warmProvider}>{uiT("Edit Provider")}</Link></DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => { dialogTrigger.current = actionTriggers.current.get(provider.id) ?? null; open('delete', provider); }}>{uiT("Delete Provider")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>

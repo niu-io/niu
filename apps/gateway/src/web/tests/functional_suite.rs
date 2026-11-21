@@ -253,8 +253,8 @@ async fn functional_router_control_and_inference_auth_boundaries() {
         ("GET", "/v1/key", ""),
         ("GET", "/api/v1/workspaces", ""),
         ("GET", "/api/v1/organizations", ""),
-        ("GET", "/api/v1/vendors", ""),
-        ("GET", "/api/v1/providers", ""),
+        ("GET", "/api/v1/admin/providers/connections", ""),
+        ("GET", "/api/v1/admin/providers", ""),
     ] {
         let resp = app
             .clone()

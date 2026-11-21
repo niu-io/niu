@@ -18,7 +18,7 @@ const validSections = new Set(["overview", "keys", "models", "usage", "settlemen
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ snapshot }) => ({
     authorized: canManagePlatform(snapshot.session),
-    endpoint: '/api/v1/providers',
+    endpoint: '/api/v1/admin/providers',
     persist: true,
   }));
 }

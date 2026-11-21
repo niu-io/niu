@@ -1,11 +1,11 @@
 ---
 title: "Publish an evidenced route media liability bound"
-description: "POST /api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds"
+description: "POST /api/v1/admin/providers/{supplier}/offers/{offer}/media-liability-bounds"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds`
+`POST /api/v1/admin/providers/{supplier}/offers/{offer}/media-liability-bounds`
 
 Explicit platform administration only. Ordinary customer and Provider memberships do not grant access. Liability qualifications are finite, immutable maximum billed quantities tied to exact currently approved Provider offer, credential/model/schema revisions, dimensions and meter; they contain no purchase or selling price and must be supported by explicit evidence. Video output estimates are not liability evidence. Publication alone does not authorize dispatch. UUIDs are API references, never display labels. Exact epoch times and versions are decimal integer strings. Identical idempotent retries preserve the original result; changed intent or stale versions conflict. Revocation affects future admission, never rewrites already pinned jobs. Reads use no-store.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/providers/{supplier}/offers/{offer}/media-liability-bounds" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/{supplier}/offers/{offer}/media-liability-bounds" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

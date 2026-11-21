@@ -41,14 +41,14 @@ describe('AdminOverviewPage', () => {
 
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path === '/api/v1/providers') {
+      if (path === '/api/v1/admin/providers') {
         return Response.json({
           data: [
             { id: 'prov-1', slug: 'openrouter', name: 'OpenRouter', api_keys: 1, enabled_api_keys: 1, models: 3, enabled_model_routes: 2, offers: 1, ready_offers: 0 },
           ],
         });
       }
-      if (path.startsWith('/api/v1/incidents')) {
+      if (path.startsWith('/api/v1/admin/incidents')) {
         return Response.json({
           data: [
             {
@@ -79,13 +79,13 @@ describe('AdminOverviewPage', () => {
           coverage: { request_observed: true, proactive_probe: 'not_configured' },
         });
       }
-      if (path.startsWith('/api/v1/routing/index')) return Response.json({ data: [], has_more: false, next_after: null });
-      if (path.startsWith('/api/v1/pricing/standard-prices')) return Response.json({ data: [], next_after: null });
-      if (path === '/api/v1/platform/units/tariffs') return Response.json({ data: { text_tariffs: [], media_tariffs: [] } });
-      if (path === '/api/v1/platform/configuration') return Response.json({ data: { payment_gateways: [], verification: { currency_configured: false, gateways: [] } } });
-      if (path === '/api/v1/platform/payments/bank') return Response.json({ data: { details: null } });
-      if (path.startsWith('/api/v1/platform/registrations')) return Response.json({ data: [], counts: { pending: 2, approved: 1, rejected: 0 }, next_cursor: null });
-      if (path.startsWith('/api/v1/platform/customer-accounts')) return Response.json({ data: [], next_after: null });
+      if (path.startsWith('/api/v1/admin/routing/index')) return Response.json({ data: [], has_more: false, next_after: null });
+      if (path.startsWith('/api/v1/admin/pricing/standard-prices')) return Response.json({ data: [], next_after: null });
+      if (path === '/api/v1/admin/units/tariffs') return Response.json({ data: { text_tariffs: [], media_tariffs: [] } });
+      if (path === '/api/v1/admin/configuration') return Response.json({ data: { payment_gateways: [], verification: { currency_configured: false, gateways: [] } } });
+      if (path === '/api/v1/admin/payments/bank') return Response.json({ data: { details: null } });
+      if (path.startsWith('/api/v1/admin/registrations')) return Response.json({ data: [], counts: { pending: 2, approved: 1, rejected: 0 }, next_cursor: null });
+      if (path.startsWith('/api/v1/admin/customers')) return Response.json({ data: [], next_after: null });
       return Response.json({ data: [] });
     }));
 
@@ -110,11 +110,11 @@ describe('AdminOverviewPage', () => {
 
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path === '/api/v1/providers') return Response.json({ data: [] });
-      if (path.startsWith('/api/v1/incidents')) {
+      if (path === '/api/v1/admin/providers') return Response.json({ data: [] });
+      if (path.startsWith('/api/v1/admin/incidents')) {
         return Response.json({ data: [], next_before: null, coverage: { request_observed: true, proactive_probe: 'not_configured' } });
       }
-      if (path.startsWith('/api/v1/routing/index')) return Response.json({ data: [], has_more: false, next_after: null });
+      if (path.startsWith('/api/v1/admin/routing/index')) return Response.json({ data: [], has_more: false, next_after: null });
       return Response.json({ data: [] });
     }));
 

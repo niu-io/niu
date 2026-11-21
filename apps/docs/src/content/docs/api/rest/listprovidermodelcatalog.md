@@ -1,11 +1,11 @@
 ---
 title: "Discover upstream models for a Provider API-key configuration"
-description: "GET /api/v1/vendors/{id}/catalog"
+description: "GET /api/v1/admin/providers/connections/{id}/catalog"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/vendors/{id}/catalog`
+`GET /api/v1/admin/providers/connections/{id}/catalog`
 
 Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01; Gemini uses x-goog-api-key and normalizes native model resource names. Both request at most 1000 models and reject an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator. Explicit OpenRouter integrations first verify the saved credential with /key (64 KiB response bound, no identity or budget fields returned), then use /models/user?output_modalities=all; other integrations use /models. Discovery reports the effective integration and inventory scope. Catalog-read success does not verify inference, management authority, or prices. No fallback from denied credential-filtered discovery to public inventory is performed.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/vendors/{id}/catalog" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/catalog" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

@@ -1,11 +1,11 @@
 ---
 title: "Publish a versioned Credits text consumption tariff"
-description: "POST /api/v1/platform/units/tariffs"
+description: "POST /api/v1/admin/units/tariffs"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/platform/units/tariffs`
+`POST /api/v1/admin/units/tariffs`
 
 Platform administration required and rechecked transactionally for operators. Publish atom-denominated rates independently of purchase conversion and monetary tariffs. New publication requires the current unit definition and installation revision. Concurrent stale writes conflict. Equal idempotent retries return their original normalized publication, even after later price or unit changes; changed input conflicts. Rates and quantity thresholds use exact decimal strings; context thresholds are unique and normalized in ascending order. Nullable category rates use ordinary rates, never inherit another tier. Rates are per million tokens, rounded upward once after adding applicable exact token products. Add the fixed request fee, then apply the minimum charge. Explicit zero is valid; absence of a publication is unavailable. Publishing a tariff does not activate billing mode, issue Credits, convert money balances, admit requests or change prior request bindings.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/platform/units/tariffs" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/units/tariffs" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

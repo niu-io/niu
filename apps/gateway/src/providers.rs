@@ -43,7 +43,7 @@ async fn platform_or_member(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/provider-memberships",
+///   "path": "/api/v1/admin/providers/memberships",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderMemberships",
@@ -192,7 +192,7 @@ pub struct AuthorizeOffer {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/offers/{offer}/authorization",
+///   "path": "/api/v1/admin/providers/{provider}/offers/{offer}/authorization",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "authorizeProviderOffer",
@@ -232,7 +232,7 @@ pub async fn authorize_offer(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/offers/{offer}/authorization/{authorization}",
+///   "path": "/api/v1/admin/providers/{provider}/offers/{offer}/authorization/{authorization}",
 ///   "method": "delete",
 ///   "operation": {
 ///     "operationId": "revokeProviderOfferAuthorization",
@@ -270,7 +270,7 @@ pub async fn revoke_offer_authorization(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers",
+///   "path": "/api/v1/admin/providers",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "createProviderBusiness",
@@ -397,7 +397,7 @@ pub async fn create(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}",
+///   "path": "/api/v1/admin/providers/{provider}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getProviderProfile",
@@ -511,7 +511,7 @@ pub async fn profile(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}",
+///   "path": "/api/v1/admin/providers/{provider}",
 ///   "method": "patch",
 ///   "operation": {
 ///     "operationId": "renameProviderBusiness",
@@ -678,7 +678,7 @@ pub async fn rename(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}",
+///   "path": "/api/v1/admin/providers/{provider}",
 ///   "method": "delete",
 ///   "operation": {
 ///     "operationId": "deleteProviderBusiness",
@@ -766,7 +766,7 @@ pub struct Membership {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/members/{operator}",
+///   "path": "/api/v1/admin/providers/{provider}/members/{operator}",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setProviderMembership",
@@ -900,7 +900,7 @@ pub async fn set_member(
 /// Immutable Provider schedule publication.
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/offers",
+///   "path": "/api/v1/admin/providers/{provider}/offers",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "publishProviderPayoutRates",
@@ -1132,7 +1132,7 @@ pub async fn publish_offer(
 /// Historical rates are procurement data, even after an offer is paused.
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/offers/{offer}/revisions/{revision}",
+///   "path": "/api/v1/admin/providers/{provider}/offers/{offer}/revisions/{revision}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getProviderOfferRevision",
@@ -1421,7 +1421,7 @@ pub struct Settlement {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/settlements",
+///   "path": "/api/v1/admin/providers/{provider}/settlements",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "recordExternalProviderPayment",
@@ -1645,7 +1645,7 @@ pub async fn record_settlement(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/settlements/preview",
+///   "path": "/api/v1/admin/providers/{provider}/settlements/preview",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "previewProviderPeriodSettlement",
@@ -1813,7 +1813,7 @@ pub struct SettlementPreviewQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers",
+///   "path": "/api/v1/admin/providers",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderBusinesses",
@@ -1940,7 +1940,7 @@ pub async fn list(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/members",
+///   "path": "/api/v1/admin/providers/{provider}/members",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderMembers",
@@ -2189,7 +2189,7 @@ pub async fn publish_media_offer(
 /// Sanitized platform capabilities; credentials and deployment paths stay private.
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/configuration",
+///   "path": "/api/v1/admin/configuration",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getPlatformConfiguration",
@@ -2337,7 +2337,7 @@ pub struct OfferHistoryQuery {
 /// Provider history requires the same procurement authority as an individual quote.
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/offers/{offer}/revisions",
+///   "path": "/api/v1/admin/providers/{provider}/offers/{offer}/revisions",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderOfferHistory",
@@ -2656,7 +2656,7 @@ pub async fn offer_history(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/settlements",
+///   "path": "/api/v1/admin/providers/{provider}/settlements",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderSettlements",
@@ -2835,7 +2835,7 @@ pub async fn settlement_history(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/earnings",
+///   "path": "/api/v1/admin/providers/{provider}/earnings",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderEarnings",
@@ -3091,7 +3091,7 @@ pub struct CurrentOfferPage {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/offers",
+///   "path": "/api/v1/admin/providers/{provider}/offers",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderOffersPage",
@@ -3348,7 +3348,7 @@ pub async fn offers(
 }
 
 /// ```openapi
-/// {"path":"/api/v1/providers/presets","method":"get","operation":{"operationId":"listProviderPresets","summary":"Discover supported Provider service adapters","description":"Platform administration required. Returns connection instructions and observed price-source support, not saved connections, inventory, entitlements or invoice prices. OpenAI-compatible transport never establishes price compatibility. No upstream request is issued.","security":[{"bearerAuth":[]}],"responses":{"200":{"description":"Prepared Provider descriptors."}},"x-niu-implementation":"implemented"}}
+/// {"path":"/api/v1/admin/providers/presets","method":"get","operation":{"operationId":"listProviderPresets","summary":"Discover supported Provider service adapters","description":"Platform administration required. Returns connection instructions and observed price-source support, not saved connections, inventory, entitlements or invoice prices. OpenAI-compatible transport never establishes price compatibility. No upstream request is issued.","security":[{"bearerAuth":[]}],"responses":{"200":{"description":"Prepared Provider descriptors."}},"x-niu-implementation":"implemented"}}
 /// ```
 pub async fn presets(
     State(state): State<AppState>,
@@ -3361,7 +3361,7 @@ pub async fn presets(
 }
 
 /// ```openapi
-/// {"path":"/api/v1/providers/{provider}/pricing","method":"get","operation":{"operationId":"discoverProviderPricing","summary":"Read Provider-adapter advertised price evidence","description":"Platform administration required. Uses explicit saved Provider service identity and a bounded official/public source read without forwarding credentials. No tariffs, balances or model routes are changed. Partial native ratios are not money; empty/unqualified feeds are unknown, not free. Source and observation time are returned. Qualified official-page adapters validate their observed schema and preserve conditional or unsupported rates; changed schemas remain unavailable.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Unified advertised pricing evidence with completeness limits."},"502":{"description":"Source failure; retry the read without mutating configuration."}},"x-niu-implementation":"implemented"}}
+/// {"path":"/api/v1/admin/providers/{provider}/pricing","method":"get","operation":{"operationId":"discoverProviderPricing","summary":"Read Provider-adapter advertised price evidence","description":"Platform administration required. Uses explicit saved Provider service identity and a bounded official/public source read without forwarding credentials. No tariffs, balances or model routes are changed. Partial native ratios are not money; empty/unqualified feeds are unknown, not free. Source and observation time are returned. Qualified official-page adapters validate their observed schema and preserve conditional or unsupported rates; changed schemas remain unavailable.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Unified advertised pricing evidence with completeness limits."},"502":{"description":"Source failure; retry the read without mutating configuration."}},"x-niu-implementation":"implemented"}}
 /// ```
 pub async fn adapter_pricing(
     State(state): State<AppState>,
@@ -3385,7 +3385,7 @@ pub struct MetadataQuery {
     credential: Uuid,
 }
 /// ```openapi
-/// {"path":"/api/v1/providers/{provider}/metadata","method":"get","operation":{"operationId":"discoverProviderMetadata","summary":"Read normalized metadata through a Provider credential","description":"Platform administration required. credential selects one saved connection owned by this Provider; no key values are returned. Reuses bounded authenticated catalog discovery and explicit inherited service identity. Catalog access does not verify inference or publish models/prices.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"credential","in":"query","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Normalized model metadata, price evidence when present, and discovery scope."},"404":{"description":"Provider/credential binding unavailable."}},"x-niu-implementation":"implemented"}}
+/// {"path":"/api/v1/admin/providers/{provider}/metadata","method":"get","operation":{"operationId":"discoverProviderMetadata","summary":"Read normalized metadata through a Provider credential","description":"Platform administration required. credential selects one saved connection owned by this Provider; no key values are returned. Reuses bounded authenticated catalog discovery and explicit inherited service identity. Catalog access does not verify inference or publish models/prices.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"credential","in":"query","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Normalized model metadata, price evidence when present, and discovery scope."},"404":{"description":"Provider/credential binding unavailable."}},"x-niu-implementation":"implemented"}}
 /// ```
 pub async fn adapter_metadata(
     State(state): State<AppState>,
@@ -3406,7 +3406,7 @@ pub async fn adapter_metadata(
     crate::vendors::catalog(State(state), Path(query.credential), headers).await
 }
 /// ```openapi
-/// {"path":"/api/v1/providers/{provider}/pricing","method":"post","operation":{"operationId":"captureProviderPriceEvidence","summary":"Capture an immutable Provider quote version","description":"Platform administration required. Performs bounded price discovery and appends source evidence only if saved Provider adapter identity/revision still matches. Unknown/partial sources remain explicit. Does not change any customer tariff, route, balance or charge. Never blindly replay after uncertainty; retain the returned revision for historical estimates.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Immutable quote revision, capture time, adapter binding and evidence."},"409":{"description":"Adapter identity changed; no snapshot saved."}},"x-niu-implementation":"implemented"}}
+/// {"path":"/api/v1/admin/providers/{provider}/pricing","method":"post","operation":{"operationId":"captureProviderPriceEvidence","summary":"Capture an immutable Provider quote version","description":"Platform administration required. Performs bounded price discovery and appends source evidence only if saved Provider adapter identity/revision still matches. Unknown/partial sources remain explicit. Does not change any customer tariff, route, balance or charge. Never blindly replay after uncertainty; retain the returned revision for historical estimates.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Immutable quote revision, capture time, adapter binding and evidence."},"409":{"description":"Adapter identity changed; no snapshot saved."}},"x-niu-implementation":"implemented"}}
 /// ```
 pub async fn capture_adapter_pricing(
     State(state): State<AppState>,
@@ -3435,7 +3435,7 @@ pub async fn capture_adapter_pricing(
     Ok(Json(json!({"data":saved})))
 }
 /// ```openapi
-/// {"path":"/api/v1/providers/{provider}/pricing/{revision}","method":"get","operation":{"operationId":"getProviderPriceEvidence","summary":"Read an immutable Provider quote version","description":"Platform administration required. Returns original source evidence without fetching or repricing. A version from another Provider is unavailable. Historical versions remain readable after a later adapter change.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"revision","in":"path","required":true,"schema":{"type":"integer","format":"int64","minimum":1}}],"responses":{"200":{"description":"Original quote evidence and source identity."},"404":{"description":"Version unavailable under this Provider."}},"x-niu-implementation":"implemented"}}
+/// {"path":"/api/v1/admin/providers/{provider}/pricing/{revision}","method":"get","operation":{"operationId":"getProviderPriceEvidence","summary":"Read an immutable Provider quote version","description":"Platform administration required. Returns original source evidence without fetching or repricing. A version from another Provider is unavailable. Historical versions remain readable after a later adapter change.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"revision","in":"path","required":true,"schema":{"type":"integer","format":"int64","minimum":1}}],"responses":{"200":{"description":"Original quote evidence and source identity."},"404":{"description":"Version unavailable under this Provider."}},"x-niu-implementation":"implemented"}}
 /// ```
 pub async fn price_evidence(
     State(state): State<AppState>,
@@ -3459,7 +3459,7 @@ pub struct QuoteEstimateInput {
     quantities: Vec<adapters::Quantity>,
 }
 /// ```openapi
-/// {"path":"/api/v1/providers/{provider}/estimate","method":"post","operation":{"operationId":"estimateProviderQuoteCost","summary":"Estimate supplied billable quantities against an immutable quote","description":"Platform administration required. Read-only calculation: no inference or billing mutation. model is the upstream ID, revision is a captured quote version, quantities are disjoint billable meters (uncached input must exclude cached tokens). Exact decimal arithmetic; unsupported/unknown/overflowing meters remain explicit and never imply zero. Conditional quotes require an explicit matching condition from the captured evidence; no time or holiday calendar is guessed. Separate currency totals and partial coverage are retained. This is not an actual Provider invoice or a Niu customer charge.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","additionalProperties":false,"required":["revision","model","quantities"],"properties":{"revision":{"type":"string","pattern":"^[1-9][0-9]*$"},"model":{"type":"string","minLength":1,"maxLength":200},"quantities":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["meter","units"],"properties":{"meter":{"type":"string","minLength":1,"maxLength":80},"units":{"type":"string","pattern":"^[0-9]+$"},"condition":{"type":"string","minLength":1,"maxLength":80}}}}}}}}},"responses":{"200":{"description":"Quote-bound estimate with currency totals and unknown coverage."}},"x-niu-implementation":"implemented"}}
+/// {"path":"/api/v1/admin/providers/{provider}/estimate","method":"post","operation":{"operationId":"estimateProviderQuoteCost","summary":"Estimate supplied billable quantities against an immutable quote","description":"Platform administration required. Read-only calculation: no inference or billing mutation. model is the upstream ID, revision is a captured quote version, quantities are disjoint billable meters (uncached input must exclude cached tokens). Exact decimal arithmetic; unsupported/unknown/overflowing meters remain explicit and never imply zero. Conditional quotes require an explicit matching condition from the captured evidence; no time or holiday calendar is guessed. Separate currency totals and partial coverage are retained. This is not an actual Provider invoice or a Niu customer charge.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","additionalProperties":false,"required":["revision","model","quantities"],"properties":{"revision":{"type":"string","pattern":"^[1-9][0-9]*$"},"model":{"type":"string","minLength":1,"maxLength":200},"quantities":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["meter","units"],"properties":{"meter":{"type":"string","minLength":1,"maxLength":80},"units":{"type":"string","pattern":"^[0-9]+$"},"condition":{"type":"string","minLength":1,"maxLength":80}}}}}}}}},"responses":{"200":{"description":"Quote-bound estimate with currency totals and unknown coverage."}},"x-niu-implementation":"implemented"}}
 /// ```
 pub async fn estimate_pricing(
     State(state): State<AppState>,
@@ -3497,7 +3497,7 @@ pub struct PriceHistoryQuery {
     limit: Option<i64>,
 }
 /// ```openapi
-/// {"path":"/api/v1/providers/{provider}/pricing/history","method":"get","operation":{"operationId":"listProviderPriceHistory","summary":"Inspect captured quote versions and recover uncertain refreshes","description":"Platform administration required. Newest-first immutable version summaries, at most 50 per page, without full quote payloads. after is an exclusive revision cursor. Read a chosen revision to inspect original evidence; no source fetch or mutation is performed.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"after","in":"query","schema":{"type":"integer","format":"int64","minimum":1}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}}],"responses":{"200":{"description":"Quote version summaries and optional next_after cursor."}},"x-niu-implementation":"implemented"}}
+/// {"path":"/api/v1/admin/providers/{provider}/pricing/history","method":"get","operation":{"operationId":"listProviderPriceHistory","summary":"Inspect captured quote versions and recover uncertain refreshes","description":"Platform administration required. Newest-first immutable version summaries, at most 50 per page, without full quote payloads. after is an exclusive revision cursor. Read a chosen revision to inspect original evidence; no source fetch or mutation is performed.","security":[{"bearerAuth":[]}],"parameters":[{"name":"provider","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"after","in":"query","schema":{"type":"integer","format":"int64","minimum":1}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}}],"responses":{"200":{"description":"Quote version summaries and optional next_after cursor."}},"x-niu-implementation":"implemented"}}
 /// ```
 pub async fn price_history(
     State(state): State<AppState>,

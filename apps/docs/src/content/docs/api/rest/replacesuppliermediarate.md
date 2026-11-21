@@ -1,11 +1,11 @@
 ---
 title: "Atomically replace agreed media purchase terms"
-description: "POST /api/v1/providers/{provider}/media-rates/replace"
+description: "POST /api/v1/admin/providers/{provider}/media-rates/replace"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/providers/{provider}/media-rates/replace`
+`POST /api/v1/admin/providers/{provider}/media-rates/replace`
 
 Installation write authority only. Publishes an immutable replacement and ends the original schedule at the replacement's effective_from in one transaction. Dimensions and meter must match the original; current offer, credential, model and schema bindings are rechecked. Original terms, pinned job prices and earnings remain unchanged. Exact replay is idempotent while the configuration remains eligible. Conflicting cutoff, changed replay or stale binding rejects the whole transaction. No transfers, job cancellations, refunds or automatic retries occur.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/providers/{provider}/media-rates/replace" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/{provider}/media-rates/replace" \
   -H "Authorization: Bearer $NIU_MEMBER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

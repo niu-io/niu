@@ -23,7 +23,7 @@ pub struct PlatformAuditQuery {
 ///
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/audit-events",
+///   "path": "/api/v1/admin/audit",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPlatformAuditEvents",

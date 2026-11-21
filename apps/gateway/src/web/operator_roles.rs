@@ -22,7 +22,7 @@ pub(super) struct RoleUpdate {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/operators/{operator}",
+///   "path": "/api/v1/members/{operator}",
 ///   "method": "patch",
 ///   "operation": {
 ///     "operationId": "updateOperatorRole",

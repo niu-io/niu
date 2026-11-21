@@ -18,7 +18,7 @@ pub struct IntegrationInput {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/integration",
+///   "path": "/api/v1/admin/providers/{provider}/integration",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getProviderIntegration",
@@ -151,7 +151,7 @@ pub async fn read_provider(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/integration",
+///   "path": "/api/v1/admin/providers/{provider}/integration",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setProviderIntegration",
@@ -347,7 +347,7 @@ pub async fn save_provider(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/integration",
+///   "path": "/api/v1/admin/providers/connections/{id}/integration",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getVendorIntegration",
@@ -480,7 +480,7 @@ pub async fn read_vendor(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/integration",
+///   "path": "/api/v1/admin/providers/connections/{id}/integration",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setVendorIntegration",

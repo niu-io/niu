@@ -104,26 +104,26 @@ export default function AdminOverviewPage() {
       registrationsRes,
       customersRes,
     ] = await Promise.allSettled([
-      request<{ data: ProviderSummary[] }>(token, '/api/v1/providers', 'GET', undefined, signal),
-      request<{ data: unknown[]; has_more?: boolean }>(token, '/api/v1/routing/index?limit=50', 'GET', undefined, signal),
+      request<{ data: ProviderSummary[] }>(token, '/api/v1/admin/providers', 'GET', undefined, signal),
+      request<{ data: unknown[]; has_more?: boolean }>(token, '/api/v1/admin/routing/index?limit=50', 'GET', undefined, signal),
       isInternal
         ? Promise.resolve(null)
-        : request<{ data: unknown[]; next_after: string | null }>(token, '/api/v1/pricing/standard-prices?limit=50', 'GET', undefined, signal),
+        : request<{ data: unknown[]; next_after: string | null }>(token, '/api/v1/admin/pricing/standard-prices?limit=50', 'GET', undefined, signal),
       isInternal
         ? Promise.resolve(null)
-        : request<{ data?: { text_tariffs?: unknown[]; media_tariffs?: unknown[] } }>(token, '/api/v1/platform/units/tariffs', 'GET', undefined, signal),
+        : request<{ data?: { text_tariffs?: unknown[]; media_tariffs?: unknown[] } }>(token, '/api/v1/admin/units/tariffs', 'GET', undefined, signal),
       isInternal
         ? Promise.resolve(null)
-        : request<PlatformConfigResponse>(token, '/api/v1/platform/configuration', 'GET', undefined, signal),
+        : request<PlatformConfigResponse>(token, '/api/v1/admin/configuration', 'GET', undefined, signal),
       isInternal
         ? Promise.resolve(null)
-        : request<BankConfigResponse>(token, '/api/v1/platform/payments/bank', 'GET', undefined, signal),
+        : request<BankConfigResponse>(token, '/api/v1/admin/payments/bank', 'GET', undefined, signal),
       isInternal
         ? Promise.resolve(null)
-        : request<PlatformRegistrationQueuePage>(token, '/api/v1/platform/registrations?status=pending&limit=1', 'GET', undefined, signal),
+        : request<PlatformRegistrationQueuePage>(token, '/api/v1/admin/registrations?status=pending&limit=1', 'GET', undefined, signal),
       isInternal
         ? Promise.resolve(null)
-        : request<{ data: unknown[]; next_after: string | null }>(token, '/api/v1/platform/customer-accounts?limit=50', 'GET', undefined, signal),
+        : request<{ data: unknown[]; next_after: string | null }>(token, '/api/v1/admin/customers?limit=50', 'GET', undefined, signal),
     ]);
 
     if (signal.aborted) return;

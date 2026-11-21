@@ -120,11 +120,11 @@ describe('query-cache', () => {
     );
 
     const first = new AbortController();
-    const p1 = fetchQuery('tok-a', 'GET:/api/v1/commercial-position', fetcher, { signal: first.signal });
+    const p1 = fetchQuery('tok-a', 'GET:/api/v1/admin/finance/position', fetcher, { signal: first.signal });
     // Synchronously abort consumer #1 and immediately launch consumer #2 on the same tick (StrictMode double-effect)
     first.abort();
     const second = new AbortController();
-    const p2 = fetchQuery('tok-a', 'GET:/api/v1/commercial-position', fetcher, { signal: second.signal });
+    const p2 = fetchQuery('tok-a', 'GET:/api/v1/admin/finance/position', fetcher, { signal: second.signal });
 
     await expect(p1).rejects.toThrow();
     await expect(p2).resolves.toEqual({ call: 2 });
@@ -137,7 +137,7 @@ describe('query-cache', () => {
 
     const oldRead = fetchQuery(
       'review',
-      '/api/v1/providers',
+      '/api/v1/admin/providers',
       () =>
         new Promise<{ version: string }>(resolve => {
           resolveOld = resolve;
@@ -145,7 +145,7 @@ describe('query-cache', () => {
     );
     const freshRead = fetchQuery(
       'review',
-      '/api/v1/providers',
+      '/api/v1/admin/providers',
       () =>
         new Promise<{ version: string }>(resolve => {
           resolveNew = resolve;
@@ -159,7 +159,7 @@ describe('query-cache', () => {
     resolveOld({ version: 'old-before-save' });
     await expect(oldRead).resolves.toEqual({ version: 'new-after-save' });
 
-    expect(peekQuery('review', '/api/v1/providers')).toEqual({ version: 'new-after-save' });
+    expect(peekQuery('review', '/api/v1/admin/providers')).toEqual({ version: 'new-after-save' });
   });
 
   it('prevents an invalidated in-flight initial read from populating cache and triggers a fresh read for mounted subscribers', async () => {

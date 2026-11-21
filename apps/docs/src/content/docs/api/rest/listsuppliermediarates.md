@@ -1,11 +1,11 @@
 ---
 title: "Read this Provider's agreed media purchase schedules"
-description: "GET /api/v1/providers/{provider}/media-rates"
+description: "GET /api/v1/admin/providers/{provider}/media-rates"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/providers/{provider}/media-rates`
+`GET /api/v1/admin/providers/{provider}/media-rates`
 
 Active platform administration is required. Provider memberships do not grant access. Returns published terms and separate retirement cutoffs without customer prices, margins or credentials. Publication times not originally recorded remain null. Amounts, route revisions and effective times are exact strings on reads. The cursor is the last returned revision; page size is bounded and retirement never rewrites the original document.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/media-rates" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/{provider}/media-rates" \
   -H "Authorization: Bearer $NIU_MEMBER_TOKEN"
 ```
 

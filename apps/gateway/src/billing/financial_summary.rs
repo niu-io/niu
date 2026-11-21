@@ -13,7 +13,7 @@ pub struct SummaryQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/financial-summary",
+///   "path": "/api/v1/admin/finance/summary",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getCustomerFinancialSummary",

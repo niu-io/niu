@@ -69,7 +69,7 @@ export function ShellNavigation({
     const loadCount = () => {
       void request<PlatformRegistrationQueuePage>(
         adminToken,
-        '/api/v1/platform/registrations?status=pending&limit=1',
+        '/api/v1/admin/registrations?status=pending&limit=1',
         'GET',
       )
         .then(page => {

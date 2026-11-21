@@ -661,7 +661,7 @@ async fn readiness_and_liveness_do_not_require_credentials(pool: sqlx::PgPool) {
     let unauthorized = app
         .clone()
         .oneshot(
-            Request::get("/api/v1/metrics")
+            Request::get("/api/v1/admin/metrics")
                 .header("x-request-id", "req_auth_401")
                 .body(axum::body::Body::empty())
                 .unwrap(),
@@ -680,7 +680,7 @@ async fn readiness_and_liveness_do_not_require_credentials(pool: sqlx::PgPool) {
     let metrics_resp = app
         .clone()
         .oneshot(
-            Request::get("/api/v1/metrics")
+            Request::get("/api/v1/admin/metrics")
                 .header(
                     "authorization",
                     "Bearer niu-test-admin-token-that-is-long-1234",
@@ -3735,7 +3735,7 @@ async fn retail_media_price_choices_publish_and_read_back_exactly(pool: PgPool) 
             serde_json::from_slice(&bytes).unwrap_or(Value::Null),
         )
     }
-    let root = "/api/v1/pricing/standard-prices";
+    let root = "/api/v1/admin/pricing/standard-prices";
     let (status, choices) = call(&app, "GET", &format!("{root}/models"), Value::Null).await;
     assert_eq!(status, StatusCode::OK, "{choices}");
     let choice = choices["data"]
@@ -3942,7 +3942,7 @@ async fn operator_directory_api_scopes_filters_and_continuation(pool: PgPool) {
                 .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&body).into_owned())),
         )
     }
-    let path = format!("/api/v1/operators?organization_id={company}&limit=1");
+    let path = format!("/api/v1/members?organization_id={company}&limit=1");
     let (status, first) = get(&app, &path, &owner.token).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(first["data"].as_array().unwrap().len(), 1);
@@ -3951,7 +3951,7 @@ async fn operator_directory_api_scopes_filters_and_continuation(pool: PgPool) {
     let (_, second) = get(&app, &format!("{path}&after={next}"), &owner.token).await;
     assert_eq!(second["data"][0]["id"], member.operator_id.to_string());
     assert!(second["data"][0].get("token").is_none());
-    let (_, restricted) = get(&app, "/api/v1/operators", &member.token).await;
+    let (_, restricted) = get(&app, "/api/v1/members", &member.token).await;
     assert_eq!(restricted["data"].as_array().unwrap().len(), 2);
     assert!(restricted["next_cursor"].is_null());
     assert_eq!(
@@ -3967,7 +3967,7 @@ async fn operator_directory_api_scopes_filters_and_continuation(pool: PgPool) {
     assert_eq!(
         get(
             &app,
-            &format!("/api/v1/operators?organization_id={}", Uuid::new_v4()),
+            &format!("/api/v1/members?organization_id={}", Uuid::new_v4()),
             &owner.token
         )
         .await
@@ -3975,17 +3975,17 @@ async fn operator_directory_api_scopes_filters_and_continuation(pool: PgPool) {
         StatusCode::NOT_FOUND
     );
     assert_eq!(
-        get(&app, "/api/v1/operators?limit=0", &owner.token).await.0,
+        get(&app, "/api/v1/members?limit=0", &owner.token).await.0,
         StatusCode::BAD_REQUEST
     );
     assert_eq!(
-        get(&app, "/api/v1/operators?unknown=true", &owner.token)
+        get(&app, "/api/v1/members?unknown=true", &owner.token)
             .await
             .0,
         StatusCode::BAD_REQUEST
     );
     assert_eq!(
-        get(&app, "/api/v1/operators", &viewer.token).await.0,
+        get(&app, "/api/v1/members", &viewer.token).await.0,
         StatusCode::FORBIDDEN
     );
 }
@@ -4034,7 +4034,7 @@ async fn identity_only_owner_creation_replays_without_credentials(pool: PgPool) 
     ) -> (StatusCode, Value) {
         let mut builder = Request::builder()
             .method("POST")
-            .uri("/api/v1/operators")
+            .uri("/api/v1/members")
             .header("authorization", format!("Bearer {token}"))
             .header("content-type", "application/json");
         if let Some(key) = key {

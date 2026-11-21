@@ -6,8 +6,8 @@ import struct
 import urllib.error
 import zlib
 
-ADMIN = '/api/v1/platform/branding'
-PUBLIC = '/v1/branding'
+ADMIN = '/api/v1/admin/branding'
+PUBLIC = '/api/v1/public/branding'
 
 
 def png_asset():

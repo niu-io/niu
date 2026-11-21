@@ -917,7 +917,7 @@ async fn limited_preview_approved_empty_workspace_deletes_via_http(pool: PgPool)
     let (status, _, queue) = json_call(
         &app,
         Method::GET,
-        "/api/v1/platform/registrations?status=pending",
+        "/api/v1/admin/registrations?status=pending",
         Some(ADMIN),
         None,
     )
@@ -928,7 +928,7 @@ async fn limited_preview_approved_empty_workspace_deletes_via_http(pool: PgPool)
     let (status, _, approved) = json_call(
         &app,
         Method::POST,
-        &format!("/api/v1/platform/registrations/{request_id}/approve"),
+        &format!("/api/v1/admin/registrations/{request_id}/approve"),
         Some(ADMIN),
         Some(json!({"expected_revision": "1"})),
     )

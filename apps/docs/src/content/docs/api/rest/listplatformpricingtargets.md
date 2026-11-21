@@ -1,11 +1,11 @@
 ---
 title: "Discover named platform pricing targets"
-description: "GET /api/v1/pricing/targets"
+description: "GET /api/v1/admin/pricing/targets"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/pricing/targets`
+`GET /api/v1/admin/pricing/targets`
 
 Explicit platform administration required; ordinary company/workspace roles do not grant access. Configuration only, without usage, balances, statements, content, credentials or procurement. Keyset order is workspace UUID ascending for targets, model alias ascending for tariffs. Pass next_after unchanged as after; null means complete. Limit defaults to 50, maximum 100. Each page is one database snapshot; concurrent inserts before the cursor require refreshing the first page. Missing cursor returns 409. Identifiers are API references, never display labels. Cache-Control no-store. Tariff token rates are exact nanounits per million tokens; minimum and request fees are exact currency nanounits. Empty valid workspace returns an empty page.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/pricing/targets" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/pricing/targets" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

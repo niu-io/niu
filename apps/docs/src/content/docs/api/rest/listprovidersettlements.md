@@ -1,11 +1,11 @@
 ---
 title: "Page Provider settlement history"
-description: "GET /api/v1/providers/{provider}/settlements"
+description: "GET /api/v1/admin/providers/{provider}/settlements"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/providers/{provider}/settlements`
+`GET /api/v1/admin/providers/{provider}/settlements`
 
 Platform administration or active membership of this Provider required. Lists immutable records of externally confirmed payments; does not initiate payment or claim a bank balance. Ordered by created_at then id descending, with 1–100 rows per page. All amounts are exact currency nanounit strings. No customer, workspace, request, attempt, credential, or procurement detail is included. Time range is from_ms-inclusive and to_ms-exclusive (Unix milliseconds). Keep filters fixed while following next_cursor; a cursor outside this Provider or the filters returns 409. Inserts newer than the cursor do not shift later pages; pages do not constitute a frozen multi-request snapshot. All responses are no-store. Existing POST recording semantics are unchanged.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/settlements" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/{provider}/settlements" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

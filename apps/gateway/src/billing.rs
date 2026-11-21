@@ -3565,7 +3565,7 @@ pub async fn tariff_history(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history",
+///   "path": "/api/v1/admin/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPlatformCustomerTariffHistory",

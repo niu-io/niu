@@ -121,7 +121,7 @@ export async function listOperators(token: string, organization?: string, signal
     const query = new URLSearchParams({ limit: '1000' });
     if (organization) query.set('organization_id', organization);
     if (after) query.set('after', after);
-    const page = await request<{data: Operator[]; next_cursor?: string | null}>(token, '/api/v1/operators?' + query, 'GET', undefined, signal);
+    const page = await request<{data: Operator[]; next_cursor?: string | null}>(token, '/api/v1/members?' + query, 'GET', undefined, signal);
     signal?.throwIfAborted();
     if (!Array.isArray(page.data) || (page.next_cursor != null && typeof page.next_cursor !== 'string')) throw new Error('The user directory could not be read. Refresh users.');
     for (const row of page.data) {
@@ -135,7 +135,7 @@ export async function listOperators(token: string, organization?: string, signal
     }
   } while (after);
   if (!organization) {
-    primeQuery(token || 'public', '/api/v1/operators?limit=1000', { data, next_cursor: null });
+    primeQuery(token || 'public', '/api/v1/members?limit=1000', { data, next_cursor: null });
   }
   return { data };
 }

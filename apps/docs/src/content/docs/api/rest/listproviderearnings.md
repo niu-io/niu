@@ -1,11 +1,11 @@
 ---
 title: "Page platform Provider accrued and paid obligations"
-description: "GET /api/v1/providers/{provider}/earnings"
+description: "GET /api/v1/admin/providers/{provider}/earnings"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/providers/{provider}/earnings`
+`GET /api/v1/admin/providers/{provider}/earnings`
 
 Platform administration required; Provider membership and company ownership do not grant access. Full retained earning history, creation time descending then attempt ID ascending, using the existing ledger index. Exact amount strings; no customer identity, workspace, credential or customer selling price. The id is an internal selection value for the existing settlement POST, never a display label. A page is one database snapshot; settlement status may change between requests and settlement writes revalidate unpaid selections. Reads do not create earnings or payments. Missing or out-of-filter cursors return 409. Cache-Control no-store.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/earnings" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/{provider}/earnings" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

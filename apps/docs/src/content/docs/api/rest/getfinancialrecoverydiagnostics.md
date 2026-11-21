@@ -1,11 +1,11 @@
 ---
 title: "Read committed financial recovery progress"
-description: "GET /api/v1/platform/financial-recovery"
+description: "GET /api/v1/admin/finance/recovery"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/platform/financial-recovery`
+`GET /api/v1/admin/finance/recovery`
 
 Platform administrators only. Stages are ordered by name. Null step fields mean no durable worker step has committed since diagnostics were installed. Counts describe the last committed candidate page, not settled rows, total backlog or throughput. A cursor indicates traversal position, not remaining recoverable debt. Zero failures does not establish settlement. Storage failures leave previous committed diagnostics unchanged and are reported separately in worker logs. No attempt IDs, amounts or credentials.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/platform/financial-recovery" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/finance/recovery" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

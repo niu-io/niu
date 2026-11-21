@@ -1,11 +1,11 @@
 ---
 title: "Resolve a platform incident to its connection"
-description: "GET /api/v1/incidents/{incident}/connection"
+description: "GET /api/v1/admin/incidents/{incident}/connection"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/incidents/{incident}/connection`
+`GET /api/v1/admin/incidents/{incident}/connection`
 
 Platform administration required. Resolves a durable incident reference to its connection identifier for authorized management navigation. Returns no credential, upstream URL, request content or financial information. A missing incident returns 404. This read does not change configuration or call the Provider. Cache-Control no-store.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/incidents/{incident}/connection" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/incidents/{incident}/connection" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

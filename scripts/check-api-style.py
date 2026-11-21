@@ -17,6 +17,24 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
+RETIRED_ROUTE_PREFIXES = (
+    "/admin/v1",
+    "/api/v1/platform/",
+    "/api/v1/vendors",
+    "/api/v1/providers",
+    "/api/v1/provider-memberships",
+    "/api/v1/operators",
+    "/api/v1/pricing/",
+    "/api/v1/routing",
+    "/api/v1/incidents",
+    "/api/v1/financial-summary",
+    "/api/v1/commercial-position",
+    "/api/v1/metrics",
+    "/v1/branding",
+    "/v1/currency",
+)
+
+
 def main() -> int:
     errors: list[str] = []
 
@@ -27,25 +45,33 @@ def main() -> int:
     if ".dual_route(" in routes_src:
         errors.append("routes.rs: retired `.dual_route(` found; mount canonical `/api/v1/*` routes directly")
     for line_no, line in enumerate(routes_src.splitlines(), start=1):
-        if '"/admin/v1' in line and "test" not in line.lower() and not line.strip().startswith("//"):
-            errors.append(f"routes.rs:{line_no}: retired `/admin/v1` route reference found: {line.strip()}")
+        stripped = line.strip()
+        if stripped.startswith("//") or "concat!" in stripped:
+            continue
         if '"/api/v1/session/mode"' in line:
             errors.append(f"routes.rs:{line_no}: retired `/api/v1/session/mode` route found")
-        if "/projects" in line and not line.strip().startswith("//"):
-            errors.append(f"routes.rs:{line_no}: retired `/projects` route reference found: {line.strip()}")
+        if "/projects" in line:
+            errors.append(f"routes.rs:{line_no}: retired `/projects` route reference found: {stripped}")
+        for prefix in RETIRED_ROUTE_PREFIXES:
+            if f'"{prefix}' in line and "test" not in line.lower():
+                errors.append(f"routes.rs:{line_no}: retired `{prefix}` route reference found: {stripped}")
 
     openapi_text = (ROOT / "contracts/openapi.yaml").read_text(encoding="utf-8")
     if re.search(r"^  /api/v1/session/mode:", openapi_text, re.M):
         errors.append("contracts/openapi.yaml: retired `/api/v1/session/mode` path found")
-    if re.search(r"^  /admin/v1/", openapi_text, re.M):
-        errors.append("contracts/openapi.yaml: retired `/admin/v1/` path found")
     if re.search(r"^  [^\n]*/projects(?:/|:)", openapi_text, re.M):
         errors.append("contracts/openapi.yaml: retired `/projects` path found")
+    for prefix in RETIRED_ROUTE_PREFIXES:
+        if re.search(rf"^  {re.escape(prefix)}(?:[:/{{]|$)", openapi_text, re.M):
+            errors.append(f"contracts/openapi.yaml: retired `{prefix}` path found")
 
     handlers = json.loads((ROOT / "contracts/generated/handler-operations.json").read_text(encoding="utf-8"))
     for path, item in handlers.get("paths", {}).items():
         if "/projects" in path:
             errors.append(f"handler-operations.json: retired `/projects` path found: {path}")
+        for prefix in RETIRED_ROUTE_PREFIXES:
+            if path == prefix or path.startswith(prefix.rstrip("/") + "/"):
+                errors.append(f"handler-operations.json: retired `{prefix}` path found: {path}")
         for method, op in item.items():
             if method not in ("get", "post", "put", "patch", "delete"):
                 continue
@@ -62,7 +88,7 @@ def main() -> int:
             print(f"  - {err}", file=sys.stderr)
         return 1
 
-    print("API style gate passed (0 legacy /admin/v1, /projects, route-aliases, session/mode, or untyped 2xx schemas).")
+    print("API style gate passed (0 legacy /admin/v1, /projects, /platform, /vendors, /providers, /operators, /v1/branding|currency, or untyped 2xx schemas).")
     return 0
 
 

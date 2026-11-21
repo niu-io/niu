@@ -59,8 +59,8 @@ test('source generation preserves exact declarations, resolves OpenAPI refs, and
    assert.match(logout,/--cookie/);
    assert.doesNotMatch(logout,/-H "Authorization:/);
    assert.equal(spec.paths['/v1/chat/completions'].post.tags[0], 'Chat completions');
-   assert.equal(spec.paths['/api/v1/platform/customer-accounts'], undefined);
-   assert.equal(spec.paths['/api/v1/vendors'], undefined);
+   assert.equal(spec.paths['/api/v1/admin/customers'], undefined);
+   assert.equal(spec.paths['/api/v1/admin/providers/connections'], undefined);
    assert.equal(spec.paths['/api/v1/organizations/{organization}/projects/{project}/accounts'], undefined);
    assert.equal(spec.paths['/api/v1/organizations/{organization}/projects/{project}/budget'], undefined);
    assert.equal(spec.paths['/api/v1/organizations/{organization}/projects/{project}/costs'], undefined);
@@ -77,7 +77,7 @@ test('source generation preserves exact declarations, resolves OpenAPI refs, and
      }
    }
    const platformView = JSON.parse(readFileSync(join(directory, 'contracts/generated/views/platform-provider-openapi.json'), 'utf8'));
-   assert.equal(platformView.paths['/api/v1/platform/customer-accounts'].get.tags[0], 'Customer balances');
+   assert.equal(platformView.paths['/api/v1/admin/customers'].get.tags[0], 'Customer balances');
    const tags = new Set(spec.tags.map(tag => tag.name));
    for (const item of Object.values(spec.paths)) for (const [method, operation] of Object.entries(item)) {
      if (!['get','post','put','patch','delete','head','options'].includes(method)) continue;

@@ -15,7 +15,7 @@ describe('startup request coalescing under React StrictMode', () => {
     clearSessionCache();
   });
 
-  it('coalesces /v1/branding into one network request on StrictMode mount', async () => {
+  it('coalesces /api/v1/public/branding into one network request on StrictMode mount', async () => {
     const fetcher = vi.fn(async () =>
       Response.json({
         data: { revision: '1', settings: { ...defaultBranding, display_name: 'Niu Strict' } },
@@ -32,10 +32,10 @@ describe('startup request coalescing under React StrictMode', () => {
     );
 
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
-    expect(fetcher.mock.calls[0]?.[0]).toBe('/v1/branding');
+    expect(fetcher.mock.calls[0]?.[0]).toBe('/api/v1/public/branding');
   });
 
-  it('coalesces /v1/currency into one network request on StrictMode mount', async () => {
+  it('coalesces /api/v1/public/currency into one network request on StrictMode mount', async () => {
     const fetcher = vi.fn(async () =>
       Response.json({ data: { currency: 'USD', billing_mode: 'currency', unit: null } }),
     );
@@ -50,7 +50,7 @@ describe('startup request coalescing under React StrictMode', () => {
     );
 
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
-    expect(fetcher.mock.calls[0]?.[0]).toBe('/v1/currency');
+    expect(fetcher.mock.calls[0]?.[0]).toBe('/api/v1/public/currency');
   });
 
   it('coalesces concurrent /api/v1/auth/config callers into one network request even when one aborts', async () => {
@@ -116,7 +116,7 @@ describe('startup request coalescing under React StrictMode', () => {
     await screen.findByText(/Checking connection incidents/i).catch(() => {});
     await waitFor(() => {
       const urls = fetcher.mock.calls.map(call => String(call[0]));
-      expect(urls.filter(u => u.includes('/api/v1/incidents'))).toHaveLength(1);
+      expect(urls.filter(u => u.includes('/api/v1/admin/incidents'))).toHaveLength(1);
       expect(urls.filter(u => u.includes('/api/v1/workspaces/ws-1/incidents'))).toHaveLength(1);
     });
   });

@@ -47,7 +47,7 @@ function AuditLogs({ token }: { token: string }) {
   const { t: uiT } = useUILocale();
   const scope = token || 'public';
   const [category, setCategory] = useState<PlatformAuditCategory | 'all'>('all');
-  const initialPage = peekQuery<PlatformAuditPage>(scope, '/api/v1/platform/audit-events?limit=50');
+  const initialPage = peekQuery<PlatformAuditPage>(scope, '/api/v1/admin/audit?limit=50');
   const [rows, setRows] = useState<PlatformAuditEvent[] | null>(() => initialPage?.data ?? null);
   const [cursor, setCursor] = useState<string | null>(() => initialPage?.next_cursor ?? null);
   const [error, setError] = useState('');
@@ -61,7 +61,7 @@ function AuditLogs({ token }: { token: string }) {
     pending.current?.abort(); pending.current = controller;
     const query = new URLSearchParams({ limit: '50' });
     if (category !== 'all') query.set('category', category);
-    const path = '/api/v1/platform/audit-events?' + query;
+    const path = '/api/v1/admin/audit?' + query;
     const cached = peekQuery<PlatformAuditPage>(scope, path);
     if (cached) {
       setRows(cached.data);
@@ -92,7 +92,7 @@ function AuditLogs({ token }: { token: string }) {
     const query = new URLSearchParams({ limit: '50', cursor });
     if (category !== 'all') query.set('category', category);
     try {
-      const page = await request<PlatformAuditPage>(token, '/api/v1/platform/audit-events?' + query, 'GET', undefined, controller.signal);
+      const page = await request<PlatformAuditPage>(token, '/api/v1/admin/audit?' + query, 'GET', undefined, controller.signal);
       if (controller.signal.aborted) return;
       setRows(previous => {
         const ids = new Set(previous?.map(event => event.id));

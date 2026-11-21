@@ -628,6 +628,115 @@ pub async fn configuration(State(state): State<AppState>) -> Result<Json<Value>,
     })))
 }
 
+/// ```openapi
+/// {
+///   "path": "/api/v1/public/config",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getPublicConfig",
+///     "summary": "Read public instance configuration, branding, currency, and sign-in capabilities",
+///     "description": "Public safe projection combining authentication capabilities, initial setup state, registration mode, branding defaults, and configured platform currency in a single request. No credentials, actors, or commercial rates are exposed.",
+///     "security": [],
+///     "x-niu-implementation": "implemented",
+///     "responses": {
+///       "200": {
+///         "description": "Public instance configuration in data.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": ["data"],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "password_login",
+///                     "browser_token_login",
+///                     "demo_login",
+///                     "setup_required",
+///                     "registration_mode",
+///                     "branding",
+///                     "currency",
+///                     "billing_mode",
+///                     "unit"
+///                   ],
+///                   "properties": {
+///                     "password_login": { "type": "boolean" },
+///                     "browser_token_login": { "type": "boolean" },
+///                     "demo_login": { "type": "boolean" },
+///                     "setup_required": { "type": "boolean" },
+///                     "registration_mode": { "type": "string", "enum": ["disabled", "approval_required"] },
+///                     "branding": {
+///                       "type": "object",
+///                       "required": ["revision", "settings"],
+///                       "properties": {
+///                         "revision": { "type": "string" },
+///                         "settings": { "$ref": "#/components/schemas/BrandingSettings" }
+///                       }
+///                     },
+///                     "currency": { "type": ["string", "null"] },
+///                     "billing_mode": { "type": "string" },
+///                     "unit": { "type": ["object", "null"] }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "503": {
+///         "description": "Durable storage unavailable."
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn public_config(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
+    let password_login = state.password_auth.is_some();
+    let (setup_required, registration_mode) = if password_login {
+        let has_admin = state
+            .store
+            .has_platform_admin_password_account()
+            .await
+            .map_err(ApiError::from_store)?;
+        let registration_mode = state
+            .store
+            .registration_policy()
+            .await
+            .map_err(ApiError::from_store)?
+            .mode;
+        (!has_admin, registration_mode)
+    } else {
+        (false, niu_storage::RegistrationMode::Disabled)
+    };
+    let (branding_revision, branding_settings) = state
+        .store
+        .branding_configuration_snapshot()
+        .await
+        .map_err(ApiError::from_store)?;
+    let (currency, billing_mode, unit) = state
+        .store
+        .platform_billing_summary()
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({
+        "data": {
+            "password_login": password_login,
+            "browser_token_login": password_login,
+            "demo_login": state.password_auth.as_ref().is_some_and(|auth| auth.demo_login.is_some()),
+            "setup_required": setup_required,
+            "registration_mode": registration_mode.as_str(),
+            "branding": {
+                "revision": branding_revision.to_string(),
+                "settings": branding_settings.as_ref(),
+            },
+            "currency": currency,
+            "billing_mode": billing_mode,
+            "unit": unit,
+        }
+    })))
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InstallationSetupInput {

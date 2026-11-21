@@ -252,7 +252,7 @@ fn authorized_organization(
 
 // Match registered route templates rather than user-supplied path spellings.
 /// ```openapi
-/// {"path":"/api/v1/platform/payments/stripe/verification","method":"get","operation":{"operationId":"getStripeVerification","summary":"Read Stripe verification evidence","x-niu-implementation":"implemented","description":"Installation administrator only. Reads evidence bound to current effective Stripe configuration and currency. Account and callback verification are separate; no merchant identity or credentials are returned. Does not contact Stripe.","security":[{"bearerAuth":[]}],"responses":{"200":{"description":"Current configuration-bound verification","content":{"application/json":{"schema":{"type":"object","properties":{"data":{"type":"object","properties":{"account_verified":{"type":"boolean"},"callback_verified":{"type":"boolean"}}}}}}}},"403":{"description":"Installation administrator required"},"400":{"description":"Real Stripe checkout is not configured"}}}}
+/// {"path":"/api/v1/admin/payments/stripe/verification","method":"get","operation":{"operationId":"getStripeVerification","summary":"Read Stripe verification evidence","x-niu-implementation":"implemented","description":"Installation administrator only. Reads evidence bound to current effective Stripe configuration and currency. Account and callback verification are separate; no merchant identity or credentials are returned. Does not contact Stripe.","security":[{"bearerAuth":[]}],"responses":{"200":{"description":"Current configuration-bound verification","content":{"application/json":{"schema":{"type":"object","properties":{"data":{"type":"object","properties":{"account_verified":{"type":"boolean"},"callback_verified":{"type":"boolean"}}}}}}}},"403":{"description":"Installation administrator required"},"400":{"description":"Real Stripe checkout is not configured"}}}}
 /// ```
 pub(crate) async fn stripe_verification(
     State(state): State<AppState>,
@@ -275,7 +275,7 @@ pub(crate) async fn stripe_verification(
     ))
 }
 /// ```openapi
-/// {"path":"/api/v1/platform/payments/stripe/verification","method":"post","operation":{"operationId":"verifyStripeAccount","summary":"Check the configured Stripe account","x-niu-implementation":"implemented","description":"Installation administrator write permission required. Performs a bounded read-only Stripe account check and persists evidence for the current configuration for ten minutes. Does not create checkout, charge money, or assert callback verification. Transient check failure preserves prior evidence only until its original expiry; credential rejection or disabled charges revokes it immediately. Mock mode is excluded. Merchant errors are sanitized.","security":[{"bearerAuth":[]}],"responses":{"200":{"description":"Account check result","content":{"application/json":{"schema":{"type":"object","properties":{"data":{"type":"object","properties":{"result":{"type":"string","enum":["account_enabled","account_disabled","credentials_rejected","check_unavailable"]}}}}}}}},"403":{"description":"Installation administrator required"},"400":{"description":"Real Stripe checkout is not configured"}}}}
+/// {"path":"/api/v1/admin/payments/stripe/verification","method":"post","operation":{"operationId":"verifyStripeAccount","summary":"Check the configured Stripe account","x-niu-implementation":"implemented","description":"Installation administrator write permission required. Performs a bounded read-only Stripe account check and persists evidence for the current configuration for ten minutes. Does not create checkout, charge money, or assert callback verification. Transient check failure preserves prior evidence only until its original expiry; credential rejection or disabled charges revokes it immediately. Mock mode is excluded. Merchant errors are sanitized.","security":[{"bearerAuth":[]}],"responses":{"200":{"description":"Account check result","content":{"application/json":{"schema":{"type":"object","properties":{"data":{"type":"object","properties":{"result":{"type":"string","enum":["account_enabled","account_disabled","credentials_rejected","check_unavailable"]}}}}}}}},"403":{"description":"Installation administrator required"},"400":{"description":"Real Stripe checkout is not configured"}}}}
 /// ```
 pub(crate) async fn verify_stripe_account(
     State(state): State<AppState>,
@@ -395,7 +395,7 @@ async fn current_stripe_verification(
 fn customer_feature(path: &str) -> bool {
     if matches!(
         path,
-        "/v1/currency" | "/v1/branding" | "/v1/key" | "/v1/models"
+        "/api/v1/public/currency" | "/api/v1/public/branding" | "/v1/key" | "/v1/models"
     ) {
         return false;
     }
@@ -705,7 +705,7 @@ mod tests {
             assert!(customer_feature(path), "{path}");
         }
         for path in [
-            "/v1/currency",
+            "/api/v1/public/currency",
             "/v1/key",
             "/v1/models",
             "/v1/routing",
@@ -713,12 +713,12 @@ mod tests {
             "/v1/events/example/test",
             "/api/v1/workspaces/{workspace}/routing/{slug}",
             "/api/v1/payments/readiness",
-            "/api/v1/platform/payments/epay",
-            "/api/v1/platform/currency",
+            "/api/v1/admin/payments/epay",
+            "/api/v1/admin/currency",
             "/api/v1/session",
             "/api/v1/auth/browser/login",
             "/api/v1/organizations/{organization}/billing/topups",
-            "/api/v1/providers",
+            "/api/v1/admin/providers",
             "/catalog/v1/models",
             "/payments/stripe/notify",
         ] {
@@ -868,7 +868,7 @@ mod tests {
             }),
         }));
         let app = crate::web::router(state.clone());
-        let path = "/api/v1/platform/payments/stripe/verification";
+        let path = "/api/v1/admin/payments/stripe/verification";
         let denied = app
             .clone()
             .oneshot(axum::http::Request::post(path).body(Body::empty()).unwrap())
@@ -1178,7 +1178,7 @@ mod tests {
         // its own tenant.
         for (path, token, status) in [
             (
-                "/api/v1/platform/configuration".into(),
+                "/api/v1/admin/configuration".into(),
                 owner.token.as_str(),
                 403,
             ),
@@ -1244,7 +1244,7 @@ mod tests {
         let configuration = app
             .clone()
             .oneshot(
-                Request::get("/api/v1/platform/configuration")
+                Request::get("/api/v1/admin/configuration")
                     .header("authorization", "Bearer funding-fixture-installation-token")
                     .body(Body::empty())
                     .unwrap(),
@@ -1964,7 +1964,7 @@ mod tests {
         for (path, expected) in [
             (keys.as_str(), axum::http::StatusCode::OK),
             ("/api/v1/payments/readiness", axum::http::StatusCode::OK),
-            ("/api/v1/platform/payments/epay", axum::http::StatusCode::OK),
+            ("/api/v1/admin/payments/epay", axum::http::StatusCode::OK),
         ] {
             let response = app
                 .clone()

@@ -130,13 +130,13 @@ test('admin client exposes registration policy and approval/rejection methods', 
     adminToken: 'platform-session',
     fetch: async (url, init) => {
       calls.push({ url, init });
-      if (url.endsWith('/platform/registration') && init.method === 'GET') {
+      if (url.endsWith('/admin/registration') && init.method === 'GET') {
         return Response.json({ data: { mode: 'approval_required', revision: '1', updated_at: '2026-11-16T00:00:00Z', password_login_configured: true } });
       }
-      if (url.endsWith('/platform/registration') && init.method === 'PUT') {
+      if (url.endsWith('/admin/registration') && init.method === 'PUT') {
         return Response.json({ data: { mode: 'disabled', revision: '2', updated_at: '2026-11-16T00:01:00Z', password_login_configured: true } });
       }
-      if (url.includes('/platform/registrations?status=pending')) {
+      if (url.includes('/admin/registrations?status=pending')) {
         return Response.json({ data: [], next_cursor: null, counts: { pending: 0, approved: 1, rejected: 0 }, policy: { mode: 'approval_required', revision: '1', updated_at: '2026-11-16T00:00:00Z' } });
       }
       return Response.json({ data: sampleRecord });
@@ -148,9 +148,9 @@ test('admin client exposes registration policy and approval/rejection methods', 
   await admin.approveRegistration(sampleRecord.id, { expected_revision: '1', organization_name: 'Analytical Engine' });
   await admin.rejectRegistration(sampleRecord.id, { expected_revision: '1', note: 'Need company email' });
   assert.equal(calls.length, 5);
-  assert.equal(calls[0].url, 'https://niu.example/api/v1/platform/registration');
+  assert.equal(calls[0].url, 'https://niu.example/api/v1/admin/registration');
   assert.equal(calls[1].init.method, 'PUT');
-  assert.equal(calls[2].url, 'https://niu.example/api/v1/platform/registrations?status=pending&limit=25');
-  assert.equal(calls[3].url, `https://niu.example/api/v1/platform/registrations/${sampleRecord.id}/approve`);
-  assert.equal(calls[4].url, `https://niu.example/api/v1/platform/registrations/${sampleRecord.id}/reject`);
+  assert.equal(calls[2].url, 'https://niu.example/api/v1/admin/registrations?status=pending&limit=25');
+  assert.equal(calls[3].url, `https://niu.example/api/v1/admin/registrations/${sampleRecord.id}/approve`);
+  assert.equal(calls[4].url, `https://niu.example/api/v1/admin/registrations/${sampleRecord.id}/reject`);
 });

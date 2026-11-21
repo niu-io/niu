@@ -51,8 +51,8 @@ async fn branding_api_is_public_safe_platform_only_and_revision_checked(pool: Pg
         .await
         .unwrap();
     let app = router(state);
-    let admin = "/api/v1/platform/branding";
-    let public = "/v1/branding";
+    let admin = "/api/v1/admin/branding";
+    let public = "/api/v1/public/branding";
     let defaults = serde_json::to_value(niu_storage::BrandingSettings::default()).unwrap();
     assert_eq!(
         call(&app, "GET", public, None, None).await.1,

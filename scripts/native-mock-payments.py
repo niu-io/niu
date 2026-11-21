@@ -136,23 +136,23 @@ def main():
                 require(status == (200 if ready else 503),
                     'Workspace entry did not follow the payment prerequisite')
             expect_workspace_gate(False)
-            api('PUT','/api/v1/platform/currency',{'currency':'USD'})
-            require(api('GET','/api/v1/platform/payments/mock')['data']['available'], 'Mock configuration not available')
-            status, _ = request('PUT', '/api/v1/platform/payments/mock', {'enabled':True}, token='unauthorized')
+            api('PUT','/api/v1/admin/currency',{'currency':'USD'})
+            require(api('GET','/api/v1/admin/payments/mock')['data']['available'], 'Mock configuration not available')
+            status, _ = request('PUT', '/api/v1/admin/payments/mock', {'enabled':True}, token='unauthorized')
             require(status in (401,403), 'Mock configuration accepted unauthorized caller')
-            api('PUT','/api/v1/platform/payments/mock',{'enabled':False})
+            api('PUT','/api/v1/admin/payments/mock',{'enabled':False})
             require(not api('GET','/api/v1/payments/environment')['data']['mock_payments'], 'Disabled mode was not reported')
             expect_workspace_gate(False)
-            api('PUT','/api/v1/platform/payments/mock',{'enabled':True})
+            api('PUT','/api/v1/admin/payments/mock',{'enabled':True})
             require(api('GET','/api/v1/payments/environment')['data']['mock_payments'], 'Enabled mode was not reported')
             expect_workspace_gate(True)
             org=api('POST','/api/v1/organizations',{'name':'Mock payment test','currency':'USD'})
-            api('PUT','/api/v1/platform/payments/mock',{'enabled':False})
+            api('PUT','/api/v1/admin/payments/mock',{'enabled':False})
             methods=api('GET',f'/api/v1/organizations/{org["id"]}/billing/payment-methods?currency=USD&payment_gateway=stripe')['data']
             require(not methods['available'] and methods['unavailable_reason']=='integration_unavailable', 'Disabled mock reported a missing currency account or available checkout')
-            integrations=api('GET','/api/v1/platform/payments/integrations')['data']
+            integrations=api('GET','/api/v1/admin/payments/integrations')['data']
             require(not next(item for item in integrations if item['id']=='stripe')['checkout_enabled'], 'Disabled mock advertised enabled checkout')
-            api('PUT','/api/v1/platform/payments/mock',{'enabled':True})
+            api('PUT','/api/v1/admin/payments/mock',{'enabled':True})
             base=f'/api/v1/organizations/{org["id"]}/billing/topups'
             expected=0
             def balance():
@@ -223,7 +223,7 @@ def main():
             print('Verified: real checkout, signatures, exact-once ledger, failed/cancelled/timeout safety, duplicate/stale/delayed events, restart and unavailable merchant.',flush=True)
             print('Isolated test checkout: '+preview['checkout_url'],flush=True)
             if args.hold:
-                api('PUT','/api/v1/platform/payments/mock',{'enabled':False})
+                api('PUT','/api/v1/admin/payments/mock',{'enabled':False})
                 dashboard_env = dict(environment, NIU_DEV_GATEWAY_URL=f'http://127.0.0.1:{httpport}',
                     VITE_NIU_GATEWAY_LOGIN='1', VITE_NIU_MOCK_PAYMENTS='1')
                 dashboard_log = (root / 'dashboard.log').open('ab'); logs.append(dashboard_log)

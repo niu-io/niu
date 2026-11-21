@@ -58,9 +58,9 @@ function installFetch(options: { includeMedia?: boolean } = {}) {
       writes.push({ path, body: JSON.parse(String(init.body)) as Record<string, unknown> });
       return Response.json({ data: { revision: '7' } });
     }
-    if (path === '/api/v1/platform/units') return Response.json({ data: config });
-    if (path === '/api/v1/platform/units/media/tariffs') return Response.json({ data: options.includeMedia ? mediaTariffs : [] });
-    if (path.includes('/api/v1/pricing/standard-prices/models?')) return Response.json({ data: modelChoices, next_after: null });
+    if (path === '/api/v1/admin/units') return Response.json({ data: config });
+    if (path === '/api/v1/admin/units/media/tariffs') return Response.json({ data: options.includeMedia ? mediaTariffs : [] });
+    if (path.includes('/api/v1/admin/pricing/standard-prices/models?')) return Response.json({ data: modelChoices, next_after: null });
     return Response.json({ error: { message: 'Unexpected ' + path } }, { status: 404 });
   }));
   return writes;
@@ -115,7 +115,7 @@ describe('Branded Credits tariffs', () => {
     await user.click(screen.getByRole('button', { name: 'Publish Niu Credits tariff' }));
     await waitFor(() => expect(writes).toHaveLength(1));
 
-    expect(writes[0].path).toBe('/api/v1/platform/units/tariffs');
+    expect(writes[0].path).toBe('/api/v1/admin/units/tariffs');
     expect(writes[0].body).toMatchObject({
       model_alias: 'text-model',
       definition_revision: '3',
@@ -160,7 +160,7 @@ describe('Branded Credits tariffs', () => {
     await user.click(screen.getByRole('button', { name: 'Publish Niu Credits tariff' }));
     await waitFor(() => expect(writes).toHaveLength(1));
 
-    expect(writes[0].path).toBe('/api/v1/platform/units/media/tariffs');
+    expect(writes[0].path).toBe('/api/v1/admin/units/media/tariffs');
     expect(writes[0].body).toMatchObject({
       model_alias: 'video-model',
       definition_revision: '3',
@@ -178,9 +178,9 @@ describe('Branded Credits tariffs', () => {
   it('explains the missing video-token configuration instead of offering an arbitrary alias', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path === '/api/v1/platform/units') return Response.json({ data: config });
-      if (path === '/api/v1/platform/units/media/tariffs') return Response.json({ data: [] });
-      if (path.includes('/api/v1/pricing/standard-prices/models?')) return Response.json({ data: [{ model_alias: 'seconds-model', media: modelChoices[2].media }], next_after: null });
+      if (path === '/api/v1/admin/units') return Response.json({ data: config });
+      if (path === '/api/v1/admin/units/media/tariffs') return Response.json({ data: [] });
+      if (path.includes('/api/v1/admin/pricing/standard-prices/models?')) return Response.json({ data: [{ model_alias: 'seconds-model', media: modelChoices[2].media }], next_after: null });
       return Response.json({ error: { message: 'Unexpected ' + path } }, { status: 404 });
     }));
     renderSection();

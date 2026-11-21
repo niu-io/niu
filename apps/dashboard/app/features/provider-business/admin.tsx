@@ -103,7 +103,7 @@ function Administration({ token }: { token: string }) {
   const internal = session?.operating_mode === 'internal';
   const { section = "overview", providerId, supplierId } = useProviderParams();
   const routeProviderId = providerId ?? supplierId;
-  const initialBusinesses = token ? peekCachedGet<{ data: Business[] }>(token, "/api/v1/providers")?.data ?? null : null;
+  const initialBusinesses = token ? peekCachedGet<{ data: Business[] }>(token, "/api/v1/admin/providers")?.data ?? null : null;
   const [loading, setLoading] = useState(() => Boolean(token && !initialBusinesses));
   const [businesses, setBusinesses] = useState<Business[]>(() => initialBusinesses ?? []);
   const [search, setSearch] = useSearchParams();
@@ -111,10 +111,10 @@ function Administration({ token }: { token: string }) {
   const setSelected = (id: string) => setSearch(current => { current.set('supplier', id); current.delete('create'); return current; });
 
   const initialAdminData = selected && token
-    ? peekCachedGet<{ data: AdminData }>(token, `/api/v1/providers/${selected}/administration?days=90`)?.data ?? null
+    ? peekCachedGet<{ data: AdminData }>(token, `/api/v1/admin/providers/${selected}/administration?days=90`)?.data ?? null
     : null;
   const initialMembers = selected && token
-    ? peekCachedGet<{ data: ProviderMember[] }>(token, `/api/v1/providers/${selected}/members`)?.data ?? null
+    ? peekCachedGet<{ data: ProviderMember[] }>(token, `/api/v1/admin/providers/${selected}/members`)?.data ?? null
     : null;
   const [data, setData] = useState<AdminData | null>(initialAdminData);
   const [loadingMoreOffers, setLoadingMoreOffers] = useState(false);
@@ -156,10 +156,10 @@ function Administration({ token }: { token: string }) {
     }
     previousProvider.current = selected;
     const cachedAdmin = selected && token
-      ? peekCachedGet<{ data: AdminData }>(token, `/api/v1/providers/${selected}/administration?days=90`)?.data ?? null
+      ? peekCachedGet<{ data: AdminData }>(token, `/api/v1/admin/providers/${selected}/administration?days=90`)?.data ?? null
       : null;
     const cachedMembers = selected && token
-      ? peekCachedGet<{ data: ProviderMember[] }>(token, `/api/v1/providers/${selected}/members`)?.data ?? null
+      ? peekCachedGet<{ data: ProviderMember[] }>(token, `/api/v1/admin/providers/${selected}/members`)?.data ?? null
       : null;
     setData(cachedAdmin);
     setMembers(cachedMembers ?? []);
@@ -174,7 +174,7 @@ function Administration({ token }: { token: string }) {
   useEffect(() => {
     if (dialog !== "membership") return;
     const controller = new AbortController();
-    const cached = token ? peekCachedGet<{ data: Operator[] }>(token, "/api/v1/operators")?.data ?? null : null;
+    const cached = token ? peekCachedGet<{ data: Operator[] }>(token, "/api/v1/members")?.data ?? null : null;
     if (cached) {
       setAccounts(cached.filter(account => !account.revoked));
       setAccountsLoading(false);
@@ -182,7 +182,7 @@ function Administration({ token }: { token: string }) {
       setAccounts([]);
       setAccountsLoading(true);
     }
-    void cachedGet<{ data: Operator[] }>(token, "/api/v1/operators", { signal: controller.signal })
+    void cachedGet<{ data: Operator[] }>(token, "/api/v1/members", { signal: controller.signal })
       .then(result => { if (!controller.signal.aborted) setAccounts(result.data.filter(account => !account.revoked)); })
       .catch(reason => { if (!controller.signal.aborted) setError(reason.message); })
       .finally(() => { if (!controller.signal.aborted) setAccountsLoading(false); });
@@ -193,7 +193,7 @@ function Administration({ token }: { token: string }) {
     const controller = new AbortController();
     const force = lastMembersRevision.current !== revision;
     lastMembersRevision.current = revision;
-    const membersPath = `/api/v1/providers/${selected}/members`;
+    const membersPath = `/api/v1/admin/providers/${selected}/members`;
     const cached = token ? peekCachedGet<{ data: ProviderMember[] }>(token, membersPath)?.data ?? null : null;
     if (cached) {
       if (!force) setMembers(cached);
@@ -242,7 +242,7 @@ function Administration({ token }: { token: string }) {
     setSettlementPreviewLoading(true);
     void request<{ data: SettlementPreview }>(
       token,
-      `/api/v1/providers/${selected}/settlements/preview?currency=${encodeURIComponent(settlementCurrency)}&cutoff_ms=${cutoffMs}`,
+      `/api/v1/admin/providers/${selected}/settlements/preview?currency=${encodeURIComponent(settlementCurrency)}&cutoff_ms=${cutoffMs}`,
       "GET",
       undefined,
       controller.signal,
@@ -287,10 +287,10 @@ function Administration({ token }: { token: string }) {
   useEffect(() => {
     if (dialog !== "offer" || offerId || !selected || !token) { setConfiguredAliases([]); return; }
     const controller = new AbortController();
-    void cachedGet<{ data: ProviderConnection[] }>(token, `/api/v1/vendors?supplier=${encodeURIComponent(selected)}`, { signal: controller.signal })
+    void cachedGet<{ data: ProviderConnection[] }>(token, `/api/v1/admin/providers/connections?supplier=${encodeURIComponent(selected)}`, { signal: controller.signal })
       .then(async res => {
         const scoped = (res?.data ?? []).filter(c => (c.provider ?? c.supplier)?.id === selected);
-        const pages = await Promise.all(scoped.map(c => cachedGet<{ data: ProviderModel[] }>(token, `/api/v1/vendors/${encodeURIComponent(c.id)}/models`, { signal: controller.signal }).catch(() => ({ data: [] as ProviderModel[] }))));
+        const pages = await Promise.all(scoped.map(c => cachedGet<{ data: ProviderModel[] }>(token, `/api/v1/admin/providers/connections/${encodeURIComponent(c.id)}/models`, { signal: controller.signal }).catch(() => ({ data: [] as ProviderModel[] }))));
         if (!controller.signal.aborted) setConfiguredAliases([...new Set(pages.flatMap(p => (p?.data ?? []).filter(m => !m.capabilities?.video_schema).map(m => m.alias)))].sort());
       }).catch(() => { if (!controller.signal.aborted) setConfiguredAliases([]); });
     return () => controller.abort();
@@ -299,7 +299,7 @@ function Administration({ token }: { token: string }) {
     const controller = new AbortController();
     const force = lastProvidersRevision.current !== revision;
     lastProvidersRevision.current = revision;
-    const cached = token ? peekCachedGet<{ data: Business[] }>(token, "/api/v1/providers")?.data ?? null : null;
+    const cached = token ? peekCachedGet<{ data: Business[] }>(token, "/api/v1/admin/providers")?.data ?? null : null;
     if (cached) {
       if (!force) setBusinesses(cached);
       setLoading(false);
@@ -308,7 +308,7 @@ function Administration({ token }: { token: string }) {
     }
     void cachedGet<{ data: Business[] }>(
       token,
-      "/api/v1/providers",
+      "/api/v1/admin/providers",
       { signal: controller.signal, force },
     )
       .then((result) => {
@@ -328,7 +328,7 @@ function Administration({ token }: { token: string }) {
     const controller = new AbortController();
     const force = lastAdminRevision.current !== revision;
     lastAdminRevision.current = revision;
-    const adminPath = `/api/v1/providers/${selected}/administration?days=90`;
+    const adminPath = `/api/v1/admin/providers/${selected}/administration?days=90`;
     const cached = token ? peekCachedGet<{ data: AdminData }>(token, adminPath)?.data ?? null : null;
     if (cached && !force) {
       setData(cached);
@@ -353,7 +353,7 @@ function Administration({ token }: { token: string }) {
     const scope = operationScope.current;
     setLoadingMoreOffers(true); setMoreOffersError('');
     try {
-      const page = await request<{data: ProviderOffer[]; next_after: string | null}>(token, `/api/v1/providers/${selected}/offers?limit=100&after=${encodeURIComponent(after)}`, 'GET', undefined, controller.signal);
+      const page = await request<{data: ProviderOffer[]; next_after: string | null}>(token, `/api/v1/admin/providers/${selected}/offers?limit=100&after=${encodeURIComponent(after)}`, 'GET', undefined, controller.signal);
       if (controller.signal.aborted || scope !== operationScope.current) return;
       if (page.next_after === after || (page.next_after && !page.data.some(item => !data.offers.some(old => old.id === item.id)))) throw new Error('The offer list changed. Refresh before continuing.');
       setData(current => current ? {...current, offers: [...current.offers, ...page.data.filter(item => !current.offers.some(old => old.id === item.id))], offers_has_more: page.next_after !== null} : current);
@@ -367,7 +367,7 @@ function Administration({ token }: { token: string }) {
     setOfferLoad(previous => ({ token, supplier: selected, scope, offers: previous?.offers ?? [], ready: false, loading: true, conflict: previous?.conflict ?? false }));
     setError("");
     try {
-      const result = await request<{ data: AdminData }>(token, `/api/v1/providers/${selected}/administration?days=90`, "GET", undefined, controller.signal);
+      const result = await request<{ data: AdminData }>(token, `/api/v1/admin/providers/${selected}/administration?days=90`, "GET", undefined, controller.signal);
       if (controller.signal.aborted || sequence !== offerReadSequence.current || scope !== operationScope.current) return;
       // Refresh through the authorized collection before editing an offer beyond the summary cap.
       const seen = new Set<string>();
@@ -375,7 +375,7 @@ function Administration({ token }: { token: string }) {
         const after = result.data.offers.at(-1)?.model_alias;
         if (!after || seen.has(after)) throw new Error('The offer list changed. Reload before saving.');
         seen.add(after);
-        const page = await request<{data: ProviderOffer[]; next_after: string | null}>(token, `/api/v1/providers/${selected}/offers?limit=100&after=${encodeURIComponent(after)}`, 'GET', undefined, controller.signal);
+        const page = await request<{data: ProviderOffer[]; next_after: string | null}>(token, `/api/v1/admin/providers/${selected}/offers?limit=100&after=${encodeURIComponent(after)}`, 'GET', undefined, controller.signal);
         if (controller.signal.aborted || sequence !== offerReadSequence.current || scope !== operationScope.current) return;
         if (page.next_after === after || (page.next_after && !page.data.length)) throw new Error('The offer list changed. Reload before saving.');
         result.data.offers.push(...page.data.filter(item => !result.data.offers.some(old => old.id === item.id)));
@@ -471,13 +471,13 @@ function Administration({ token }: { token: string }) {
       if (dialog === "membership")
         await request(
           token,
-          `/api/v1/providers/${selected}/members/${operator}`,
+          `/api/v1/admin/providers/${selected}/members/${operator}`,
           "PUT",
           { role, active: active === "true" },
         );
       if (dialog === "offer") {
         const currentOffer = offerLoad?.offers.find((offer) => offer.model_alias === alias);
-        await request(token, `/api/v1/providers/${selected}/offers`, "POST", {
+        await request(token, `/api/v1/admin/providers/${selected}/offers`, "POST", {
           model_alias: alias,
           currency,
           prompt_rate: nanos(inputRate),
@@ -493,8 +493,8 @@ function Administration({ token }: { token: string }) {
       }
       if (dialog === "offer-enable" || dialog === "offer-pause") {
         if (!offerSnapshot || offerSnapshot.id !== offerId) throw new Error("This offer is no longer available. Refresh and try again.");
-        if (dialog === "offer-enable") await request(token, `/api/v1/providers/${selected}/offers/${offerId}/authorization`, "PUT", {rate_revision: offerSnapshot.revision});
-        else await request(token, `/api/v1/providers/${selected}/offers/${offerId}`, "PATCH", {active:false});
+        if (dialog === "offer-enable") await request(token, `/api/v1/admin/providers/${selected}/offers/${offerId}/authorization`, "PUT", {rate_revision: offerSnapshot.revision});
+        else await request(token, `/api/v1/admin/providers/${selected}/offers/${offerId}`, "PATCH", {active:false});
       }
       if (dialog === "settlement") {
         const cutoffMs = settlementCutoffMs(settlementCutoff);
@@ -514,7 +514,7 @@ function Administration({ token }: { token: string }) {
         setPaymentSubmitted(true);
         const result = await request<{ data: SettlementResult }>(
           token,
-          `/api/v1/providers/${selected}/settlements`,
+          `/api/v1/admin/providers/${selected}/settlements`,
           "POST",
           {
             idempotency_key: paymentKey,
@@ -567,7 +567,7 @@ function Administration({ token }: { token: string }) {
     setError("");
     let committed = false;
     try {
-      const created = await request<{ data: { id: string } }>(token, "/api/v1/vendors", "POST", input);
+      const created = await request<{ data: { id: string } }>(token, "/api/v1/admin/providers/connections", "POST", input);
       if (!created?.data?.id || typeof created.data.id !== 'string') throw new Error('Invalid creation response.');
       committed = true;
       // Close immediately after commit: a discovery failure must never invite
@@ -575,7 +575,7 @@ function Administration({ token }: { token: string }) {
       setDialog("");
       setSearch(current => { current.delete("create"); return current; }, { replace: true });
       setNotice(input.supplier_id ? "API key added. Configure its models to continue setup." : internal ? "Provider created. Configure its models to continue setup." : "Provider created. Add models and agreed rates to continue setup.");
-      const ownership = await request<{ data: { id: string } }>(token, `/api/v1/vendors/${encodeURIComponent(created.data.id)}/supplier`, "GET");
+      const ownership = await request<{ data: { id: string } }>(token, `/api/v1/admin/providers/connections/${encodeURIComponent(created.data.id)}/supplier`, "GET");
       setSelected(ownership.data.id);
     } catch (reason) {
       setError(committed ? "API key saved, but Provider details could not be opened. Refresh the Provider list." : reason instanceof Error ? reason.message : "Provider could not be created.");

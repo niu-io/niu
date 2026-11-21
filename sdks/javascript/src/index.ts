@@ -1044,8 +1044,19 @@ export class NiuClient {
     return this.request('/decisions', request, options);
   }
   /** Public branding projection; the regular client credential does not expand it. */
-  getPublicBranding(options?: RequestOptions): Promise<import('./admin.js').BrandingConfiguration> {
-    return this.request('/branding', undefined, options);
+  async getPublicBranding(options?: RequestOptions): Promise<import('./admin.js').BrandingConfiguration> {
+    const base = this.baseURL.endsWith('/v1') ? `${this.baseURL.slice(0, -3)}/api/v1` : this.baseURL;
+    const response = await this.requestFetch(`${base}/public/branding`, {
+      method: 'GET',
+      headers: { accept: 'application/json' },
+      signal: options?.signal,
+      redirect: 'error',
+    });
+    await notifyResponse(response, options ?? {});
+    if (!response.ok) {
+      throw NiuAPIError.fromResponse(response, await readPayload(response));
+    }
+    return await readPayload(response) as import('./admin.js').BrandingConfiguration;
   }
 
   /** Inspect the current API key's label, model grants, limits, and 60s usage window. */
@@ -1345,7 +1356,7 @@ export class NiuClient {
       signal: options.signal,
       redirect: 'error',
     });
-    await notifyResponse(response, options);
+    await notifyResponse(response, options ?? {});
     if (!response.ok) {
       throw NiuAPIError.fromResponse(response, await readPayload(response));
     }

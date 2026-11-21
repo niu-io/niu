@@ -1,11 +1,11 @@
 ---
 title: "List configured video models with draft offer status"
-description: "GET /api/v1/providers/{provider}/media-offer-models"
+description: "GET /api/v1/admin/providers/{provider}/media-offer-models"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/providers/{provider}/media-offer-models`
+`GET /api/v1/admin/providers/{provider}/media-offer-models`
 
 Installation read authority only. Bounded canonical alias traversal includes configured video schemas on explicitly owned Provider credentials, regardless of activation or authorization. Each record exposes the current offer status and exact configuration bindings so an authorized administrator can publish a purchase rate without a separate pinning step. Invalid schemas, personal credentials and aliases owned by another Provider are excluded. No credential, endpoint, upstream model or prices are returned. Exact revision strings and internal binding identifiers must remain out of product UI. Cursor progression includes invalid rows skipped after validation. A page may have empty data with has_more true; clients must continue with next_after until has_more is false. Multiple credentials belonging to the same Provider retain their independent model bindings.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/media-offer-models" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/{provider}/media-offer-models" \
   -H "Authorization: Bearer $NIU_MEMBER_TOKEN"
 ```
 

@@ -112,7 +112,7 @@ def main():
                 f'-h 127.0.0.1 -p {pgport} -k {root}', '-w', 'start'], env=environment,
                 stdout=subprocess.DEVNULL, check=True)
             start()
-            path = '/api/v1/platform/payments/epay'
+            path = '/api/v1/admin/payments/epay'
             settings = dict(expected_revision='0', enabled=True, merchant_id='123456', key=merchant_key,
                 endpoint='https://checkout.example.com/submit.php',
                 notify_url='https://niu.example.com/payments/epay/notify',
@@ -168,7 +168,7 @@ def main():
                     role=role, expires_in_seconds=600)
                 if project:
                     body['project_id'] = project
-                return api('POST', '/api/v1/operators', body)['token']
+                return api('POST', '/api/v1/members', body)['token']
 
             owner = actor(org['id'], 'owner')
             detail = base + '/' + order['id']

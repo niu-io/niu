@@ -49,7 +49,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   const lockedOrganization = session.kind === 'operator' ? session.operator?.organization_id ?? '' : '';
   const lockedProject = session.kind === 'operator' ? session.operator?.project_id ?? '' : '';
   const initialOrgs = canManage ? (peekCachedGet<{ data: NamedResource[] }>(token, '/api/v1/organizations')?.data ?? null) : null;
-  const initialOpsPage = canManage ? peekCachedGet<{ data: Operator[]; next_cursor?: string | null }>(token, '/api/v1/operators?limit=1000') : undefined;
+  const initialOpsPage = canManage ? peekCachedGet<{ data: Operator[]; next_cursor?: string | null }>(token, '/api/v1/members?limit=1000') : undefined;
   const initialOps = initialOpsPage && Array.isArray(initialOpsPage.data) && !initialOpsPage.next_cursor ? initialOpsPage.data : null;
   const initialOrgId = lockedOrganization || initialOrganization || initialOrgs?.[0]?.id || '';
   const initialProjects = canManage && initialOrgId ? (peekCachedGet<{ data: NamedResource[] }>(token, '/api/v1/workspaces?organization_id=' + encodeURIComponent(initialOrgId))?.data ?? []) : [];
@@ -161,7 +161,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     setRoleRefreshError('');
     try {
       const result = nextRole
-        ? await request<{ data: Operator }>(token, '/api/v1/operators/' + selectedOperator.id, 'PATCH', { role: nextRole, expected_role: expectedRole }, controller.signal)
+        ? await request<{ data: Operator }>(token, '/api/v1/members/' + selectedOperator.id, 'PATCH', { role: nextRole, expected_role: expectedRole }, controller.signal)
         : await listOperators(token, organization, controller.signal);
       if (!current()) throw new DOMException('Role context changed.', 'AbortError');
       const saved = Array.isArray(result.data) ? result.data.find(item => item.id === context.operatorId) : result.data;
@@ -213,7 +213,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     try {
       const result = await request<{ data: OperatorAuditEvent[]; next_cursor: string | null }>(
         token,
-        '/api/v1/operators/' + operatorId + '/events' + query,
+        '/api/v1/members/' + operatorId + '/events' + query,
         'GET',
         undefined,
         requestSignal,
@@ -236,7 +236,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
         try {
           const firstPage = await request<{ data: OperatorAuditEvent[]; next_cursor: string | null }>(
             token,
-            '/api/v1/operators/' + operatorId + '/events?limit=50',
+            '/api/v1/members/' + operatorId + '/events?limit=50',
             'GET',
             undefined,
             requestSignal,
@@ -268,7 +268,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     }
     const controller = new AbortController();
     const hasSeed = Array.isArray(peekCachedGet<{ data: NamedResource[] }>(token, '/api/v1/organizations')?.data)
-      && Array.isArray(peekCachedGet<{ data: Operator[] }>(token, '/api/v1/operators?limit=1000')?.data);
+      && Array.isArray(peekCachedGet<{ data: Operator[] }>(token, '/api/v1/members?limit=1000')?.data);
     if (!hasSeed) setLoading(true);
     setError('');
     Promise.all([
@@ -361,7 +361,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     setSessionsLoading(true);
     request<{ data: OperatorSession[] }>(
       token,
-      '/api/v1/operators/' + selectedOperatorId + '/sessions',
+      '/api/v1/members/' + selectedOperatorId + '/sessions',
       'GET',
       undefined,
       controller.signal,
@@ -467,7 +467,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     void perform(async () => {
       const result = await request<IssuedSession>(
         token,
-        '/api/v1/operators/' + operatorId + '/sessions',
+        '/api/v1/members/' + operatorId + '/sessions',
         'POST',
         { expires_in_seconds: expiresInSeconds },
       );
@@ -480,7 +480,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
 
   function onRevokeOperator(operator: Operator) {
     void perform(async () => {
-      await request<void>(token, '/api/v1/operators/' + operator.id, 'DELETE');
+      await request<void>(token, '/api/v1/members/' + operator.id, 'DELETE');
       setOperators(previous => previous.map(item => item.id === operator.id ? { ...item, revoked: true } : item));
       setSessions(previous => previous.map(item => ({ ...item, revoked: true })));
       if (credential?.operatorId === operator.id) setCredential(null);
@@ -496,7 +496,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     void perform(async () => {
       await request<void>(
         token,
-        '/api/v1/operators/' + operatorId + '/sessions/' + sessionId,
+        '/api/v1/members/' + operatorId + '/sessions/' + sessionId,
         'DELETE',
       );
       setSessions(previous => previous.map(item => item.id === sessionId ? { ...item, revoked: true } : item));

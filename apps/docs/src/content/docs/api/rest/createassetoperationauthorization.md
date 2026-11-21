@@ -1,11 +1,11 @@
 ---
 title: "Record administrator-reviewed ordinary asset qualification"
-description: "POST /api/v1/vendors/{id}/asset-management/authorizations"
+description: "POST /api/v1/admin/providers/connections/{id}/asset-management/authorizations"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/vendors/{id}/asset-management/authorizations`
+`POST /api/v1/admin/providers/connections/{id}/asset-management/authorizations`
 
 Platform administrator only. Binds the exact workspace, direct Beijing Ark configuration revision and asset credential revision. The four nonzero SHA-256 references identify reviewed rights, protocol, data-handling and free-operation evidence; they do not establish entitlement automatically. Validity is bounded to 90 days. CreateAsset requires separate ingestion review and does not establish processing consent or exact inspected-content binding. DeleteAssetGroup requires its own reviewed grant and never inherits creation/read/update rights; it does not establish destructive user consent. Does not send upstream requests or enable dispatch. Request body is limited to 16 KiB.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/authorizations" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/asset-management/authorizations" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

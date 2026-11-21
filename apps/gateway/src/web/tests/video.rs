@@ -1272,7 +1272,7 @@ async fn video_selling_configuration_requires_platform_administration(pool: PgPo
                 json!({"effective_until":30}),
             ),
             (
-                format!("/api/v1/providers/{}/media-rates", Uuid::new_v4()),
+                format!("/api/v1/admin/providers/{}/media-rates", Uuid::new_v4()),
                 json!({"revision":"purchase-access","offer_revision":Uuid::new_v4(),"vendor_revision":vendor.revision,"model_revision":model.revision,"schema_revision":"selling-schema","tariff":body["tariff"],"discounts":[]}),
             ),
         ] {
@@ -1764,7 +1764,8 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         "blocked video must not reserve or change customer funds"
     );
 
-    let model_choices_path = format!("/api/v1/providers/{supplier}/media-rate-models?limit=1");
+    let model_choices_path =
+        format!("/api/v1/admin/providers/{supplier}/media-rate-models?limit=1");
     for (token, expected) in [
         (actor.token.as_str(), StatusCode::FORBIDDEN),
         (key.token.as_str(), StatusCode::UNAUTHORIZED),
@@ -2278,7 +2279,8 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         ),
         "overlapping purchase rates fail closed"
     );
-    let retire_path = format!("/api/v1/providers/{supplier}/media-rates/purchase-fixture/retire");
+    let retire_path =
+        format!("/api/v1/admin/providers/{supplier}/media-rates/purchase-fixture/retire");
     for (token, expected, time) in [
         (actor.token.as_str(), StatusCode::FORBIDDEN, cutoff),
         (key.token.as_str(), StatusCode::UNAUTHORIZED, cutoff),
@@ -2374,10 +2376,12 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         let response = app
             .clone()
             .oneshot(
-                Request::get(format!("/api/v1/providers/{supplier}/media-rates?limit=1"))
-                    .header("authorization", format!("Bearer {token}"))
-                    .body(axum::body::Body::empty())
-                    .unwrap(),
+                Request::get(format!(
+                    "/api/v1/admin/providers/{supplier}/media-rates?limit=1"
+                ))
+                .header("authorization", format!("Bearer {token}"))
+                .body(axum::body::Body::empty())
+                .unwrap(),
             )
             .await
             .unwrap();
@@ -2450,7 +2454,7 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
         let response = app
             .clone()
             .oneshot(
-                Request::get(format!("/api/v1/providers/{supplier}/media-rates"))
+                Request::get(format!("/api/v1/admin/providers/{supplier}/media-rates"))
                     .header("authorization", format!("Bearer {token}"))
                     .body(axum::body::Body::empty())
                     .unwrap(),
@@ -2719,10 +2723,12 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
     let denied = app
         .clone()
         .oneshot(
-            Request::get(format!("/api/v1/providers/{foreign_supplier}/media-rates"))
-                .header("authorization", format!("Bearer {}", platform_actor.token))
-                .body(axum::body::Body::empty())
-                .unwrap(),
+            Request::get(format!(
+                "/api/v1/admin/providers/{foreign_supplier}/media-rates"
+            ))
+            .header("authorization", format!("Bearer {}", platform_actor.token))
+            .body(axum::body::Body::empty())
+            .unwrap(),
         )
         .await
         .unwrap();
@@ -2829,7 +2835,7 @@ async fn prepaid_video_path(pool: PgPool, via_dashboard: bool) {
     transition_next.tariff.revision = "transition-next-price".into();
     transition_next.tariff.effective_from = 210;
     transition_next.tariff.amount_units = 70;
-    let transition_path = format!("/api/v1/providers/{supplier}/media-rates/replace");
+    let transition_path = format!("/api/v1/admin/providers/{supplier}/media-rates/replace");
     for (token, expected) in [
         (actor.token.as_str(), StatusCode::FORBIDDEN),
         (key.token.as_str(), StatusCode::UNAUTHORIZED),

@@ -1,11 +1,11 @@
 ---
 title: "Publish a platform standard selling-price revision"
-description: "POST /api/v1/pricing/standard-prices"
+description: "POST /api/v1/admin/pricing/standard-prices"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/pricing/standard-prices`
+`POST /api/v1/admin/pricing/standard-prices`
 
 Explicit platform administration required; ordinary customer/Provider membership does not grant access. Independent model/currency/text-or-media identity; standard prices are independent of Provider purchase offers. expected_version is zero for a new identity and the last management version for replacement. All changes are versioned and attributed. Global UUID idempotency keys preserve canonical intent; exact retries return the original publication version, which may be older than current configuration. New standards take effect at commit and do not revoke still-eligible finite promotions. Existing request prices remain pinned; balances, supply qualification and routes are unchanged. Rates are decimal integer strings; token rates are nanounits per million tokens, fixed charges are nanounits, media quantities are exact rationals. Published standards supply default customer prices; publication alone does not establish supply qualification or model access.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/pricing/standard-prices" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/pricing/standard-prices" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

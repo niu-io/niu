@@ -93,7 +93,7 @@ describe('account sign-in service availability', () => {
     { display_name: 'Example Cloud', logo_data_url: null },
     { display_name: 'Niu', logo_data_url: 'data:image/png;base64,iVBORw0KGgo=' },
   ])('preserves deployment branding on the sign-in header: $display_name', async override => {
-    vi.stubGlobal('fetch', vi.fn(async input => String(input) === '/v1/branding'
+    vi.stubGlobal('fetch', vi.fn(async input => String(input) === '/api/v1/public/branding'
       ? Response.json({ data: { revision: '7', settings: { ...defaultBranding, ...override } } })
       : Response.json({ password_login: true, setup_required: false })));
     showLogin(true);

@@ -61,10 +61,10 @@ const unitConfiguration = {
 function mockPricingFetch() {
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
     const path = String(input);
-    if (path.startsWith('/api/v1/pricing/standard-prices?')) return Response.json({ data: [currencyRow], next_after: null });
-    if (path === '/api/v1/platform/units') return Response.json({ data: unitConfiguration });
-    if (path === '/api/v1/platform/units/media/tariffs') return Response.json({ data: [] });
-    if (path.includes('/api/v1/pricing/standard-prices/models?')) return Response.json({ data: [{ model_alias: 'shared-model', media: null }], next_after: null });
+    if (path.startsWith('/api/v1/admin/pricing/standard-prices?')) return Response.json({ data: [currencyRow], next_after: null });
+    if (path === '/api/v1/admin/units') return Response.json({ data: unitConfiguration });
+    if (path === '/api/v1/admin/units/media/tariffs') return Response.json({ data: [] });
+    if (path.includes('/api/v1/admin/pricing/standard-prices/models?')) return Response.json({ data: [{ model_alias: 'shared-model', media: null }], next_after: null });
     return Response.json({ error: { message: 'Unexpected ' + path } }, { status: 404 });
   }));
 }

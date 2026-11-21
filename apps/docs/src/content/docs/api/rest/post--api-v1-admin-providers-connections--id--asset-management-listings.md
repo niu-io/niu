@@ -1,15 +1,15 @@
 ---
 title: "List one bounded page of assets in a saved ordinary group"
-description: "POST /api/v1/vendors/{id}/asset-management/listings"
+description: "POST /api/v1/admin/providers/connections/{id}/asset-management/listings"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/vendors/{id}/asset-management/listings`
+`POST /api/v1/admin/providers/connections/{id}/asset-management/listings`
 
 Platform administrator only. Requires a separate current ListAssets grant and the successful group's original workspace/account/credential binding. Claims listing_id once before dispatch; duplicates never replay. Four listings can execute concurrently, with 30-second transport and 35-second outer transport deadlines. Claimed work persists after caller disconnect. Validated snapshots are encrypted for 24 hours and recovered without another upstream call. Responses omit upstream identities, URLs, cursors and raw errors; Active is an observation, not reuse authorization. Optional previous_listing_id continues a retained parent through its exact original grant, with unchanged scope and page size. Each parent permits one child; chains are bounded to 100 pages. Raw cursors are never accepted. has_more never proves a complete inventory. No billing mutation.
 
-Operation: `post--api-v1-vendors--id--asset-management-listings`.
+Operation: `post--api-v1-admin-providers-connections--id--asset-management-listings`.
 
 ## Authentication
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/listings" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/asset-management/listings" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

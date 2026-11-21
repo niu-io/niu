@@ -57,7 +57,7 @@ async fn get(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing",
+///   "path": "/api/v1/admin/routing",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setModelRoutePool",
@@ -274,7 +274,7 @@ pub async fn put(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing/history",
+///   "path": "/api/v1/admin/routing/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listModelRoutePoolHistory",
@@ -388,7 +388,7 @@ pub struct IndexQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing/index",
+///   "path": "/api/v1/admin/routing/index",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listModelRoutePools",
@@ -517,7 +517,7 @@ pub struct CollectionQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing",
+///   "path": "/api/v1/admin/routing",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPools",
@@ -794,7 +794,7 @@ fn decode_reference(reference: &str) -> Result<String, ApiError> {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing/{reference}",
+///   "path": "/api/v1/admin/routing/{reference}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getPool",
@@ -878,7 +878,7 @@ pub struct HistoryQuery {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing/{reference}/history",
+///   "path": "/api/v1/admin/routing/{reference}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPoolHistory",
@@ -1013,7 +1013,7 @@ pub struct PreviewRequest {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing/{reference}/preview",
+///   "path": "/api/v1/admin/routing/{reference}/preview",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "previewPool",
@@ -1421,7 +1421,7 @@ pub struct AuditQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing/{reference}/audit",
+///   "path": "/api/v1/admin/routing/{reference}/audit",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "auditPool",

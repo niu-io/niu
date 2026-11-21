@@ -45,8 +45,8 @@ async function fetchPeriodBundle(
 ): Promise<{ position: CommercialPosition; summary: CustomerFinancialSummary }> {
   const query = new URLSearchParams({ currency, from: opts.from, until: opts.until });
   const [position, summary] = await Promise.all([
-    request<CommercialPosition>(token, '/api/v1/commercial-position?' + query, 'GET', undefined, signal),
-    request<CustomerFinancialSummary>(token, '/api/v1/financial-summary?' + query, 'GET', undefined, signal),
+    request<CommercialPosition>(token, '/api/v1/admin/finance/position?' + query, 'GET', undefined, signal),
+    request<CustomerFinancialSummary>(token, '/api/v1/admin/finance/summary?' + query, 'GET', undefined, signal),
   ]);
   return { position, summary };
 }
@@ -278,10 +278,10 @@ function CommercialStatement({ token }: { token: string }) {
 
   const scope = token || 'public';
   const currentBundleKey = currency
-    ? `/api/v1/commercial-position:bundle:${currency}:${interval.mode}:${interval.days ?? ''}:${interval.from.slice(0, 16)}:${interval.until.slice(0, 16)}`
+    ? `/api/v1/admin/finance/position:bundle:${currency}:${interval.mode}:${interval.days ?? ''}:${interval.from.slice(0, 16)}:${interval.until.slice(0, 16)}`
     : '';
   const priorBundleKey = currency
-    ? `/api/v1/commercial-position:prior:${currency}:${interval.mode}:${interval.days ?? ''}:${interval.priorFrom.slice(0, 16)}:${interval.priorUntil.slice(0, 16)}`
+    ? `/api/v1/admin/finance/position:prior:${currency}:${interval.mode}:${interval.days ?? ''}:${interval.priorFrom.slice(0, 16)}:${interval.priorUntil.slice(0, 16)}`
     : '';
   const initialCurr = currentBundleKey
     ? peekQuery<{ position: CommercialPosition; summary: CustomerFinancialSummary }>(scope, currentBundleKey)

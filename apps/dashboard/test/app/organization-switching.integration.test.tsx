@@ -183,7 +183,7 @@ describe('organization switching', () => {
         return json({ data: workspaces.filter(item => item.organization_id === activeOrgId) });
       }
       if (path.startsWith('/api/v1/models')) return json({ data: [] });
-      if (path.startsWith('/api/v1/operators')) return json({ data: [] });
+      if (path.startsWith('/api/v1/members')) return json({ data: [] });
       if (path.split('?')[0].endsWith('/keys')) return json({ data: [] });
       return json({ data: [] });
     }));

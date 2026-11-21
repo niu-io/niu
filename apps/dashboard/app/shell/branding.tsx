@@ -16,7 +16,7 @@ export const defaultBranding: BrandingSettings = {display_name:'Niu',default_app
 const BrandingContext = createContext({settings:defaultBranding,logo:defaultLogo,update:(_value:BrandingConfiguration)=>{}});
 export function useBranding() { return useContext(BrandingContext); }
 
-const BRANDING_CACHE_KEY = 'GET:/v1/branding';
+const BRANDING_CACHE_KEY = 'GET:/api/v1/public/branding';
 
 /** Display-only public payload. Never interpret arbitrary CSS or remote asset URLs. */
 export function parseBranding(value: unknown): BrandingConfiguration {
@@ -60,7 +60,7 @@ export function BrandingProvider({children}:{children:ReactNode}) {
           'public',
           BRANDING_CACHE_KEY,
           async signal => {
-            const response = await fetch('/v1/branding', { cache: 'no-store', signal });
+            const response = await fetch('/api/v1/public/branding', { cache: 'no-store', signal });
             if (!response.ok) throw new Error('Branding unavailable');
             return parseBranding(await response.json());
           },

@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MediaRateHistory from '../../../app/features/provider-business/MediaRateHistory';
 
-const endpoint = '/api/v1/providers/supplier-a/media-rates';
+const endpoint = '/api/v1/admin/providers/supplier-a/media-rates';
 const revision = 'b335657a-dd32-400e-bf48-23c2a2c627c9';
 const modelChoice = {model_alias:'seedance-test',api_key_name:'Video credential',offer_revision:'e0f51293-0df9-4d97-819d-680055e6acc7',vendor_revision:'1',model_revision:'1',schema_revision:'1',channel:'private-channel',resolutions:['720p'],reference_video:false,meter:'video_tokens'};
 function record(overrides = {}) {
@@ -189,7 +189,7 @@ describe('configured video model purchase-rate entry points', () => {
     const user = userEvent.setup();
     render(<MediaRateHistory token="installation-test" supplier="supplier-a" showConfiguredModels />);
     await user.click(await screen.findByRole('button', {name:'Enable offer for seedance-test'}));
-    await waitFor(() => expect(calls.find(call => call.method === 'PUT')?.path).toBe(`/api/v1/providers/supplier-a/offers/${configured.offer_id}/authorization`));
+    await waitFor(() => expect(calls.find(call => call.method === 'PUT')?.path).toBe(`/api/v1/admin/providers/supplier-a/offers/${configured.offer_id}/authorization`));
     expect(calls.find(call => call.method === 'PUT')?.body).toEqual({rate_revision:offerRevision});
     expect(await screen.findByText('Offer enabled. Provider access and customer selling prices remain separate.')).toBeTruthy();
   });
@@ -200,7 +200,7 @@ describe('configured video model purchase-rate entry points', () => {
     render(<MediaRateHistory token="installation-test" supplier="supplier-a" showConfiguredModels />);
     await screen.findByText('Active');
     await user.click(screen.getByRole('button', {name:'Pause offer for seedance-test'}));
-    await waitFor(() => expect(calls.find(call => call.method === 'PATCH')?.path).toBe(`/api/v1/providers/supplier-a/offers/${configured.offer_id}`));
+    await waitFor(() => expect(calls.find(call => call.method === 'PATCH')?.path).toBe(`/api/v1/admin/providers/supplier-a/offers/${configured.offer_id}`));
     expect(calls.find(call => call.method === 'PATCH')?.body).toEqual({active:false});
     expect(await screen.findByText('Offer paused. Existing jobs keep their original route and prices.')).toBeTruthy();
   });

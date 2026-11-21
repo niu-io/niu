@@ -1,15 +1,15 @@
 ---
 title: "Erase retained metadata-update patch"
-description: "DELETE /api/v1/vendors/{id}/asset-management/group-updates/{update}"
+description: "DELETE /api/v1/admin/providers/connections/{id}/asset-management/group-updates/{update}"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`DELETE /api/v1/vendors/{id}/asset-management/group-updates/{update}`
+`DELETE /api/v1/admin/providers/connections/{id}/asset-management/group-updates/{update}`
 
 Platform administrator only, exact saved workspace/account binding. Idempotent erasure, including after grant revocation. Preserves immutable audit, claims, holds and reconciliation. Does not cancel an already claimed mutation, release a hold or restore replay permission. Responses are no-store.
 
-Operation: `delete--api-v1-vendors--id--asset-management-group-updates--update-`.
+Operation: `delete--api-v1-admin-providers-connections--id--asset-management-group-updates--update-`.
 
 ## Authentication
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/group-updates/{update}" \
+curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/asset-management/group-updates/{update}" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   --url-query 'organization_id=<ORGANIZATION_ID>' \
   --url-query 'project_id=<PROJECT_ID>'

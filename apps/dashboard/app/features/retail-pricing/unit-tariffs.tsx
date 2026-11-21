@@ -139,8 +139,8 @@ function DialogModelPicker({
 export function BrandedUnitTariffsSection({ token, filter }: { token: string; filter: string }) {
   const { t: uiT, format: uiF } = useUILocale();
   const scope = token || 'public';
-  const initialCfg = peekQuery<{ data: UnitPlatformConfig }>(scope, '/api/v1/platform/units')?.data ?? null;
-  const initialMedia = peekQuery<{ data: UnitMediaTariffRecord[] }>(scope, '/api/v1/platform/units/media/tariffs')?.data;
+  const initialCfg = peekQuery<{ data: UnitPlatformConfig }>(scope, '/api/v1/admin/units')?.data ?? null;
+  const initialMedia = peekQuery<{ data: UnitMediaTariffRecord[] }>(scope, '/api/v1/admin/units/media/tariffs')?.data;
   const [config, setConfig] = useState<UnitPlatformConfig | null>(() => initialCfg);
   const [mediaTariffs, setMediaTariffs] = useState<UnitMediaTariffRecord[]>(() => Array.isArray(initialMedia) ? initialMedia : []);
   const [loading, setLoading] = useState(() => !initialCfg);
@@ -153,18 +153,18 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
     setLoading(true);
     setError('');
     try {
-      if (force) invalidateQueries('/api/v1/platform/units');
+      if (force) invalidateQueries('/api/v1/admin/units');
       const [cfgResp, mediaResp] = await Promise.all([
         fetchQuery(
           scope,
-          '/api/v1/platform/units',
-          signal => request<{ data: UnitPlatformConfig }>(token, '/api/v1/platform/units', 'GET', undefined, signal),
+          '/api/v1/admin/units',
+          signal => request<{ data: UnitPlatformConfig }>(token, '/api/v1/admin/units', 'GET', undefined, signal),
           { force, awaitRevalidate: true },
         ),
         fetchQuery(
           scope,
-          '/api/v1/platform/units/media/tariffs',
-          signal => request<{ data: UnitMediaTariffRecord[] }>(token, '/api/v1/platform/units/media/tariffs', 'GET', undefined, signal),
+          '/api/v1/admin/units/media/tariffs',
+          signal => request<{ data: UnitMediaTariffRecord[] }>(token, '/api/v1/admin/units/media/tariffs', 'GET', undefined, signal),
           { force, awaitRevalidate: true },
         ),
       ]);
@@ -435,9 +435,9 @@ function UnitTextTariffDialog({
     setSaving(true);
     setError('');
     try {
-      const latestCfg = await request<{ data: UnitPlatformConfig }>(token, '/api/v1/platform/units', 'GET');
+      const latestCfg = await request<{ data: UnitPlatformConfig }>(token, '/api/v1/admin/units', 'GET');
       const defRev = latestCfg.data.definition?.revision ?? config.definition.revision;
-      await request(token, '/api/v1/platform/units/tariffs', 'POST', {
+      await request(token, '/api/v1/admin/units/tariffs', 'POST', {
         model_alias: model,
         definition_revision: defRev,
         expected_revision: latestCfg.data.revision,
@@ -571,9 +571,9 @@ function UnitMediaTariffDialog({
     setSaving(true);
     setError('');
     try {
-      const latestCfg = await request<{ data: UnitPlatformConfig }>(token, '/api/v1/platform/units', 'GET');
+      const latestCfg = await request<{ data: UnitPlatformConfig }>(token, '/api/v1/admin/units', 'GET');
       const defRev = latestCfg.data.definition?.revision ?? config.definition.revision;
-      await request(token, '/api/v1/platform/units/media/tariffs', 'POST', {
+      await request(token, '/api/v1/admin/units/media/tariffs', 'POST', {
         model_alias: model,
         definition_revision: defRev,
         expected_revision: latestCfg.data.revision,

@@ -1,11 +1,11 @@
 ---
 title: "Save a billing-mode change preview"
-description: "POST /api/v1/platform/units/mode/previews"
+description: "POST /api/v1/admin/units/mode/previews"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/platform/units/mode/previews`
+`POST /api/v1/admin/units/mode/previews`
 
 Platform administration required. Saves an immutable fifteen-minute compatibility snapshot without changing mode, balances or prices. Requires the current installation revision. A blocked or same-mode snapshot may be saved for review but cannot authorize publication. Identical idempotent replay returns the original snapshot and expiry even after later configuration changes; conflicting reuse is rejected. The actual mode publication must recheck current financial state. Quantities and revisions are exact strings.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/platform/units/mode/previews" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/units/mode/previews" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

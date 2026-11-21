@@ -430,7 +430,7 @@ async fn three_plane_routes_enforce_boundaries_and_remove_cloned_dashboard_infer
         ),
         ("GET", "/api/v1/session"),
         ("GET", "/api/v1/workspaces"),
-        ("GET", "/api/v1/routing/index"),
+        ("GET", "/api/v1/admin/routing/index"),
         ("GET", "/v1/media/groups"),
         ("GET", "/v1/media/operations"),
         ("POST", "/v1/media/verifications"),

@@ -1,11 +1,11 @@
 ---
 title: "Read the latest explicit Credits text tariff for a model"
-description: "GET /api/v1/platform/units/tariffs"
+description: "GET /api/v1/admin/units/tariffs"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/platform/units/tariffs`
+`GET /api/v1/admin/units/tariffs`
 
 Platform administration required. Reads the latest saved Credits consumption tariff, not a conversion from payment currency. It does not establish route readiness, enable billing mode or reserve capacity. Historical requests must retain their bound revision. Category null means ordinary pricing, not zero; each context tier is a complete schedule. No Provider procurement price is exposed.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/platform/units/tariffs" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/units/tariffs" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   --url-query 'model=<MODEL>'
 ```

@@ -1,11 +1,11 @@
 ---
 title: "Associate an API configuration with a Provider"
-description: "PUT /api/v1/vendors/{id}/supplier"
+description: "PUT /api/v1/admin/providers/connections/{id}/supplier"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /api/v1/vendors/{id}/supplier`
+`PUT /api/v1/admin/providers/connections/{id}/supplier`
 
 Installation credential or explicitly granted platform administrator required. Provider membership and customer ownership alone do not grant access. Atomic and audited. The first association requires the current configuration revision. Repeating the same Provider association is idempotent even with the original revision and does not increment it again. A different Provider cannot take over an existing association. Deleted Providers cannot receive configurations. Association and deletion serialize: once ownership commits, deletion returns 409. Does not activate, qualify or price an offer.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/vendors/{id}/supplier" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/supplier" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

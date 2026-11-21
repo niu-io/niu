@@ -6,7 +6,7 @@ export type IncidentPage = { data: PlatformConnectionIncident[]; next_before: st
 export async function loadIncidents(token: string, status: 'active' | 'resolved', signal: AbortSignal, before?: string): Promise<IncidentPage> {
   const query = new URLSearchParams({ status });
   if (before) query.set('before', before);
-  const page = await request<IncidentPage>(token, `/api/v1/incidents?${query}`, 'GET', undefined, signal);
+  const page = await request<IncidentPage>(token, `/api/v1/admin/incidents?${query}`, 'GET', undefined, signal);
   const date = (value: unknown) => typeof value === 'string' && Number.isFinite(Date.parse(value));
   if (!Array.isArray(page?.data) || page.data.some(item =>
     !item || !/^incident-[1-9][0-9]*$/.test(item.reference)

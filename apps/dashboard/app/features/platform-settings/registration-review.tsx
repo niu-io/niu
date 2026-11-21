@@ -40,8 +40,8 @@ type ReviewDialogState =
   | { kind: 'reject'; record: RegistrationRequestRecord }
   | null;
 
-const REGISTRATION_POLICY_PATH = '/api/v1/platform/registration';
-const REGISTRATION_QUEUE_PATH = '/api/v1/platform/registrations';
+const REGISTRATION_POLICY_PATH = '/api/v1/admin/registration';
+const REGISTRATION_QUEUE_PATH = '/api/v1/admin/registrations';
 
 function useLocalizedMessages() {
   const { t } = useLocale();
@@ -397,9 +397,9 @@ export function RegistrationRequestsQueue({
 
   function handleReviewed(updated: RegistrationRequestRecord) {
     setDialog(null);
-    invalidateQueries('/api/v1/platform/customer-accounts');
+    invalidateQueries('/api/v1/admin/customers');
     invalidateQueries('/api/v1/workspaces');
-    invalidateQueries('/api/v1/operators');
+    invalidateQueries('/api/v1/members');
     if (updated.status === 'approved') {
       setNoticeKind('approved');
       onApproved?.();

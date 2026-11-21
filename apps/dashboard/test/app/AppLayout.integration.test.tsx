@@ -38,8 +38,8 @@ function mockHealth() {
 
       : path === '/api/v1/session' ? { data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }
       : path === '/api/v1/workspaces' ? { data: [{ id: 'default', name: 'Default', organization_id: 'org', organization_name: 'Demo' }, { id: 'production', name: 'Production', organization_id: 'org', organization_name: 'Demo' }] }
-      : path === '/api/v1/platform/configuration' ? { data: {payment_gateways: []} }
-      : path === '/api/v1/platform/payments/epay' ? { data: {revision:'0', enabled:false, merchant_id:'', has_key:false, endpoint:'', notify_url:'', return_url:'', methods:[]} }
+      : path === '/api/v1/admin/configuration' ? { data: {payment_gateways: []} }
+      : path === '/api/v1/admin/payments/epay' ? { data: {revision:'0', enabled:false, merchant_id:'', has_key:false, endpoint:'', notify_url:'', return_url:'', methods:[]} }
       : path === '/api/v1/organizations' ? { data: [{ id: 'org', name: 'Demo' }] }
       : path.endsWith('/billing') ? { data: { balances: [], unresolved: '0', unpriced: '0', tariffs: [], invoices: [] } }
       : { data: [], summary: { request_count: 0, usage_count: 0, prompt_tokens: '0', completion_tokens: '0', failures: 0, customer_charges: [], usage_by_model: [], usage_by_key: [] } };
@@ -118,8 +118,8 @@ describe('dashboard route layout', () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => {
       const path = String(input);
       if (path.split('?')[0] === '/api/v1/payments/readiness') return Response.json({data:{ready:true,reason:null}}); calls.push(path);
-      if (path === '/api/v1/providers') return Response.json({data:[{id,slug:'example-provider',name:'Example Provider',members:0}]});
-      if (path === `/api/v1/providers/${id}`) return Response.json({data:{id,slug:'example-provider',name:'Example Provider',description:'',website_url:'',logo_url:'',revision:1}});
+      if (path === '/api/v1/admin/providers') return Response.json({data:[{id,slug:'example-provider',name:'Example Provider',members:0}]});
+      if (path === `/api/v1/admin/providers/${id}`) return Response.json({data:{id,slug:'example-provider',name:'Example Provider',description:'',website_url:'',logo_url:'',revision:1}});
       return originalFetch(input,init);
     }));
     const router = renderAt(`/admin/providers/${id}/settings?view=general#profile`);
@@ -128,8 +128,8 @@ describe('dashboard route layout', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-provider/settings'));
     expect(router.state.location.search).toBe('?view=general');
     expect(router.state.location.hash).toBe('#profile');
-    expect(calls).toContain(`/api/v1/providers/${id}`);
-    expect(calls).not.toContain('/api/v1/providers/example-provider');
+    expect(calls).toContain(`/api/v1/admin/providers/${id}`);
+    expect(calls).not.toContain('/api/v1/admin/providers/example-provider');
   });
   it('keeps Admin sections available while navigating Provider detail tabs', async () => {
     mockHealth();
@@ -849,7 +849,7 @@ describe('dashboard route layout', () => {
       if (path.startsWith('/api/v1/models')) return json({ data: [] });
       if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Niu Labs' }] });
       if (path === '/api/v1/workspaces') return json({ data: [{ id: 'default', name: 'Default', organization_id: 'org-1', organization_name: 'Niu Labs' }] });
-      if (path.split('?')[0] === '/api/v1/operators') return json({ data: [] });
+      if (path.split('?')[0] === '/api/v1/members') return json({ data: [] });
       if (path === '/api/v1/workspaces?organization_id=org-1') return json({ data: [] });
       return json({ data: [] });
     }));
@@ -864,7 +864,7 @@ describe('dashboard route layout', () => {
       path: '/api/v1/session',
       authorization: 'Bearer niu-browser-member-session',
     });
-    expect(calls.some(call => call.path.split('?')[0] === '/api/v1/operators')).toBe(true);
+    expect(calls.some(call => call.path.split('?')[0] === '/api/v1/members')).toBe(true);
     expect(screen.queryByText('Organization owner')).toBeNull();
   });
 
@@ -890,17 +890,17 @@ describe('dashboard route layout', () => {
       if (path.startsWith('/api/v1/models')) return json({ data: [] });
       if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Niu Labs' }] });
       if (path === '/api/v1/workspaces') return json({ data: [{ id: 'default', name: 'Default', organization_id: 'org-1', organization_name: 'Niu Labs' }] });
-      if (path.split('?')[0] === '/api/v1/operators') return json({ data: [{
+      if (path.split('?')[0] === '/api/v1/members') return json({ data: [{
         id: 'owner-1', name: 'Current owner', role: 'owner', organization_id: 'org-1', project_id: null, revoked: false,
       }] });
       if (path === '/api/v1/workspaces?organization_id=org-1') return json({ data: [] });
-      if (path === '/api/v1/operators/owner-1/sessions') return json({ data: [{
+      if (path === '/api/v1/members/owner-1/sessions') return json({ data: [{
         id: 'active-session', operator_id: 'owner-1', expires_at_unix: 2_000_000_000, revoked: false,
       }] });
       if (path.includes('/events?')) return currentSessionRevoked
         ? json({ error: { message: 'Unauthorized' } }, 401)
         : json({ data: [], next_cursor: null });
-      if (path === '/api/v1/operators/owner-1/sessions/active-session' && init?.method === 'DELETE') {
+      if (path === '/api/v1/members/owner-1/sessions/active-session' && init?.method === 'DELETE') {
         currentSessionRevoked = true;
         return new Response(null, { status: 204 });
       }
@@ -944,7 +944,7 @@ describe('dashboard route layout', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/legacy/models'));
     expect(screen.queryByRole('tablist',{name:'Provider sections'})).toBeNull();
     expect(screen.queryByRole('link',{name:'Providers',exact:true})).toBeNull();
-    expect(vi.mocked(fetch).mock.calls.some(([path]) => String(path).startsWith('/api/v1/providers'))).toBe(false);
+    expect(vi.mocked(fetch).mock.calls.some(([path]) => String(path).startsWith('/api/v1/admin/providers'))).toBe(false);
   });
 
   it('switches assigned account roles and returns to the workspace on User selection', async () => {

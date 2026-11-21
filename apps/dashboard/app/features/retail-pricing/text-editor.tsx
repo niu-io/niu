@@ -56,7 +56,7 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
     }
     setAttempt(input); setBusy(true); setError('');
     try {
-      const result = await request<{ data: RetailPublicationResult }>(token, '/api/v1/pricing/standard-prices', 'POST', input);
+      const result = await request<{ data: RetailPublicationResult }>(token, '/api/v1/admin/pricing/standard-prices', 'POST', input);
       if (!result.data?.price_id || !result.data.revision || typeof result.data.version !== 'string' || !/^\d+$/.test(result.data.version) || BigInt(result.data.version) !== BigInt(input.expected_version) + 1n) throw new Error('Publication response could not be confirmed.');
       onSaved();
     } catch (failure) {

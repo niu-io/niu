@@ -22,7 +22,7 @@ describe('RoutePoolsPage', () => {
     const user = userEvent.setup();
     const writes: Array<Record<string, unknown>> = [];
     vi.mocked(request).mockImplementation(async (_token, path, method = 'GET', body) => {
-      if (path.startsWith('/api/v1/routing/index')) {
+      if (path.startsWith('/api/v1/admin/routing/index')) {
         return {
           data: [
             {
@@ -47,13 +47,13 @@ describe('RoutePoolsPage', () => {
           next_after: null,
         };
       }
-      if (path === '/api/v1/vendors') return { data: [{ id: 'test-provider', name: 'Direct Provider' }] };
-      if (path === '/api/v1/vendors/test-provider/models') return { data: [{ alias: 'direct-sonnet-v2', upstream_model: 'claude-sonnet-4', pricing: {} }] };
-      if (path === '/api/v1/routing' && method === 'PUT') {
+      if (path === '/api/v1/admin/providers/connections') return { data: [{ id: 'test-provider', name: 'Direct Provider' }] };
+      if (path === '/api/v1/admin/providers/connections/test-provider/models') return { data: [{ alias: 'direct-sonnet-v2', upstream_model: 'claude-sonnet-4', pricing: {} }] };
+      if (path === '/api/v1/admin/routing' && method === 'PUT') {
         writes.push(body as Record<string, unknown>);
         return { data: { revision: 5 } };
       }
-      if (path.startsWith('/api/v1/routing/history')) {
+      if (path.startsWith('/api/v1/admin/routing/history')) {
         return {
           data: [
             {
@@ -118,9 +118,9 @@ describe('RoutePoolsPage', () => {
   it('discovers candidate models beyond the first twelve Provider connections', async () => {
     const user = userEvent.setup();
     vi.mocked(request).mockImplementation(async (_token, path) => {
-      if (path.startsWith('/api/v1/routing/index')) return { data: [], has_more: false, next_after: null };
-      if (path === '/api/v1/vendors') return { data: Array.from({length: 13}, (_, i) => ({id: `provider-${i}`, name: `Provider ${i}`})) };
-      if (path.startsWith('/api/v1/vendors/') && path.endsWith('/models')) return {data: path.includes('provider-12/') ? [{alias: 'last-provider-model', upstream_model: 'model', pricing: {}}] : []};
+      if (path.startsWith('/api/v1/admin/routing/index')) return { data: [], has_more: false, next_after: null };
+      if (path === '/api/v1/admin/providers/connections') return { data: Array.from({length: 13}, (_, i) => ({id: `provider-${i}`, name: `Provider ${i}`})) };
+      if (path.startsWith('/api/v1/admin/providers/connections/') && path.endsWith('/models')) return {data: path.includes('provider-12/') ? [{alias: 'last-provider-model', upstream_model: 'model', pricing: {}}] : []};
       throw new Error(`Unexpected request: ${path}`);
     });
     render(<MemoryRouter><RoutePoolsPage /></MemoryRouter>);
@@ -135,9 +135,9 @@ describe('RoutePoolsPage', () => {
     const user = userEvent.setup();
     let attempts = 0;
     vi.mocked(request).mockImplementation(async (_token, path) => {
-      if (path.startsWith('/api/v1/routing/index')) return { data: [], has_more: false, next_after: null };
-      if (path === '/api/v1/vendors') return { data: [{id:'unavailable', name:'Provider'}] };
-      if (path === '/api/v1/vendors/unavailable/models') {
+      if (path.startsWith('/api/v1/admin/routing/index')) return { data: [], has_more: false, next_after: null };
+      if (path === '/api/v1/admin/providers/connections') return { data: [{id:'unavailable', name:'Provider'}] };
+      if (path === '/api/v1/admin/providers/connections/unavailable/models') {
         if (++attempts === 1) throw new Error('unavailable');
         return { data: [{alias:'recovered-model', upstream_model:'model', pricing:{}}] };
       }
@@ -160,17 +160,17 @@ describe('RoutePoolsPage', () => {
     let checks = 0;
     const writes: Array<Record<string, unknown>> = [];
     vi.mocked(request).mockImplementation(async (_token, path, method = 'GET', body) => {
-      if (path.startsWith('/api/v1/routing/index')) {
+      if (path.startsWith('/api/v1/admin/routing/index')) {
         return { data: [], has_more: false, next_after: null };
       }
-      if (path === '/api/v1/vendors') return { data: [] };
-      if (path === '/api/v1/routing' && method === 'PUT') {
+      if (path === '/api/v1/admin/providers/connections') return { data: [] };
+      if (path === '/api/v1/admin/routing' && method === 'PUT') {
         writes.push(body as Record<string, unknown>);
         if (writes.length === 1) throw new VendorRequestError('Service unavailable', 503);
         if (writes.length === 2) throw new VendorRequestError('Conflict', 409);
         return {data:{revision:2}};
       }
-      if (path.startsWith('/api/v1/routing/') && method === 'GET') {
+      if (path.startsWith('/api/v1/admin/routing/') && method === 'GET') {
         if (++checks === 1) throw new VendorRequestError('Unavailable', 503);
         if (checks === 2) throw new VendorRequestError('Not found', 404);
         return {data:{alias:'gpt-5',revision:1, organization_id:null, enabled:true, candidates:[{alias:'other-model',priority:10,weight:100,enabled:true}], rules:[]}};
@@ -226,10 +226,10 @@ describe('RoutePoolsPage', () => {
     const user = userEvent.setup();
     let attempted: Record<string, unknown> | undefined;
     vi.mocked(request).mockImplementation(async (_token, path, method = 'GET', body) => {
-      if (path.startsWith('/api/v1/routing/index')) return {data:[], has_more:false, next_after:null};
-      if (path === '/api/v1/vendors') return {data:[]};
-      if (path === '/api/v1/routing' && method === 'PUT') {attempted = body as Record<string, unknown>; throw new VendorRequestError('Unavailable',503);}
-      if (path.startsWith('/api/v1/routing/') && method === 'GET') return {data:{...attempted, revision:1, display_name:null, description:null, project_id:null, billing_mode:'pool_tariff', rules:[], default_action:'candidates'}};
+      if (path.startsWith('/api/v1/admin/routing/index')) return {data:[], has_more:false, next_after:null};
+      if (path === '/api/v1/admin/providers/connections') return {data:[]};
+      if (path === '/api/v1/admin/routing' && method === 'PUT') {attempted = body as Record<string, unknown>; throw new VendorRequestError('Unavailable',503);}
+      if (path.startsWith('/api/v1/admin/routing/') && method === 'GET') return {data:{...attempted, revision:1, display_name:null, description:null, project_id:null, billing_mode:'pool_tariff', rules:[], default_action:'candidates'}};
       throw new Error(`Unexpected request: ${method} ${path}`);
     });
     render(<MemoryRouter><RoutePoolsPage /></MemoryRouter>);
@@ -254,7 +254,7 @@ describe('RoutePoolsPage', () => {
     const user = userEvent.setup();
     const writes: Array<Record<string, unknown>> = [];
     vi.mocked(request).mockImplementation(async (_token, path, method = 'GET', body) => {
-      if (path.startsWith('/api/v1/routing/index')) {
+      if (path.startsWith('/api/v1/admin/routing/index')) {
         return {
           data: [
             {
@@ -286,8 +286,8 @@ describe('RoutePoolsPage', () => {
           next_after: null,
         };
       }
-      if (path === '/api/v1/vendors') return { data: [] };
-      if (path === '/api/v1/routing' && method === 'PUT') {
+      if (path === '/api/v1/admin/providers/connections') return { data: [] };
+      if (path === '/api/v1/admin/routing' && method === 'PUT') {
         writes.push(body as Record<string, unknown>);
         return { data: { revision: 3 } };
       }

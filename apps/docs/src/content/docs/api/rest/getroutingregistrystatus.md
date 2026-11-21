@@ -1,11 +1,11 @@
 ---
 title: "Read the active routing generation"
-description: "GET /api/v1/routing-registry"
+description: "GET /api/v1/admin/routing/registry"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/routing-registry`
+`GET /api/v1/admin/routing/registry`
 
 Platform administrators can read the active immutable routing generation for diagnostics and an explicit static-configuration replacement. No definitions, endpoints, credential references, secrets or purchase prices are returned. local_static_configuration_matches is false on a Gateway whose local static configuration has been superseded; new inference on that instance fails closed until it restarts with matching configuration. The response is not cached.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/routing-registry" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/routing/registry" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

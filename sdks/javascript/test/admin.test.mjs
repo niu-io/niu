@@ -17,7 +17,7 @@ test('Provider creation accepts optional profile details while preserving name-o
   assert.deepEqual(calls.map(call => JSON.parse(call.init.body)), [input, {name: 'Name only'}, input]);
   for (const call of calls) {
     assert.equal(call.init.method, 'POST');
-    assert.ok(call.url.endsWith('/providers'));
+    assert.ok(call.url.endsWith('/admin/providers'));
   }
 });
 
@@ -57,9 +57,9 @@ test('Provider offer authorization pins the exact rate revision and explicit lif
   assert.deepEqual(calls.map(call=>call.init.method),['PUT','DELETE','PATCH','PATCH']);
   assert.deepEqual(JSON.parse(calls[0].init.body),{rate_revision:id});
   assert.equal(calls[0].init.signal,abort.signal);
-  assert.ok(calls[0].url.endsWith(`/providers/${id}/offers/${id}/authorization`));
+  assert.ok(calls[0].url.endsWith(`/admin/providers/${id}/offers/${id}/authorization`));
   assert.equal(calls[1].init.body,undefined);
-  assert.ok(calls[1].url.endsWith(`/providers/${id}/offers/${id}/authorization/${authorization}`));
+  assert.ok(calls[1].url.endsWith(`/admin/providers/${id}/offers/${id}/authorization/${authorization}`));
   assert.deepEqual(JSON.parse(calls[2].init.body),{active:false});
   assert.deepEqual(JSON.parse(calls[3].init.body),{active:false});
 });
@@ -237,7 +237,7 @@ test('Supplier association preserves revision, cancellation and conflict without
   }});
   assert.equal((await client.getSupplierAssociation(id)).data.name, 'Example Supplier');
   assert.equal(await client.associateSupplier(id, supplier, 2, { signal: abort.signal }), undefined);
-  assert.ok(calls[1].url.endsWith(`/vendors/${id}/supplier`));
+  assert.ok(calls[1].url.endsWith(`/admin/providers/connections/${id}/supplier`));
   assert.equal(calls[1].init.method, 'PUT');
   assert.equal(calls[1].init.signal, abort.signal);
   assert.deepEqual(JSON.parse(calls[1].init.body), { supplier_id: supplier, expected_revision: 2 });
@@ -337,7 +337,7 @@ test('Supplier rates preserve exact units and never retry publication', async ()
   }});
   assert.deepEqual(await client.publishSupplierRates(id, rates), { data: { revision: 'opaque-revision' } });
   assert.equal(calls[0].init.method, 'POST');
-  assert.ok(calls[0].url.endsWith(`/providers/${id}/offers`));
+  assert.ok(calls[0].url.endsWith(`/admin/providers/${id}/offers`));
   assert.deepEqual(JSON.parse(calls[0].init.body), rates);
   await assert.rejects(client.publishSupplierRates(id, { ...rates, expected_revision: id }), e => e instanceof NiuAPIError && e.status === 409);
   assert.equal(JSON.parse(calls[1].init.body).expected_revision, id);
@@ -362,7 +362,7 @@ test('Supplier offer reads expose current rates without unrelated administration
   assert.deepEqual(await client.listSupplierOffers(id, { signal }), offers);
   assert.equal(call.init.method, 'GET');
   assert.equal(call.init.signal, signal);
-  assert.ok(call.url.endsWith(`/providers/${id}/offers?`));
+  assert.ok(call.url.endsWith(`/admin/providers/${id}/offers?`));
   assert.equal(call.init.body, undefined);
   await assert.rejects(client.listSupplierOffers('invalid'), /UUID/);
 });
@@ -826,7 +826,7 @@ test('Personal credential assignment preserves ownership, revision and cancellat
     return Response.json({ error: { message: 'Ownership conflict' } }, { status: 409 });
   }});
   assert.deepEqual(await client.assignPersonalCredentialOwner(id, organization, 2, { signal: abort.signal }), { assigned: true });
-  assert.ok(calls[0].url.endsWith(`/vendors/${id}/personal-owner`));
+  assert.ok(calls[0].url.endsWith(`/admin/providers/connections/${id}/personal-owner`));
   assert.equal(calls[0].init.method, 'PUT');
   assert.equal(calls[0].init.signal, abort.signal);
   assert.deepEqual(JSON.parse(calls[0].init.body), { organization_id: organization, expected_revision: 2 });
@@ -928,7 +928,7 @@ test('Supplier media purchase publication stays separate, exact and never retrie
   const input={revision:'purchase-1',offer_revision:id,vendor_revision:1,model_revision:1,schema_revision:'video-schema',
     tariff:{revision:'purchase-tariff',dimensions:{model:'fixture-video',channel:'ark-direct-v1',resolution:'720p',reference_video:false},meter:'video_tokens',currency:'CNY',decimal_places:9,amount_units:40,per_quantity:q(1000000),minimum_quantity:q(0),rounding:'Up',effective_from:0,effective_until:null},discounts:[]};
   assert.deepEqual(await client.publishSupplierMediaRate(id,{...input,customer_charge:'must-not-send'},{signal:abort.signal}),{data:{revision:'purchase-1'}});
-  assert.ok(calls[0].url.endsWith(`/providers/${id}/media-rates`));
+  assert.ok(calls[0].url.endsWith(`/admin/providers/${id}/media-rates`));
   assert.deepEqual(JSON.parse(calls[0].init.body),input);
   assert.equal(calls[0].init.signal,abort.signal);
   assert.throws(()=>client.publishSupplierMediaRate(id,{...input,tariff:{...input.tariff,amount_units:Number.MAX_SAFE_INTEGER+1}}),TypeError);
@@ -948,10 +948,10 @@ test('Supplier rate history is paginated, exact and bodyless; retirement stays e
     calls.push({url,init});return Response.json(init.method==='GET'?page:{data:{revision:'purchase 1',effective_until:'30'}});
   }});
   assert.deepEqual(await client.listSupplierMediaRates(id,{after:'purchase 0',limit:1},{signal:abort.signal}),page);
-  assert.ok(calls[0].url.endsWith(`/providers/${id}/media-rates?after=purchase+0&limit=1`));
+  assert.ok(calls[0].url.endsWith(`/admin/providers/${id}/media-rates?after=purchase+0&limit=1`));
   assert.equal(calls[0].init.method,'GET');assert.equal(calls[0].init.body,undefined);assert.equal(calls[0].init.signal,abort.signal);
   assert.deepEqual(await client.retireSupplierMediaRate(id,'purchase 1',30),{data:{revision:'purchase 1',effective_until:'30'}});
-  assert.ok(calls[1].url.endsWith(`/providers/${id}/media-rates/purchase%201/retire`));
+  assert.ok(calls[1].url.endsWith(`/admin/providers/${id}/media-rates/purchase%201/retire`));
   assert.deepEqual(JSON.parse(calls[1].init.body),{effective_until:30});
   assert.throws(()=>client.listSupplierMediaRates(id,{limit:101}),TypeError);
   assert.throws(()=>client.retireSupplierMediaRate(id,'../other',30),TypeError);
@@ -968,7 +968,7 @@ test('media pricing choices use exact bindings and a bounded bodyless request', 
   const page={data:[{model_alias:'video/model',api_key_name:'Video key',offer_revision:id,vendor_revision:'9007199254740993',model_revision:'2',schema_revision:'schema',channel:'channel',resolutions:['720p'],reference_video:false}],has_more:true,next_after:'video/model'};
   const client=new NiuAdminClient({adminToken:'test',fetch:async(url,init)=>{calls.push({url,init});return Response.json(page);}});
   assert.deepEqual(await client.listSupplierMediaRateModels(id,{after:'previous/model',limit:1},{signal:abort.signal}),page);
-  assert.ok(calls[0].url.endsWith(`/providers/${id}/media-rate-models?after=previous%2Fmodel&limit=1`));
+  assert.ok(calls[0].url.endsWith(`/admin/providers/${id}/media-rate-models?after=previous%2Fmodel&limit=1`));
   assert.equal(calls[0].init.method,'GET');assert.equal(calls[0].init.body,undefined);assert.equal(calls[0].init.signal,abort.signal);
   assert.throws(()=>client.listSupplierMediaRateModels(id,{limit:0}),TypeError);
   assert.throws(()=>client.listSupplierMediaRateModels(id,{after:' invalid '}),TypeError);
@@ -982,7 +982,7 @@ test('Supplier media replacement carries one immutable document and no automatic
   const rate={revision:'next',offer_revision:id,vendor_revision:1,model_revision:2,schema_revision:'schema',tariff:{revision:'next-price',dimensions:{model:'video/model',channel:'channel',resolution:'720p',reference_video:false},meter:'video_tokens',currency:'CNY',decimal_places:9,amount_units:70,per_quantity:q(1000000),minimum_quantity:q(0),rounding:'Up',effective_from:210,effective_until:220},discounts:[]};
   const client=new NiuAdminClient({adminToken:'test',fetch:async(url,init)=>{calls.push({url,init});return Response.json({data:{revision:'next',effective_from:'210'}});}});
   assert.deepEqual(await client.replaceSupplierMediaRate(id,'previous',{...rate,customer_price:'must-not-send'},{signal:abort.signal}),{data:{revision:'next',effective_from:'210'}});
-  assert.ok(calls[0].url.endsWith(`/providers/${id}/media-rates/replace`));
+  assert.ok(calls[0].url.endsWith(`/admin/providers/${id}/media-rates/replace`));
   assert.deepEqual(JSON.parse(calls[0].init.body),{previous_revision:'previous',rate});
   assert.equal(calls[0].init.signal,abort.signal);
   assert.throws(()=>client.replaceSupplierMediaRate(id,'',rate),TypeError);
@@ -1074,7 +1074,7 @@ test('asset management setup preserves revision and cancellation without retries
   assert.deepEqual(JSON.parse(calls[1].init.body),input);
   assert.equal(calls[1].init.method,'PUT');
   assert.equal(calls[1].init.signal,controller.signal);
-  assert.ok(calls[1].url.endsWith(`/vendors/${id}/asset-management`));
+  assert.ok(calls[1].url.endsWith(`/admin/providers/connections/${id}/asset-management`));
   await assert.rejects(client.configureAssetManagement(id,input),error=>error instanceof NiuAPIError && error.status===409);
   assert.equal(calls.length,3);
   for(const revision of [-1,1.5,null,Number.MAX_SAFE_INTEGER]) assert.throws(()=>client.configureAssetManagement(id,{...input,expected_revision:revision}),/nonnegative safe integer/);
@@ -1187,7 +1187,7 @@ test('ordinary asset creation preserves one-shot identity, cancellation and Unic
   assert.deepEqual(await client.createOrdinaryAssetGroup(id,{...input,endpoint:'ignored'},{signal:abort.signal}),{data:{id,status:'dispatching'}});
   assert.deepEqual(JSON.parse(calls[0].init.body),input);
   assert.equal(calls[0].init.signal,abort.signal);
-  assert.ok(calls[0].url.endsWith(`/vendors/${id}/asset-management/groups`));
+  assert.ok(calls[0].url.endsWith(`/admin/providers/connections/${id}/asset-management/groups`));
   await assert.rejects(client.createOrdinaryAssetGroup(id,input),/Qualification missing/);
   for(const name of ['', '牛'.repeat(65),'bad\nname','bad\u0085name']) assert.throws(()=>client.createOrdinaryAssetGroup(id,{...input,name}),/name/);
   for(const description of ['元'.repeat(301),'bad\0description']) assert.throws(()=>client.createOrdinaryAssetGroup(id,{...input,description}),/description/);
@@ -1224,7 +1224,7 @@ test('ordinary group read sends saved identity only and never retries on uncerta
   assert.equal((await client.readOrdinaryAssetGroup(id,{...input,upstream_id:'not sent'},{signal:abort.signal})).data.name,'Character');
   assert.deepEqual(JSON.parse(calls[0].init.body),input);
   assert.equal(calls[0].init.signal,abort.signal);
-  assert.ok(calls[0].url.endsWith(`/vendors/${id}/asset-management/group-reads`));
+  assert.ok(calls[0].url.endsWith(`/admin/providers/connections/${id}/asset-management/group-reads`));
   await assert.rejects(client.readOrdinaryAssetGroup(id,input),/Read already claimed/);
   for(const field of Object.keys(input)) assert.throws(()=>client.readOrdinaryAssetGroup(id,{...input,[field]:'invalid'}),/UUID/);
   assert.equal(calls.length,2);
@@ -1346,7 +1346,7 @@ test('ordinary asset lookup is scoped, cancellable, bounded and not retried',asy
   const input={organization_id:id,project_id:id,listing_id:id,lookup_id:id,item_index:0};
   assert.equal((await client.lookupOrdinaryAsset(id,{...input,upstream_id:'never forwarded'},{signal:abort.signal})).data.asset_status,'Failed');
   assert.deepEqual(JSON.parse(calls[0].init.body),input);assert.equal(calls[0].init.signal,abort.signal);
-  assert.ok(calls[0].url.endsWith(`/vendors/${id}/asset-management/lookups`));
+  assert.ok(calls[0].url.endsWith(`/admin/providers/connections/${id}/asset-management/lookups`));
   await assert.rejects(client.lookupOrdinaryAsset(id,input),/Already claimed/);assert.equal(calls.length,2);
   for(const item_index of [-1,100,NaN,1.5,'0'])assert.throws(()=>client.lookupOrdinaryAsset(id,{...input,item_index}),/index/);
   assert.throws(()=>client.lookupOrdinaryAsset(id,{...input,listing_id:'invalid'}),/UUID/);assert.equal(calls.length,2);
@@ -1402,7 +1402,7 @@ test('ordinary metadata preparation preserves identity, omission, clear and canc
   }});
   const input={organization_id:id,project_id:id,intent_id:id,update_id:id,name:'元'.repeat(64)};
   assert.deepEqual(await client.prepareOrdinaryAssetGroupUpdate(id,{...input,upstream_group_id:'ignored'},{signal:abort.signal}),result);
-  assert.ok(calls[0].url.endsWith(`/vendors/${id}/asset-management/group-updates`));
+  assert.ok(calls[0].url.endsWith(`/admin/providers/connections/${id}/asset-management/group-updates`));
   assert.equal(calls[0].init.method,'POST');
   assert.equal(calls[0].init.signal,abort.signal);
   assert.deepEqual(JSON.parse(calls[0].init.body),input);
@@ -1437,7 +1437,7 @@ test('explicit metadata dispatch preserves uncertainty, scope and abort without 
   }});
   const scope={organizationId:id,projectId:id};
   assert.equal((await client.dispatchOrdinaryAssetGroupUpdate(id,id,scope,{signal:abort.signal})).data.status,'acknowledged');
-  assert.ok(calls[0].url.endsWith(`/vendors/${id}/asset-management/group-updates/${id}/dispatch`));
+  assert.ok(calls[0].url.endsWith(`/admin/providers/connections/${id}/asset-management/group-updates/${id}/dispatch`));
   assert.equal(calls[0].init.method,'POST');
   assert.equal(calls[0].init.signal,abort.signal);
   assert.deepEqual(JSON.parse(calls[0].init.body),{organization_id:id,project_id:id});
@@ -1463,7 +1463,7 @@ test('metadata reconciliation uses a fresh scoped read, forwards abort and never
   const scope={organizationId:id,projectId:id};
   const result=await client.reconcileOrdinaryAssetGroupUpdate(id,id,id,scope,{signal:abort.signal});
   assert.equal(result.data.status,'reconciled');assert.equal(result.data.reconciliation_required,false);
-  assert.ok(calls[0].url.endsWith(`/vendors/${id}/asset-management/group-updates/${id}/reconcile`));
+  assert.ok(calls[0].url.endsWith(`/admin/providers/connections/${id}/asset-management/group-updates/${id}/reconcile`));
   assert.equal(calls[0].init.method,'POST');assert.equal(calls[0].init.signal,abort.signal);
   assert.deepEqual(JSON.parse(calls[0].init.body),{organization_id:id,project_id:id,read_id:id});
   await assert.rejects(client.reconcileOrdinaryAssetGroupUpdate(id,id,id,scope),/Metadata mismatch/);
@@ -1701,7 +1701,7 @@ test('admin client lists and publishes Credits media consumption tariffs with ex
   });
 
   assert.deepEqual(await client.listCustomerUnitMediaTariffs('seedance-pro', { signal: abort.signal }), { data: [saved.data] });
-  assert.ok(calls[0].url.endsWith('/platform/units/media/tariffs?model=seedance-pro'));
+  assert.ok(calls[0].url.endsWith('/admin/units/media/tariffs?model=seedance-pro'));
   assert.equal(calls[0].init.signal, abort.signal);
 
   const input = {
@@ -1712,7 +1712,7 @@ test('admin client lists and publishes Credits media consumption tariffs with ex
     price
   };
   assert.deepEqual(await client.publishCustomerUnitMediaTariff(input, { signal: abort.signal }), saved);
-  assert.ok(calls[1].url.endsWith('/platform/units/media/tariffs'));
+  assert.ok(calls[1].url.endsWith('/admin/units/media/tariffs'));
   assert.equal(calls[1].init.method, 'POST');
   assert.deepEqual(JSON.parse(calls[1].init.body), input);
 
@@ -1734,7 +1734,7 @@ test('Provider settlement previews and records a period without request identifi
   }});
   const preview = await client.previewProviderSettlement(id, { currency: 'USD', cutoff_ms: 123 });
   assert.equal(preview.data.entry_count, 2);
-  assert.ok(calls[0].url.endsWith(`/providers/${id}/settlements/preview?currency=USD&cutoff_ms=123`));
+  assert.ok(calls[0].url.endsWith(`/admin/providers/${id}/settlements/preview?currency=USD&cutoff_ms=123`));
   await client.recordProviderSettlement(id, { idempotency_key: id, payment_reference: 'October payout', currency: 'USD', cutoff_ms: 123 });
   assert.deepEqual(JSON.parse(calls[1].init.body), { idempotency_key: id, payment_reference: 'October payout', currency: 'USD', cutoff_ms: 123 });
   await client.recordProviderSettlement(id, { idempotency_key: id, payment_reference: 'Legacy payout', attempt_ids: [id] });

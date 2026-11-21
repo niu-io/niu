@@ -1,15 +1,15 @@
 ---
 title: "Recover one encrypted asset lookup result"
-description: "GET /api/v1/vendors/{id}/asset-management/lookups/{lookup}"
+description: "GET /api/v1/admin/providers/connections/{id}/asset-management/lookups/{lookup}"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/vendors/{id}/asset-management/lookups/{lookup}`
+`GET /api/v1/admin/providers/connections/{id}/asset-management/lookups/{lookup}`
 
 Platform administrator only. Requires exact original grants/account/credentials and unexpired retained content. Authenticated workspace/lookup context; safe validated asset fields only. No upstream request, URL, upstream identity, raw error or billing mutation. Cache-Control no-store. Source listing and lookup results have independent retention domains.
 
-Operation: `get--api-v1-vendors--id--asset-management-lookups--lookup-`.
+Operation: `get--api-v1-admin-providers-connections--id--asset-management-lookups--lookup-`.
 
 ## Authentication
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/lookups/{lookup}" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/asset-management/lookups/{lookup}" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   --url-query 'organization_id=<ORGANIZATION_ID>' \
   --url-query 'project_id=<PROJECT_ID>'

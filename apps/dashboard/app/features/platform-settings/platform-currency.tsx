@@ -40,7 +40,7 @@ export function PlatformCurrencySetting({ token }: { token: string }) {
     setSaving(true);
     setError('');
     try {
-      await request(token, '/api/v1/platform/currency', 'PUT', { currency: draft });
+      await request(token, '/api/v1/admin/currency', 'PUT', { currency: draft });
       setSaved(draft);
       setOpen(false);
       reload();

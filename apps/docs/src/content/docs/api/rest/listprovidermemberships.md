@@ -1,11 +1,11 @@
 ---
 title: "Read the retired Provider portal membership directory"
-description: "GET /api/v1/provider-memberships"
+description: "GET /api/v1/admin/providers/memberships"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/provider-memberships`
+`GET /api/v1/admin/providers/memberships`
 
 Requires platform administration and returns an empty compatibility directory. Provider self-service is not currently supported. Retained Provider membership records grant no role, portal, financial or statistics access.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/provider-memberships" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/memberships" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

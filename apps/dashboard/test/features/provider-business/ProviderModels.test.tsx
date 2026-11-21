@@ -69,7 +69,7 @@ it('edits a model in context with its revision and refreshes readiness after sav
  await user.click(screen.getByRole('button',{name:'Save changes'}));
  await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
  const saved=fetcher.mock.calls.find(([,init])=>init?.method==='POST');
- expect(saved?.[0]).toBe('/api/v1/vendors/credential-one/models');
+ expect(saved?.[0]).toBe('/api/v1/admin/providers/connections/credential-one/models');
  expect(JSON.parse(saved?.[1]?.body as string)).toMatchObject({alias:'team/chat',expected_revision:3});
  expect(screen.getByRole('status').textContent).toContain('Model saved');
 });
@@ -167,7 +167,7 @@ it('checks reachability from the models surface and explains a Qiniu restriction
  expect(await screen.findByText(/Qiniu account is not permitted to use chat services/)).toBeTruthy();
  expect(screen.queryByText('Key rejected. Check the saved provider key.')).toBeNull();
  const check=fetcher.mock.calls.find(([,init])=>init?.method==='POST');
- expect(check?.[0]).toBe('/api/v1/vendors/credential-one/check');
+ expect(check?.[0]).toBe('/api/v1/admin/providers/connections/credential-one/check');
  expect(JSON.parse(check?.[1]?.body as string)).toEqual({alias:'team/chat'});
 });
 it('keeps each concurrent model check pending until its own response arrives',async()=>{
@@ -243,7 +243,7 @@ it('imports discovered models from the models surface and reports the result',as
  await userEvent.setup().click(screen.getByRole('button',{name:'Import models',exact:true}));
  expect(await screen.findByText('Imported 2 of 3 discovered models.')).toBeTruthy();
  const importCall=fetcher.mock.calls.find(([,init])=>init?.method==='POST');
- expect(importCall?.[0]).toBe('/api/v1/vendors/credential-one/import');
+ expect(importCall?.[0]).toBe('/api/v1/admin/providers/connections/credential-one/import');
  expect(props.onSaved).toHaveBeenCalled();
 });
 it('keeps imported commercial routes disabled and unpriced until an offer qualifies them',async()=>{
@@ -338,7 +338,7 @@ it('surfaces the 4-step commercial sellability checklist and distinguishes live 
         ],
       });
     }
-    if (path.includes('/vendors/credential-one/models')) {
+    if (path.includes('/admin/providers/connections/credential-one/models')) {
       return Response.json({
         data: [
           { ...model, alias: 'team/live', upstream_model: 'upstream/live', available: true },
