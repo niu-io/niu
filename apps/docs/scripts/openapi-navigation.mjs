@@ -29,7 +29,7 @@ const groups = [
   ['Workspaces and content', [
     ['Workspace incidents', 'Active incidents observed in the authorized workspace.', '^/api/v1/workspaces/[^/]+/incidents$'],
     ['Agent management review', 'Member review and management of workspace model routing, event subscriptions and evaluation evidence.', '^/api/v1/workspaces/[^/]+/(?:routing|events|evaluations)(?:/|$)'],
-    ['Companies and workspaces', 'Company and workspace discovery and lifecycle.', '^/api/v1/(?:workspaces(?:$|/[^/]+$|/by-route/[^/]+$)|setup/default-workspace|organizations(?:/by-route/[^/]+|/[^/]+)?$)'],
+    ['Companies and workspaces', 'Company and workspace discovery and lifecycle.', '^/api/v1/(?:workspaces(?:$|/[^/]+$)|setup/default-workspace|organizations(?:/[^/]+)?$)'],
     ['Chat sessions', 'Saved conversations, drafts, exports and archive state. Saving content does not invoke a model.', '/chats(?:/|$)'],
     ['Generation history', 'Durable generation sessions, saved tasks, artifacts and video request drafts.', '/workspaces/[^/]+/(?:sessions(?:/|$)|tasks(?:/|$)|artifacts(?:/|$)|video/(?:draft|intents))'],
     ['Workspace assets', 'Saved workspace assets and their content.', '/workspaces/[^/]+/assets(?:/|$)'],
@@ -40,7 +40,7 @@ const groups = [
     ['Request logs and usage', 'Generation lookups, request history, exports, diagnostics, timing and captured usage reconciliation.', '(?:^/v1/generations/|/(?:requests|metrics)(?:/|$))'],
     ['Guardrails', 'Policy configuration, previews, history, key bindings and recorded denials.', '/guardrail'],
     ['Financial reports', 'Financial summaries and Provider commercial positions. These are privileged reports, not customer account lifecycle APIs.', '^/api/v1/admin/finance/(?:summary|position)$'],
-    ['Customer balances', 'Company currency balances, limits, reservations, credit, adjustments and transaction history. Amounts are customer-facing, not Provider costs.', '(?:^/api/v1/admin/customers$|/billing/(?:accounts|balance|transactions|entries|reservations|charge-reconciliation|funding)|/spending-limit)'],
+    ['Customer balances', 'Company currency balances, limits, reservations, credit, adjustments and transaction history. Amounts are customer-facing, not Provider costs.', '(?:^/(?:api/)?v1/credits$|^/api/v1/admin/customers$|/billing/(?:accounts|balance|transactions|entries|reservations|charge-reconciliation|funding)|/spending-limit)'],
     ['Customer payments', 'Top-up methods, checkout history, payment callbacks and payment gateway integrations. Checkout creation is not confirmation of funding.', '(?:/billing/(?:topups|payment-methods)|^/payments/|^/api/v1/payments/readiness$|^/api/v1/admin/payments(?:/|$))'],
     ['Branded consumption units', 'Versioned unit definitions, purchase conversion rules, unit tariffs, and unit spending limits. Publication does not activate Credits billing.', '(?:^/api/v1/admin/units(?:/|$)|/billing/units(?:/|$)|/workspaces/[^/]+/units/limit(?:/|$))'],
     ['Customer prices and statements', 'Customer selling prices, price enrollment, invoices and statements. Prices are independent of Provider purchase rates.', '(?:^/api/v1/admin/pricing|/billing(?:/|$))'],
@@ -48,7 +48,7 @@ const groups = [
   ['Service and compatibility', [
     ['Branding and settings', 'Public branding, theme configuration and runtime settings.', '^/api/v1/(?:public/(?:branding|currency)|admin/(?:branding|configuration|currency))$'],
     ['Audit and recovery', 'Audit events and financial recovery controls.', '^/api/v1/admin/(?:audit|finance/recovery)$'],
-    ['Service health', 'Process health, readiness and composed extension readiness.', '^/(?:healthz|readyz|enterprise/readyz)$'],
+    ['Service health', 'Process health, readiness, OpenAPI discovery, and composed extension readiness.', '^/(?:healthz|readyz|enterprise/readyz|openapi\\.(?:json|yaml))$'],
     ['Workspace connections', 'Workspace OAuth connections such as Codex.', '/codex-connections(?:/|$)'],
   ]],
 ];

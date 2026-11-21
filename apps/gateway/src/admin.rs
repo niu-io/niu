@@ -316,12 +316,12 @@ pub async fn default_workspace(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/workspaces/by-route/{route_slug}",
+///   "path": "/api/v1/workspaces/{workspace}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "resolveWorkspaceRoute",
-///     "summary": "Resolve an authorized canonical workspace route",
-///     "description": "Exact persisted route lookup independent of workspace list limits. Renames preserve the route. Historical name aliases are not supported. Foreign, missing and malformed references return the same 404.",
+///     "summary": "Get an authorized workspace by UUID or canonical slug",
+///     "description": "Exact persisted workspace UUID, slug, or alias lookup independent of workspace list limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -330,7 +330,7 @@ pub async fn default_workspace(
 ///     "x-niu-implementation": "implemented",
 ///     "parameters": [
 ///       {
-///         "name": "route_slug",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -416,23 +416,25 @@ pub async fn workspace_route(
     Path(route_slug): Path<String>,
 ) -> Result<([(axum::http::HeaderName, &'static str); 1], Json<Value>), ApiError> {
     let authorization = authorize(&state, &headers, AdminPermission::Read).await?;
-    if route_slug.is_empty()
-        || route_slug.chars().count() > 81
-        || !route_slug
-            .chars()
-            .all(|c| c.is_alphanumeric() && !c.is_uppercase() || c == '-')
+    let trimmed = route_slug.trim();
+    if trimmed.is_empty()
+        || (Uuid::parse_str(trimmed).is_err()
+            && (trimmed.chars().count() > 81
+                || !trimmed
+                    .chars()
+                    .all(|c| (c.is_alphanumeric() && !c.is_uppercase()) || c == '-')))
     {
         return Err(ApiError::not_found());
     }
     let workspace = match authorization {
         crate::state::AdminAuthorization::Installation => state
             .store
-            .workspace_route(&route_slug, None, None)
+            .workspace_route(trimmed, None, None)
             .await
             .map_err(ApiError::from_store)?,
         crate::state::AdminAuthorization::Operator(operator) => state
             .store
-            .workspace_route_for_member(operator, &route_slug)
+            .workspace_route_for_member(operator, trimmed)
             .await
             .map_err(ApiError::from_store)?,
     }
@@ -445,12 +447,12 @@ pub async fn workspace_route(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/by-route/{route_slug}",
+///   "path": "/api/v1/organizations/{organization}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "resolveOrganizationRoute",
-///     "summary": "Resolve an authorized canonical organization route",
-///     "description": "Exact persisted organization slug or alias lookup independent of directory page limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.",
+///     "summary": "Get an authorized organization by UUID or canonical slug",
+///     "description": "Exact persisted organization UUID, slug, or alias lookup independent of directory page limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -459,7 +461,7 @@ pub async fn workspace_route(
 ///     "x-niu-implementation": "implemented",
 ///     "parameters": [
 ///       {
-///         "name": "route_slug",
+///         "name": "organization",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -508,10 +510,11 @@ pub async fn organization_route(
     let authorization = authorize(&state, &headers, AdminPermission::Read).await?;
     let trimmed = route_slug.trim();
     if trimmed.is_empty()
-        || trimmed.chars().count() > 81
-        || !trimmed
-            .chars()
-            .all(|c| c.is_alphanumeric() && !c.is_uppercase() || c == '-')
+        || (Uuid::parse_str(trimmed).is_err()
+            && (trimmed.chars().count() > 81
+                || !trimmed
+                    .chars()
+                    .all(|c| (c.is_alphanumeric() && !c.is_uppercase()) || c == '-')))
     {
         return Err(ApiError::not_found());
     }

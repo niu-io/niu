@@ -975,7 +975,7 @@ export function useWorkspaceController({
           !organizationSwitching
         ) {
           crossOrgResolvedRef.current = resolutionKey;
-          void fetch(`/api/v1/workspaces/by-route/${encodeURIComponent(missingTarget)}`, {
+          void fetch(`/api/v1/workspaces/${encodeURIComponent(missingTarget)}`, {
             headers: { authorization: `Bearer ${token}` },
           })
             .then(async resp => {

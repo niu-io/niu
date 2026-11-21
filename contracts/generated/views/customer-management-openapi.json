@@ -10729,6 +10729,108 @@
           "required_capability": "write",
           "scope": "workspace"
         }
+      },
+      "get": {
+        "operationId": "resolveWorkspaceRoute",
+        "summary": "Get an authorized workspace by UUID or canonical slug",
+        "description": "Exact persisted workspace UUID, slug, or alias lookup independent of workspace list limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "workspace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 81
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized workspace identity.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "organization_id",
+                    "name",
+                    "route_slug",
+                    "slug",
+                    "slug_aliases"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "organization_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "route_slug": {
+                      "type": "string",
+                      "maxLength": 81,
+                      "description": "Deprecated compatibility alias for slug.",
+                      "deprecated": true
+                    },
+                    "slug": {
+                      "type": "string",
+                      "maxLength": 81,
+                      "description": "Stable, readable workspace slug. Use in dashboard URLs; renaming preserves it."
+                    },
+                    "slug_aliases": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Previously issued slugs accepted for existing bookmarks."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or inference-only credential."
+          },
+          "403": {
+            "description": "Credential lacks read permission."
+          },
+          "404": {
+            "description": "No authorized workspace matches the reference."
+          }
+        },
+        "tags": [
+          "Companies and workspaces"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "workspace"
+        }
       }
     },
     "/api/v1/workspaces/{workspace}/guardrails/dispatch-denials": {
@@ -15994,98 +16096,70 @@
         }
       }
     },
-    "/api/v1/workspaces/by-route/{route_slug}": {
+    "/api/v1/credits": {
       "get": {
-        "operationId": "resolveWorkspaceRoute",
-        "summary": "Resolve an authorized canonical workspace route",
-        "description": "Exact persisted route lookup independent of workspace list limits. Renames preserve the route. Historical name aliases are not supported. Foreign, missing and malformed references return the same 404.",
+        "operationId": "getOrganizationCredits",
+        "summary": "Read customer-facing balance summary for the active or selected organization",
+        "description": "Requires an authorized member session or installation credential. Defaults to the caller's active organization; installation callers may pass organization_id. Returns customer-facing balance summaries only, never Provider purchase costs or platform margins.",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "x-niu-implementation": "implemented",
         "parameters": [
           {
-            "name": "route_slug",
-            "in": "path",
-            "required": true,
+            "name": "organization_id",
+            "in": "query",
             "schema": {
               "type": "string",
-              "maxLength": 81
-            }
+              "format": "uuid"
+            },
+            "description": "Optional organization UUID. Defaults to the active session organization."
           }
         ],
         "responses": {
           "200": {
-            "description": "Authorized workspace identity.",
-            "headers": {
-              "Cache-Control": {
-                "schema": {
-                  "type": "string",
-                  "const": "no-store"
-                }
-              }
-            },
+            "description": "Customer balance summary for the resolved organization.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "required": [
-                    "id",
-                    "organization_id",
-                    "name",
-                    "route_slug",
-                    "slug",
-                    "slug_aliases"
+                    "data"
                   ],
                   "properties": {
-                    "id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "organization_id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "route_slug": {
-                      "type": "string",
-                      "maxLength": 81,
-                      "description": "Deprecated compatibility alias for slug.",
-                      "deprecated": true
-                    },
-                    "slug": {
-                      "type": "string",
-                      "maxLength": 81,
-                      "description": "Stable, readable workspace slug. Use in dashboard URLs; renaming preserves it."
-                    },
-                    "slug_aliases": {
+                    "data": {
                       "type": "array",
                       "items": {
-                        "type": "string"
-                      },
-                      "description": "Previously issued slugs accepted for existing bookmarks."
+                        "type": "object",
+                        "required": [
+                          "currency"
+                        ],
+                        "properties": {
+                          "currency": {
+                            "type": "string"
+                          }
+                        }
+                      }
                     }
                   }
                 }
               }
             }
           },
-          "401": {
-            "description": "Invalid or inference-only credential."
+          "400": {
+            "description": "Installation caller omitted organization_id."
           },
-          "403": {
-            "description": "Credential lacks read permission."
+          "401": {
+            "description": "Authentication required."
           },
           "404": {
-            "description": "No authorized workspace matches the reference."
+            "description": "Organization missing or outside authorized scope."
           }
         },
+        "x-niu-implementation": "implemented",
         "tags": [
-          "Companies and workspaces"
+          "Customer balances"
         ],
         "x-niu-authority": {
           "audience": "customer-management",
@@ -16094,15 +16168,15 @@
             "installation_admin"
           ],
           "required_capability": "read",
-          "scope": "workspace"
+          "scope": "organization"
         }
       }
     },
-    "/api/v1/organizations/by-route/{route_slug}": {
+    "/api/v1/organizations/{organization}": {
       "get": {
         "operationId": "resolveOrganizationRoute",
-        "summary": "Resolve an authorized canonical organization route",
-        "description": "Exact persisted organization slug or alias lookup independent of directory page limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.",
+        "summary": "Get an authorized organization by UUID or canonical slug",
+        "description": "Exact persisted organization UUID, slug, or alias lookup independent of directory page limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.",
         "security": [
           {
             "bearerAuth": []
@@ -16111,7 +16185,7 @@
         "x-niu-implementation": "implemented",
         "parameters": [
           {
-            "name": "route_slug",
+            "name": "organization",
             "in": "path",
             "required": true,
             "schema": {
@@ -16161,9 +16235,7 @@
           "required_capability": "read",
           "scope": "organization"
         }
-      }
-    },
-    "/api/v1/organizations/{organization}": {
+      },
       "patch": {
         "operationId": "renameOrganization",
         "summary": "Rename an organization",

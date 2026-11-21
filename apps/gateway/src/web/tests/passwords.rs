@@ -1503,7 +1503,7 @@ async fn customer_console_provisioning_handoff_preserves_company_isolation(pool:
     let by_route = request(
         &app,
         Method::GET,
-        "/api/v1/organizations/by-route/independent-customer",
+        "/api/v1/organizations/independent-customer",
         Some(token),
         None,
         Value::Null,

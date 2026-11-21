@@ -821,8 +821,17 @@ deleteWorkspace(scope: TenantScope | string, options?: RequestOptions): Promise<
 ### resolveWorkspaceRoute
 
 ```typescript
-/** Exact persisted route lookup; missing and out-of-scope workspaces both return 404. */
+/** Exact persisted workspace UUID or slug lookup; missing and out-of-scope workspaces both return 404. */
 resolveWorkspaceRoute(routeSlug: string, options?: RequestOptions): Promise<WorkspaceRoute>;
+```
+
+### getCredits
+
+```typescript
+/** Read customer-facing balance summary for the active or selected organization. */
+getCredits(organizationId?: string, options?: RequestOptions): Promise<{
+    data: CustomerBalance[];
+}>;
 ```
 
 ### listProviderMemberships

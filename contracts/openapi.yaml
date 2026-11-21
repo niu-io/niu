@@ -2270,13 +2270,17 @@ paths:
                         type: integer
                       completion_tokens:
                         type: integer
-  /api/v1/workspaces/by-route/{route_slug}:
-    get:
-      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1by-route~1{route_slug}/get'
-  /api/v1/organizations/by-route/{route_slug}:
-    get:
-      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1by-route~1{route_slug}/get'
+  /openapi.json:
+    $ref: './generated/handler-operations.json#/paths/~1openapi.json'
+  /openapi.yaml:
+    $ref: './generated/handler-operations.json#/paths/~1openapi.yaml'
+  /v1/credits:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1credits'
+  /api/v1/credits:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1credits'
   /api/v1/organizations/{organization}:
+    get:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}/get'
     patch:
       $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}/patch'
   /api/v1/session/organization:

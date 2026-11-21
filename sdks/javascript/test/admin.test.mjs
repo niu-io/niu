@@ -1503,7 +1503,7 @@ test('validates and URL-encodes admin path parameters against path traversal', a
   const scope = { organizationId: id, projectId: id };
 
   await client.resolveWorkspaceRoute('my-workspace');
-  assert.ok(urls[0].endsWith('/workspaces/by-route/my-workspace'));
+  assert.ok(urls[0].endsWith('/workspaces/my-workspace'));
   assert.throws(() => client.resolveWorkspaceRoute(''), TypeError);
   assert.throws(() => client.resolveWorkspaceRoute('../escape'), TypeError);
 
