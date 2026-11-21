@@ -113,6 +113,54 @@ impl Store {
             admission.api_base.as_deref(),
         )
         .await?;
+        // Never allow a zero-priced customer tariff to dispatch a route with real
+        // positive procurement cost (ignoring 1-nanounit free-model placeholders).
+        let zero_customer_on_paid_route: bool = sqlx::query_scalar(
+            "SELECT EXISTS (
+                SELECT 1
+                FROM customer_attempt_tariffs b
+                JOIN customer_tariff_revisions r ON r.id = b.revision_id
+                WHERE b.attempt_id = $1
+                  AND r.prompt_rate = 0
+                  AND r.completion_rate = 0
+                  AND COALESCE(r.cached_prompt_rate, 0) = 0
+                  AND COALESCE(r.reasoning_completion_rate, 0) = 0
+                  AND COALESCE(r.cache_write_prompt_rate, 0) = 0
+                  AND r.minimum_charge_nanos = 0
+                  AND r.request_fee_nanos = 0
+                  AND NOT EXISTS (
+                      SELECT 1 FROM jsonb_array_elements(r.context_tiers) tier
+                      WHERE (tier->>'prompt_rate')::bigint > 0
+                         OR (tier->>'completion_rate')::bigint > 0
+                         OR COALESCE((tier->>'cached_prompt_rate')::bigint, 0) > 0
+                         OR COALESCE((tier->>'cache_write_prompt_rate')::bigint, 0) > 0
+                         OR COALESCE((tier->>'reasoning_completion_rate')::bigint, 0) > 0
+                  )
+            ) AND (
+                EXISTS (
+                    SELECT 1 FROM price_revisions p
+                    WHERE p.id = $2
+                      AND (p.cash_prompt_rate > 1 OR p.cash_completion_rate > 1
+                           OR p.api_prompt_rate > 1 OR p.api_completion_rate > 1)
+                ) OR EXISTS (
+                    SELECT 1 FROM provider_attempt_offers po
+                    JOIN provider_offer_revisions pr ON pr.id = po.revision_id
+                    WHERE po.attempt_id = $1
+                      AND pr.rate_kind = 'text'
+                      AND (pr.prompt_rate > 1 OR pr.completion_rate > 1
+                           OR COALESCE(pr.cached_prompt_rate, 0) > 1
+                           OR COALESCE(pr.reasoning_completion_rate, 0) > 1
+                           OR COALESCE(pr.cache_write_prompt_rate, 0) > 1)
+                )
+            )",
+        )
+        .bind(attempt)
+        .bind(reservation.price_revision_id)
+        .fetch_one(&mut *tx)
+        .await?;
+        if zero_customer_on_paid_route {
+            return Err(StoreError::ProcurementUnavailable);
+        }
         // Inspect the exact immutable revisions just bound in this transaction,
         // including operation-pinned retry pricing. A preflight read of current
         // prices would race with publication and could strand a dispatched hold.

@@ -2650,21 +2650,127 @@ fn exact_nonnegative_integer(value: &str) -> Result<i64, ApiError> {
         .map_err(|_| ApiError::invalid_request("Decimal integer exceeds the supported range."))
 }
 
-/// Trusted administration records an externally verified settled payment.
-/// This is not a customer payment callback or self-service funding endpoint.
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/billing/funding/settled",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "recordSettledCustomerFunding",
+///     "summary": "Record settled customer account top-up",
+///     "description": "Explicit platform administration required; ordinary company owners/admins cannot credit their own accounts. Atomically records a positive settled top-up into the company's currency account (creating a zero-balance account first if absent) keyed idempotently by (channel, payment_reference). Repeating the exact same organization, currency, amount, channel and payment reference returns success without crediting twice; reusing the same (channel, payment_reference) with different parameters returns 409.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "currency",
+///               "amount_nanos",
+///               "channel",
+///               "payment_reference"
+///             ],
+///             "properties": {
+///               "currency": {
+///                 "type": "string",
+///                 "pattern": "^[A-Z]{3}$"
+///               },
+///               "amount_nanos": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]{0,18}$",
+///                 "description": "Positive exact currency nanounits, maximum 9223372036854775807."
+///               },
+///               "channel": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 100
+///               },
+///               "payment_reference": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 200
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Settled top-up recorded, or identical previously recorded reference confirmed",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "recorded"
+///                   ],
+///                   "properties": {
+///                     "recorded": {
+///                       "type": "boolean"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid currency, amount, channel or payment reference"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Explicit platform administration required"
+///       },
+///       "409": {
+///         "description": "Unknown company or conflicting payment reference reuse"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+/// Trusted platform administration records an externally verified or manual
+/// settled top-up. Never expose this as an unverified self-service callback.
 pub async fn settled_funding(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(organization): Path<Uuid>,
     Json(input): Json<SettledFundingInput>,
 ) -> Result<Json<Value>, ApiError> {
-    let auth = state
-        .authorize_admin_headers(&headers, AdminPermission::Write)
-        .await?;
-    if !auth.is_installation() {
-        return Err(ApiError::forbidden());
-    }
+    let _auth = state.authorize_platform_headers(&headers).await?;
     let amount = exact_nonnegative_integer(&input.amount_nanos)?;
+    if amount == 0 || input.amount_nanos.starts_with('0') {
+        return Err(ApiError::invalid_request(
+            "Use a positive exact amount without leading zeroes.",
+        ));
+    }
     state
         .store
         .record_settled_customer_funding(

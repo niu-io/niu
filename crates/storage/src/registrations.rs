@@ -675,24 +675,9 @@ impl Store {
             sqlx::query_scalar("SELECT currency FROM platform_currency WHERE singleton")
                 .fetch_optional(&mut *tx)
                 .await?;
-        let organization_id = if let Some(currency) = platform_currency.as_deref() {
-            Self::create_prepaid_organization_in_tx(&mut tx, &organization_name, currency).await?
-        } else {
-            let org_id = Uuid::new_v4();
-            let base_org_slug =
-                crate::workspace_creation::workspace_slug_from_name(&organization_name);
-            let org_slug: String = sqlx::query_scalar("SELECT niu_available_organization_slug($1)")
-                .bind(base_org_slug)
-                .fetch_one(&mut *tx)
-                .await?;
-            sqlx::query("INSERT INTO organizations(id, name, slug) VALUES ($1, $2, $3)")
-                .bind(org_id)
-                .bind(&organization_name)
-                .bind(&org_slug)
-                .execute(&mut *tx)
-                .await?;
-            org_id
-        };
+        let currency = platform_currency.as_deref().unwrap_or("USD");
+        let organization_id =
+            Self::create_prepaid_organization_in_tx(&mut tx, &organization_name, currency).await?;
 
         let project_id = Uuid::new_v4();
         let base_ws_slug = crate::workspace_creation::workspace_slug_from_name(&workspace_name);

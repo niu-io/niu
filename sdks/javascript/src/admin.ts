@@ -925,6 +925,10 @@ function checkedBalanceGrantInput(currency: string, input: CustomerBalanceGrantI
 export type CustomerBalancePolicyInput = {
   credit_limit_nanos: string; warning_threshold_nanos: string | null; expected_revision: string;
 };
+/** Platform-recorded settled customer account top-up (idempotent on channel + payment_reference). */
+export type SettledCustomerFundingInput = {
+  currency: string; amount_nanos: string; channel: string; payment_reference: string;
+};
 /** Exact positive nanounits; retain the same identity when replaying an uncertain write. */
 export type CustomerBalanceReversalInput = { amount_nanos: string; idempotency_key: string };
 
@@ -2846,6 +2850,22 @@ export class NiuAdminClient {
     const { before, ...transport } = options ?? {};
     const query = before === undefined ? '' : `?before=${uuid(before)}`;
     return this.request(`/organizations/${uuid(organizationId)}/billing/topups${query}`, undefined, transport);
+  }
+
+  /** Platform administration settled top-up; idempotent on (channel, payment_reference). */
+  recordSettledFunding(organizationId: string, input: SettledCustomerFundingInput, options?: RequestOptions): Promise<{ data: { recorded: true } }> {
+    if (!/^[A-Z]{3}$/.test(input.currency)) throw new TypeError('Use a three-letter uppercase currency');
+    if (typeof input.amount_nanos !== 'string' || !/^[1-9][0-9]{0,18}$/.test(input.amount_nanos)
+      || BigInt(input.amount_nanos) > 9223372036854775807n) throw new TypeError('Use an exact positive amount');
+    if (typeof input.channel !== 'string' || input.channel !== input.channel.trim() || input.channel.length < 1
+      || input.channel.length > 100 || /[\u0000-\u001f\u007f-\u009f]/.test(input.channel)) throw new TypeError('Use a trimmed funding channel without control characters');
+    if (typeof input.payment_reference !== 'string' || input.payment_reference !== input.payment_reference.trim()
+      || input.payment_reference.length < 1 || input.payment_reference.length > 200
+      || /[\u0000-\u001f\u007f-\u009f]/.test(input.payment_reference)) throw new TypeError('Use a trimmed payment reference without control characters');
+    return this.request(`/organizations/${uuid(organizationId)}/billing/funding/settled`, {
+      currency: input.currency, amount_nanos: input.amount_nanos,
+      channel: input.channel, payment_reference: input.payment_reference,
+    }, options, 'POST');
   }
 
   /** Installation-only ledger refund/reversal. Never initiates an external payment or automatically retries. */

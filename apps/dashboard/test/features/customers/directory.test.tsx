@@ -54,7 +54,51 @@ it('renders one directory with identity, setup status, Credits, exact balances, 
  const trigger=screen.getByRole('button',{name:'Account actions for Acme in USD'});
  await userEvent.setup().click(trigger);
  expect(await screen.findByRole('menuitem',{name:'Set up'})).toBeTruthy();
- for(const name of ['Manage Branded Credits','Set credit','Grant noncash balance','Noncash grants'])expect(screen.getByRole('menuitem',{name})).toBeTruthy();
+ for(const name of ['Manage Branded Credits','Top up balance','Set credit','Grant noncash balance','Noncash grants'])expect(screen.getByRole('menuitem',{name})).toBeTruthy();
+});
+
+it('lets platform administrators record an idempotent customer top-up from the directory',async()=>{
+ const posts:Array<{url:string;body:Record<string,unknown>}>=[];
+ vi.stubGlobal('fetch',vi.fn(async(input,init)=>{
+  const url=String(input);
+  if(init?.method==='POST'&&url.includes('/billing/funding/settled')){
+   posts.push({url,body:JSON.parse(String(init.body)) as Record<string,unknown>});
+   return Response.json({data:{recorded:true}});
+  }
+  if(url.includes('/admin/customers'))return Response.json(firstPage);
+  if(url.includes('/workspaces'))return Response.json({data:[workspace],next_cursor:null});
+  if(url.includes('/members'))return Response.json({data:[owner],next_cursor:null});
+  if(url.includes('/admin/registrations'))return Response.json({data:[],counts:{pending:0,approved:0,rejected:0},next_after:null});
+  throw new Error('Unexpected '+url);
+ }));
+ const user=userEvent.setup();show();
+ await user.click(await screen.findByRole('button',{name:'Account actions for Acme in USD'}));
+ await user.click(await screen.findByRole('menuitem',{name:'Top up balance'}));
+ expect(await screen.findByRole('heading',{name:'Top up customer balance'})).toBeTruthy();
+ await user.type(screen.getByLabelText(/Top-up amount in/), '50');
+ const refInput=screen.getByLabelText('Payment reference');
+ await user.clear(refInput);
+ await user.type(refInput,'test-order-2026-01');
+ await user.click(screen.getByRole('button',{name:'Record top-up'}));
+ await waitFor(()=>expect(posts).toHaveLength(1));
+ expect(posts[0].url).toContain(`/api/v1/organizations/${acme}/billing/funding/settled`);
+ expect(posts[0].body).toEqual({
+  currency:'USD',
+  amount_nanos:'50000000000',
+  channel:'test_topup',
+  payment_reference:'test-order-2026-01',
+ });
+ expect(await screen.findByText('Customer balance topped up.')).toBeTruthy();
+});
+
+it('allows top-up, credit limit, and noncash grant actions even before a currency account exists',async()=>{
+ stubApi({accounts:{data:[{organization_id:beta,organization_name:'Beta',accounts:[],credits:null}],next_after:null}});
+ const user=userEvent.setup();show();
+ await user.click(await screen.findByRole('button',{name:'Customer actions for Beta'}));
+ for(const name of ['Top up balance','Set credit','Grant noncash balance']){
+  const item=await screen.findByRole('menuitem',{name});
+  expect(item.getAttribute('aria-disabled')).not.toBe('true');
+ }
 });
 
 it('keeps the financial directory usable for platform administrators without installation setup authority',async()=>{

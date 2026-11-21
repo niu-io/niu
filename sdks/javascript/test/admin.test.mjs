@@ -1793,3 +1793,47 @@ test('member invitations return the link secret once and never expose it in dire
   assert.throws(() => client.previewMemberInvitation('session-token'), /invitation token/);
   assert.equal(calls.length, 5);
 });
+
+test('records settled customer top-up with validation and idempotent reference', async () => {
+  const calls = [];
+  const client = new NiuAdminClient({
+    adminToken: 'test',
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      return Response.json({ data: { recorded: true } });
+    },
+  });
+  const org = '10000000-0000-4000-8000-000000000001';
+  const result = await client.recordSettledFunding(org, {
+    currency: 'USD',
+    amount_nanos: '50000000000',
+    channel: 'test_topup',
+    payment_reference: 'topup-20261122-0001',
+  });
+  assert.deepEqual(result, { data: { recorded: true } });
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].url.endsWith(`/organizations/${org}/billing/funding/settled`));
+  assert.equal(calls[0].init.method, 'POST');
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    currency: 'USD',
+    amount_nanos: '50000000000',
+    channel: 'test_topup',
+    payment_reference: 'topup-20261122-0001',
+  });
+  assert.throws(
+    () => client.recordSettledFunding(org, { currency: 'usd', amount_nanos: '1', channel: 'test_topup', payment_reference: 'ref' }),
+    /currency/,
+  );
+  assert.throws(
+    () => client.recordSettledFunding(org, { currency: 'USD', amount_nanos: '0', channel: 'test_topup', payment_reference: 'ref' }),
+    /positive amount/,
+  );
+  assert.throws(
+    () => client.recordSettledFunding(org, { currency: 'USD', amount_nanos: '10', channel: ' ', payment_reference: 'ref' }),
+    /funding channel/,
+  );
+  assert.throws(
+    () => client.recordSettledFunding(org, { currency: 'USD', amount_nanos: '10', channel: 'test_topup', payment_reference: ' ref ' }),
+    /payment reference/,
+  );
+});
