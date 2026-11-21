@@ -5465,7 +5465,7 @@
                     },
                     "setup_required": {
                       "type": "boolean",
-                      "description": "True when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /installation is required."
+                      "description": "Live deployment state: true when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /setup is required."
                     },
                     "registration_mode": {
                       "type": "string",
@@ -5485,13 +5485,17 @@
     },
     "/api/v1/setup": {
       "post": {
-        "operationId": "completeInitialInstallationSetup",
+        "operationId": "completeSetup",
         "tags": [
           "Authentication"
         ],
         "summary": "Create the first platform administrator account during initial setup",
-        "description": "One-time first-run bootstrap for a blank deployment where browser password authentication is enabled and no active password-enabled platform administrator exists yet. Requires the configured browser Origin and a valid administrator token from NIU_ADMIN_TOKENS. Creates the first owner account with platform administration enabled in the default workspace, issues an eight-hour HttpOnly browser session cookie with platform administrator mode active, and rejects subsequent calls with 409 Conflict. Responses are not cached.",
-        "security": [],
+        "description": "One-time first-run bootstrap for a blank deployment where password authentication is configured and no active password-enabled platform administrator exists yet. Checks initialization state first and immediately returns 409 Conflict once initialized. Authenticates the deployment's NIU_ADMIN_TOKENS credential via Authorization: Bearer. Creates the first owner account with platform administration enabled in the default workspace, establishes an eight-hour HttpOnly browser cookie when called from the trusted browser Origin, and also supports headless CLI/automation callers without an Origin header. Responses are not cached.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "x-niu-implementation": "implemented",
         "requestBody": {
           "required": true,
@@ -5500,19 +5504,15 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "administrator_token",
                   "email",
                   "password"
                 ],
                 "additionalProperties": false,
                 "properties": {
-                  "administrator_token": {
-                    "type": "string",
-                    "description": "Bootstrap administrator credential configured in NIU_ADMIN_TOKENS."
-                  },
                   "name": {
                     "type": "string",
-                    "description": "Optional display name for the initial platform administrator (max 100 characters)."
+                    "maxLength": 100,
+                    "description": "Optional display name for the initial platform administrator."
                   },
                   "email": {
                     "type": "string",
@@ -5536,11 +5536,42 @@
                 "schema": {
                   "type": "object",
                   "required": [
-                    "session"
+                    "data"
                   ],
                   "properties": {
-                    "session": {
-                      "type": "object"
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "session"
+                      ],
+                      "properties": {
+                        "session": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "operator_id",
+                            "expires_at_unix",
+                            "revoked"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "operator_id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "expires_at_unix": {
+                              "type": "integer",
+                              "format": "int64"
+                            },
+                            "revoked": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -5551,10 +5582,10 @@
             "description": "Invalid email, display name, or password policy violation."
           },
           "401": {
-            "description": "Configured NIU_ADMIN_TOKENS credential did not match."
+            "description": "Configured NIU_ADMIN_TOKENS Bearer credential did not match."
           },
           "403": {
-            "description": "Browser origin rejected."
+            "description": "Cross-origin browser request rejected."
           },
           "409": {
             "description": "Initial administrator setup has already been completed or the email is already in use."
@@ -5563,7 +5594,7 @@
             "description": "Setup admission limit reached."
           },
           "501": {
-            "description": "Browser password authentication is not configured."
+            "description": "Password authentication is not configured."
           }
         }
       }

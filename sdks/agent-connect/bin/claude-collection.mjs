@@ -165,7 +165,7 @@ export class ClaudeCollectionReceiver {
 
   #executionEndpoint() {
     const origin = new URL(this.gatewayBaseURL).origin;
-    return `${origin}/admin/v1/organizations/${this.organizationId}/projects/${this.projectId}/executions`;
+    return `${origin}/api/v1/organizations/${this.organizationId}/projects/${this.projectId}/executions`;
   }
 
   #notice(message) {

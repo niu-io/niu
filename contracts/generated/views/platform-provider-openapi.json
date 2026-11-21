@@ -32,6 +32,10 @@
       "description": "Limited Preview account registration policy and platform administrator approval queue."
     },
     {
+      "name": "Authentication",
+      "description": "Initial installation setup, sign-in configuration, Limited Preview registration submission, browser sessions, profile, password and appearance. Credential requirements differ by operation."
+    },
+    {
       "name": "Users and sessions",
       "description": "User identities, roles, sessions and authentication events."
     },
@@ -94,6 +98,7 @@
       "name": "Authentication and access",
       "tags": [
         "Registration review",
+        "Authentication",
         "Users and sessions"
       ]
     },
@@ -13008,6 +13013,131 @@
             "installation_admin"
           ],
           "required_capability": "read",
+          "scope": "platform"
+        }
+      }
+    },
+    "/api/v1/setup": {
+      "post": {
+        "operationId": "completeSetup",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Create the first platform administrator account during initial setup",
+        "description": "One-time first-run bootstrap for a blank deployment where password authentication is configured and no active password-enabled platform administrator exists yet. Checks initialization state first and immediately returns 409 Conflict once initialized. Authenticates the deployment's NIU_ADMIN_TOKENS credential via Authorization: Bearer. Creates the first owner account with platform administration enabled in the default workspace, establishes an eight-hour HttpOnly browser cookie when called from the trusted browser Origin, and also supports headless CLI/automation callers without an Origin header. Responses are not cached.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "description": "Optional display name for the initial platform administrator."
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 15,
+                    "description": "Account password (at least 15 characters and at most 1024 bytes)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Initial platform administrator created and browser session established.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "session"
+                      ],
+                      "properties": {
+                        "session": {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "operator_id",
+                            "expires_at_unix",
+                            "revoked"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "operator_id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "expires_at_unix": {
+                              "type": "integer",
+                              "format": "int64"
+                            },
+                            "revoked": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email, display name, or password policy violation."
+          },
+          "401": {
+            "description": "Configured NIU_ADMIN_TOKENS Bearer credential did not match."
+          },
+          "403": {
+            "description": "Cross-origin browser request rejected."
+          },
+          "409": {
+            "description": "Initial administrator setup has already been completed or the email is already in use."
+          },
+          "429": {
+            "description": "Setup admission limit reached."
+          },
+          "501": {
+            "description": "Password authentication is not configured."
+          }
+        },
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "platform_admin",
           "scope": "platform"
         }
       }

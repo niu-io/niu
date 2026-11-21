@@ -40,7 +40,7 @@ pub struct PoolInput {
     default_action: niu_storage::RoutePoolDefaultAction,
 }
 
-pub async fn get(
+async fn get(
     State(state): State<AppState>,
     headers: HeaderMap,
     Query(query): Query<PoolQuery>,
@@ -54,6 +54,7 @@ pub async fn get(
         .ok_or_else(ApiError::not_found)?;
     Ok(Json(json!({"data":pool})))
 }
+
 /// ```openapi
 /// {
 ///   "path": "/api/v1/routing",

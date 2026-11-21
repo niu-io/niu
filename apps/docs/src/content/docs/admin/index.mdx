@@ -9,7 +9,7 @@ Administration manages the installation-wide settings behind your Niu gateway. I
 
 ## Open Admin
 
-Sign in at `/login` with an authorized platform administrator account and click **Admin** in the sidebar footer to switch between your workspace and platform administration. On a brand-new deployment with no platform administrator account yet, `/login` automatically redirects to `/installation` to create the first administrator account with `NIU_ADMIN_TOKENS`. A workspace owner does not automatically have platform administration access.
+Sign in at `/login` with an authorized platform administrator account and click **Admin** in the sidebar footer to switch between your workspace and platform administration. On a brand-new deployment with no platform administrator account yet, `/login` automatically redirects to `/setup` to create the first administrator account with `NIU_ADMIN_TOKENS`. A workspace owner does not automatically have platform administration access.
 
 The current dashboard requires installation or platform administrator authority and permission to manage operators. Backend endpoints enforce their own authorization on every request. Read [administrator access](/docs/admin/access/) before provisioning accounts.
 
@@ -42,7 +42,7 @@ These guides explain administrator workflows. Exact parameters, response types a
 
 ## 打开管理后台
 
-使用经过授权的平台管理员账号在 `/login` 登录，并点击侧边栏底部的**管理后台**（**Admin**），即可在工作空间与平台管理之间一键切换。对于尚未创建平台管理员账号的全新部署，访问 `/login` 会自动跳转到 `/installation`，引导您使用 `NIU_ADMIN_TOKENS` 创建首个管理员账号。工作空间所有者不会自动获得平台管理权限。
+使用经过授权的平台管理员账号在 `/login` 登录，并点击侧边栏底部的**管理后台**（**Admin**），即可在工作空间与平台管理之间一键切换。对于尚未创建平台管理员账号的全新部署，访问 `/login` 会自动跳转到 `/setup`，引导您使用 `NIU_ADMIN_TOKENS` 创建首个管理员账号。工作空间所有者不会自动获得平台管理权限。
 
 当前控制台要求具备安装实例管理员或平台管理员权限，以及管理操作员的权限。后端端点会在每次请求时独立执行各自的权限校验。在配置和分发账户之前，请先阅读[管理员访问权限](/docs/admin/access/)。
 

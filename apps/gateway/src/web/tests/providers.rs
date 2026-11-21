@@ -30,7 +30,7 @@ async fn commercial_offer_authorization_requires_platform_admin_and_current_revi
         .await
         .unwrap();
     let app = router(state);
-    let (status, vendor) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN,
+    let (status, vendor) = call(&app, Method::POST, "/api/v1/vendors", ADMIN,
         Some(json!({"name":"Authorization test", "adapter":"openai", "api_base":"https://example.com/v1", "api_key":"synthetic-key"}))).await;
     assert_eq!(status, StatusCode::CREATED);
     let vendor = vendor["data"]["id"].as_str().unwrap();
@@ -38,7 +38,7 @@ async fn commercial_offer_authorization_requires_platform_admin_and_current_revi
         call(
             &app,
             Method::POST,
-            &format!("/admin/v1/vendors/{vendor}/models"),
+            &format!("/api/v1/vendors/{vendor}/models"),
             ADMIN,
             Some(
                 json!({"alias":"authorization-api-model","upstream_model":"model","enabled":true})
@@ -77,7 +77,7 @@ async fn commercial_offer_authorization_requires_platform_admin_and_current_revi
         .unwrap();
     let offer: Uuid = sqlx::query_scalar("SELECT id FROM provider_offers WHERE provider_id=$1 AND model_alias='authorization-api-model'")
         .bind(provider).fetch_one(&pool).await.unwrap();
-    let path = format!("/admin/v1/providers/{provider}/offers/{offer}/authorization");
+    let path = format!("/api/v1/providers/{provider}/offers/{offer}/authorization");
     assert_eq!(
         call(
             &app,
@@ -163,7 +163,7 @@ async fn provider_period_settlement_preview_and_mode_validation(pool: PgPool) {
         .await
         .unwrap();
     let app = router(state);
-    let settlements = format!("/admin/v1/providers/{supplier}/settlements");
+    let settlements = format!("/api/v1/providers/{supplier}/settlements");
     let mixed = call(
         &app,
         Method::POST,
@@ -202,7 +202,7 @@ async fn provider_period_settlement_preview_and_mode_validation(pool: PgPool) {
     )
     .await;
     assert_eq!(empty.0, StatusCode::CONFLICT);
-    let preview = format!("/admin/v1/providers/{supplier}/settlements/preview");
+    let preview = format!("/api/v1/providers/{supplier}/settlements/preview");
     let lowercase = call(
         &app,
         Method::GET,
@@ -216,7 +216,7 @@ async fn provider_period_settlement_preview_and_mode_validation(pool: PgPool) {
         &app,
         Method::GET,
         &format!(
-            "/admin/v1/providers/{}/settlements/preview?currency=USD&cutoff_ms=1",
+            "/api/v1/providers/{}/settlements/preview?currency=USD&cutoff_ms=1",
             Uuid::new_v4()
         ),
         ADMIN,
@@ -339,7 +339,7 @@ async fn provider_period_settlement_http_success_and_idempotency(pool: PgPool) {
         &app,
         Method::GET,
         &format!(
-            "/admin/v1/providers/{supplier}/settlements/preview?currency=USD&cutoff_ms={now_ms}"
+            "/api/v1/providers/{supplier}/settlements/preview?currency=USD&cutoff_ms={now_ms}"
         ),
         ADMIN,
         None,
@@ -358,7 +358,7 @@ async fn provider_period_settlement_http_success_and_idempotency(pool: PgPool) {
     let first = call(
         &app,
         Method::POST,
-        &format!("/admin/v1/providers/{supplier}/settlements"),
+        &format!("/api/v1/providers/{supplier}/settlements"),
         ADMIN,
         Some(body.clone()),
     )
@@ -370,7 +370,7 @@ async fn provider_period_settlement_http_success_and_idempotency(pool: PgPool) {
     let replay = call(
         &app,
         Method::POST,
-        &format!("/admin/v1/providers/{supplier}/settlements"),
+        &format!("/api/v1/providers/{supplier}/settlements"),
         ADMIN,
         Some(body),
     )
@@ -431,7 +431,7 @@ async fn provider_business_is_administrator_only_and_legacy_memberships_grant_no
     let supplier = store.create_provider_business("Supplier").await.unwrap();
     let foreign = store.create_provider_business("Foreign").await.unwrap();
     let app = router(state);
-    let path = format!("/admin/v1/providers/{supplier}/dashboard");
+    let path = format!("/api/v1/providers/{supplier}/dashboard");
     assert_eq!(
         call(&app, Method::GET, &path, &owner.token, None).await.0,
         StatusCode::FORBIDDEN
@@ -441,7 +441,7 @@ async fn provider_business_is_administrator_only_and_legacy_memberships_grant_no
         StatusCode::OK
     );
     assert!(
-        call(&app, Method::GET, "/admin/v1/session", &owner.token, None)
+        call(&app, Method::GET, "/api/v1/session", &owner.token, None)
             .await
             .1["data"]["provider_memberships"]
             .as_array()
@@ -452,7 +452,7 @@ async fn provider_business_is_administrator_only_and_legacy_memberships_grant_no
         call(
             &app,
             Method::POST,
-            "/admin/v1/providers",
+            "/api/v1/providers",
             &owner.token,
             Some(json!({"name":"self-granted"}))
         )
@@ -460,10 +460,7 @@ async fn provider_business_is_administrator_only_and_legacy_memberships_grant_no
         .0,
         StatusCode::FORBIDDEN
     );
-    let member_path = format!(
-        "/admin/v1/providers/{supplier}/members/{}",
-        owner.operator_id
-    );
+    let member_path = format!("/api/v1/providers/{supplier}/members/{}", owner.operator_id);
     assert_eq!(
         call(
             &app,
@@ -488,8 +485,8 @@ async fn provider_business_is_administrator_only_and_legacy_memberships_grant_no
         .0,
         StatusCode::OK
     );
-    let (_, session) = call(&app, Method::GET, "/admin/v1/session", &owner.token, None).await;
-    let members_path = format!("/admin/v1/providers/{supplier}/members");
+    let (_, session) = call(&app, Method::GET, "/api/v1/session", &owner.token, None).await;
+    let members_path = format!("/api/v1/providers/{supplier}/members");
     assert_eq!(
         call(&app, Method::GET, &members_path, &owner.token, None)
             .await
@@ -514,7 +511,7 @@ async fn provider_business_is_administrator_only_and_legacy_memberships_grant_no
         call(
             &app,
             Method::GET,
-            &format!("/admin/v1/providers/{foreign}/dashboard"),
+            &format!("/api/v1/providers/{foreign}/dashboard"),
             &owner.token,
             None
         )
@@ -538,7 +535,7 @@ async fn provider_business_is_administrator_only_and_legacy_memberships_grant_no
         call(
             &app,
             Method::PATCH,
-            &format!("/admin/v1/providers/{supplier}/offers/{}", Uuid::new_v4()),
+            &format!("/api/v1/providers/{supplier}/offers/{}", Uuid::new_v4()),
             &owner.token,
             Some(json!({"active":false}))
         )
@@ -546,7 +543,7 @@ async fn provider_business_is_administrator_only_and_legacy_memberships_grant_no
         .0,
         StatusCode::FORBIDDEN
     );
-    assert_eq!(call(&app,Method::POST,&format!("/admin/v1/providers/{supplier}/settlements"),&owner.token,Some(json!({"idempotency_key":Uuid::new_v4(),"payment_reference":"fake","attempt_ids":[Uuid::new_v4()]}))).await.0,StatusCode::FORBIDDEN);
+    assert_eq!(call(&app,Method::POST,&format!("/api/v1/providers/{supplier}/settlements"),&owner.token,Some(json!({"idempotency_key":Uuid::new_v4(),"payment_reference":"fake","attempt_ids":[Uuid::new_v4()]}))).await.0,StatusCode::FORBIDDEN);
     store
         .set_provider_member(supplier, owner.operator_id, "viewer", false)
         .await
@@ -580,7 +577,7 @@ async fn customer_billing_is_project_scoped_and_financial_writes_are_installatio
         .unwrap();
     let app = router(state);
     let base = format!(
-        "/admin/v1/organizations/{}/projects/{}/billing",
+        "/api/v1/organizations/{}/projects/{}/billing",
         scope.organization_id, scope.project_id
     );
     assert_eq!(
@@ -588,7 +585,7 @@ async fn customer_billing_is_project_scoped_and_financial_writes_are_installatio
         StatusCode::OK
     );
     let foreign = format!(
-        "/admin/v1/organizations/{}/projects/{}/billing",
+        "/api/v1/organizations/{}/projects/{}/billing",
         scope.organization_id,
         Uuid::new_v4()
     );
@@ -658,14 +655,14 @@ async fn inference_independent_ledgers(pool: PgPool) {
     let store = state.store.clone();
     let scope = store.default_workspace().await.unwrap();
     let app = router(state.clone());
-    let (status,vendor)=call(&app,Method::POST,"/admin/v1/vendors",ADMIN,Some(json!({"name":"Billing fixture","adapter":"openai","api_base":format!("http://{address}/v1"),"api_key":"fixture-key"}))).await;
+    let (status,vendor)=call(&app,Method::POST,"/api/v1/vendors",ADMIN,Some(json!({"name":"Billing fixture","adapter":"openai","api_base":format!("http://{address}/v1"),"api_key":"fixture-key"}))).await;
     assert_eq!(status, StatusCode::CREATED);
     let vendor = vendor["data"]["id"].as_str().unwrap();
     assert_eq!(
         call(
             &app,
             Method::POST,
-            &format!("/admin/v1/vendors/{vendor}/models"),
+            &format!("/api/v1/vendors/{vendor}/models"),
             ADMIN,
             Some(json!({"alias":"billable","upstream_model":"fixture","enabled":true,"pricing":{"currency":"USD","api_prompt_rate":1000000000,"api_completion_rate":2000000000,"cash_prompt_rate":1000000000,"cash_completion_rate":2000000000,"max_input_tokens":64,"max_output_tokens":10}}))
         )
@@ -709,7 +706,7 @@ async fn inference_independent_ledgers(pool: PgPool) {
     let (status, result) = call(
         &app,
         Method::PUT,
-        &format!("/admin/v1/providers/{supplier}/offers/{offer}/authorization"),
+        &format!("/api/v1/providers/{supplier}/offers/{offer}/authorization"),
         ADMIN,
         Some(json!({"rate_revision":revision})),
     )
@@ -786,7 +783,7 @@ async fn inference_independent_ledgers(pool: PgPool) {
     );
     assert_eq!(sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM customer_charges c JOIN provider_earnings e ON e.attempt_id=c.attempt_id").fetch_one(&pool).await.unwrap(),1);
     let billing_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/billing",
+        "/api/v1/organizations/{}/projects/{}/billing",
         scope.organization_id, scope.project_id
     );
     let now_ms = std::time::SystemTime::now()
@@ -831,7 +828,7 @@ async fn inference_independent_ledgers(pool: PgPool) {
         call(
             &app,
             Method::DELETE,
-            &format!("/admin/v1/providers/{supplier}/offers/{offer}/authorization/{authorization}"),
+            &format!("/api/v1/providers/{supplier}/offers/{offer}/authorization/{authorization}"),
             ADMIN,
             None
         )
@@ -891,7 +888,7 @@ async fn consumer_access_never_exposes_platform_costs_or_supplier_request_record
         .unwrap();
     let app = router(state);
     let base = format!(
-        "/admin/v1/organizations/{}/projects/{}",
+        "/api/v1/organizations/{}/projects/{}",
         scope.organization_id, scope.project_id
     );
     for (suffix, expected) in [
@@ -946,7 +943,7 @@ async fn consumer_access_never_exposes_platform_costs_or_supplier_request_record
         call(
             &app,
             Method::GET,
-            &format!("/admin/v1/providers/{supplier}/dashboard"),
+            &format!("/api/v1/providers/{supplier}/dashboard"),
             &owner.token,
             None
         )
@@ -957,7 +954,7 @@ async fn consumer_access_never_exposes_platform_costs_or_supplier_request_record
     let (status, provider) = call(
         &app,
         Method::GET,
-        &format!("/admin/v1/providers/{supplier}/dashboard"),
+        &format!("/api/v1/providers/{supplier}/dashboard"),
         ADMIN,
         None,
     )
@@ -1010,7 +1007,7 @@ async fn supplier_rate_http_updates_require_current_revision(pool: PgPool) {
     sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,capabilities) VALUES('rate-fixture',$1,'rate-fixture',$2)")
         .bind(vendor).bind(json!({})).execute(&pool).await.unwrap();
     let app = router(state.clone());
-    let path = format!("/admin/v1/providers/{supplier}/offers");
+    let path = format!("/api/v1/providers/{supplier}/offers");
     let mut rates = json!({"model_alias":"rate-fixture","currency":"USD","prompt_rate":"400000000","completion_rate":"1600000000","expected_revision":null});
     assert_eq!(
         call(
@@ -1051,7 +1048,7 @@ async fn supplier_rate_http_updates_require_current_revision(pool: PgPool) {
     let (_, report) = call(
         &app,
         Method::GET,
-        &format!("/admin/v1/providers/{supplier}/administration"),
+        &format!("/api/v1/providers/{supplier}/administration"),
         ADMIN,
         None,
     )
@@ -1081,7 +1078,7 @@ async fn supplier_rate_http_updates_require_current_revision(pool: PgPool) {
     let (_, unchanged) = call(
         &app,
         Method::GET,
-        &format!("/admin/v1/providers/{supplier}/administration"),
+        &format!("/api/v1/providers/{supplier}/administration"),
         ADMIN,
         None,
     )
@@ -1141,7 +1138,7 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
         json!({"currency":"USD","unit":"nanounits_per_million_tokens","prompt_rate":"1234567891","completion_rate":"1000000000000000","cached_prompt_rate":null,"cache_write_prompt_rate":null,"reasoning_completion_rate":null,"request_fee_nanos":"0","minimum_charge_nanos":"0","context_tiers":[],"pricing_source":"workspace"})
     );
     let dashboard_path = format!(
-        "/admin/v1/models?organization_id={}&project_id={}",
+        "/api/v1/models?organization_id={}&project_id={}",
         scope.organization_id, scope.project_id
     );
     let (status, dashboard) = call(&app, Method::GET, &dashboard_path, ADMIN, None).await;
@@ -1157,7 +1154,7 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
         fast["customer_pricing"],
         json!({"revision":revision,"discount_baseline_revision":null,"currency":"USD","unit":"nanounits_per_million_tokens","prompt_rate":"1234567891","completion_rate":"1000000000000000","cached_prompt_rate":null,"cache_write_prompt_rate":null,"reasoning_completion_rate":null,"request_fee_nanos":"0","minimum_charge_nanos":"0","context_tiers":[],"pricing_source":"workspace"})
     );
-    let (_, unscoped) = call(&app, Method::GET, "/admin/v1/models", ADMIN, None).await;
+    let (_, unscoped) = call(&app, Method::GET, "/api/v1/models", ADMIN, None).await;
     assert!(
         unscoped["data"]
             .as_array()
@@ -1166,7 +1163,7 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
             .all(|model| model["customer_pricing"].is_null())
     );
     let missing = format!(
-        "/admin/v1/models?organization_id={}&project_id={}",
+        "/api/v1/models?organization_id={}&project_id={}",
         scope.organization_id,
         Uuid::new_v4()
     );
@@ -1175,7 +1172,7 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
         StatusCode::NOT_FOUND
     );
     let tariff_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/billing/tariffs",
+        "/api/v1/organizations/{}/projects/{}/billing/tariffs",
         scope.organization_id, scope.project_id
     );
     let update = json!({"model_alias":"fast","currency":"USD","prompt_rate":"0","completion_rate":"0","expected_revision":revision});
@@ -1224,7 +1221,7 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
         "foreign workspace without a published selling price must not see uncallable commercial model: {other}"
     );
     let other_dashboard = format!(
-        "/admin/v1/models?organization_id={}&project_id={}",
+        "/api/v1/models?organization_id={}&project_id={}",
         foreign_scope.organization_id, foreign_scope.project_id
     );
     let workspace_reader = store
@@ -1381,8 +1378,8 @@ async fn media_offer_configuration_is_installation_only_bounded_and_receipt_safe
     let schema = json!({"version":1,"revision":"fixture-schema","model_alias":"video/fixture","upstream_model":"private-video","channel":"ark-direct-v1","maximum_body_bytes":1024,"maximum_content_items":1,"inputs":{"text":{"maximum_items":1,"maximum_bytes":256,"https":false,"data_mime_types":[],"roles":[],"role_required":false}},"controls":{},"required_controls":[],"exclusive_controls":[],"callbacks_qualified":false});
     sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,capabilities) VALUES('video/fixture',$1,'private-video',$2)").bind(vendor).bind(json!({"video_schema":schema})).execute(&pool).await.unwrap();
     let app = router(state);
-    let choices = format!("/admin/v1/providers/{supplier}/media-offer-models");
-    let publish = format!("/admin/v1/providers/{supplier}/media-offers");
+    let choices = format!("/api/v1/providers/{supplier}/media-offer-models");
+    let publish = format!("/api/v1/providers/{supplier}/media-offers");
     for token in [&owner.token, "invalid"] {
         let status = call(&app, Method::GET, &choices, token, None).await.0;
         assert_eq!(
@@ -1582,14 +1579,14 @@ async fn supplier_directory_crud_retains_audit_and_protects_configured_suppliers
     let created = call(
         &app,
         Method::POST,
-        "/admin/v1/providers",
+        "/api/v1/providers",
         ADMIN,
         Some(json!({"name":"Directory fixture"})),
     )
     .await;
     assert_eq!(created.0, StatusCode::OK);
     let id = created.1["data"]["id"].as_str().unwrap();
-    let path = format!("/admin/v1/providers/{id}");
+    let path = format!("/api/v1/providers/{id}");
     assert_eq!(
         call(
             &app,
@@ -1624,7 +1621,7 @@ async fn supplier_directory_crud_retains_audit_and_protects_configured_suppliers
         call(&app, Method::DELETE, &path, ADMIN, None).await.0,
         StatusCode::OK
     );
-    let list = call(&app, Method::GET, "/admin/v1/providers", ADMIN, None).await;
+    let list = call(&app, Method::GET, "/api/v1/providers", ADMIN, None).await;
     assert!(
         !list.1["data"]
             .as_array()
@@ -1660,7 +1657,7 @@ async fn supplier_directory_crud_retains_audit_and_protects_configured_suppliers
         call(
             &app,
             Method::DELETE,
-            &format!("/admin/v1/providers/{configured}"),
+            &format!("/api/v1/providers/{configured}"),
             ADMIN,
             None
         )
@@ -1672,7 +1669,7 @@ async fn supplier_directory_crud_retains_audit_and_protects_configured_suppliers
         call(
             &app,
             Method::GET,
-            "/admin/v1/platform/configuration",
+            "/api/v1/platform/configuration",
             &owner.token,
             None
         )
@@ -1708,7 +1705,7 @@ async fn platform_epay_configuration_is_encrypted_validated_and_applied(pool: Pg
         .await
         .unwrap();
     let app = router(state.clone());
-    let path = "/admin/v1/platform/payments/epay";
+    let path = "/api/v1/platform/payments/epay";
     let secret = "private-fixture-merchant-key";
     let configuration = json!({"expected_revision":"0","enabled":true,"merchant_id":"12345","key":secret,"endpoint":"https://payments.example.com","notify_url":"https://niu.example.com/payments/epay/notify","return_url":"https://niu.example.com/settings/billing","methods":["alipay","wxpay"]});
     assert_eq!(
@@ -1789,7 +1786,7 @@ async fn platform_epay_configuration_is_encrypted_validated_and_applied(pool: Pg
         &reopened,
         Method::GET,
         &format!(
-            "/admin/v1/organizations/{}/billing/payment-methods?currency=CNY&payment_gateway=epay",
+            "/api/v1/organizations/{}/billing/payment-methods?currency=CNY&payment_gateway=epay",
             scope.organization_id
         ),
         ADMIN,
@@ -1988,7 +1985,7 @@ async fn supplier_profile_is_durable_validated_and_revision_guarded(pool: PgPool
         .set_provider_member(supplier, owner.operator_id, "manager", true)
         .await
         .unwrap();
-    let path = format!("/admin/v1/providers/{supplier}");
+    let path = format!("/api/v1/providers/{supplier}");
     let app = router(state);
     assert_eq!(
         call(&app, Method::GET, &path, &owner.token, None).await.0,

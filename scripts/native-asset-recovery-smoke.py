@@ -89,9 +89,9 @@ def main():
                 f'-h 127.0.0.1 -p {pgport} -k {root}', '-w', 'start'],
                 env=environment, stdout=subprocess.DEVNULL, check=True)
             start()
-            organization = smoke.request('POST', '/admin/v1/organizations', admin=True,
+            organization = smoke.request('POST', '/api/v1/organizations', admin=True,
                 payload={'name': 'Native asset recovery'})[1]['id']
-            workspace = smoke.request('POST', f'/admin/v1/organizations/{organization}/projects',
+            workspace = smoke.request('POST', f'/api/v1/organizations/{organization}/projects',
                 admin=True, payload={'name': 'Recovery'})[1]['id']
             prepared = smoke.PACKAGE_ASSETS.prepare_asset_upgrade(smoke.asset_request, sql, organization, workspace)
             saved = smoke.PACKAGE_LISTINGS.prepare_listing_fixture(smoke.asset_request, sql,

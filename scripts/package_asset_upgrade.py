@@ -27,14 +27,14 @@ def asset_snapshot(database_value, vendor, intent):
 
 def prepare_asset_upgrade(request, database_value, organization_id, project_id, *, name="Package asset recovery fixture"):
     organization_id, project_id = _uuid(organization_id), _uuid(project_id)
-    status, response = request("POST", "/admin/v1/vendors", admin=True, payload={
+    status, response = request("POST", "/api/v1/vendors", admin=True, payload={
         "name": name, "adapter": "openai",
         "api_base": "https://ark.cn-beijing.volcengineapi.com/api/v3",
         "api_key": secrets.token_urlsafe(32), "enabled": False,
     })
     assert status == 201
     vendor = _uuid(response["data"]["id"])
-    path = f"/admin/v1/vendors/{vendor}/asset-management"
+    path = f"/api/v1/vendors/{vendor}/asset-management"
     status, _ = request("PUT", path, admin=True, payload={
         "expected_revision": 0, "upstream_project": "upgrade-original-project",
         "access_key": "AKUPGRADEEXAMPLE", "secret_key": secrets.token_urlsafe(32),
@@ -67,12 +67,12 @@ def assert_asset_upgrade(request, database_value, saved):
     vendor, intent = _uuid(saved["vendor"]), _uuid(saved["intent"])
     assert asset_snapshot(database_value, vendor, intent) == saved["snapshot"], \
         "upgrade changed original asset credential/request bindings"
-    base = f"/admin/v1/vendors/{vendor}/asset-management"
+    base = f"/api/v1/vendors/{vendor}/asset-management"
     status, configuration = request("GET", base, admin=True)
     assert status == 200 and configuration["data"]["configured"] is True
     assert configuration["data"]["revision"] == 1
     scope = saved["input"]
-    path = (f"/admin/v1/organizations/{_uuid(scope['organization_id'])}/projects/"
+    path = (f"/api/v1/organizations/{_uuid(scope['organization_id'])}/projects/"
             f"{_uuid(scope['project_id'])}/asset-group-intents/{intent}/request")
     status, detail = request("GET", path, admin=True)
     assert status == 200 and detail["data"]["status"] == "prepared"

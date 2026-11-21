@@ -83,7 +83,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
   const restoreInFlightRef = useRef<Promise<void> | null>(null);
   const authenticate = useCallback(
     (credential: string, restoring = false) => {
-      if (restoring && authenticationPath.current === '/installation') return Promise.resolve();
+      if (restoring && authenticationPath.current === '/setup') return Promise.resolve();
       if (restoring && restoreInFlightRef.current) return restoreInFlightRef.current;
       const run = (async () => {
         if (!restoring) setError('');
@@ -100,7 +100,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
           if (!sessionResponse.ok) {
             if (revision === connectionRevision.current && !(restoring && sessionResponse.status === 401)) {
               setError(
-                sessionResponse.status === 401 && authenticationPath.current === '/installation'
+                sessionResponse.status === 401 && authenticationPath.current === '/setup'
                   ? 'That administrator token is invalid. Verify NIU_ADMIN_TOKENS and try again.'
                   : 'Could not sign in. Try again.',
               );
@@ -109,7 +109,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
           }
           const sessionValue = (await sessionResponse.json()) as { data: AdminSession };
           if (revision !== connectionRevision.current || controller.signal.aborted) return;
-          if (restoring && authenticationPath.current === '/installation') return;
+          if (restoring && authenticationPath.current === '/setup') return;
           const nextEffectiveSession = sessionValue.data;
           const nextAuthorityKey = buildSessionAuthorityKey(credential, nextEffectiveSession);
           syncAuthorityImmediate(nextAuthorityKey);
@@ -202,7 +202,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
     [authenticate, draftToken],
   );
 
-  const isInstallationRoute = location.pathname === '/installation';
+  const isSetupRoute = location.pathname === '/setup';
   useEffect(() => {
     if (token || health?.status !== 'ok') return;
     try {
@@ -213,7 +213,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
     } catch {
       /* Storage is optional. */
     }
-    if (isInstallationRoute) {
+    if (isSetupRoute) {
       setSessionChecked(true);
       return;
     }
@@ -237,7 +237,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
         if (!controller.signal.aborted) setSessionChecked(true);
       });
     return () => controller.abort();
-  }, [authenticate, token, health?.status, isInstallationRoute]);
+  }, [authenticate, token, health?.status, isSetupRoute]);
 
   const expireSession = useCallback(() => {
     connectionController.current?.abort();

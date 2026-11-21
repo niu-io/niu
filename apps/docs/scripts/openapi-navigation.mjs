@@ -92,7 +92,7 @@ export function deriveOperationAuthority(path, method, operation) {
   }
   const lowerMethod = String(method || '').toLowerCase();
   if (
-    /^\/api\/v1\/(?:platform\/|vendors|incidents|routing-registry|routing|pricing|financial-summary|commercial-position|operators|setup\/)/.test(path) ||
+    /^\/api\/v1\/(?:platform\/|vendors|incidents|routing-registry|routing|pricing|financial-summary|commercial-position|operators|setup(?:\/|$))/.test(path) ||
     /\/billing\/(?:quotes|units\/(?:grants|refunds|charges\/[^/]+\/refunds|purchases\/[^/]+\/reversals|requests\/[^/]+\/reconciliations)|entries\/[^/]+\/reversal|media-rates|funding\/settled|accounts\/[^/]+\/(?:policy|grants))/.test(path) ||
     (lowerMethod === 'post' && /\/billing\/invoices(?:\/[^/]+\/payment)?$/.test(path)) ||
     /\/(?:projects|workspaces)\/[^/]+\/(?:accounts|budget|costs)(?:\/|$)/.test(path) ||

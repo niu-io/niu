@@ -1207,9 +1207,9 @@ async fn unpriced_commercial_models_are_gated_in_resale_catalogs_and_visible_whe
     assert_eq!(status, StatusCode::OK);
     assert!(ws_cat["data"].as_array().unwrap().is_empty(), "{ws_cat}");
 
-    // Installation admin inspecting /admin/v1/models sees explicit callable=false & readiness_issues.
+    // Installation admin inspecting /api/v1/models sees explicit callable=false & readiness_issues.
     let (status, _, admin_cat) =
-        json_call(&app, Method::GET, "/admin/v1/models", Some(ADMIN), None).await;
+        json_call(&app, Method::GET, "/api/v1/models", Some(ADMIN), None).await;
     assert_eq!(status, StatusCode::OK);
     let unpriced_entry = admin_cat["data"]
         .as_array()

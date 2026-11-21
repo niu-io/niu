@@ -112,7 +112,7 @@ def main():
                 f'-h 127.0.0.1 -p {pgport} -k {root}', '-w', 'start'], env=environment,
                 stdout=subprocess.DEVNULL, check=True)
             start()
-            path = '/admin/v1/platform/payments/epay'
+            path = '/api/v1/platform/payments/epay'
             settings = dict(expected_revision='0', enabled=True, merchant_id='123456', key=merchant_key,
                 endpoint='https://checkout.example.com/submit.php',
                 notify_url='https://niu.example.com/payments/epay/notify',
@@ -123,8 +123,8 @@ def main():
                 'Rejected configuration persisted')
             saved = api('PUT', path, settings)['data']
             require(saved['has_key'] and 'key' not in saved, 'Merchant secret response boundary failed')
-            org = api('POST', '/admin/v1/organizations', {'name': 'Current checkout verification', 'currency': 'CNY'})
-            base = f'/admin/v1/organizations/{org["id"]}/billing/topups'
+            org = api('POST', '/api/v1/organizations', {'name': 'Current checkout verification', 'currency': 'CNY'})
+            base = f'/api/v1/organizations/{org["id"]}/billing/topups'
             intent = dict(payment_gateway='epay', currency='CNY', amount_nanos='12340000000',
                 payment_method='alipay', idempotency_key=str(uuid.uuid4()))
             barrier = threading.Barrier(8)
@@ -159,8 +159,8 @@ def main():
             start()
             require(api('GET', base + '/' + order['id'])['data'] == order, 'Restart lost pending checkout')
             require(api('POST', base, intent)['data'] == order, 'Restart changed idempotent replay')
-            other = api('POST', '/admin/v1/organizations', {'name': 'Separate company', 'currency': 'CNY'})
-            workspace = api('POST', f'/admin/v1/organizations/{org["id"]}/projects',
+            other = api('POST', '/api/v1/organizations', {'name': 'Separate company', 'currency': 'CNY'})
+            workspace = api('POST', f'/api/v1/organizations/{org["id"]}/projects',
                 {'name': 'Restricted workspace'})
 
             def actor(organization, role, project=None):
@@ -168,7 +168,7 @@ def main():
                     role=role, expires_in_seconds=600)
                 if project:
                     body['project_id'] = project
-                return api('POST', '/admin/v1/operators', body)['token']
+                return api('POST', '/api/v1/operators', body)['token']
 
             owner = actor(org['id'], 'owner')
             detail = base + '/' + order['id']

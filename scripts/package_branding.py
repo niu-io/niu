@@ -6,7 +6,7 @@ import struct
 import urllib.error
 import zlib
 
-ADMIN = '/admin/v1/platform/branding'
+ADMIN = '/api/v1/platform/branding'
 PUBLIC = '/v1/branding'
 
 

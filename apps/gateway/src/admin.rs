@@ -28,8 +28,8 @@ pub mod workspace_aliases;
 pub mod workspace_spending;
 pub use operator_audit::operator_events;
 pub use session::{
-    claim_session_membership, current_session, member_administration, set_member_administration,
-    switch_session_organization, update_admin_mode, update_session_role,
+    claim_session_membership, current_session, member_administration, patch_session,
+    set_member_administration, switch_session_organization, update_session_role,
 };
 
 use crate::{error::ApiError, state::AppState};

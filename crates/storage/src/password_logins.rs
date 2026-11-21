@@ -102,6 +102,9 @@ impl Store {
                 .unwrap_or("Administrator")
                 .to_owned(),
         };
+        if self.has_platform_admin_password_account().await? {
+            return Err(StoreError::Conflict);
+        }
         let workspace = self.default_prepaid_workspace().await?;
         let mut tx = self.begin_tx().await?;
         sqlx::query("SELECT pg_advisory_xact_lock(78641239)")

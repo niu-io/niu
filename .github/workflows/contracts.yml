@@ -11,6 +11,7 @@ on:
       - 'contracts/**'
       - 'scripts/extract-handler-openapi.py'
       - 'scripts/check-openapi-entrypoints.py'
+      - 'scripts/check-api-style.py'
       - 'docs/reference/generated-api-operations.md'
       - 'apps/docs/src/content/docs/reference/handler-operations.md'
   pull_request:
@@ -20,6 +21,7 @@ on:
       - 'contracts/**'
       - 'scripts/extract-handler-openapi.py'
       - 'scripts/check-openapi-entrypoints.py'
+      - 'scripts/check-api-style.py'
       - 'docs/reference/generated-api-operations.md'
       - 'apps/docs/src/content/docs/reference/handler-operations.md'
   workflow_dispatch:
@@ -44,5 +46,7 @@ jobs:
         run: python3 scripts/extract-handler-openapi.py --check
       - name: Check root OpenAPI exposes registered generated operations
         run: python3 scripts/check-openapi-entrypoints.py
+      - name: Enforce API v1 style and retired-route gate
+        run: python3 scripts/check-api-style.py
       - name: Record verification scope
         run: echo 'Static API contract consistency only. This does not verify runtime behavior, billing, external integrations or release readiness.' >> "$GITHUB_STEP_SUMMARY"

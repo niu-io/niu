@@ -69,10 +69,10 @@ def main():
     with urlopen('https://openrouter.ai/api/v1/models', timeout=30) as response:
         catalog = {model['id']: model for model in json.load(response)['data']}
     if args.metadata_only:
-        vendors = [v for v in api('/admin/v1/vendors') if v['adapter'] == 'openrouter']
+        vendors = [v for v in api('/api/v1/vendors') if v['adapter'] == 'openrouter']
         selected = select_demo_vendor(vendors, args.vendor_name)
         vendor = selected['id']
-        routes = api(f'/admin/v1/vendors/{vendor}/models')
+        routes = api(f'/api/v1/vendors/{vendor}/models')
         planned = []
         for route in routes:
             upstream = catalog.get(route['upstream_model'])
@@ -85,38 +85,38 @@ def main():
                     enabled=route['enabled'], public_catalog=route['public_catalog'],
                     expected_revision=route['revision'], capabilities={**capabilities, 'catalog':metadata}))
         for update in planned:
-            api(f'/admin/v1/vendors/{vendor}/models', update)
+            api(f'/api/v1/vendors/{vendor}/models', update)
         print(f'Refreshed descriptive metadata for {len(planned)} existing routes. Supplier offers and rates unchanged.')
         return
-    suppliers = [p for p in api('/admin/v1/providers') if p['name'].casefold() == 'openrouter']
-    vendors = [v for v in api('/admin/v1/vendors') if v['adapter'] == 'openrouter']
+    suppliers = [p for p in api('/api/v1/providers') if p['name'].casefold() == 'openrouter']
+    vendors = [v for v in api('/api/v1/vendors') if v['adapter'] == 'openrouter']
     if len(suppliers) != 1:
         raise ValueError('Expected exactly one OpenRouter demo Supplier business')
     selected = select_demo_vendor(vendors, args.vendor_name)
     supplier, vendor = suppliers[0]['id'], selected['id']
-    routes = {m['alias']: m for m in api(f'/admin/v1/vendors/{vendor}/models')}
-    existing = api(f'/admin/v1/providers/{supplier}/administration')['offers']
+    routes = {m['alias']: m for m in api(f'/api/v1/vendors/{vendor}/models')}
+    existing = api(f'/api/v1/providers/{supplier}/administration')['offers']
     offers = {o['model_alias'] for o in existing}
     # Validate the entire selected set before writing anything.
     prices = {m: (rate(catalog[m]['pricing']['prompt']), rate(catalog[m]['pricing']['completion'])) for m in MODELS}
     updates = plan_rate_updates(existing, prices, args.refresh_rates)
     verify_routes(routes, MODELS)
     if args.check:
-        verify_check_state(routes, existing, prices, api(f'/admin/v1/vendors/{vendor}/supplier'), supplier)
+        verify_check_state(routes, existing, prices, api(f'/api/v1/vendors/{vendor}/supplier'), supplier)
         print(f'Verified {len(MODELS)} existing model mappings and current public token rates. No configuration writes or inference calls. Qualification and discounted supply remain separate.')
         return
-    api(f'/admin/v1/vendors/{vendor}/supplier', {
+    api(f'/api/v1/vendors/{vendor}/supplier', {
         'supplier_id': supplier, 'expected_revision': selected['revision'],
     }, method='PUT')
     for update in updates:
-        api(f'/admin/v1/providers/{supplier}/offers', update)
+        api(f'/api/v1/providers/{supplier}/offers', update)
     created = 0
     for model in MODELS:
         if model not in routes:
-            api(f'/admin/v1/vendors/{vendor}/models', {'alias': model, 'upstream_model': model, 'enabled': True, 'public_catalog': True, 'capabilities': {'catalog': descriptive_metadata(catalog[model])}})
+            api(f'/api/v1/vendors/{vendor}/models', {'alias': model, 'upstream_model': model, 'enabled': True, 'public_catalog': True, 'capabilities': {'catalog': descriptive_metadata(catalog[model])}})
         elif refreshed_metadata((routes[model].get('capabilities') or {}).get('catalog'), catalog[model]) != (routes[model].get('capabilities') or {}).get('catalog'):
             route = routes[model]
-            api(f'/admin/v1/vendors/{vendor}/models', {
+            api(f'/api/v1/vendors/{vendor}/models', {
                 'alias': model, 'upstream_model': route['upstream_model'],
                 'enabled': route['enabled'], 'public_catalog': route['public_catalog'],
                 'capabilities': {**(route.get('capabilities') or {}), 'catalog': refreshed_metadata((route.get('capabilities') or {}).get('catalog'), catalog[model])},
@@ -125,9 +125,9 @@ def main():
         if model in offers:
             continue
         prompt, completion = prices[model]
-        api(f'/admin/v1/providers/{supplier}/offers', {'model_alias': model, 'currency': 'USD', 'prompt_rate': prompt, 'completion_rate': completion, 'expected_revision': None})
+        api(f'/api/v1/providers/{supplier}/offers', {'model_alias': model, 'currency': 'USD', 'prompt_rate': prompt, 'completion_rate': completion, 'expected_revision': None})
         created += 1
-    actual = api(f'/admin/v1/providers/{supplier}/administration')['offers']
+    actual = api(f'/api/v1/providers/{supplier}/administration')['offers']
     assert all(m in {o['model_alias'] for o in actual} for m in MODELS)
     verify_existing_rates(actual, prices)
     print(

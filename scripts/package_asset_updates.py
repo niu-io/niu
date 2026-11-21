@@ -44,7 +44,7 @@ def prepare_update_fixture(request, database_value, listing):
         "FROM asset_operation_authorizations a JOIN asset_listing_claims c ON c.authorization_id=a.id "
         f"WHERE c.id='{_uuid(listing['root'])}'")
     scope = {'organization_id': _uuid(listing['organization']), 'project_id': _uuid(listing['workspace'])}
-    base = f'/admin/v1/vendors/{vendor}/asset-management/group-updates'
+    base = f'/api/v1/vendors/{vendor}/asset-management/group-updates'
     status, result = request('POST', base, admin=True,
         payload=dict(scope, intent_id=intent, update_id=update, name='Restarted metadata patch'))
     assert status == 201 and result['data']['prepared'] is True

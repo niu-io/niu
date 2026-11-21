@@ -426,12 +426,10 @@ fn customer_feature(path: &str) -> bool {
         || path.starts_with("/v1/")
         || path == "/v1beta"
         || path.starts_with("/v1beta/")
-        || ["/api/v1/", "/admin/v1/"].iter().any(|prefix| {
-            path.strip_prefix(prefix).is_some_and(|path| {
-                path == "workspaces"
-                    || path.starts_with("workspaces/")
-                    || (path.starts_with("organizations/") && path.contains("/projects"))
-            })
+        || path.strip_prefix("/api/v1/").is_some_and(|path| {
+            path == "workspaces"
+                || path.starts_with("workspaces/")
+                || (path.starts_with("organizations/") && path.contains("/projects"))
         })
 }
 
@@ -440,8 +438,7 @@ fn customer_feature(path: &str) -> bool {
 fn credential_maintenance(path: &str, method: &axum::http::Method) -> bool {
     let workspace = "/api/v1/workspaces/{workspace}/keys";
     let project_api = "/api/v1/organizations/{organization}/projects/{project}/keys";
-    let project_admin = "/admin/v1/organizations/{organization}/projects/{project}/keys";
-    [workspace, project_api, project_admin].iter().any(|root| {
+    [workspace, project_api].iter().any(|root| {
         let Some(rest) = path.strip_prefix(root) else {
             return false;
         };
@@ -469,17 +466,13 @@ fn saved_history(path: &str, method: &axum::http::Method) -> bool {
             | "/api/v1/workspaces/{workspace}/incidents"
             | "/api/v1/workspaces/{workspace}/billing"
             | "/api/v1/organizations/{organization}/projects/{project}/billing"
-            | "/admin/v1/organizations/{organization}/projects/{project}/billing"
             | "/api/v1/organizations/{organization}/projects/{project}/billing/invoices"
-            | "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices"
             | "/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}"
-            | "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}"
     ) {
         return true;
     }
     let request_history = [
         "/api/v1/organizations/{organization}/projects/{project}/requests",
-        "/admin/v1/organizations/{organization}/projects/{project}/requests",
         "/api/v1/workspaces/{workspace}/requests",
     ]
     .iter()
@@ -492,13 +485,11 @@ fn saved_history(path: &str, method: &axum::http::Method) -> bool {
         || [
             "/api/v1/workspaces/{workspace}/video/draft",
             "/api/v1/organizations/{organization}/projects/{project}/video/draft",
-            "/admin/v1/organizations/{organization}/projects/{project}/video/draft",
         ]
         .contains(&path)
         || [
             "/api/v1/workspaces/{workspace}/chats",
             "/api/v1/organizations/{organization}/projects/{project}/chats",
-            "/admin/v1/organizations/{organization}/projects/{project}/chats",
         ]
         .iter()
         .any(|root| {
@@ -508,7 +499,6 @@ fn saved_history(path: &str, method: &axum::http::Method) -> bool {
         || [
             "/api/v1/workspaces/{workspace}/sessions",
             "/api/v1/organizations/{organization}/projects/{project}/generations",
-            "/admin/v1/organizations/{organization}/projects/{project}/generations",
         ]
         .iter()
         .any(|root| {
@@ -518,7 +508,6 @@ fn saved_history(path: &str, method: &axum::http::Method) -> bool {
         || [
             "/api/v1/workspaces/{workspace}/video/intents",
             "/api/v1/organizations/{organization}/projects/{project}/video/intents",
-            "/admin/v1/organizations/{organization}/projects/{project}/video/intents",
         ]
         .iter()
         .any(|root| {
@@ -528,7 +517,6 @@ fn saved_history(path: &str, method: &axum::http::Method) -> bool {
         || [
             "/api/v1/workspaces/{workspace}/tasks",
             "/api/v1/organizations/{organization}/projects/{project}/generations/tasks",
-            "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks",
         ]
         .iter()
         .any(|root| {
@@ -549,23 +537,17 @@ pub(crate) async fn gate(
         .unwrap_or(request.uri().path())
         .to_owned();
     // Directory and creation handlers enforce their own scope and write access.
-    let directory = ["/api/v1/workspaces", "/admin/v1/workspaces"].contains(&path.as_str())
+    let directory = path == "/api/v1/workspaces"
         || ((request.method() == axum::http::Method::GET
             || request.method() == axum::http::Method::POST)
-            && [
-                "/api/v1/organizations/{organization}/projects",
-                "/admin/v1/organizations/{organization}/projects",
-            ]
-            .contains(&path.as_str()));
+            && path == "/api/v1/organizations/{organization}/projects");
     let workspace_management = matches!(
         *request.method(),
         axum::http::Method::PATCH | axum::http::Method::DELETE
     ) && matches!(
         path.as_str(),
         "/api/v1/workspaces/{workspace}"
-            | "/admin/v1/workspaces/{workspace}"
             | "/api/v1/organizations/{organization}/projects/{project}"
-            | "/admin/v1/organizations/{organization}/projects/{project}"
     );
     let lookup = path.ends_with("/workspaces/by-route/{route_slug}")
         && request.method() == axum::http::Method::GET;
@@ -768,9 +750,9 @@ mod tests {
         for path in [
             "/api/v1/workspaces",
             "/api/v1/workspaces/{workspace}/keys",
-            "/admin/v1/workspaces/{workspace}",
+            "/api/v1/workspaces/{workspace}",
             "/api/v1/organizations/{organization}/projects/{project}/chats",
-            "/admin/v1/organizations/{organization}/projects/{project}/keys",
+            "/api/v1/organizations/{organization}/projects/{project}/keys",
             "/v1/chat/completions",
             "/v1beta/models/{model_action}",
         ] {
@@ -816,17 +798,13 @@ mod tests {
         ] {
             assert!(!credential_maintenance(spending, &Method::PUT));
         }
-        for keys in [
-            "/api/v1/organizations/{organization}/projects/{project}/keys",
-            "/admin/v1/organizations/{organization}/projects/{project}/keys",
-        ] {
-            assert!(credential_maintenance(keys, &Method::GET));
-            assert!(!credential_maintenance(keys, &Method::POST));
-            assert!(credential_maintenance(
-                &format!("{keys}/{{key}}/rotate"),
-                &Method::POST
-            ));
-        }
+        let legacy_keys = "/api/v1/organizations/{organization}/projects/{project}/keys";
+        assert!(credential_maintenance(legacy_keys, &Method::GET));
+        assert!(!credential_maintenance(legacy_keys, &Method::POST));
+        assert!(credential_maintenance(
+            &format!("{legacy_keys}/{{key}}/rotate"),
+            &Method::POST
+        ));
         // Saved history is read-only; a write must still pass the gate.
         let history = "/api/v1/workspaces/{workspace}/requests/{attempt}/payloads";
         assert!(saved_history(history, &Method::GET));

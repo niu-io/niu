@@ -5635,7 +5635,7 @@ Content type: `application/json`.
     },
     "setup_required": {
       "type": "boolean",
-      "description": "True when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /installation is required."
+      "description": "Live deployment state: true when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /setup is required."
     },
     "registration_mode": {
       "type": "string",
@@ -5653,13 +5653,21 @@ Content type: `application/json`.
 
 `POST /api/v1/setup`
 
-One-time first-run bootstrap for a blank deployment where browser password authentication is enabled and no active password-enabled platform administrator exists yet. Requires the configured browser Origin and a valid administrator token from NIU_ADMIN_TOKENS. Creates the first owner account with platform administration enabled in the default workspace, issues an eight-hour HttpOnly browser session cookie with platform administrator mode active, and rejects subsequent calls with 409 Conflict. Responses are not cached.
+One-time first-run bootstrap for a blank deployment where password authentication is configured and no active password-enabled platform administrator exists yet. Checks initialization state first and immediately returns 409 Conflict once initialized. Authenticates the deployment's NIU_ADMIN_TOKENS credential via Authorization: Bearer. Creates the first owner account with platform administration enabled in the default workspace, establishes an eight-hour HttpOnly browser cookie when called from the trusted browser Origin, and also supports headless CLI/automation callers without an Origin header. Responses are not cached.
 
-Implementation: `implemented`. Operation: `completeInitialInstallationSetup`.
+Implementation: `implemented`. Operation: `completeSetup`.
 
 ### Authentication
 
-No OpenAPI security scheme is required. Signature and other request validation still apply as described above.
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Request body
 
@@ -5671,19 +5679,15 @@ Content type: `application/json`.
 {
   "type": "object",
   "required": [
-    "administrator_token",
     "email",
     "password"
   ],
   "additionalProperties": false,
   "properties": {
-    "administrator_token": {
-      "type": "string",
-      "description": "Bootstrap administrator credential configured in NIU_ADMIN_TOKENS."
-    },
     "name": {
       "type": "string",
-      "description": "Optional display name for the initial platform administrator (max 100 characters)."
+      "maxLength": 100,
+      "description": "Optional display name for the initial platform administrator."
     },
     "email": {
       "type": "string",
@@ -5708,11 +5712,42 @@ Content type: `application/json`.
 {
   "type": "object",
   "required": [
-    "session"
+    "data"
   ],
   "properties": {
-    "session": {
-      "type": "object"
+    "data": {
+      "type": "object",
+      "required": [
+        "session"
+      ],
+      "properties": {
+        "session": {
+          "type": "object",
+          "required": [
+            "id",
+            "operator_id",
+            "expires_at_unix",
+            "revoked"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "operator_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "expires_at_unix": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "revoked": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -5720,15 +5755,15 @@ Content type: `application/json`.
 
 HTTP 400: Invalid email, display name, or password policy violation.
 
-HTTP 401: Configured NIU_ADMIN_TOKENS credential did not match.
+HTTP 401: Configured NIU_ADMIN_TOKENS Bearer credential did not match.
 
-HTTP 403: Browser origin rejected.
+HTTP 403: Cross-origin browser request rejected.
 
 HTTP 409: Initial administrator setup has already been completed or the email is already in use.
 
 HTTP 429: Setup admission limit reached.
 
-HTTP 501: Browser password authentication is not configured.
+HTTP 501: Password authentication is not configured.
 
 ## List platform operation audit logs
 

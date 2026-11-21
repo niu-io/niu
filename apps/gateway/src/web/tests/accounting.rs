@@ -1308,7 +1308,7 @@ async fn buffered_output_withholds_content_but_preserves_incurred_charges(pool: 
     let response = router(state.clone())
         .oneshot(
             Request::get(format!(
-                "/admin/v1/organizations/{}/projects/{}/requests?status=output_withheld&limit=1",
+                "/api/v1/organizations/{}/projects/{}/requests?status=output_withheld&limit=1",
                 scope.organization_id, scope.project_id
             ))
             .header(
@@ -1654,9 +1654,9 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
         identities.push((actor.token, expected));
     }
     let app = router(state.clone());
-    let funding_path = format!("/admin/v1/organizations/{org}/billing/funding/settled");
-    let balance_path = format!("/admin/v1/organizations/{org}/billing/balance");
-    let policy_path = format!("/admin/v1/organizations/{org}/billing/accounts/CNY/policy");
+    let funding_path = format!("/api/v1/organizations/{org}/billing/funding/settled");
+    let balance_path = format!("/api/v1/organizations/{org}/billing/balance");
+    let policy_path = format!("/api/v1/organizations/{org}/billing/accounts/CNY/policy");
     let policy = json!({"credit_limit_nanos":"0","warning_threshold_nanos":"2000000000","expected_revision":"0"});
     let funding = json!({"currency":"CNY","amount_nanos":"1000000000","channel":"test-bank-settlement","payment_reference":"verified-fixture"});
     for (token, expected) in &identities {
@@ -1674,12 +1674,10 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
         let response = app
             .clone()
             .oneshot(
-                Request::get(format!(
-                    "/admin/v1/organizations/{org}/billing/transactions"
-                ))
-                .header("authorization", format!("Bearer {token}"))
-                .body(axum::body::Body::empty())
-                .unwrap(),
+                Request::get(format!("/api/v1/organizations/{org}/billing/transactions"))
+                    .header("authorization", format!("Bearer {token}"))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
             )
             .await
             .unwrap();
@@ -1701,7 +1699,7 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
             .clone()
             .oneshot(
                 Request::post(format!(
-                    "/admin/v1/organizations/{org}/billing/entries/{}/reversal",
+                    "/api/v1/organizations/{org}/billing/entries/{}/reversal",
                     uuid::Uuid::new_v4()
                 ))
                 .header("authorization", format!("Bearer {token}"))
@@ -1801,7 +1799,7 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
             .clone()
             .oneshot(
                 Request::get(format!(
-                    "/admin/v1/organizations/{org}/billing/transactions?before={foreign_cursor}"
+                    "/api/v1/organizations/{org}/billing/transactions?before={foreign_cursor}"
                 ))
                 .header("authorization", format!("Bearer {token}"))
                 .body(axum::body::Body::empty())
@@ -1816,7 +1814,7 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
             .clone()
             .oneshot(
                 Request::get(format!(
-                    "/admin/v1/organizations/{org}/billing/transactions?{query}"
+                    "/api/v1/organizations/{org}/billing/transactions?{query}"
                 ))
                 .header("authorization", format!("Bearer {}", identities[0].0))
                 .body(axum::body::Body::empty())
@@ -1829,12 +1827,10 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
     let response = app
         .clone()
         .oneshot(
-            Request::get(format!(
-                "/admin/v1/organizations/{org}/billing/transactions"
-            ))
-            .header("authorization", format!("Bearer {}", identities[0].0))
-            .body(axum::body::Body::empty())
-            .unwrap(),
+            Request::get(format!("/api/v1/organizations/{org}/billing/transactions"))
+                .header("authorization", format!("Bearer {}", identities[0].0))
+                .body(axum::body::Body::empty())
+                .unwrap(),
         )
         .await
         .unwrap();
@@ -1856,7 +1852,7 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
         .await
         .unwrap();
     let reversal_path = format!(
-        "/admin/v1/organizations/{org}/billing/entries/{}/reversal",
+        "/api/v1/organizations/{org}/billing/entries/{}/reversal",
         entries[0]["id"].as_str().unwrap()
     );
     let reversal = json!({"amount_nanos":"100000000","idempotency_key":uuid::Uuid::new_v4()});
@@ -1882,7 +1878,7 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
         "900000000"
     );
     let warning_path =
-        format!("/admin/v1/organizations/{org}/billing/accounts/CNY/warning-threshold");
+        format!("/api/v1/organizations/{org}/billing/accounts/CNY/warning-threshold");
     for (index, (token, _)) in identities.iter().enumerate() {
         let expected = match index {
             0 | 1 => StatusCode::OK,
@@ -1928,7 +1924,7 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
     );
 
     let foreign = format!(
-        "/admin/v1/organizations/{}/billing/balance",
+        "/api/v1/organizations/{}/billing/balance",
         uuid::Uuid::new_v4()
     );
     let response = app

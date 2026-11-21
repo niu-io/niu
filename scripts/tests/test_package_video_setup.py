@@ -63,7 +63,7 @@ class PackageVideoSetup(unittest.TestCase):
             return (204 if method=='DELETE' else 401),{},''
         setup.revoke_video_reader(request,video)
         setup.assert_revoked_video_reader_denied(request,video)
-        self.assertEqual(calls[0],('DELETE',f'/admin/v1/operators/{ID}',{'admin':True}))
+        self.assertEqual(calls[0],('DELETE',f'/api/v1/operators/{ID}',{'admin':True}))
         self.assertEqual(len(calls),3)
         self.assertTrue(all(options=={'bearer_token':'synthetic-reader'} for _,_,options in calls[1:]))
         with self.assertRaisesRegex(AssertionError,'revoked reader'):
@@ -169,7 +169,7 @@ class PackageVideoSetup(unittest.TestCase):
         configuration={'supplier':ID,'vendor':ID,'vendor_revision':2,'endpoint':'http://127.0.0.1:24678'}
         setup.rotate_fixture_credential(request,configuration,'synthetic-replacement')
         method,path,options=calls[1]
-        self.assertEqual((method,path),('PUT',f'/admin/v1/vendors/{ID}'))
+        self.assertEqual((method,path),('PUT',f'/api/v1/vendors/{ID}'))
         self.assertEqual(options['payload']['expected_revision'],3)
         self.assertEqual(options['payload']['api_base'],configuration['endpoint'])
         self.assertTrue(options['admin'])
