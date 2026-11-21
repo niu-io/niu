@@ -582,7 +582,7 @@ pub async fn logout(
 ///                 },
 ///                 "setup_required": {
 ///                   "type": "boolean",
-///                   "description": "True when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /installation is required."
+///                   "description": "Live deployment state: true when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /setup is required."
 ///                 },
 ///                 "registration_mode": {
 ///                   "type": "string",
@@ -631,7 +631,6 @@ pub async fn configuration(State(state): State<AppState>) -> Result<Json<Value>,
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InstallationSetupInput {
-    administrator_token: String,
     email: String,
     password: String,
     #[serde(default)]
@@ -644,11 +643,11 @@ pub struct InstallationSetupInput {
 ///   "path": "/api/v1/setup",
 ///   "method": "post",
 ///   "operation": {
-///     "operationId": "completeInitialInstallationSetup",
+///     "operationId": "completeSetup",
 ///     "tags": ["Authentication"],
 ///     "summary": "Create the first platform administrator account during initial setup",
-///     "description": "One-time first-run bootstrap for a blank deployment where browser password authentication is enabled and no active password-enabled platform administrator exists yet. Requires the configured browser Origin and a valid administrator token from NIU_ADMIN_TOKENS. Creates the first owner account with platform administration enabled in the default workspace, issues an eight-hour HttpOnly browser session cookie with platform administrator mode active, and rejects subsequent calls with 409 Conflict. Responses are not cached.",
-///     "security": [],
+///     "description": "One-time first-run bootstrap for a blank deployment where password authentication is configured and no active password-enabled platform administrator exists yet. Checks initialization state first and immediately returns 409 Conflict once initialized. Authenticates the deployment's NIU_ADMIN_TOKENS credential via Authorization: Bearer. Creates the first owner account with platform administration enabled in the default workspace, establishes an eight-hour HttpOnly browser cookie when called from the trusted browser Origin, and also supports headless CLI/automation callers without an Origin header. Responses are not cached.",
+///     "security": [{"bearerAuth": []}],
 ///     "x-niu-implementation": "implemented",
 ///     "requestBody": {
 ///       "required": true,
@@ -656,16 +655,13 @@ pub struct InstallationSetupInput {
 ///         "application/json": {
 ///           "schema": {
 ///             "type": "object",
-///             "required": ["administrator_token", "email", "password"],
+///             "required": ["email", "password"],
 ///             "additionalProperties": false,
 ///             "properties": {
-///               "administrator_token": {
-///                 "type": "string",
-///                 "description": "Bootstrap administrator credential configured in NIU_ADMIN_TOKENS."
-///               },
 ///               "name": {
 ///                 "type": "string",
-///                 "description": "Optional display name for the initial platform administrator (max 100 characters)."
+///                 "maxLength": 100,
+///                 "description": "Optional display name for the initial platform administrator."
 ///               },
 ///               "email": {
 ///                 "type": "string",
@@ -688,10 +684,23 @@ pub struct InstallationSetupInput {
 ///           "application/json": {
 ///             "schema": {
 ///               "type": "object",
-///               "required": ["session"],
+///               "required": ["data"],
 ///               "properties": {
-///                 "session": {
-///                   "type": "object"
+///                 "data": {
+///                   "type": "object",
+///                   "required": ["session"],
+///                   "properties": {
+///                     "session": {
+///                       "type": "object",
+///                       "required": ["id", "operator_id", "expires_at_unix", "revoked"],
+///                       "properties": {
+///                         "id": { "type": "string", "format": "uuid" },
+///                         "operator_id": { "type": "string", "format": "uuid" },
+///                         "expires_at_unix": { "type": "integer", "format": "int64" },
+///                         "revoked": { "type": "boolean" }
+///                       }
+///                     }
+///                   }
 ///                 }
 ///               }
 ///             }
@@ -699,11 +708,11 @@ pub struct InstallationSetupInput {
 ///         }
 ///       },
 ///       "400": {"description": "Invalid email, display name, or password policy violation."},
-///       "401": {"description": "Configured NIU_ADMIN_TOKENS credential did not match."},
-///       "403": {"description": "Browser origin rejected."},
+///       "401": {"description": "Configured NIU_ADMIN_TOKENS Bearer credential did not match."},
+///       "403": {"description": "Cross-origin browser request rejected."},
 ///       "409": {"description": "Initial administrator setup has already been completed or the email is already in use."},
 ///       "429": {"description": "Setup admission limit reached."},
-///       "501": {"description": "Browser password authentication is not configured."}
+///       "501": {"description": "Password authentication is not configured."}
 ///     }
 ///   }
 /// }
@@ -714,31 +723,35 @@ pub async fn complete_installation_setup(
     input: Result<Json<InstallationSetupInput>, JsonRejection>,
 ) -> Result<Response, ApiError> {
     let auth = runtime(&state)?;
-    auth.require_origin(&headers)?;
-    let Json(input) =
-        input.map_err(|_| ApiError::invalid_request("Invalid installation setup request"))?;
+    auth.check_origin(&headers)?;
     let client_ip = crate::request_source::current_ip().map(|ip| ip.to_string());
-    let rate_key = if niu_storage::is_valid_email_address(&input.email) {
-        input.email.as_str()
-    } else {
-        "installation-setup@invalid.local"
-    };
     if !state
         .store
-        .admit_member_password_login_with_ip(rate_key, client_ip.as_deref())
+        .admit_member_password_login_with_ip("installation-setup@niu.local", client_ip.as_deref())
         .await
         .map_err(ApiError::from_store)?
     {
         return Err(ApiError::sign_in_limited());
     }
-    let admin_token = input.administrator_token.trim();
-    if admin_token.is_empty() || admin_token.len() > 512 {
+    // Check initialization state BEFORE verifying NIU_ADMIN_TOKENS so completed
+    // deployments never act as a token-validation oracle.
+    if state
+        .store
+        .has_platform_admin_password_account()
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::installation_already_initialized());
+    }
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim);
+    if !state.admin_tokens.matches(auth_header) {
         return Err(ApiError::invalid_installation_token());
     }
-    let bearer = format!("Bearer {admin_token}");
-    if !state.admin_tokens.matches(Some(bearer.as_str())) {
-        return Err(ApiError::invalid_installation_token());
-    }
+    let Json(input) =
+        input.map_err(|_| ApiError::invalid_request("Invalid installation setup request"))?;
     if input.email.len() > 254 || !niu_storage::is_valid_email_address(&input.email) {
         return Err(ApiError::invalid_request("Enter a valid email address"));
     }
@@ -748,14 +761,6 @@ pub async fn complete_installation_setup(
         return Err(ApiError::invalid_request(
             "Display name must be at most 100 characters without control characters",
         ));
-    }
-    if state
-        .store
-        .has_platform_admin_password_account()
-        .await
-        .map_err(ApiError::from_store)?
-    {
-        return Err(ApiError::installation_already_initialized());
     }
     let hash = auth.hash_password_bounded(input.password).await?;
     let issued = state
@@ -772,13 +777,15 @@ pub async fn complete_installation_setup(
             }
             other => ApiError::from_store(other),
         })?;
-    let cookie = auth.cookie_header(&issued.token, 28800)?;
     let mut response = (
         StatusCode::CREATED,
-        Json(json!({ "session": issued.session })),
+        Json(json!({ "data": { "session": issued.session } })),
     )
         .into_response();
-    response.headers_mut().insert("set-cookie", cookie);
+    if headers.contains_key("origin") {
+        let cookie = auth.cookie_header(&issued.token, 28800)?;
+        response.headers_mut().insert("set-cookie", cookie);
+    }
     Ok(response)
 }
 

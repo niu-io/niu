@@ -126,7 +126,7 @@ pub async fn collect(
     let inference = matches!(
         path,
         "/v1/chat/completions" | "/v1/responses" | "/v1/embeddings" | "/v1/messages"
-    ) || path.starts_with("/admin/v1/organizations/")
+    ) || path.starts_with("/api/v1/organizations/")
         && path.ends_with("/chat/completions");
     let inference = inference || path.starts_with("/v1beta/models/");
     if !inference || request.method() != axum::http::Method::POST {

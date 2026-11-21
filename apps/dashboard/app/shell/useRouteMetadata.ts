@@ -66,7 +66,7 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
     settingsArea ||
     supplierArea;
   const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
-  const loginArea = normalizedPath === '/login' || normalizedPath === '/register' || normalizedPath === '/installation';
+  const loginArea = normalizedPath === '/login' || normalizedPath === '/register' || normalizedPath === '/setup';
   const publicModelsArea = normalizedPath === '/models' || normalizedPath.startsWith('/models/');
   const inviteArea = location.pathname === '/invite' || location.pathname.startsWith('/invite/');
   const activityArea = location.pathname === '/activity' || location.pathname.startsWith('/activity/');
@@ -129,8 +129,8 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
           : inviteArea
             ? t('Accept invitation', '接受邀请')
             : loginArea
-            ? location.pathname === '/installation'
-              ? t('Installation administration', '实例管理')
+            ? normalizedPath === '/setup'
+              ? t('Initial setup', '初始化设置')
               : t('Sign in', '登录')
               : supplierArea
                 ? normalizedPath === '/admin'

@@ -1870,7 +1870,7 @@ async fn chat_terminal_outcomes_survive_router_and_store_reopen(pool: PgPool) {
         .unwrap();
     let scope = state.store.default_workspace().await.unwrap();
     let base = format!(
-        "/admin/v1/organizations/{}/projects/{}/chats",
+        "/api/v1/organizations/{}/projects/{}/chats",
         scope.organization_id, scope.project_id
     );
     let auth = "Bearer niu-test-admin-token-that-is-long-1234";
@@ -1989,7 +1989,7 @@ async fn chat_session_api_persists_content_and_requires_authentication(pool: PgP
     let scope = state.store.default_workspace().await.unwrap();
     let app = router(state.clone());
     let base = format!(
-        "/admin/v1/organizations/{}/projects/{}/chats",
+        "/api/v1/organizations/{}/projects/{}/chats",
         scope.organization_id, scope.project_id
     );
     let id = Uuid::new_v4();
@@ -2154,7 +2154,7 @@ async fn chat_session_api_persists_content_and_requires_authentication(pool: PgP
         (
             "Bearer niu-test-admin-token-that-is-long-1234",
             format!(
-                "/admin/v1/organizations/{}/projects/{}/chats/{id}/export",
+                "/api/v1/organizations/{}/projects/{}/chats/{id}/export",
                 scope.organization_id, other.project_id
             ),
             StatusCode::NOT_FOUND,
@@ -2718,7 +2718,7 @@ async fn workspace_access_guardrail_blocks_all_protocols_before_upstream_dispatc
     ] {
         if revision == 2 {
             let path = format!(
-                "/admin/v1/organizations/{}/projects/{}/keys/{}/guardrail",
+                "/api/v1/organizations/{}/projects/{}/keys/{}/guardrail",
                 scope.organization_id, scope.project_id, key.id
             );
             for (credential, expected_revision, expected_status) in [
@@ -2776,7 +2776,7 @@ async fn workspace_access_guardrail_blocks_all_protocols_before_upstream_dispatc
                 .await
                 .unwrap();
             let foreign_path = format!(
-                "/admin/v1/organizations/{}/projects/{}/keys/{}/guardrail",
+                "/api/v1/organizations/{}/projects/{}/keys/{}/guardrail",
                 scope.organization_id, foreign_scope.project_id, key.id
             );
             let response = app
@@ -2794,7 +2794,7 @@ async fn workspace_access_guardrail_blocks_all_protocols_before_upstream_dispatc
         let policy =
             json!({"schema_version":1,"name":"Protected","models":models,"providers":providers});
         let base = format!(
-            "/admin/v1/organizations/{}/projects/{}/guardrails",
+            "/api/v1/organizations/{}/projects/{}/guardrails",
             scope.organization_id, scope.project_id
         );
         let response = app
@@ -2870,7 +2870,7 @@ async fn workspace_access_guardrail_blocks_all_protocols_before_upstream_dispatc
     }
     assert!(captured.0.lock().unwrap().is_empty());
     let assignment_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}/guardrail",
+        "/api/v1/organizations/{}/projects/{}/keys/{}/guardrail",
         scope.organization_id, scope.project_id, key.id
     );
     for (body, status) in [
@@ -2929,7 +2929,7 @@ async fn workspace_access_guardrail_blocks_all_protocols_before_upstream_dispatc
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
     assert!(captured.0.lock().unwrap().is_empty());
     let denial_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/guardrails/denials",
+        "/api/v1/organizations/{}/projects/{}/guardrails/denials",
         scope.organization_id, scope.project_id
     );
     let denials = app
@@ -2955,7 +2955,7 @@ async fn workspace_access_guardrail_blocks_all_protocols_before_upstream_dispatc
         .await
         .unwrap();
     let other_denial_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/guardrails/denials",
+        "/api/v1/organizations/{}/projects/{}/guardrails/denials",
         scope.organization_id, other_audit_workspace.project_id
     );
     for (auth, path, status) in [
@@ -3040,7 +3040,7 @@ async fn workspace_access_guardrail_blocks_all_protocols_before_upstream_dispatc
         .clone()
         .oneshot(
             Request::get(format!(
-                "/admin/v1/organizations/{}/projects/{}/keys/{}/guardrail/history",
+                "/api/v1/organizations/{}/projects/{}/keys/{}/guardrail/history",
                 scope.organization_id, foreign.project_id, key.id
             ))
             .header("authorization", format!("Bearer {}", reader.token))
@@ -3208,7 +3208,7 @@ async fn payload_api_requires_workspace_read_or_write_access(pool: PgPool) {
                 .unwrap();
         }
         let path = format!(
-            "/admin/v1/organizations/{}/projects/{}/requests/{attempt}/payloads",
+            "/api/v1/organizations/{}/projects/{}/requests/{attempt}/payloads",
             target.organization_id, target.project_id
         );
         let response = app
@@ -3293,7 +3293,7 @@ async fn payload_api_requires_workspace_read_or_write_access(pool: PgPool) {
         .await
         .unwrap();
     let path = format!(
-        "/admin/v1/organizations/{}/projects/{}/requests/{attempt}/payloads",
+        "/api/v1/organizations/{}/projects/{}/requests/{attempt}/payloads",
         scope.organization_id, scope.project_id
     );
     let response = app
@@ -3919,7 +3919,7 @@ async fn chat_session_archive_rejects_readers_inference_keys_and_other_owners(po
         .unwrap();
     let app = router(state.clone());
     let base = format!(
-        "/admin/v1/organizations/{}/projects/{}/chats",
+        "/api/v1/organizations/{}/projects/{}/chats",
         scope.organization_id, scope.project_id
     );
     for (token, expected) in [
@@ -4033,7 +4033,7 @@ async fn key_guardrail_follow_active_tracks_policy_without_repinning(pool: PgPoo
         .unwrap();
     let app = router(state.clone());
     let path = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}/guardrail",
+        "/api/v1/organizations/{}/projects/{}/keys/{}/guardrail",
         scope.organization_id, scope.project_id, key.id
     );
     let admin = "Bearer niu-test-admin-token-that-is-long-1234";

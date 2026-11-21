@@ -476,7 +476,7 @@ fn validate(payload: &Payload) -> Result<(), ApiError> {
 ///   }
 /// }
 /// ```
-/// GET /admin/v1/organizations/{organization}/projects/{project}/video/draft.
+/// GET /api/v1/organizations/{organization}/projects/{project}/video/draft.
 /// Actor-private read; expired payload is immediately unavailable. Saved key and
 /// reference IDs are context, never current authorization or media readiness.
 pub async fn draft(

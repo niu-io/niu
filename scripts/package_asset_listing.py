@@ -110,7 +110,7 @@ def prepare_listing_fixture(request, database_value, prepared, master, *, includ
 def assert_listing_fixture(request, database_value, saved):
     assert listing_snapshot(database_value, saved['intent']) == saved['snapshot'], \
         'listing audit, continuation linkage or encrypted content changed'
-    base = f"/admin/v1/vendors/{_uuid(saved['vendor'])}/asset-management/listings"
+    base = f"/api/v1/vendors/{_uuid(saved['vendor'])}/asset-management/listings"
     query = f"organization_id={_uuid(saved['organization'])}&project_id={_uuid(saved['workspace'])}"
     for expected in saved['expected']:
         status, page = request('GET', f"{base}/{_uuid(expected['listing_id'])}?{query}", admin=True)
@@ -173,7 +173,7 @@ def prepare_lookup_fixture(database_value, saved, listing_grant, master):
 def assert_lookup_fixture(request, database_value, saved):
     lookup = saved['lookup']
     assert lookup_snapshot(database_value, saved['root']) == lookup['snapshot'], 'lookup audit or encrypted content changed'
-    base = f"/admin/v1/vendors/{_uuid(saved['vendor'])}/asset-management/lookups"
+    base = f"/api/v1/vendors/{_uuid(saved['vendor'])}/asset-management/lookups"
     query = f"organization_id={_uuid(saved['organization'])}&project_id={_uuid(saved['workspace'])}"
     status, result = request('GET', f"{base}/{_uuid(lookup['id'])}?{query}", admin=True)
     assert status == 200 and result['data'] == lookup['expected'], 'encrypted lookup recovery changed'

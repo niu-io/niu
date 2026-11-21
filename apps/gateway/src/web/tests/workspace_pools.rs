@@ -137,7 +137,7 @@ async fn unfunded_management_connection_can_save_routing_without_expanding_scope
         .unwrap();
     let foreign_tenant = grant(&store, foreign_tenant_workspace, foreign_owner.operator_id).await;
     let app = router(state);
-    for prefix in ["/api/v1", "/admin/v1"] {
+    for prefix in ["/api/v1", "/api/v1"] {
         assert_eq!(
             send(
                 &app,

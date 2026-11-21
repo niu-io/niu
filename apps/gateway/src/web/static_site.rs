@@ -81,7 +81,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         "/login",
         "/register",
         "/connect",
-        "/installation",
+        "/setup",
         "/admin",
         "/admin/customers",
         "/admin/settings",

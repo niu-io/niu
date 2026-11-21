@@ -252,9 +252,9 @@ async fn functional_router_control_and_inference_auth_boundaries() {
         ),
         ("GET", "/v1/key", ""),
         ("GET", "/api/v1/workspaces", ""),
-        ("GET", "/admin/v1/organizations", ""),
-        ("GET", "/admin/v1/vendors", ""),
-        ("GET", "/admin/v1/providers", ""),
+        ("GET", "/api/v1/organizations", ""),
+        ("GET", "/api/v1/vendors", ""),
+        ("GET", "/api/v1/providers", ""),
     ] {
         let resp = app
             .clone()
@@ -598,7 +598,7 @@ async fn functional_end_to_end_multi_protocol_gateway_and_commercial_boundaries(
 
     // 6. Guardrail Policy Activation & Live Input Blocking Before Egress
     let guardrail_path = format!(
-        "/admin/v1/organizations/{org}/projects/{}/guardrails",
+        "/api/v1/organizations/{org}/projects/{}/guardrails",
         workspace_a.project_id
     );
     let activate_resp = app

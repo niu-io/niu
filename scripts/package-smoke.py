@@ -244,15 +244,15 @@ def assert_admin_list_has_no_credentials(keys):
 
 
 def assert_resources_persist(organization_id, project_id, issued_key):
-    _, organizations, _ = request("GET", "/admin/v1/organizations", admin=True)
+    _, organizations, _ = request("GET", "/api/v1/organizations", admin=True)
     assert any(item["id"] == organization_id for item in organizations["data"])
     _, projects, _ = request(
-        "GET", f"/admin/v1/organizations/{organization_id}/projects", admin=True
+        "GET", f"/api/v1/organizations/{organization_id}/projects", admin=True
     )
     assert any(item["id"] == project_id for item in projects["data"])
     _, keys, _ = request(
         "GET",
-        f"/admin/v1/organizations/{organization_id}/projects/{project_id}/keys",
+        f"/api/v1/organizations/{organization_id}/projects/{project_id}/keys",
         admin=True,
     )
     assert len(keys["data"]) == 1
@@ -376,7 +376,7 @@ def wait_for_mock_provider():
 
 def initialize_prepaid_account(organization_id, payment_reference="package-smoke-settled"):
     """Create isolated fixture funds; duplicate settlement must never credit twice."""
-    base = f"/admin/v1/organizations/{organization_id}/billing"
+    base = f"/api/v1/organizations/{organization_id}/billing"
     funding = {"currency": "USD", "amount_nanos": "50000000000",
                "channel": "package-fixture", "payment_reference": payment_reference}
     for _ in range(2):
@@ -397,7 +397,7 @@ def assert_prepaid_reconciled(organization_id, attempt_ids):
     organization_id = str(uuid.UUID(organization_id))
     attempt_ids = [str(uuid.UUID(value)) for value in attempt_ids]
     assert len(set(attempt_ids)) == len(attempt_ids), "duplicate expected attempts"
-    base = f"/admin/v1/organizations/{organization_id}/billing"
+    base = f"/api/v1/organizations/{organization_id}/billing"
     status, accounts, _ = request("GET", base + "/balance", admin=True)
     assert status == 200, "balance lookup failed"
     status, transactions, _ = request("GET", base + "/transactions", admin=True)
@@ -468,33 +468,33 @@ def verify_packaged_inference(client_token):
 
 
 def verify_member_session(token, organization_id, project_id):
-    status, identity, _ = request("GET", "/admin/v1/session", bearer_token=token)
+    status, identity, _ = request("GET", "/api/v1/session", bearer_token=token)
     assert status == 200 and identity["data"]["kind"] == "operator"
     assert identity["data"]["permissions"]["platform_admin"] is True
     assert identity["data"]["operator"]["organization_id"] == organization_id
     assert identity["data"]["operator"]["project_id"] == project_id
-    assert request("GET", "/admin/v1/vendors", bearer_token=token)[0] == 200
-    _, organizations, _ = request("GET", "/admin/v1/organizations", bearer_token=token)
+    assert request("GET", "/api/v1/vendors", bearer_token=token)[0] == 200
+    _, organizations, _ = request("GET", "/api/v1/organizations", bearer_token=token)
     assert [row["id"] for row in organizations["data"]] == [organization_id]
 
 
 def initialize_member_administrator(organization_id, project_id):
-    status, member, _ = request("POST", "/admin/v1/operators", admin=True, payload={
+    status, member, _ = request("POST", "/api/v1/operators", admin=True, payload={
         "organization_id": organization_id, "project_id": project_id,
         "name": "Packaged member", "role": "owner", "expires_in_seconds": 3600,
     })
     assert status == 201
     operator = str(uuid.UUID(member["operator"]["id"]))
     password = secrets.token_urlsafe(32)
-    assert request("PUT", f"/admin/v1/operators/{operator}/password", admin=True,
+    assert request("PUT", f"/api/v1/operators/{operator}/password", admin=True,
                    payload={"email": "package@example.test", "password": password,
                             "expected_revision": None})[0] == 200
-    status, signed_in, _ = request("POST", "/admin/v1/auth/login",
+    status, signed_in, _ = request("POST", "/api/v1/auth/login",
                                   payload={"email": "package@example.test", "password": password})
     assert status == 200
     token = signed_in["token"]
     try:
-        request("GET", "/admin/v1/vendors", bearer_token=token)
+        request("GET", "/api/v1/vendors", bearer_token=token)
     except urllib.error.HTTPError as error:
         assert error.code == 403, "ordinary member gained platform administration"
         error.close()
@@ -715,7 +715,7 @@ def verify_graceful_drain():
             started.set()
             try:
                 result["response"] = request(
-                    "GET", "/admin/v1/organizations", admin=True, timeout=10
+                    "GET", "/api/v1/organizations", admin=True, timeout=10
                 )
             except Exception as error:  # surfaced below with the drain assertion
                 result["error"] = error
@@ -909,7 +909,7 @@ def main():
     assert_route_error("/docs/missing/release-page/", 404, body_contains="Page not found")
     assert_route_error("/v1/not-a-route", 404, json_error=True)
     assert_route_error("/catalog/v1/not-a-route", 404, json_error=True)
-    assert_route_error("/admin/v1/not-a-route", 404, json_error=True)
+    assert_route_error("/api/v1/not-a-route", 404, json_error=True)
     assert_route_error("/assets/missing-bundle.js", 404)
     assert_route_error("/unknown-product-page", 404)
 
@@ -925,14 +925,14 @@ def main():
     )
     assert currency_status == 200
     organization_status, organization, _ = request(
-        "POST", "/admin/v1/organizations", payload={"name": "Package smoke"}, admin=True
+        "POST", "/api/v1/organizations", payload={"name": "Package smoke"}, admin=True
     )
     assert organization_status == 201
     organization_id = organization["id"]
     initialize_prepaid_account(organization_id)
     project_status, project, _ = request(
         "POST",
-        f"/admin/v1/organizations/{organization_id}/projects",
+        f"/api/v1/organizations/{organization_id}/projects",
         payload={"name": "Persistence"},
         admin=True,
     )
@@ -940,7 +940,7 @@ def main():
     project_id = project["id"]
     key_status, issued_key, _ = request(
         "POST",
-        f"/admin/v1/organizations/{organization_id}/projects/{project_id}/keys",
+        f"/api/v1/organizations/{organization_id}/projects/{project_id}/keys",
         payload={"name": "Smoke client", "allowed_models": ["fast"], "ttl_seconds": 86400},
         admin=True,
     )
@@ -952,7 +952,7 @@ def main():
 
     PACKAGE_IMAGES.assert_image_admission(request, database_value, issued_key["token"])
     assert models_for_key["data"][0]["customer_pricing"] is None
-    billing_path = f"/admin/v1/organizations/{organization_id}/projects/{project_id}/billing"
+    billing_path = f"/api/v1/organizations/{organization_id}/projects/{project_id}/billing"
     tariff_status, tariff, _ = request(
         "POST", billing_path + "/tariffs", admin=True,
         payload={"model_alias": "fast", "currency": "USD", "prompt_rate": "1234567891",
@@ -993,7 +993,7 @@ def main():
     if not COMPOSE_MODE:
         budget_status, _, _ = request(
             "POST",
-            f"/admin/v1/organizations/{organization_id}/projects/{project_id}/budget",
+            f"/api/v1/organizations/{organization_id}/projects/{project_id}/budget",
             admin=True, payload={"currency": "USD", "limit_nanos": "1000000000"},
         )
         assert budget_status == 201, "fixture procurement budget was not established"
@@ -1095,9 +1095,9 @@ def main():
     if branding_state:
         PACKAGE_BRANDING.assert_branding(request, database_value, branding_state)
         PACKAGE_BRANDING.reset_branding(request, branding_state)
-    assert request("POST", "/admin/v1/auth/logout", bearer_token=member_token, payload={})[0] == 204
+    assert request("POST", "/api/v1/auth/logout", bearer_token=member_token, payload={})[0] == 204
     try:
-        request("GET", "/admin/v1/session", bearer_token=member_token)
+        request("GET", "/api/v1/session", bearer_token=member_token)
     except urllib.error.HTTPError as error:
         assert error.code == 401, "signed-out member session remained usable"
         error.close()

@@ -789,7 +789,7 @@ async fn workspace_creation_replays_across_api_and_admin_aliases(pool: PgPool) {
     let mut first = None;
     for (path, name, expected) in [
         ("/api/v1/workspaces", "Workspace", StatusCode::CREATED),
-        ("/admin/v1/workspaces", "Workspace", StatusCode::CREATED),
+        ("/api/v1/workspaces", "Workspace", StatusCode::CREATED),
         ("/api/v1/workspaces", "Changed", StatusCode::CONFLICT),
     ] {
         let response = app

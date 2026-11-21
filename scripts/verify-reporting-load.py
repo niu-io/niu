@@ -41,7 +41,7 @@ def main():
             or url.query or url.fragment or (url.scheme == "http" and not loopback)):
         parser.error("Use HTTPS, or loopback HTTP, without credentials, query or fragment")
     identifier = r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"
-    if not re.fullmatch(rf"/admin/v1/organizations/{identifier}/projects/{identifier}/requests", url.path):
+    if not re.fullmatch(rf"/api/v1/organizations/{identifier}/projects/{identifier}/requests", url.path):
         parser.error("Endpoint must be a workspace activity-list route")
     if not (1 <= args.requests <= 10000 and 1 <= args.workers <= 32
             and 1 <= args.limit <= 100 and 0 < args.timeout <= 60):

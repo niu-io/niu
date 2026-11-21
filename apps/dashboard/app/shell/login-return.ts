@@ -7,7 +7,7 @@ export function safeLoginReturn(value: unknown, basePrefix = ''): string | null 
     const pathname = parsed.pathname;
     if (basePrefix && !pathname.startsWith(`${basePrefix}/`)) return null;
     const route = basePrefix ? pathname.slice(basePrefix.length) : pathname;
-    if (/^\/(?:login|installation)(?:\/|$)/.test(route)) return null;
+    if (/^\/(?:login|setup)(?:\/|$)/.test(route)) return null;
     return pathname + parsed.search + parsed.hash;
   } catch { return null; }
 }

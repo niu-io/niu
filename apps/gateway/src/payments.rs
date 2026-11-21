@@ -2102,7 +2102,7 @@ mod tests {
                 .clone()
                 .oneshot(
                     Request::get(format!(
-                        "/admin/v1/organizations/{organization}/billing/payment-methods"
+                        "/api/v1/organizations/{organization}/billing/payment-methods"
                     ))
                     .header(
                         "authorization",
@@ -2346,7 +2346,7 @@ mod tests {
         let response = app
             .clone()
             .oneshot(
-                Request::get(format!("/admin/v1/organizations/{company}/billing/topups"))
+                Request::get(format!("/api/v1/organizations/{company}/billing/topups"))
                     .header("authorization", format!("Bearer {}", owner.token))
                     .body(Body::empty())
                     .unwrap(),
@@ -2365,7 +2365,7 @@ mod tests {
             .clone()
             .oneshot(
                 Request::get(format!(
-                    "/admin/v1/organizations/{}/billing/topups",
+                    "/api/v1/organizations/{}/billing/topups",
                     Uuid::new_v4()
                 ))
                 .header("authorization", format!("Bearer {}", owner.token))
@@ -2375,7 +2375,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
-        let methods_path = format!("/admin/v1/organizations/{company}/billing/payment-methods");
+        let methods_path = format!("/api/v1/organizations/{company}/billing/payment-methods");
         let response = app
             .clone()
             .oneshot(
@@ -2403,7 +2403,7 @@ mod tests {
             ),
         ] {
             let mut request = Request::get(format!(
-                "/admin/v1/organizations/{organization}/billing/payment-methods"
+                "/api/v1/organizations/{organization}/billing/payment-methods"
             ));
             if let Some(token) = token {
                 request = request.header("authorization", format!("Bearer {token}"));
@@ -2416,7 +2416,7 @@ mod tests {
             assert_eq!(response.status(), expected);
         }
         let path = format!(
-            "/admin/v1/organizations/{company}/billing/topups/{}/reconcile",
+            "/api/v1/organizations/{company}/billing/topups/{}/reconcile",
             order.id
         );
         for (token, expected) in [
@@ -2445,7 +2445,7 @@ mod tests {
             "0"
         );
         let status_path = format!(
-            "/admin/v1/organizations/{company}/billing/topups/{}",
+            "/api/v1/organizations/{company}/billing/topups/{}",
             order.id
         );
         for (expected_status, checkout) in [
@@ -2538,7 +2538,7 @@ mod tests {
             .clone()
             .oneshot(
                 Request::get(format!(
-                    "/admin/v1/organizations/{company}/billing/topups/{}",
+                    "/api/v1/organizations/{company}/billing/topups/{}",
                     closed.id
                 ))
                 .header("authorization", format!("Bearer {}", owner.token))
@@ -2562,7 +2562,7 @@ mod tests {
             .clone()
             .oneshot(
                 Request::get(format!(
-                    "/admin/v1/organizations/{foreign}/billing/topups/{}",
+                    "/api/v1/organizations/{foreign}/billing/topups/{}",
                     order.id
                 ))
                 .header("authorization", format!("Bearer {}", owner.token))
@@ -2572,7 +2572,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
-        let response = app.oneshot(Request::post(format!("/admin/v1/organizations/{company}/billing/topups")).header("authorization",format!("Bearer {}", owner.token)).header("content-type","application/json").body(Body::from(json!({"amount_nanos":"1000000000","payment_method":"wxpaynative","idempotency_key":Uuid::new_v4()}).to_string())).unwrap()).await.unwrap();
+        let response = app.oneshot(Request::post(format!("/api/v1/organizations/{company}/billing/topups")).header("authorization",format!("Bearer {}", owner.token)).header("content-type","application/json").body(Body::from(json!({"amount_nanos":"1000000000","payment_method":"wxpaynative","idempotency_key":Uuid::new_v4()}).to_string())).unwrap()).await.unwrap();
         assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
         assert_eq!(
             state.store.customer_balance_summary(company).await.unwrap()[0]["balance_nanos"],
@@ -2937,7 +2937,7 @@ mod stripe_tests {
             .await
             .unwrap();
         let app = crate::web::router(state.clone());
-        let replay = app.clone().oneshot(Request::post(format!("/admin/v1/organizations/{company}/billing/topups"))
+        let replay = app.clone().oneshot(Request::post(format!("/api/v1/organizations/{company}/billing/topups"))
             .header("authorization", "Bearer stripe-test-installation-token-123456789").header("content-type", "application/json")
             .body(Body::from(json!({"amount_nanos":"2000000000","payment_method":"card","idempotency_key":order.idempotency_key}).to_string())).unwrap()).await.unwrap();
         assert_eq!(replay.status(), StatusCode::OK);
@@ -3428,7 +3428,7 @@ mod stripe_recovery_tests {
                 .into_iter()
                 .filter(|(gateway, _)| !configured_currency || *gateway == "stripe")
             {
-                let response = app.clone().oneshot(Request::get(format!("/admin/v1/organizations/{company}/billing/payment-methods?payment_gateway={gateway}&currency={currency}"))
+                let response = app.clone().oneshot(Request::get(format!("/api/v1/organizations/{company}/billing/payment-methods?payment_gateway={gateway}&currency={currency}"))
                     .header("authorization", "Bearer stripe-recovery-installation-token-123456789").body(Body::empty()).unwrap()).await.unwrap();
                 assert_eq!(response.status(), StatusCode::OK);
                 let value: Value = serde_json::from_slice(
@@ -3444,13 +3444,13 @@ mod stripe_recovery_tests {
             }
             let epay_key = Uuid::new_v4();
             for _ in 0..if configured_currency { 0 } else { 2 } {
-                let response = app.clone().oneshot(Request::post(format!("/admin/v1/organizations/{company}/billing/topups"))
+                let response = app.clone().oneshot(Request::post(format!("/api/v1/organizations/{company}/billing/topups"))
                     .header("authorization", "Bearer stripe-recovery-installation-token-123456789").header("content-type", "application/json")
                     .body(Body::from(json!({"payment_gateway":"epay","currency":"CNY","amount_nanos":"1230000000","payment_method":"alipay","idempotency_key":epay_key}).to_string())).unwrap()).await.unwrap();
                 assert_eq!(response.status(), StatusCode::OK);
             }
             for _ in 0..2 {
-                let response = app.clone().oneshot(Request::post(format!("/admin/v1/organizations/{company}/billing/topups"))
+                let response = app.clone().oneshot(Request::post(format!("/api/v1/organizations/{company}/billing/topups"))
                     .header("authorization","Bearer stripe-recovery-installation-token-123456789")
                     .header("content-type","application/json")
                     .body(Body::from(json!({"amount_nanos":"2000000000","payment_gateway":"stripe","currency":"USD","payment_method":"alipay","idempotency_key":order.idempotency_key}).to_string())).unwrap()).await.unwrap();
@@ -3478,7 +3478,7 @@ mod stripe_recovery_tests {
             let response = app
                 .oneshot(
                     Request::post(format!(
-                        "/admin/v1/organizations/{company}/billing/topups/{}/reconcile",
+                        "/api/v1/organizations/{company}/billing/topups/{}/reconcile",
                         order.id
                     ))
                     .header(
@@ -4089,7 +4089,7 @@ mod epay_tests {
             .create_prepaid_organization("Foreign funding", "CNY")
             .await
             .unwrap();
-        let path = format!("/admin/v1/organizations/{company}/billing/topups");
+        let path = format!("/api/v1/organizations/{company}/billing/topups");
         for (gateway, expected) in [
             ("stripe", StatusCode::BAD_REQUEST),
             ("unknown", StatusCode::UNPROCESSABLE_ENTITY),
@@ -4102,7 +4102,7 @@ mod epay_tests {
             assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         }
         for (currency, available) in [("CNY", true), ("USD", false)] {
-            let response = app.clone().oneshot(Request::get(format!("/admin/v1/organizations/{company}/billing/payment-methods?currency={currency}"))
+            let response = app.clone().oneshot(Request::get(format!("/api/v1/organizations/{company}/billing/payment-methods?currency={currency}"))
                 .header("authorization", format!("Bearer {}", owner.token)).body(Body::empty()).unwrap()).await.unwrap();
             assert_eq!(response.status(), StatusCode::OK);
             let payload: Value = serde_json::from_slice(
@@ -4127,7 +4127,7 @@ mod epay_tests {
             ),
             (
                 owner.token.as_str(),
-                format!("/admin/v1/organizations/{foreign}/billing/topups"),
+                format!("/api/v1/organizations/{foreign}/billing/topups"),
                 "1230000000",
                 Uuid::new_v4(),
                 StatusCode::NOT_FOUND,
@@ -4151,7 +4151,7 @@ mod epay_tests {
             assert_eq!(response.status(), expected);
         }
         for _ in 0..2 {
-            let response = app.clone().oneshot(Request::post(format!("/admin/v1/organizations/{company}/billing/topups"))
+            let response = app.clone().oneshot(Request::post(format!("/api/v1/organizations/{company}/billing/topups"))
                 .header("authorization", format!("Bearer {}", owner.token))
                 .header("content-type", "application/json")
                 .body(Body::from(json!({"payment_gateway":"epay","currency":"CNY","amount_nanos":"1230000000","payment_method":"alipay","idempotency_key":key}).to_string())).unwrap()).await.unwrap();
@@ -4594,7 +4594,7 @@ mod epay_tests {
         let app = crate::web::router(state);
         let response = app
             .oneshot(
-                Request::post(format!("/admin/v1/organizations/{company}/billing/topups"))
+                Request::post(format!("/api/v1/organizations/{company}/billing/topups"))
                     .header(
                         "authorization",
                         "Bearer stripe-test-installation-token-123456789",

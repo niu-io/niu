@@ -76,7 +76,7 @@ Content type: `application/json`.
     },
     "setup_required": {
       "type": "boolean",
-      "description": "True when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /installation is required."
+      "description": "Live deployment state: true when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /setup is required."
     },
     "registration_mode": {
       "type": "string",

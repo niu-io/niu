@@ -49,11 +49,11 @@ async fn key_metadata_patch_requires_workspace_write_and_valid_grants(pool: PgPo
         .unwrap();
     let app = router(state.clone());
     let path = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}",
+        "/api/v1/organizations/{}/projects/{}/keys/{}",
         scope.organization_id, scope.project_id, key.id
     );
     let foreign_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}",
+        "/api/v1/organizations/{}/projects/{}/keys/{}",
         other.organization_id, other.project_id, foreign.id
     );
     let valid = json!({"name":"Renamed","allowed_models":["*"],"expected_revision":1});
@@ -136,10 +136,7 @@ async fn admin_cost_reporting_preserves_precision_and_requires_admin(pool: sqlx:
         .await
         .unwrap();
     let app = router(test_state(None, pool));
-    let base = format!(
-        "/admin/v1/organizations/{org}/projects/{}",
-        scope.project_id
-    );
+    let base = format!("/api/v1/organizations/{org}/projects/{}", scope.project_id);
     let budget_path = format!("{base}/budget");
     for (auth, payload, expected) in [
         (
@@ -407,17 +404,17 @@ async fn project_operator_cannot_read_sibling_workspace_keys_or_activity(pool: s
         (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
     }
 
-    let (status, workspaces) = get(&app, "/admin/v1/workspaces", &operator.token).await;
+    let (status, workspaces) = get(&app, "/api/v1/workspaces", &operator.token).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(workspaces["data"].as_array().unwrap().len(), 1);
     assert_eq!(workspaces["data"][0]["id"], first.project_id.to_string());
 
     let first_base = format!(
-        "/admin/v1/organizations/{organization_id}/projects/{}",
+        "/api/v1/organizations/{organization_id}/projects/{}",
         first.project_id
     );
     let second_base = format!(
-        "/admin/v1/organizations/{organization_id}/projects/{}",
+        "/api/v1/organizations/{organization_id}/projects/{}",
         second.project_id
     );
     let (status, keys) = get(&app, &format!("{first_base}/keys"), &operator.token).await;
@@ -574,7 +571,7 @@ async fn workspace_creation_obeys_operator_write_and_organization_scope(pool: sq
         let response = app
             .clone()
             .oneshot(
-                Request::post("/admin/v1/workspaces")
+                Request::post("/api/v1/workspaces")
                     .header("authorization", format!("Bearer {token}"))
                     .header("content-type", "application/json")
                     .body(axum::body::Body::from(
@@ -904,7 +901,7 @@ async fn quick_setup_requires_admin_and_reuses_default(pool: sqlx::PgPool) {
     ] {
         let allowed =
             authorization.as_deref() == Some("Bearer niu-test-admin-token-that-is-long-1234");
-        let mut request = Request::post("/admin/v1/setup/default-workspace");
+        let mut request = Request::post("/api/v1/setup/default-workspace");
         if let Some(value) = authorization {
             request = request.header("authorization", value);
         }
@@ -938,9 +935,9 @@ async fn quick_setup_requires_admin_and_reuses_default(pool: sqlx::PgPool) {
 #[ignore = "requires PostgreSQL"]
 async fn bootstrap_api_issues_scoped_keys_and_revokes_them(pool: sqlx::PgPool) {
     let app = router(test_state(None, pool));
-    let org = admin_call(&app, "/admin/v1/organizations", json!({"name": "team"})).await;
+    let org = admin_call(&app, "/api/v1/organizations", json!({"name": "team"})).await;
     let project_path = format!(
-        "/admin/v1/organizations/{}/projects",
+        "/api/v1/organizations/{}/projects",
         org["id"].as_str().unwrap()
     );
     let project = admin_call(&app, &project_path, json!({"name": "app"})).await;
@@ -1013,7 +1010,7 @@ async fn bootstrap_api_issues_scoped_keys_and_revokes_them(pool: sqlx::PgPool) {
     let response = app
         .clone()
         .oneshot(
-            Request::post("/admin/v1/organizations")
+            Request::post("/api/v1/organizations")
                 .header("authorization", &auth)
                 .header("content-type", "application/json")
                 .body(axum::body::Body::from(r#"{"name":"unauthorized"}"#))
@@ -1116,7 +1113,7 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
     let mut invalid_input = policy.clone();
     invalid_input["input_rules"] = json!([{"pattern":"[private-pattern-fixture","action":"block"}]);
     let policy_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/guardrails",
+        "/api/v1/organizations/{}/projects/{}/guardrails",
         scope.organization_id, scope.project_id
     );
     for (credential, expected) in [
@@ -1154,7 +1151,7 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
         .await
         .unwrap();
     let key_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}/guardrail",
+        "/api/v1/organizations/{}/projects/{}/keys/{}/guardrail",
         scope.organization_id, scope.project_id, assignment_key.id
     );
     let mut malformed_policy = policy.clone();
@@ -1262,7 +1259,7 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
         ),
     ] {
         let path = format!(
-            "/admin/v1/organizations/{}/projects/{}/guardrails{suffix}",
+            "/api/v1/organizations/{}/projects/{}/guardrails{suffix}",
             target.organization_id, target.project_id
         );
         let response = app
@@ -1398,7 +1395,7 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
             .clone()
             .oneshot(
                 Request::post(format!(
-                    "/admin/v1/organizations/{}/projects/{}/guardrails/rollback",
+                    "/api/v1/organizations/{}/projects/{}/guardrails/rollback",
                     target.organization_id, target.project_id
                 ))
                 .header("authorization", format!("Bearer {token}"))
@@ -1453,7 +1450,7 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
         ),
     ] {
         let uri = format!(
-            "/admin/v1/organizations/{}/projects/{}/guardrails/history{suffix}",
+            "/api/v1/organizations/{}/projects/{}/guardrails/history{suffix}",
             target.organization_id, target.project_id
         );
         let response = app
@@ -1491,7 +1488,7 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
         ("invalid-credential", scope, 1, StatusCode::UNAUTHORIZED),
     ] {
         let uri = format!(
-            "/admin/v1/organizations/{}/projects/{}/guardrails/revisions/{revision}",
+            "/api/v1/organizations/{}/projects/{}/guardrails/revisions/{revision}",
             target.organization_id, target.project_id
         );
         let response = app
@@ -1611,7 +1608,7 @@ async fn synthetic_input_preview_is_scoped_safe_and_never_dispatches(pool: PgPoo
     let app = router(state.clone());
     let path = |target: niu_storage::TenantScope| {
         format!(
-            "/admin/v1/organizations/{}/projects/{}/guardrails/input-preview",
+            "/api/v1/organizations/{}/projects/{}/guardrails/input-preview",
             target.organization_id, target.project_id
         )
     };
@@ -1806,7 +1803,7 @@ async fn request_guardrail_attribution_requires_workspace_read_access(pool: PgPo
         (&viewer.token, scope, StatusCode::OK),
     ] {
         let path = format!(
-            "/admin/v1/organizations/{}/projects/{}/requests/{attempt}/guardrails",
+            "/api/v1/organizations/{}/projects/{}/requests/{attempt}/guardrails",
             target.organization_id, target.project_id
         );
         let response = app
@@ -1868,7 +1865,7 @@ async fn synthetic_output_preview_is_scoped_bounded_and_does_not_dispatch(pool: 
     let app = router(state.clone());
     let path = |target: niu_storage::TenantScope| {
         format!(
-            "/admin/v1/organizations/{}/projects/{}/guardrails/output-preview",
+            "/api/v1/organizations/{}/projects/{}/guardrails/output-preview",
             target.organization_id, target.project_id
         )
     };
@@ -2118,7 +2115,7 @@ async fn dispatch_denial_reads_are_scoped_and_content_free(pool: PgPool) {
         (&reader.token, scope, StatusCode::OK),
     ] {
         let path = format!(
-            "/admin/v1/organizations/{}/projects/{}/guardrails/dispatch-denials",
+            "/api/v1/organizations/{}/projects/{}/guardrails/dispatch-denials",
             target.organization_id, target.project_id
         );
         let response = app
@@ -2176,7 +2173,7 @@ async fn customer_onboarding_provisions_shared_zero_credit_balance(pool: sqlx::P
         let response = app
             .clone()
             .oneshot(
-                Request::post("/admin/v1/organizations")
+                Request::post("/api/v1/organizations")
                     .header(
                         "authorization",
                         "Bearer niu-test-admin-token-that-is-long-1234",
@@ -2201,31 +2198,31 @@ async fn customer_onboarding_provisions_shared_zero_credit_balance(pool: sqlx::P
     );
     for (path, body, field, currency) in [
         (
-            "/admin/v1/organizations",
+            "/api/v1/organizations",
             json!({"name":"New prepaid company"}),
             "id",
             "USD",
         ),
         (
-            "/admin/v1/organizations",
+            "/api/v1/organizations",
             json!({"name":"Domestic prepaid company","currency":"CNY"}),
             "id",
             "CNY",
         ),
         (
-            "/admin/v1/workspaces",
+            "/api/v1/workspaces",
             json!({"name":"New personal workspace"}),
             "organization_id",
             "USD",
         ),
         (
-            "/admin/v1/setup/default-workspace",
+            "/api/v1/setup/default-workspace",
             json!({}),
             "organization_id",
             "USD",
         ),
     ] {
-        if path == "/admin/v1/workspaces" {
+        if path == "/api/v1/workspaces" {
             state
                 .store
                 .configure_platform_currency("USD")
@@ -2307,7 +2304,7 @@ async fn external_detector_preview_requires_installation_auth_and_explicit_conse
     )]));
     let app = router(state);
     for authenticated in [false, true] {
-        let mut request = Request::get("/admin/v1/guardrails/detectors/fixture");
+        let mut request = Request::get("/api/v1/guardrails/detectors/fixture");
         if authenticated {
             request = request.header(
                 "authorization",
@@ -2353,7 +2350,7 @@ async fn external_detector_preview_requires_installation_auth_and_explicit_conse
             StatusCode::BAD_REQUEST,
         ),
     ] {
-        let mut request = Request::post("/admin/v1/guardrails/detectors/fixture/preview")
+        let mut request = Request::post("/api/v1/guardrails/detectors/fixture/preview")
             .header("content-type", "application/json");
         if auth {
             request = request.header(
@@ -2416,8 +2413,8 @@ async fn external_detector_installation_boundary_rejects_workspace_roles_and_inf
             .await
             .unwrap();
         for path in [
-            "/admin/v1/guardrails/detectors/missing",
-            "/admin/v1/guardrails/detectors/missing/preview",
+            "/api/v1/guardrails/detectors/missing",
+            "/api/v1/guardrails/detectors/missing/preview",
         ] {
             let request = if path.ends_with("preview") {
                 Request::post(path)
@@ -2435,7 +2432,7 @@ async fn external_detector_installation_boundary_rejects_workspace_roles_and_inf
         .unwrap();
     let response = router(state)
         .oneshot(
-            Request::get("/admin/v1/guardrails/detectors/missing")
+            Request::get("/api/v1/guardrails/detectors/missing")
                 .header("authorization", format!("Bearer {}", key.token))
                 .body(axum::body::Body::empty())
                 .unwrap(),
@@ -2537,7 +2534,7 @@ async fn required_input_detector_denies_before_inference_and_binds_clear_receipt
         .clone()
         .oneshot(
             Request::put(format!(
-                "/admin/v1/organizations/{}/projects/{}/guardrails",
+                "/api/v1/organizations/{}/projects/{}/guardrails",
                 scope.organization_id, scope.project_id
             ))
             .header(
@@ -2755,7 +2752,7 @@ async fn required_input_detector_denies_before_inference_and_binds_clear_receipt
             .clone()
             .oneshot(
                 Request::get(format!(
-                    "/admin/v1/organizations/{}/projects/{}/guardrails/detector-decisions",
+                    "/api/v1/organizations/{}/projects/{}/guardrails/detector-decisions",
                     target.organization_id, target.project_id
                 ))
                 .header("authorization", format!("Bearer {}", viewer.token))
@@ -2780,7 +2777,7 @@ async fn required_input_detector_denies_before_inference_and_binds_clear_receipt
         .clone()
         .oneshot(
             Request::get(format!(
-                "/admin/v1/organizations/{}/projects/{}/guardrails/detectors",
+                "/api/v1/organizations/{}/projects/{}/guardrails/detectors",
                 scope.organization_id, scope.project_id
             ))
             .header("authorization", format!("Bearer {}", viewer.token))
@@ -2825,7 +2822,7 @@ async fn required_input_detector_denies_before_inference_and_binds_clear_receipt
         .clone()
         .oneshot(
             Request::get(format!(
-                "/admin/v1/organizations/{}/projects/{}/guardrails/detectors",
+                "/api/v1/organizations/{}/projects/{}/guardrails/detectors",
                 other_org, scope.project_id
             ))
             .header("authorization", format!("Bearer {}", org_owner.token))
@@ -2925,7 +2922,7 @@ async fn customer_workspace_spending_management_requires_owner_and_scope(pool: P
         .unwrap();
     let app = router(state.clone());
     let base = format!(
-        "/admin/v1/organizations/{}/projects/{}/spending-limit/CNY",
+        "/api/v1/organizations/{}/projects/{}/spending-limit/CNY",
         scope.organization_id, scope.project_id
     );
     async fn call(
@@ -2983,7 +2980,7 @@ async fn customer_workspace_spending_management_requires_owner_and_scope(pool: P
         assert!(rows.iter().all(|row| row.as_object().unwrap().len() == 4));
     }
     let foreign_collection = format!(
-        "/admin/v1/organizations/{}/projects/{}/spending-limit",
+        "/api/v1/organizations/{}/projects/{}/spending-limit",
         scope.organization_id, other.project_id
     );
     assert_eq!(
@@ -3000,7 +2997,7 @@ async fn customer_workspace_spending_management_requires_owner_and_scope(pool: P
         );
     }
     let foreign = format!(
-        "/admin/v1/organizations/{}/projects/{}/spending-limit/CNY",
+        "/api/v1/organizations/{}/projects/{}/spending-limit/CNY",
         scope.organization_id, other.project_id
     );
     assert_eq!(
@@ -3162,7 +3159,7 @@ async fn image_detector_discovery_is_scoped_and_does_not_enable_processing(pool:
         (foreign, Some(viewer.token.as_str()), StatusCode::FORBIDDEN),
     ] {
         let mut request = Request::get(format!(
-            "/admin/v1/organizations/{}/projects/{}/guardrails/image-detectors",
+            "/api/v1/organizations/{}/projects/{}/guardrails/image-detectors",
             target.organization_id, target.project_id
         ));
         if let Some(token) = token {
@@ -3198,7 +3195,7 @@ async fn image_detector_discovery_is_scoped_and_does_not_enable_processing(pool:
     let response = app
         .oneshot(
             Request::get(format!(
-                "/admin/v1/organizations/{}/projects/{}/guardrails/image-detectors",
+                "/api/v1/organizations/{}/projects/{}/guardrails/image-detectors",
                 organization, foreign.project_id
             ))
             .header(
@@ -3314,7 +3311,7 @@ async fn image_detector_preview_requires_current_consent_and_workspace_write_acc
     let app = router(state.clone());
     let path = |scope: niu_storage::TenantScope| {
         format!(
-            "/admin/v1/organizations/{}/projects/{}/guardrails/image-detectors/fixture-image/preview",
+            "/api/v1/organizations/{}/projects/{}/guardrails/image-detectors/fixture-image/preview",
             scope.organization_id, scope.project_id
         )
     };
@@ -3383,7 +3380,7 @@ async fn image_detector_preview_requires_current_consent_and_workspace_write_acc
         );
     }
     let base = format!(
-        "/admin/v1/organizations/{}/projects/{}/guardrails",
+        "/api/v1/organizations/{}/projects/{}/guardrails",
         scope.organization_id, scope.project_id
     );
     let policy = json!({"schema_version":1,"name":"Required image inspection","models":{"mode":"inherit"},"providers":{"mode":"inherit"},"image_detectors":[{"detector":"fixture-image","configuration_fingerprint":fingerprint,"consent_to_image_processing":true}]});

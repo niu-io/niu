@@ -4073,69 +4073,6 @@
         }
       }
     },
-    "/api/v1/session/mode": {
-      "put": {
-        "operationId": "setBrowserAdminMode",
-        "summary": "Compatibility operation to enter or leave Admin mode",
-        "description": "Requires an existing password-login session. Entering requires a current explicit platform administrator grant. Browser sign-ins start in User mode. Admin mode is persisted server-side for this session only, expires after at most six hours, and never expands customer workspace scope. Leaving removes platform authority on subsequent requests. The change is audited; it does not grant membership or issue credentials. Installation tokens and explicitly issued automation sessions retain their existing authorization contracts and cannot use this operation. Cookie requests require the trusted same origin. Read GET /api/v1/session to verify or recover an uncertain response; do not replay other management mutations. Responses are not cached.",
-        "security": [
-          {
-            "adminBearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "enabled"
-                ],
-                "properties": {
-                  "enabled": {
-                    "type": "boolean"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Current session identity, admin_mode availability and effective permissions, using the same response shape as GET /api/v1/session."
-          },
-          "400": {
-            "description": "Invalid JSON."
-          },
-          "401": {
-            "description": "Invalid, expired, revoked or unsupported session."
-          },
-          "403": {
-            "description": "Platform administrator eligibility or same-origin authority is missing."
-          },
-          "422": {
-            "description": "Invalid fields or input types."
-          },
-          "503": {
-            "description": "Authentication storage unavailable; read back before retrying."
-          }
-        },
-        "tags": [
-          "Authentication"
-        ],
-        "x-niu-authority": {
-          "audience": "console",
-          "principals": [
-            "operator_session",
-            "installation_admin"
-          ],
-          "required_capability": "write",
-          "scope": "organization"
-        }
-      }
-    },
     "/api/v1/session/organization": {
       "put": {
         "operationId": "switchSessionOrganization",

@@ -67,7 +67,7 @@ async fn password_api_issues_scoped_sessions_and_reset_revokes_them(pool: PgPool
         .await
         .unwrap();
     let app = router(state.clone());
-    let path = format!("/admin/v1/operators/{}/password", member.operator_id);
+    let path = format!("/api/v1/operators/{}/password", member.operator_id);
     let foreign_organization = Uuid::new_v4();
     sqlx::query("INSERT INTO organizations(id,name) VALUES($1,'Foreign password organization')")
         .bind(foreign_organization)
@@ -198,7 +198,7 @@ async fn password_api_issues_scoped_sessions_and_reset_revokes_them(pool: PgPool
     let wrong = request(
         &app,
         Method::POST,
-        "/admin/v1/auth/login",
+        "/api/v1/auth/login",
         None,
         None,
         json!({"email":"member@example.test","password":"synthetic wrong passphrase"}),
@@ -207,7 +207,7 @@ async fn password_api_issues_scoped_sessions_and_reset_revokes_them(pool: PgPool
     let unknown = request(
         &app,
         Method::POST,
-        "/admin/v1/auth/login",
+        "/api/v1/auth/login",
         None,
         None,
         json!({"email":"unknown@example.test","password":"synthetic wrong passphrase"}),
@@ -221,7 +221,7 @@ async fn password_api_issues_scoped_sessions_and_reset_revokes_them(pool: PgPool
     let (status, headers, logged_in) = request(
         &app,
         Method::POST,
-        "/admin/v1/auth/login",
+        "/api/v1/auth/login",
         None,
         Some("https://niu.example.test"),
         login,
@@ -237,7 +237,7 @@ async fn password_api_issues_scoped_sessions_and_reset_revokes_them(pool: PgPool
         request(
             &app,
             Method::GET,
-            "/admin/v1/session",
+            "/api/v1/session",
             Some(token),
             None,
             Value::Null
@@ -277,7 +277,7 @@ async fn password_api_issues_scoped_sessions_and_reset_revokes_them(pool: PgPool
         request(
             &reopened,
             Method::GET,
-            "/admin/v1/session",
+            "/api/v1/session",
             Some(token),
             None,
             Value::Null
@@ -290,7 +290,7 @@ async fn password_api_issues_scoped_sessions_and_reset_revokes_them(pool: PgPool
         request(
             &reopened,
             Method::POST,
-            "/admin/v1/auth/login",
+            "/api/v1/auth/login",
             None,
             None,
             json!({"email":"member@example.test","password":"synthetic second passphrase"})
@@ -317,7 +317,7 @@ async fn password_api_is_opt_in_and_limits_unknown_identity_retries(pool: PgPool
     let result = request(
         &disabled,
         Method::POST,
-        "/admin/v1/auth/login",
+        "/api/v1/auth/login",
         None,
         None,
         login.clone(),
@@ -347,7 +347,7 @@ async fn password_api_is_opt_in_and_limits_unknown_identity_retries(pool: PgPool
         request(
             &app,
             Method::POST,
-            "/admin/v1/auth/login",
+            "/api/v1/auth/login",
             None,
             Some("https://foreign.example.test"),
             login.clone()
@@ -360,7 +360,7 @@ async fn password_api_is_opt_in_and_limits_unknown_identity_retries(pool: PgPool
         let result = request(
             &app,
             Method::POST,
-            "/admin/v1/auth/login",
+            "/api/v1/auth/login",
             None,
             None,
             login.clone(),
@@ -373,7 +373,7 @@ async fn password_api_is_opt_in_and_limits_unknown_identity_retries(pool: PgPool
     let result = request(
         &reopened,
         Method::POST,
-        "/admin/v1/auth/login",
+        "/api/v1/auth/login",
         None,
         None,
         login,
@@ -433,7 +433,7 @@ async fn member_sign_out_revokes_only_current_session_and_survives_reopening(poo
     let (status, headers, body) = request(
         &app,
         Method::POST,
-        "/admin/v1/auth/logout",
+        "/api/v1/auth/logout",
         Some(&first.token),
         None,
         Value::Null,
@@ -456,7 +456,7 @@ async fn member_sign_out_revokes_only_current_session_and_survives_reopening(poo
             request(
                 &reopened,
                 Method::POST,
-                "/admin/v1/auth/logout",
+                "/api/v1/auth/logout",
                 token,
                 None,
                 Value::Null
@@ -478,7 +478,7 @@ async fn member_sign_out_revokes_only_current_session_and_survives_reopening(poo
         request(
             &reopened,
             Method::POST,
-            "/admin/v1/auth/logout",
+            "/api/v1/auth/logout",
             Some(&second.token),
             None,
             Value::Null
@@ -564,7 +564,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
     let (config_status, config_headers, config_body) = request(
         &app,
         Method::GET,
-        "/admin/v1/auth/config",
+        "/api/v1/auth/config",
         None,
         None,
         Value::Null,
@@ -579,7 +579,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
             request(
                 &app,
                 Method::POST,
-                "/admin/v1/auth/browser/login",
+                "/api/v1/auth/browser/login",
                 None,
                 origin,
                 input.clone()
@@ -592,7 +592,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
     let (status, headers, body) = request(
         &app,
         Method::POST,
-        "/admin/v1/auth/browser/login",
+        "/api/v1/auth/browser/login",
         None,
         Some("https://niu.example.test"),
         input,
@@ -625,7 +625,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
             .clone()
             .oneshot(
                 Request::builder()
-                    .uri("/admin/v1/session")
+                    .uri("/api/v1/session")
                     .header("cookie", present_cookie)
                     .header("sec-fetch-site", "same-origin")
                     .header("authorization", format!("Bearer {bearer}"))
@@ -643,7 +643,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
         (Some("https://hostile.example"), Some("same-origin")),
     ] {
         assert_eq!(
-            cookie_request(&app, Method::GET, "/admin/v1/session", cookie, origin, site)
+            cookie_request(&app, Method::GET, "/api/v1/session", cookie, origin, site)
                 .await
                 .0,
             StatusCode::FORBIDDEN
@@ -652,7 +652,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
     let (status, _, principal) = cookie_request(
         &app,
         Method::GET,
-        "/admin/v1/session",
+        "/api/v1/session",
         cookie,
         None,
         Some("same-origin"),
@@ -666,7 +666,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
         cookie_request(
             &app,
             Method::GET,
-            "/admin/v1/session",
+            "/api/v1/session",
             &format!("{cookie}; {cookie}"),
             None,
             Some("same-origin")
@@ -679,7 +679,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
         cookie_request(
             &app,
             Method::GET,
-            "/admin/v1/session",
+            "/api/v1/session",
             &format!("__Host-niu_member_session={ADMIN}"),
             None,
             Some("same-origin")
@@ -692,7 +692,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
         cookie_request(
             &app,
             Method::POST,
-            "/admin/v1/auth/browser/logout",
+            "/api/v1/auth/browser/logout",
             cookie,
             None,
             Some("same-origin")
@@ -705,7 +705,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
         cookie_request(
             &app,
             Method::GET,
-            "/admin/v1/session",
+            "/api/v1/session",
             cookie,
             None,
             Some("same-origin")
@@ -719,7 +719,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
             cookie_request(
                 &app,
                 Method::GET,
-                "/admin/v1/session",
+                "/api/v1/session",
                 cookie,
                 Some("https://niu.example.test"),
                 Some(site)
@@ -732,7 +732,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
             cookie_request(
                 &app,
                 Method::POST,
-                "/admin/v1/auth/browser/logout",
+                "/api/v1/auth/browser/logout",
                 cookie,
                 Some("https://niu.example.test"),
                 Some(site)
@@ -744,7 +744,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
     }
     for header_name in ["authorization", "origin", "sec-fetch-site"] {
         let mut builder = Request::builder()
-            .uri("/admin/v1/session")
+            .uri("/api/v1/session")
             .header("cookie", cookie)
             .header("origin", "https://niu.example.test")
             .header("sec-fetch-site", "same-origin")
@@ -778,7 +778,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
     let (failed, failed_headers, failed_body) = cookie_request(
         &app,
         Method::POST,
-        "/admin/v1/auth/browser/logout",
+        "/api/v1/auth/browser/logout",
         cookie,
         Some("https://niu.example.test"),
         None,
@@ -796,7 +796,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
         cookie_request(
             &app,
             Method::GET,
-            "/admin/v1/session",
+            "/api/v1/session",
             cookie,
             None,
             Some("same-origin")
@@ -812,7 +812,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
     let (status, headers, _) = cookie_request(
         &app,
         Method::POST,
-        "/admin/v1/auth/browser/logout",
+        "/api/v1/auth/browser/logout",
         cookie,
         Some("https://niu.example.test"),
         None,
@@ -830,7 +830,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
         cookie_request(
             &reopened,
             Method::GET,
-            "/admin/v1/session",
+            "/api/v1/session",
             cookie,
             None,
             Some("same-origin")
@@ -843,7 +843,7 @@ async fn browser_sessions_are_scoped_http_only_origin_checked_and_durably_revoke
         cookie_request(
             &reopened,
             Method::POST,
-            "/admin/v1/auth/browser/logout",
+            "/api/v1/auth/browser/logout",
             cookie,
             Some("https://niu.example.test"),
             None
@@ -924,7 +924,7 @@ async fn viewer_password_change_requires_current_proof_and_revokes_only_own_sess
         request(
             &app,
             Method::PUT,
-            "/admin/v1/auth/password",
+            "/api/v1/auth/password",
             Some(ADMIN),
             None,
             good.clone()
@@ -951,7 +951,7 @@ async fn viewer_password_change_requires_current_proof_and_revokes_only_own_sess
             request(
                 &app,
                 Method::PUT,
-                "/admin/v1/auth/password",
+                "/api/v1/auth/password",
                 Some(&current.token),
                 None,
                 body
@@ -966,7 +966,7 @@ async fn viewer_password_change_requires_current_proof_and_revokes_only_own_sess
     let (status, headers, body) = request(
         &app,
         Method::PUT,
-        "/admin/v1/auth/password",
+        "/api/v1/auth/password",
         Some(&current.token),
         None,
         good,
@@ -1000,7 +1000,7 @@ async fn viewer_password_change_requires_current_proof_and_revokes_only_own_sess
     let (status, _, body) = request(
         &app,
         Method::POST,
-        "/admin/v1/auth/login",
+        "/api/v1/auth/login",
         None,
         None,
         json!({"email":"self@example.test","password":"synthetic replacement passphrase"}),
@@ -1025,7 +1025,7 @@ async fn viewer_password_change_requires_current_proof_and_revokes_only_own_sess
     let (_, browser_headers, _) = request(
         &app,
         Method::POST,
-        "/admin/v1/auth/browser/login",
+        "/api/v1/auth/browser/login",
         None,
         Some("https://niu.example.test"),
         json!({"email":"self@example.test","password":"synthetic replacement passphrase"}),
@@ -1044,7 +1044,7 @@ async fn viewer_password_change_requires_current_proof_and_revokes_only_own_sess
     ] {
         let mut builder = Request::builder()
             .method(Method::PUT)
-            .uri("/admin/v1/auth/password")
+            .uri("/api/v1/auth/password")
             .header("cookie", cookie)
             .header("sec-fetch-site", "same-origin")
             .header("content-type", "application/json");
@@ -2586,10 +2586,9 @@ async fn initial_installation_setup_creates_first_platform_admin_once(pool: PgPo
         &app,
         Method::POST,
         "/api/v1/setup",
-        None,
+        Some(ADMIN),
         Some("https://evil.example.test"),
         json!({
-            "administrator_token": ADMIN,
             "name": "Founder",
             "email": "founder@example.test",
             "password": "initial admin passphrase 123"
@@ -2598,15 +2597,14 @@ async fn initial_installation_setup_creates_first_platform_admin_once(pool: PgPo
     .await;
     assert_eq!(bad_origin.0, StatusCode::FORBIDDEN);
 
-    // Wrong administrator token is rejected with 401.
+    // Wrong administrator Bearer token is rejected with 401.
     let bad_token = request(
         &app,
         Method::POST,
         "/api/v1/setup",
-        None,
+        Some("wrong-admin-token"),
         Some("https://niu.example.test"),
         json!({
-            "administrator_token": "wrong-admin-token",
             "name": "Founder",
             "email": "founder@example.test",
             "password": "initial admin passphrase 123"
@@ -2621,10 +2619,9 @@ async fn initial_installation_setup_creates_first_platform_admin_once(pool: PgPo
         &app,
         Method::POST,
         "/api/v1/setup",
-        None,
+        Some(ADMIN),
         Some("https://niu.example.test"),
         json!({
-            "administrator_token": ADMIN,
             "name": "Founder",
             "email": "founder@example.test",
             "password": "too-short"
@@ -2638,10 +2635,9 @@ async fn initial_installation_setup_creates_first_platform_admin_once(pool: PgPo
         &app,
         Method::POST,
         "/api/v1/setup",
-        None,
+        Some(ADMIN),
         Some("https://niu.example.test"),
         json!({
-            "administrator_token": format!("  {ADMIN}  "),
             "name": "Founder Admin",
             "email": "Founder@Example.test",
             "password": "initial admin passphrase 123"
@@ -2653,7 +2649,11 @@ async fn initial_installation_setup_creates_first_platform_admin_once(pool: PgPo
     let cookie = created.1["set-cookie"].to_str().unwrap();
     assert!(cookie.starts_with("__Host-niu_member_session="));
     assert!(cookie.contains("HttpOnly"));
-    assert!(created.2["session"]["operator_id"].as_str().is_some());
+    assert!(
+        created.2["data"]["session"]["operator_id"]
+            .as_str()
+            .is_some()
+    );
 
     // Config now reports setup_required = false.
     let after_cfg = request(
@@ -2668,15 +2668,14 @@ async fn initial_installation_setup_creates_first_platform_admin_once(pool: PgPo
     assert_eq!(after_cfg.0, StatusCode::OK);
     assert_eq!(after_cfg.2["setup_required"], false);
 
-    // Subsequent setup calls are rejected with 409 Conflict.
+    // Subsequent setup calls short-circuit with 409 Conflict EVEN with a wrong token (no token oracle!).
     let repeat = request(
         &app,
         Method::POST,
         "/api/v1/setup",
+        Some("wrong-probe-token"),
         None,
-        Some("https://niu.example.test"),
         json!({
-            "administrator_token": ADMIN,
             "name": "Second Admin",
             "email": "second@example.test",
             "password": "another admin passphrase 456"

@@ -146,14 +146,14 @@ def main():
             api('PUT','/api/v1/platform/payments/mock',{'enabled':True})
             require(api('GET','/api/v1/payments/environment')['data']['mock_payments'], 'Enabled mode was not reported')
             expect_workspace_gate(True)
-            org=api('POST','/admin/v1/organizations',{'name':'Mock payment test','currency':'USD'})
+            org=api('POST','/api/v1/organizations',{'name':'Mock payment test','currency':'USD'})
             api('PUT','/api/v1/platform/payments/mock',{'enabled':False})
             methods=api('GET',f'/api/v1/organizations/{org["id"]}/billing/payment-methods?currency=USD&payment_gateway=stripe')['data']
             require(not methods['available'] and methods['unavailable_reason']=='integration_unavailable', 'Disabled mock reported a missing currency account or available checkout')
             integrations=api('GET','/api/v1/platform/payments/integrations')['data']
             require(not next(item for item in integrations if item['id']=='stripe')['checkout_enabled'], 'Disabled mock advertised enabled checkout')
             api('PUT','/api/v1/platform/payments/mock',{'enabled':True})
-            base=f'/admin/v1/organizations/{org["id"]}/billing/topups'
+            base=f'/api/v1/organizations/{org["id"]}/billing/topups'
             expected=0
             def balance():
                 return int(sql("SELECT COALESCE(sum(amount_nanos),0) FROM customer_balance_entries WHERE organization_id='"+org['id']+"'"))

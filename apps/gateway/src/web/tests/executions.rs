@@ -113,7 +113,7 @@ async fn gateway_activity_uses_a_chronological_cursor_without_external_task_impo
 
     let app = router(state.clone());
     let retired_import = format!(
-        "/admin/v1/organizations/{organization}/projects/{}/executions",
+        "/api/v1/organizations/{organization}/projects/{}/executions",
         scope.project_id
     );
     let rejected = app
@@ -133,7 +133,7 @@ async fn gateway_activity_uses_a_chronological_cursor_without_external_task_impo
     assert_eq!(rejected.status(), StatusCode::NOT_FOUND);
 
     let base = format!(
-        "/admin/v1/organizations/{organization}/projects/{}/requests",
+        "/api/v1/organizations/{organization}/projects/{}/requests",
         scope.project_id
     );
     let page_request = |path: String| {
@@ -230,7 +230,7 @@ async fn gateway_activity_uses_a_chronological_cursor_without_external_task_impo
         .await
         .unwrap();
     let foreign = page_request(format!(
-        "/admin/v1/organizations/{organization}/projects/{}/requests/{linked_attempt}",
+        "/api/v1/organizations/{organization}/projects/{}/requests/{linked_attempt}",
         foreign_scope.project_id
     ))
     .await;
@@ -577,7 +577,7 @@ async fn workspace_activity_reports_customer_charges_without_supplier_costs(pool
         .unwrap();
 
     let path = format!(
-        "/admin/v1/organizations/{organization}/projects/{}/requests?limit=10",
+        "/api/v1/organizations/{organization}/projects/{}/requests?limit=10",
         scope.project_id
     );
     let response = router(state.clone())

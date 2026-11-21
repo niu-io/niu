@@ -60,7 +60,7 @@ export const routeImporters = {
   connect: memoImport('connect', () => import('@/features/connect/page')),
   login: memoImport('login', () => import('@/features/login/page')),
   register: memoImport('register', () => import('@/features/login/register-page')),
-  installation: memoImport('installation', () => import('@/features/login/installation-page')),
+  setup: memoImport('setup', () => import('@/features/login/setup-page')),
   invite: memoImport('invite', () => import('@/features/invitations/accept-page')),
   adminOverview: memoImport('adminOverview', () => import('@/features/admin-overview/page')),
   adminRegistrations: memoImport('adminRegistrations', () => import('@/features/registrations/page')),
@@ -128,7 +128,7 @@ export function preloadRouteChunk(pathname: string): void {
   const parts = clean.split('/').filter(Boolean);
 
   if (parts[0] === 'login') { void routeImporters.login(); return; }
-  if (parts[0] === 'installation') { void routeImporters.installation(); return; }
+  if (parts[0] === 'setup') { void routeImporters.setup(); return; }
   if (parts[0] === 'invite') { void routeImporters.invite(); return; }
   if (parts[0] === 'connect') { void routeImporters.connect(); return; }
   if (parts[0] === 'models') { void routeImporters.publicModels(); void routeImporters.models(); return; }

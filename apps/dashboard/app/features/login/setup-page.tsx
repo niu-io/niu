@@ -13,17 +13,17 @@ import { Label } from '@/components/ui/label';
 import NiuBrand from '@/components/NiuBrand';
 import { useBranding } from '@/shell/branding';
 
-type InstallationMode = 'loading' | 'initial_setup' | 'token_fallback' | 'redirecting';
+type SetupMode = 'loading' | 'initial_setup' | 'token_fallback' | 'redirecting';
 
 /** First-run platform administrator setup wizard, with direct token fallback only when password sign-in is unconfigured. */
-export default function InstallationRoute() {
+export default function SetupRoute() {
   const { t: uiT, format: uiF } = useUILocale();
   const { locale, setLocale, t } = useLocale();
   const context = useDashboardContext();
   const { settings: branding, logo } = useBranding();
   const navigate = useNavigate();
   const [hasPublicModels, setHasPublicModels] = useState(false);
-  const [mode, setMode] = useState<InstallationMode>('loading');
+  const [mode, setMode] = useState<SetupMode>('loading');
   const [setupToken, setSetupToken] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -116,9 +116,11 @@ export default function InstallationRoute() {
     try {
       const response = await fetch('/api/v1/setup', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${trimmedToken}`,
+        },
         body: JSON.stringify({
-          administrator_token: trimmedToken,
           email: trimmedEmail,
           password,
           ...(trimmedName ? { name: trimmedName } : {}),
@@ -202,7 +204,7 @@ export default function InstallationRoute() {
     </header>
     <div className="dashboard-login-stage">
       {mode === 'loading' ? (
-        <section className="dashboard-login-card" aria-label={t('Installation setup', '初始化设置')}>
+        <section className="dashboard-login-card" aria-label={t('Initial setup', '初始化设置')}>
           <div className="dashboard-login-header">
             <h1>{t('Initial setup', '初始化设置')}</h1>
             <p className="dashboard-login-intro">{t('Checking deployment status…', '正在检查部署状态…')}</p>

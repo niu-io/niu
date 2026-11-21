@@ -62,7 +62,7 @@ async fn ready(child: &mut Child, client: &reqwest::Client, base: &str) {
 
 async fn vendors(client: &reqwest::Client, base: &str) -> Value {
     client
-        .get(format!("{base}/admin/v1/vendors"))
+        .get(format!("{base}/api/v1/vendors"))
         .bearer_auth(ADMIN)
         .send()
         .await
@@ -123,7 +123,7 @@ async fn vendor_configuration_survives_process_replacement_without_seed_credenti
     );
     let vendor = &before[0];
     let id = vendor["id"].as_str().unwrap();
-    let mut updated = client.put(format!("{base}/admin/v1/vendors/{id}")).bearer_auth(ADMIN)
+    let mut updated = client.put(format!("{base}/api/v1/vendors/{id}")).bearer_auth(ADMIN)
         .json(&json!({"name":"Renamed OpenRouter","api_base":vendor["api_base"],"enabled":false,"expected_revision":vendor["revision"],"api_key":"test-only-rotated-credential"}))
         .send().await.unwrap().error_for_status().unwrap().json::<Value>().await.unwrap()["data"].clone();
     let ciphertext: Vec<u8> =
@@ -253,7 +253,7 @@ async fn video_process_replacement(pool: sqlx::PgPool, revoke: bool, prepaid: bo
         .spawn()
         .unwrap();
     ready(&mut child, &client, &base).await;
-    let response = client.post(format!("{base}/admin/v1/vendors")).bearer_auth(ADMIN)
+    let response = client.post(format!("{base}/api/v1/vendors")).bearer_auth(ADMIN)
         .json(&json!({"name":"Restart video fixture","adapter":"openai","api_base":format!("http://{upstream_address}"),"api_key":"test-only-video-token","enabled":true}))
         .send().await.unwrap().error_for_status().unwrap().json::<Value>().await.unwrap();
     let vendor = &response["data"];
@@ -339,11 +339,11 @@ async fn video_process_replacement(pool: sqlx::PgPool, revoke: bool, prepaid: bo
             .unwrap();
         let current = store.vendor(vendor_id).await.unwrap().unwrap();
         let q = |n: &str| json!({"numerator":n,"denominator":"1"});
-        let published=client.post(format!("{base}/admin/v1/organizations/{}/billing/media-rates",scope.organization_id)).bearer_auth(ADMIN)
+        let published=client.post(format!("{base}/api/v1/organizations/{}/billing/media-rates",scope.organization_id)).bearer_auth(ADMIN)
             .json(&json!({"revision":"native-selling-1","vendor_id":vendor_id,"vendor_revision":current.revision,"model_revision":model.revision,"schema_revision":"restart-schema","offer_revision":revision.to_string(),"tariff":{"revision":"native-tariff-1","dimensions":{"model":"fixture-video","channel":"ark-direct-v1","resolution":"720p","reference_video":false},"meter":"video_tokens","currency":"CNY","decimal_places":9,"amount_units":100,"per_quantity":q("1000000"),"minimum_quantity":q("0"),"rounding":"Up","effective_from":0,"effective_until":null},"discounts":[],"maximum_quantity":q("200000"),"liability_qualification_revision":"synthetic-native-bound"}))
             .send().await.unwrap();
         assert_eq!(published.status(), reqwest::StatusCode::OK);
-        let purchase=client.post(format!("{base}/admin/v1/providers/{supplier}/media-rates")).bearer_auth(ADMIN)
+        let purchase=client.post(format!("{base}/api/v1/providers/{supplier}/media-rates")).bearer_auth(ADMIN)
             .json(&json!({"revision":"native-purchase-1","offer_revision":revision,"vendor_revision":current.revision,"model_revision":model.revision,"schema_revision":"restart-schema","tariff":{"revision":"native-purchase-tariff","dimensions":{"model":"fixture-video","channel":"ark-direct-v1","resolution":"720p","reference_video":false},"meter":"video_tokens","currency":"CNY","decimal_places":9,"amount_units":40,"per_quantity":q("1000000"),"minimum_quantity":q("0"),"rounding":"Up","effective_from":0,"effective_until":null},"discounts":[]}))
             .send().await.unwrap();
         assert_eq!(purchase.status(), reqwest::StatusCode::OK);

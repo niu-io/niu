@@ -71,7 +71,7 @@ export default function LoginRoute() {
         const passwordEnabled = value.password_login === true;
         if (passwordEnabled && value.setup_required === true) {
           redirected = true;
-          navigate('/installation', { replace: true });
+          navigate('/setup', { replace: true });
           return;
         }
         setMemberLogin(passwordEnabled);
@@ -266,7 +266,7 @@ export default function LoginRoute() {
           {configurationFailed && (
             <div className="dashboard-login-unavailable">
               <p className="dashboard-login-error" role="alert">{signInNotConfigured ? t('Account sign-in is not configured. Contact your installation administrator.', '此实例尚未配置账户登录，请联系实例管理员。') : t('Sign-in is temporarily unavailable.', '登录服务暂不可用。')}</p>
-              {signInNotConfigured && <p className="dashboard-login-hint">{t('Installation administrators can sign in with their administrator token.', '实例管理员可使用管理员令牌登录。')} <Link className="underline underline-offset-2" to="/installation">{t('Open installation administration', '打开实例管理')}</Link></p>}
+              {signInNotConfigured && <p className="dashboard-login-hint">{t('Installation administrators can sign in with their administrator token.', '实例管理员可使用管理员令牌登录。')} <Link className="underline underline-offset-2" to="/setup">{t('Open installation administration', '打开实例管理')}</Link></p>}
               <Button
                 type="button"
                 variant="outline"
