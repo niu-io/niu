@@ -24,7 +24,7 @@ pub struct History {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit",
+///   "path": "/api/v1/workspaces/{workspace}/keys/{key}/concurrency-limit",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [
@@ -65,16 +65,7 @@ pub struct History {
 ///     },
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -156,7 +147,7 @@ pub async fn read(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit",
+///   "path": "/api/v1/workspaces/{workspace}/keys/{key}/concurrency-limit",
 ///   "method": "put",
 ///   "operation": {
 ///     "security": [
@@ -240,16 +231,7 @@ pub async fn read(
 ///     },
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -344,7 +326,7 @@ pub async fn write(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history",
+///   "path": "/api/v1/workspaces/{workspace}/keys/{key}/concurrency-limit/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [
@@ -356,16 +338,7 @@ pub async fn write(
 ///     "description": "Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.",
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -537,7 +510,7 @@ pub struct CapacityPage {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/capacity",
+///   "path": "/api/v1/workspaces/{workspace}/keys/{key}/capacity",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listKeyCapacityRequests",
@@ -551,16 +524,7 @@ pub struct CapacityPage {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

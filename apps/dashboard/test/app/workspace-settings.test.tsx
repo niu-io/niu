@@ -36,7 +36,7 @@ function jsonResponse(value: unknown, status = 200) {
 }
 
 function isRenameRequest(input: RequestInfo | URL, init?: RequestInit) {
-  return String(input).includes('/api/v1/organizations/') && init?.method === 'PATCH';
+  return String(input).includes('/api/v1/workspaces/') && init?.method === 'PATCH';
 }
 
 function renameRequests() {

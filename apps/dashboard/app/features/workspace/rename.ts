@@ -37,7 +37,7 @@ export async function requestWorkspaceRename(
 ): Promise<WorkspaceRenameResponse> {
   const result = await request<WorkspaceRenameResponse>(
     token,
-    `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}`,
+    `/api/v1/workspaces/${workspace.id}`,
     'PATCH',
     { name: name.trim() },
   );

@@ -426,30 +426,22 @@ fn customer_feature(path: &str) -> bool {
         || path.starts_with("/v1/")
         || path == "/v1beta"
         || path.starts_with("/v1beta/")
-        || path.strip_prefix("/api/v1/").is_some_and(|path| {
-            path == "workspaces"
-                || path.starts_with("workspaces/")
-                || (path.starts_with("organizations/") && path.contains("/projects"))
-        })
+        || path
+            .strip_prefix("/api/v1/")
+            .is_some_and(|path| path == "workspaces" || path.starts_with("workspaces/"))
 }
 
 // These operations maintain existing credentials; they do not admit spending.
 // Match registered templates and methods so key creation and limit writes remain gated.
 fn credential_maintenance(path: &str, method: &axum::http::Method) -> bool {
-    let workspace = "/api/v1/workspaces/{workspace}/keys";
-    let project_api = "/api/v1/organizations/{organization}/projects/{project}/keys";
-    [workspace, project_api].iter().any(|root| {
-        let Some(rest) = path.strip_prefix(root) else {
-            return false;
-        };
-        (rest.is_empty() && *method == axum::http::Method::GET)
-            || (rest == "/{key}"
-                && (*method == axum::http::Method::GET || *method == axum::http::Method::DELETE))
-            || (rest == "/{key}/rotate" && *method == axum::http::Method::POST)
-            || (rest == "/requests/{request}"
-                && *method == axum::http::Method::GET
-                && *root == workspace)
-    })
+    let Some(rest) = path.strip_prefix("/api/v1/workspaces/{workspace}/keys") else {
+        return false;
+    };
+    (rest.is_empty() && *method == axum::http::Method::GET)
+        || (rest == "/{key}"
+            && (*method == axum::http::Method::GET || *method == axum::http::Method::DELETE))
+        || (rest == "/{key}/rotate" && *method == axum::http::Method::POST)
+        || (rest == "/requests/{request}" && *method == axum::http::Method::GET)
 }
 
 // Existing request history remains readable without funding. Individual
@@ -465,64 +457,26 @@ fn saved_history(path: &str, method: &axum::http::Method) -> bool {
         "/v1/incidents/{reference}"
             | "/api/v1/workspaces/{workspace}/incidents"
             | "/api/v1/workspaces/{workspace}/billing"
-            | "/api/v1/organizations/{organization}/projects/{project}/billing"
-            | "/api/v1/organizations/{organization}/projects/{project}/billing/invoices"
-            | "/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}"
+            | "/api/v1/workspaces/{workspace}/billing/invoices"
+            | "/api/v1/workspaces/{workspace}/billing/invoices/{invoice}"
+            | "/api/v1/workspaces/{workspace}/video/draft"
     ) {
         return true;
     }
-    let request_history = [
-        "/api/v1/organizations/{organization}/projects/{project}/requests",
-        "/api/v1/workspaces/{workspace}/requests",
-    ]
-    .iter()
-    .any(|root| {
-        path.strip_prefix(root).is_some_and(|rest| {
-            matches!(rest, "" | "/{attempt}" | "/{attempt}/payloads" | "/export")
-        })
-    });
-    request_history
-        || [
-            "/api/v1/workspaces/{workspace}/video/draft",
-            "/api/v1/organizations/{organization}/projects/{project}/video/draft",
-        ]
-        .contains(&path)
-        || [
-            "/api/v1/workspaces/{workspace}/chats",
-            "/api/v1/organizations/{organization}/projects/{project}/chats",
-        ]
-        .iter()
-        .any(|root| {
-            path.strip_prefix(root)
-                .is_some_and(|rest| matches!(rest, "" | "/draft" | "/{id}" | "/{id}/export"))
-        })
-        || [
-            "/api/v1/workspaces/{workspace}/sessions",
-            "/api/v1/organizations/{organization}/projects/{project}/generations",
-        ]
-        .iter()
-        .any(|root| {
-            path.strip_prefix(root)
-                .is_some_and(|rest| matches!(rest, "" | "/{session}"))
-        })
-        || [
-            "/api/v1/workspaces/{workspace}/video/intents",
-            "/api/v1/organizations/{organization}/projects/{project}/video/intents",
-        ]
-        .iter()
-        .any(|root| {
-            path.strip_prefix(root)
-                .is_some_and(|rest| matches!(rest, "" | "/{intent}"))
-        })
-        || [
-            "/api/v1/workspaces/{workspace}/tasks",
-            "/api/v1/organizations/{organization}/projects/{project}/generations/tasks",
-        ]
-        .iter()
-        .any(|root| {
-            path.strip_prefix(root)
-                .is_some_and(|rest| matches!(rest, "" | "/{task}" | "/{task}/diagnostics"))
-        })
+    path.strip_prefix("/api/v1/workspaces/{workspace}/requests")
+        .is_some_and(|rest| matches!(rest, "" | "/{attempt}" | "/{attempt}/payloads" | "/export"))
+        || path
+            .strip_prefix("/api/v1/workspaces/{workspace}/chats")
+            .is_some_and(|rest| matches!(rest, "" | "/draft" | "/{id}" | "/{id}/export"))
+        || path
+            .strip_prefix("/api/v1/workspaces/{workspace}/sessions")
+            .is_some_and(|rest| matches!(rest, "" | "/{session}"))
+        || path
+            .strip_prefix("/api/v1/workspaces/{workspace}/video/intents")
+            .is_some_and(|rest| matches!(rest, "" | "/{intent}"))
+        || path
+            .strip_prefix("/api/v1/workspaces/{workspace}/tasks")
+            .is_some_and(|rest| matches!(rest, "" | "/{task}" | "/{task}/diagnostics"))
 }
 
 pub(crate) async fn gate(
@@ -537,18 +491,11 @@ pub(crate) async fn gate(
         .unwrap_or(request.uri().path())
         .to_owned();
     // Directory and creation handlers enforce their own scope and write access.
-    let directory = path == "/api/v1/workspaces"
-        || ((request.method() == axum::http::Method::GET
-            || request.method() == axum::http::Method::POST)
-            && path == "/api/v1/organizations/{organization}/projects");
+    let directory = path == "/api/v1/workspaces";
     let workspace_management = matches!(
         *request.method(),
         axum::http::Method::PATCH | axum::http::Method::DELETE
-    ) && matches!(
-        path.as_str(),
-        "/api/v1/workspaces/{workspace}"
-            | "/api/v1/organizations/{organization}/projects/{project}"
-    );
+    ) && path == "/api/v1/workspaces/{workspace}";
     let lookup = path.ends_with("/workspaces/by-route/{route_slug}")
         && request.method() == axum::http::Method::GET;
     if customer_feature(&path)
@@ -746,13 +693,12 @@ async fn qualify_test_gateway(state: &AppState, currency: &str) {
 mod tests {
     use super::*;
     #[test]
-    fn gates_customer_features_and_legacy_aliases_but_preserves_setup_and_funding() {
+    fn gates_customer_features_but_preserves_setup_and_funding() {
         for path in [
             "/api/v1/workspaces",
             "/api/v1/workspaces/{workspace}/keys",
             "/api/v1/workspaces/{workspace}",
-            "/api/v1/organizations/{organization}/projects/{project}/chats",
-            "/api/v1/organizations/{organization}/projects/{project}/keys",
+            "/api/v1/workspaces/{workspace}/chats",
             "/v1/chat/completions",
             "/v1beta/models/{model_action}",
         ] {
@@ -798,13 +744,6 @@ mod tests {
         ] {
             assert!(!credential_maintenance(spending, &Method::PUT));
         }
-        let legacy_keys = "/api/v1/organizations/{organization}/projects/{project}/keys";
-        assert!(credential_maintenance(legacy_keys, &Method::GET));
-        assert!(!credential_maintenance(legacy_keys, &Method::POST));
-        assert!(credential_maintenance(
-            &format!("{legacy_keys}/{{key}}/rotate"),
-            &Method::POST
-        ));
         // Saved history is read-only; a write must still pass the gate.
         let history = "/api/v1/workspaces/{workspace}/requests/{attempt}/payloads";
         assert!(saved_history(history, &Method::GET));
@@ -1255,14 +1194,6 @@ mod tests {
             ),
             (
                 format!("/api/v1/workspaces/{}/keys", foreign.project_id),
-                owner.token.as_str(),
-                404,
-            ),
-            (
-                format!(
-                    "/api/v1/organizations/{other}/projects/{}/keys",
-                    foreign.project_id
-                ),
                 owner.token.as_str(),
                 404,
             ),

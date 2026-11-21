@@ -18,7 +18,7 @@ pub(crate) struct ReconcileInput {}
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
+///   "path": "/api/v1/workspaces/{workspace}/requests/{attempt}/usage-reconciliation",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "reconcileRequestUsage",
@@ -31,16 +31,7 @@ pub(crate) struct ReconcileInput {}
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -322,7 +313,7 @@ pub(crate) async fn reconcile_attempt(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
+///   "path": "/api/v1/workspaces/{workspace}/requests/{attempt}/usage-reconciliation",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getRequestUsageReconciliation",
@@ -335,16 +326,7 @@ pub(crate) async fn reconcile_attempt(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

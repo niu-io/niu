@@ -46,7 +46,7 @@ fn scope(organization_id: Uuid, project_id: Uuid, currency: &str) -> Result<Tena
 /// Discover usable currencies without granting company-balance access.
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/spending-limit",
+///   "path": "/api/v1/workspaces/{workspace}/spending-limit",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaceSpendingLimits",
@@ -61,16 +61,7 @@ fn scope(organization_id: Uuid, project_id: Uuid, currency: &str) -> Result<Tena
 ///     "parameters": [
 ///       {
 ///         "in": "path",
-///         "name": "organization",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "in": "path",
-///         "name": "project",
+///         "name": "workspace",
 ///         "required": true,
 ///         "schema": {
 ///           "type": "string",
@@ -247,7 +238,7 @@ pub async fn list(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
+///   "path": "/api/v1/workspaces/{workspace}/spending-limit/{currency}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getWorkspaceSpendingLimit",
@@ -262,16 +253,7 @@ pub async fn list(
 ///     "parameters": [
 ///       {
 ///         "in": "path",
-///         "name": "organization",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "in": "path",
-///         "name": "project",
+///         "name": "workspace",
 ///         "required": true,
 ///         "schema": {
 ///           "type": "string",
@@ -351,7 +333,7 @@ pub async fn read(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
+///   "path": "/api/v1/workspaces/{workspace}/spending-limit/{currency}",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setWorkspaceSpendingLimit",
@@ -366,16 +348,7 @@ pub async fn read(
 ///     "parameters": [
 ///       {
 ///         "in": "path",
-///         "name": "organization",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "in": "path",
-///         "name": "project",
+///         "name": "workspace",
 ///         "required": true,
 ///         "schema": {
 ///           "type": "string",
@@ -491,7 +464,7 @@ pub async fn write(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history",
+///   "path": "/api/v1/workspaces/{workspace}/spending-limit/{currency}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaceSpendingLimitHistory",
@@ -506,16 +479,7 @@ pub async fn write(
 ///     "parameters": [
 ///       {
 ///         "in": "path",
-///         "name": "organization",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "in": "path",
-///         "name": "project",
+///         "name": "workspace",
 ///         "required": true,
 ///         "schema": {
 ///           "type": "string",

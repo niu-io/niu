@@ -1,15 +1,15 @@
 ---
-title: "Read active workspace access policy"
-description: "GET /api/v1/organizations/{organization}/projects/{project}/guardrails"
+title: "Read a workspace-scoped key policy assignment"
+description: "GET /api/v1/workspaces/{workspace}/keys/{key}/guardrail"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/organizations/{organization}/projects/{project}/guardrails`
+`GET /api/v1/workspaces/{workspace}/keys/{key}/guardrail`
 
 
 
-Operation: `get--api-v1-organizations--organization--projects--project--guardrails`.
+Operation: `get--api-v1-workspaces--workspace--keys--key--guardrail`.
 
 ## Authentication
 
@@ -28,13 +28,13 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/guardrails" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/keys/{key}/guardrail" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
 ```
 
 ## Parameters
 
-### organization
+### workspace
 
 Location: **path**. **Required.**
 
@@ -45,7 +45,7 @@ Location: **path**. **Required.**
 }
 ```
 
-### project
+### key
 
 Location: **path**. **Required.**
 
@@ -64,7 +64,7 @@ No request body is declared.
 
 ### HTTP 200
 
-Active revision and policy in data, or null when no policy is configured.
+Data contains assignment_revision, policy_revision, mode and policy, or null when no assignment has ever existed in this workspace. mode is fixed or active; an active assignment has a null policy_revision and policy because the workspace's current policy applies directly.
 
 ### HTTP 401
 

@@ -1,11 +1,11 @@
 ---
 title: "Read own workspace retail pricing mode"
-description: "GET /api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment"
+description: "GET /api/v1/workspaces/{workspace}/billing/retail-price-enrollment"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment`
+`GET /api/v1/workspaces/{workspace}/billing/retail-price-enrollment`
 
 Requires workspace read authority or platform administration. Current configuration only, no other-customer rules, procurement or usage. Without a saved enrollment, version is zero and the workspace inherits a published platform text price for the model in the installation currency when available; price_id and effective_price then describe that platform selection. Without a matching published platform price, price_id and effective_price are null and pricing_source is workspace. An explicit saved null price_id selects compatibility workspace tariffs instead of inheriting the platform default; its saved version is retained. This does not establish an available route or spending permission. Internal references are API values, never display names. Cache-Control: no-store. Effective price is an advisory own-customer selection at server time under the workspace and price locks; null in workspace pricing mode. No other-customer rules are returned.
 
@@ -28,25 +28,14 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/billing/retail-price-enrollment" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   --url-query 'model_alias=<MODEL_ALIAS>'
 ```
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

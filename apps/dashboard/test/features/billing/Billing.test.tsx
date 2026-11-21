@@ -189,7 +189,7 @@ describe("customer billing", () => {
     expect(screen.queryByRole("button", { name: "Issue invoice" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Record payment" })).toBeNull();
     expect(fetch.mock.calls.map(([url]) => String(url))).toEqual([
-      "/api/v1/organizations/org/projects/project/billing",
+      "/api/v1/workspaces/project/billing",
     ]);
   });
   it("loads only the selected workspace invoice details", async () => {
@@ -216,7 +216,7 @@ describe("customer billing", () => {
         fetch.mock.calls.some(
           ([url]) =>
             url ===
-            "/api/v1/organizations/org/projects/project/billing/invoices/invoice-1",
+            "/api/v1/workspaces/project/billing/invoices/invoice-1",
         ),
       ).toBe(true),
     );
@@ -534,7 +534,7 @@ describe('customer media statement pagination', () => {
     await user.click(await screen.findByRole('button',{name:'Show more media charges'}));
     await waitFor(()=>expect(within(screen.getByRole('region',{name:'Media charges'})).getAllByText('example/video')).toHaveLength(2));
     expect(within(screen.getByRole('table',{name:'Text charges'})).getAllByText('qwen/text')).toHaveLength(1);
-    expect(fetcher.mock.calls.map(([url])=>String(url))).toContain('/api/v1/organizations/org/projects/project/billing/invoices/invoice-1?media_after=private-cursor');
+    expect(fetcher.mock.calls.map(([url])=>String(url))).toContain('/api/v1/workspaces/project/billing/invoices/invoice-1?media_after=private-cursor');
     expect(screen.queryByText('private-cursor')).toBeNull();
     expect(screen.queryByRole('button',{name:'Show more media charges'})).toBeNull();
   });

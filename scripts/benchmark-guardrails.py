@@ -44,7 +44,7 @@ def main():
         org, workspace = [str(UUID(os.environ[name])) for name in required[2:]]
     except ValueError:
         parser.error('organization/workspace identifiers must be UUIDs')
-    endpoint = f'{base}/organizations/{org}/projects/{workspace}/guardrails'
+    endpoint = f'{base}/workspaces/{workspace}/guardrails'
     token = os.environ['NIU_ADMIN_TOKEN']
     results = []
     stages = [('input', None)] + [('output', mode) for mode in dict.fromkeys(args.output_modes)]

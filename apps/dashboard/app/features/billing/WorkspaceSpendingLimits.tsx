@@ -41,13 +41,13 @@ function checked(result: {data: SpendingAccount[]}): SpendingAccount[] {
   return result.data;
 }
 
-export default function WorkspaceSpendingLimits({token, organization, project, canConfigure, refresh, className}: {
+export default function WorkspaceSpendingLimits({token, organization: _organization, project, canConfigure, refresh, className}: {
   token: string; organization: string; project: string; canConfigure: boolean; refresh: number; className?: string;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const {currency:platformCurrency, billingMode:platformBillingMode, unit:platformUnit} = usePlatformCurrency();
-  const base = `/api/v1/organizations/${organization}/projects/${project}/spending-limit`;
-  const unitBase = `/api/v1/organizations/${organization}/projects/${project}/units/limit`;
+  const base = `/api/v1/workspaces/${project}/spending-limit`;
+  const unitBase = `/api/v1/workspaces/${project}/units/limit`;
   const readCachedAccounts = (tok: string, path: string) => {
     try {
       const cached = peekCachedGet<{ data: SpendingAccount[] }>(tok, path);

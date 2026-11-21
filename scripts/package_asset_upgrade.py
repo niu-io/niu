@@ -72,8 +72,7 @@ def assert_asset_upgrade(request, database_value, saved):
     assert status == 200 and configuration["data"]["configured"] is True
     assert configuration["data"]["revision"] == 1
     scope = saved["input"]
-    path = (f"/api/v1/organizations/{_uuid(scope['organization_id'])}/projects/"
-            f"{_uuid(scope['project_id'])}/asset-group-intents/{intent}/request")
+    path = f"/api/v1/workspaces/{_uuid(scope['project_id'])}/asset-group-intents/{intent}/request"
     status, detail = request("GET", path, admin=True)
     assert status == 200 and detail["data"]["status"] == "prepared"
     assert detail["data"]["request"]["name"] == scope["name"]

@@ -1,7 +1,10 @@
-use crate::{admin::authorize_project, error::ApiError, state::AppState};
+use crate::{
+    admin::authorize_project, error::ApiError, state::AppState,
+    web::workspace_path::WorkspacePath as Path,
+};
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::State,
     http::{HeaderMap, StatusCode},
 };
 use niu_storage::{AdminPermission, TenantScope};

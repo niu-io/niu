@@ -158,28 +158,23 @@ test('curl query examples encode alias values without changing a POST body or me
   }
 });
 
-test('workspace aliases preserve payload contracts and require qualified session identities', () => {
- const spec = JSON.parse(readFileSync(fileURLToPath(new URL('../../../contracts/generated/handler-operations.json', import.meta.url)), 'utf8'));
- const aliases = JSON.parse(readFileSync(fileURLToPath(new URL('../../../contracts/route-aliases.json', import.meta.url)), 'utf8'));
- for (const {source, target} of aliases) {
-   for (const [method, original] of Object.entries(spec.paths[source])) {
-     const operation = spec.paths[target][method];
-     assert.ok(operation);
-     assert.notEqual(operation.operationId, original.operationId);
-     assert.equal(operation['x-niu-compatibility-route'], source);
-     assert.deepEqual(operation.requestBody, original.requestBody);
-     for (const [status, response] of Object.entries(original.responses)) {
-       assert.deepEqual(operation.responses[status], response);
-     }
-     assert.ok(operation.parameters.some(p => p.in === 'path' && p.name === 'workspace'));
-     assert.ok(!operation.parameters.some(p => p.name === 'organization' || p.name === 'project'));
-     if (target.includes('/sessions')) {
-       const category = operation.parameters.find(p => p.name === 'category');
-       assert.equal(category.required, true);
-       assert.deepEqual(category.schema.enum, method === 'get' ? ['video','chat'] : ['video']);
-     }
-   }
- }
+test('workspace routes have no legacy /projects paths and require qualified session identities', () => {
+  const spec = JSON.parse(readFileSync(fileURLToPath(new URL('../../../contracts/generated/handler-operations.json', import.meta.url)), 'utf8'));
+  for (const [route, item] of Object.entries(spec.paths)) {
+    assert.ok(!route.includes('/projects'), `legacy /projects route remained: ${route}`);
+    for (const [method, operation] of Object.entries(item)) {
+      if (route.startsWith('/api/v1/workspaces/{workspace}/')) {
+        assert.ok(operation.parameters.some(p => p.in === 'path' && p.name === 'workspace'), `${method} ${route} missing workspace param`);
+        assert.ok(!operation.parameters.some(p => p.name === 'organization' || p.name === 'project'), `${method} ${route} still has organization/project param`);
+      }
+      if (route.includes('/workspaces/{workspace}/sessions')) {
+        const category = operation.parameters.find(p => p.name === 'category');
+        assert.ok(category, `${method} ${route} missing category param`);
+        assert.equal(category.required, true);
+        assert.deepEqual(category.schema.enum, method === 'get' ? ['video', 'chat'] : ['video']);
+      }
+    }
+  }
 });
 
 test('workspace routing documentation distinguishes delegated read, preview and mutation authority', async () => {

@@ -93,14 +93,6 @@ for (const item of [spec, ...Object.values(spec.paths).flatMap(item => Object.va
     if (!spec.components?.securitySchemes?.[name]) throw new Error(`Undefined bundled security scheme ${name}`);
   }
 }
-const LEGACY_DUPLICATE_PROJECT_PATHS = new Set([
-  '/api/v1/organizations/{organization}/projects',
-  '/api/v1/organizations/{organization}/projects/{project}',
-  '/api/v1/organizations/{organization}/projects/{project}/keys',
-  '/api/v1/organizations/{organization}/projects/{project}/keys/{key}',
-  '/api/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate',
-]);
-
 const BUNDLE_DOMAIN_PREFIXES = new Map([
   ['billing_openapi_yaml', 'Billing'],
   ['guardrails_openapi_yaml', 'Guardrail'],
@@ -268,7 +260,7 @@ function buildAudienceView(title, audiences, { canonicalOnly = false, sanitizePu
   }
   const filteredPaths = {};
   for (const [route, item] of Object.entries(spec.paths)) {
-    if (canonicalOnly && (aliasedLegacyRoutes.has(route) || LEGACY_DUPLICATE_PROJECT_PATHS.has(route))) {
+    if (canonicalOnly && aliasedLegacyRoutes.has(route)) {
       continue;
     }
     const filteredItem = {};

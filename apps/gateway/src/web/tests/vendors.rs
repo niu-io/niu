@@ -206,8 +206,8 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
         &app,
         Method::POST,
         &format!(
-            "/api/v1/organizations/{}/projects/{}/keys/{}/rotate",
-            scope.organization_id, scope.project_id, key.id
+            "/api/v1/workspaces/{}/keys/{}/rotate",
+            scope.project_id, key.id
         ),
         ADMIN,
         json!({}),
@@ -422,10 +422,7 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
         store.vendor_supplier(first_id).await.unwrap().unwrap(),
         supplier
     );
-    let revoke_path = format!(
-        "/api/v1/organizations/{}/projects/{}/keys/{}",
-        scope.organization_id, scope.project_id, key.id
-    );
+    let revoke_path = format!("/api/v1/workspaces/{}/keys/{}", scope.project_id, key.id);
     assert_eq!(
         call(&app, Method::DELETE, &revoke_path, ADMIN, Value::Null)
             .await
@@ -488,10 +485,7 @@ async fn key_creation_uses_active_database_and_static_models(pool: PgPool) {
     ));
     let scope = state.store.default_workspace().await.unwrap();
     let app = router(state);
-    let key_path = format!(
-        "/api/v1/organizations/{}/projects/{}/keys",
-        scope.organization_id, scope.project_id
-    );
+    let key_path = format!("/api/v1/workspaces/{}/keys", scope.project_id);
     let key_input =
         |alias: &str| json!({"name":"client", "allowed_models":[alias], "ttl_seconds":3600});
     assert_eq!(
@@ -2313,12 +2307,12 @@ async fn asset_management_request_delete_api_requires_workspace_write_access(poo
         .unwrap();
     let app = router(state.clone());
     let detail_path = format!(
-        "/api/v1/organizations/{}/projects/{}/asset-group-intents/{}/request",
-        scope.organization_id, scope.project_id, intent.id
+        "/api/v1/workspaces/{}/asset-group-intents/{}/request",
+        scope.project_id, intent.id
     );
     let list_path = format!(
-        "/api/v1/organizations/{}/projects/{}/asset-group-intents",
-        scope.organization_id, scope.project_id
+        "/api/v1/workspaces/{}/asset-group-intents",
+        scope.project_id
     );
     for path in [&list_path, &detail_path] {
         let response = app
@@ -2427,8 +2421,8 @@ async fn asset_management_request_delete_api_requires_workspace_write_access(poo
                 Request::builder()
                     .method(Method::DELETE)
                     .uri(format!(
-                        "/api/v1/organizations/{}/projects/{}/asset-group-intents/{}/request",
-                        target.organization_id, target.project_id, intent.id
+                        "/api/v1/workspaces/{}/asset-group-intents/{}/request",
+                        target.project_id, intent.id
                     ))
                     .header("authorization", format!("Bearer {token}"))
                     .body(axum::body::Body::empty())
@@ -2478,8 +2472,8 @@ async fn asset_management_request_delete_api_requires_workspace_write_access(poo
     assert!(deleted["name"].is_null());
     assert_eq!(deleted["request_content_status"], "deleted");
     let foreign_list = format!(
-        "/api/v1/organizations/{}/projects/{}/asset-group-intents",
-        other.organization_id, other.project_id
+        "/api/v1/workspaces/{}/asset-group-intents",
+        other.project_id
     );
     assert_eq!(
         call(&app, Method::GET, &foreign_list, &viewer.token, json!(null))

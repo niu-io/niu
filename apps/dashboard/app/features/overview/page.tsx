@@ -21,7 +21,7 @@ export const handle: RouteHandle = {
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace }) => ({
     endpoint: workspace
-      ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/requests?limit=10`
+      ? `/api/v1/workspaces/${workspace.id}/requests?limit=10`
       : null,
   }));
 }

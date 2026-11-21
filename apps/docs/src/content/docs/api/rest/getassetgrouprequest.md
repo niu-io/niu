@@ -1,11 +1,11 @@
 ---
 title: "Read customer-safe asset request content and retention status"
-description: "GET /api/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request"
+description: "GET /api/v1/workspaces/{workspace}/asset-group-intents/{intent}/request"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request`
+`GET /api/v1/workspaces/{workspace}/asset-group-intents/{intent}/request`
 
 Requires workspace read permission. Returns null for absent intents. Expired or deleted request content is hidden immediately. Account bindings, credential revisions, fingerprints and procurement data are excluded.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/asset-group-intents/{intent}/request" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
 ```
 

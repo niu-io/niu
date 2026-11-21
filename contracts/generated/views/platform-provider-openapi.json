@@ -41,7 +41,7 @@
     },
     {
       "name": "Companies and workspaces",
-      "description": "Company and workspace discovery and lifecycle. Legacy project path segments refer to workspaces."
+      "description": "Company and workspace discovery and lifecycle."
     },
     {
       "name": "Media assets and verification",
@@ -78,10 +78,6 @@
     {
       "name": "Audit and recovery",
       "description": "Audit events and financial recovery controls."
-    },
-    {
-      "name": "Legacy account and cost APIs",
-      "description": "Compatibility APIs for upstream account metadata and upstream accounting. These are not customer billing accounts or customer charges."
     }
   ],
   "x-tagGroups": [
@@ -124,8 +120,7 @@
       "name": "Service and compatibility",
       "tags": [
         "Branding and settings",
-        "Audit and recovery",
-        "Legacy account and cost APIs"
+        "Audit and recovery"
       ]
     }
   ],
@@ -5283,9 +5278,9 @@
     },
     "/api/v1/workspaces/{workspace}/requests/{attempt}/usage-reconciliation": {
       "post": {
-        "operationId": "reconcileRequestUsageByWorkspace",
+        "operationId": "reconcileRequestUsage",
         "summary": "Supplement missing native request usage from captured OpenRouter evidence",
-        "description": "Installation write access only. Empty object input; no client-supplied generation identifier, quantities or costs. Uses the stored server response reference and original managed credential only while its vendor revision remains current and enabled. New captured references pin the dispatched upstream model independently of later mapping edits; legacy references without that binding still require the unchanged enabled model revision. Exact upstream model match required; aliases are not inferred equivalent. Bounded metadata lookup can return 502 while metadata is unavailable. Eligible requests have unknown aggregate usage, or confirmed provider-reported totals with missing cache-read/reasoning quantities and no recorded monetary or Credits customer charge. For known totals, metadata must match both totals and every reported known category, and add at least one previously missing category. Cache-write quantities are not supplied by this lookup; existing quantities are preserved. Canonical metadata must confirm not-cancelled execution with stop/length/tool_calls and an exact model/reference match. Cancelled or nonterminal metadata remains unresolved. Atomically retains the original execution/usage/category state and immutable supplemental terminal evidence, then marks execution confirmed-completed. Existing completion timestamps are preserved; absent timestamps record the time confirmation is stored. Original failure and delivery timing remain unchanged. Recorded does not mean settled: existing financial recovery applies the request-bound tariffs; missing required categories keep liability unresolved. Never resubmits inference. Identical replay returns the saved receipt without upstream access. Cache-Control no-store. New v2 receipts retain terminal finish/cancellation evidence. Legacy v1 receipts retain null terminal fields without invented backfill. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Installation write access only. Empty object input; no client-supplied generation identifier, quantities or costs. Uses the stored server response reference and original managed credential only while its vendor revision remains current and enabled. New captured references pin the dispatched upstream model independently of later mapping edits; legacy references without that binding still require the unchanged enabled model revision. Exact upstream model match required; aliases are not inferred equivalent. Bounded metadata lookup can return 502 while metadata is unavailable. Eligible requests have unknown aggregate usage, or confirmed provider-reported totals with missing cache-read/reasoning quantities and no recorded monetary or Credits customer charge. For known totals, metadata must match both totals and every reported known category, and add at least one previously missing category. Cache-write quantities are not supplied by this lookup; existing quantities are preserved. Canonical metadata must confirm not-cancelled execution with stop/length/tool_calls and an exact model/reference match. Cancelled or nonterminal metadata remains unresolved. Atomically retains the original execution/usage/category state and immutable supplemental terminal evidence, then marks execution confirmed-completed. Existing completion timestamps are preserved; absent timestamps record the time confirmation is stored. Original failure and delivery timing remain unchanged. Recorded does not mean settled: existing financial recovery applies the request-bound tariffs; missing required categories keep liability unresolved. Never resubmits inference. Identical replay returns the saved receipt without upstream access. Cache-Control no-store. New v2 receipts retain terminal finish/cancellation evidence. Legacy v1 receipts retain null terminal fields without invented backfill.",
         "security": [
           {
             "bearerAuth": []
@@ -5449,7 +5444,6 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
         "tags": [
           "Request logs and usage"
         ],
@@ -5464,9 +5458,9 @@
         }
       },
       "get": {
-        "operationId": "getRequestUsageReconciliationByWorkspace",
+        "operationId": "getRequestUsageReconciliation",
         "summary": "Read recorded supplemental request usage",
-        "description": "Workspace read access required. Returns the same customer-safe immutable receipt as reconciliation, without querying upstream or modifying usage or accounting. Absence, unknown attempt and out-of-scope attempt return 404. Quantities are decimal strings; missing categories remain null. Recorded does not guarantee settlement. No original raw upstream metadata, generation reference, credential, Provider price or endpoint is exposed. Cache-Control no-store. New v2 receipts retain terminal finish/cancellation evidence. Legacy v1 receipts retain null terminal fields without invented backfill. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Workspace read access required. Returns the same customer-safe immutable receipt as reconciliation, without querying upstream or modifying usage or accounting. Absence, unknown attempt and out-of-scope attempt return 404. Quantities are decimal strings; missing categories remain null. Recorded does not guarantee settlement. No original raw upstream metadata, generation reference, credential, Provider price or endpoint is exposed. Cache-Control no-store. New v2 receipts retain terminal finish/cancellation evidence. Legacy v1 receipts retain null terminal fields without invented backfill.",
         "security": [
           {
             "bearerAuth": []
@@ -5603,7 +5597,6 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
         "tags": [
           "Request logs and usage"
         ],
@@ -5618,7 +5611,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment": {
+    "/api/v1/workspaces/{workspace}/billing/media-retail-price-enrollment": {
       "post": {
         "operationId": "setRetailMediaEnrollment",
         "summary": "Set workspace media selling-price enrollment",
@@ -5630,16 +5623,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -5827,16 +5811,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -6705,7 +6680,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment": {
+    "/api/v1/workspaces/{workspace}/billing/retail-price-enrollment": {
       "post": {
         "operationId": "setRetailTextEnrollment",
         "summary": "Enroll a workspace model in a platform selling price",
@@ -6717,16 +6692,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -6870,16 +6836,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -10522,361 +10479,6 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation": {
-      "post": {
-        "operationId": "reconcileRequestUsage",
-        "summary": "Supplement missing native request usage from captured OpenRouter evidence",
-        "description": "Installation write access only. Empty object input; no client-supplied generation identifier, quantities or costs. Uses the stored server response reference and original managed credential only while its vendor revision remains current and enabled. New captured references pin the dispatched upstream model independently of later mapping edits; legacy references without that binding still require the unchanged enabled model revision. Exact upstream model match required; aliases are not inferred equivalent. Bounded metadata lookup can return 502 while metadata is unavailable. Eligible requests have unknown aggregate usage, or confirmed provider-reported totals with missing cache-read/reasoning quantities and no recorded monetary or Credits customer charge. For known totals, metadata must match both totals and every reported known category, and add at least one previously missing category. Cache-write quantities are not supplied by this lookup; existing quantities are preserved. Canonical metadata must confirm not-cancelled execution with stop/length/tool_calls and an exact model/reference match. Cancelled or nonterminal metadata remains unresolved. Atomically retains the original execution/usage/category state and immutable supplemental terminal evidence, then marks execution confirmed-completed. Existing completion timestamps are preserved; absent timestamps record the time confirmation is stored. Original failure and delivery timing remain unchanged. Recorded does not mean settled: existing financial recovery applies the request-bound tariffs; missing required categories keep liability unresolved. Never resubmits inference. Identical replay returns the saved receipt without upstream access. Cache-Control no-store. New v2 receipts retain terminal finish/cancellation evidence. Legacy v1 receipts retain null terminal fields without invented backfill.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "attempt",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {}
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Supplemental usage recorded; settlement may remain pending.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "status",
-                    "source_version",
-                    "recorded_at",
-                    "prompt_tokens",
-                    "completion_tokens",
-                    "cached_input_tokens",
-                    "reasoning_output_tokens",
-                    "cache_write_input_tokens",
-                    "original_execution",
-                    "upstream_finish_reason",
-                    "upstream_cancelled"
-                  ],
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "recorded"
-                      ]
-                    },
-                    "source_version": {
-                      "type": "string",
-                      "enum": [
-                        "openrouter-native-generation-v1",
-                        "openrouter-native-generation-v2"
-                      ]
-                    },
-                    "recorded_at": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
-                    "prompt_tokens": {
-                      "type": "string",
-                      "pattern": "^[0-9]+$"
-                    },
-                    "completion_tokens": {
-                      "type": "string",
-                      "pattern": "^[0-9]+$"
-                    },
-                    "cached_input_tokens": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "pattern": "^[0-9]+$"
-                    },
-                    "reasoning_output_tokens": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "pattern": "^[0-9]+$"
-                    },
-                    "cache_write_input_tokens": {
-                      "type": "null"
-                    },
-                    "original_execution": {
-                      "type": "string",
-                      "enum": [
-                        "confirmed_completed",
-                        "may_have_executed"
-                      ]
-                    },
-                    "upstream_finish_reason": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "enum": [
-                        "stop",
-                        "length",
-                        "tool_calls",
-                        null
-                      ],
-                      "description": "Null for legacy v1 receipts; never backfilled."
-                    },
-                    "upstream_cancelled": {
-                      "type": [
-                        "boolean",
-                        "null"
-                      ],
-                      "enum": [
-                        false,
-                        null
-                      ],
-                      "description": "Explicit false for v2 terminal evidence; null for legacy v1 receipts."
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed JSON input."
-          },
-          "401": {
-            "description": "Authentication required."
-          },
-          "403": {
-            "description": "Installation write access required."
-          },
-          "404": {
-            "description": "Scope unavailable."
-          },
-          "409": {
-            "description": "Ineligible completion, changed route or conflicting evidence. usage_reconciliation_identity_mismatch means upstream model/reference identity differs from captured request evidence; identities are not exposed. usage_reconciliation_incomplete means matching provider metadata does not confirm a non-cancelled terminal generation. Usage and charges remain unresolved in both cases."
-          },
-          "422": {
-            "description": "Input must be an empty JSON object; unknown fields are rejected."
-          },
-          "502": {
-            "description": "Upstream metadata unavailable, refused, malformed, oversized or timed out."
-          },
-          "503": {
-            "description": "Storage or credential decryption unavailable, including a bounded record-lock or statement timeout. A failed recording transaction preserves prior usage and leaves no partial receipt; retry does not resubmit inference."
-          }
-        },
-        "x-niu-implementation": "implemented",
-        "x-niu-canonical-route": "/api/v1/workspaces/{workspace}/requests/{attempt}/usage-reconciliation",
-        "tags": [
-          "Request logs and usage"
-        ],
-        "x-niu-authority": {
-          "audience": "platform",
-          "principals": [
-            "platform_admin",
-            "installation_admin"
-          ],
-          "required_capability": "platform_admin",
-          "scope": "platform"
-        }
-      },
-      "get": {
-        "operationId": "getRequestUsageReconciliation",
-        "summary": "Read recorded supplemental request usage",
-        "description": "Workspace read access required. Returns the same customer-safe immutable receipt as reconciliation, without querying upstream or modifying usage or accounting. Absence, unknown attempt and out-of-scope attempt return 404. Quantities are decimal strings; missing categories remain null. Recorded does not guarantee settlement. No original raw upstream metadata, generation reference, credential, Provider price or endpoint is exposed. Cache-Control no-store. New v2 receipts retain terminal finish/cancellation evidence. Legacy v1 receipts retain null terminal fields without invented backfill.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "attempt",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Supplemental usage recorded; settlement may remain pending.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "status",
-                    "source_version",
-                    "recorded_at",
-                    "prompt_tokens",
-                    "completion_tokens",
-                    "cached_input_tokens",
-                    "reasoning_output_tokens",
-                    "cache_write_input_tokens",
-                    "original_execution",
-                    "upstream_finish_reason",
-                    "upstream_cancelled"
-                  ],
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "recorded"
-                      ]
-                    },
-                    "source_version": {
-                      "type": "string",
-                      "enum": [
-                        "openrouter-native-generation-v1",
-                        "openrouter-native-generation-v2"
-                      ]
-                    },
-                    "recorded_at": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
-                    "prompt_tokens": {
-                      "type": "string",
-                      "pattern": "^[0-9]+$"
-                    },
-                    "completion_tokens": {
-                      "type": "string",
-                      "pattern": "^[0-9]+$"
-                    },
-                    "cached_input_tokens": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "pattern": "^[0-9]+$"
-                    },
-                    "reasoning_output_tokens": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "pattern": "^[0-9]+$"
-                    },
-                    "cache_write_input_tokens": {
-                      "type": "null"
-                    },
-                    "original_execution": {
-                      "type": "string",
-                      "enum": [
-                        "confirmed_completed",
-                        "may_have_executed"
-                      ]
-                    },
-                    "upstream_finish_reason": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "enum": [
-                        "stop",
-                        "length",
-                        "tool_calls",
-                        null
-                      ],
-                      "description": "Null for legacy v1 receipts; never backfilled."
-                    },
-                    "upstream_cancelled": {
-                      "type": [
-                        "boolean",
-                        "null"
-                      ],
-                      "enum": [
-                        false,
-                        null
-                      ],
-                      "description": "Explicit false for v2 terminal evidence; null for legacy v1 receipts."
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required."
-          },
-          "404": {
-            "description": "No recorded receipt in the authorized workspace."
-          },
-          "503": {
-            "description": "Storage or credential decryption unavailable."
-          }
-        },
-        "x-niu-implementation": "implemented",
-        "x-niu-canonical-route": "/api/v1/workspaces/{workspace}/requests/{attempt}/usage-reconciliation",
-        "tags": [
-          "Request logs and usage"
-        ],
-        "x-niu-authority": {
-          "audience": "platform",
-          "principals": [
-            "platform_admin",
-            "installation_admin"
-          ],
-          "required_capability": "read",
-          "scope": "platform"
-        }
-      }
-    },
     "/api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs": {
       "get": {
         "operationId": "listPlatformCustomerTariffs",
@@ -12446,7 +12048,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history": {
+    "/api/v1/workspaces/{workspace}/billing/tariffs/{model}/history": {
       "get": {
         "operationId": "listCustomerTariffHistory",
         "summary": "Read immutable customer text price history",
@@ -12458,16 +12060,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -15777,7 +15370,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/billing/tariffs": {
+    "/api/v1/workspaces/{workspace}/billing/tariffs": {
       "post": {
         "security": [
           {
@@ -15972,16 +15565,7 @@
         },
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -16005,7 +15589,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/billing/invoices": {
+    "/api/v1/workspaces/{workspace}/billing/invoices": {
       "post": {
         "security": [
           {
@@ -16097,16 +15681,7 @@
         },
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -16130,13 +15705,10 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment": {
+    "/api/v1/workspaces/{workspace}/billing/invoices/{invoice}/payment": {
       "parameters": [
         {
-          "$ref": "#/components/parameters/Organization"
-        },
-        {
-          "$ref": "#/components/parameters/Project"
+          "$ref": "#/components/parameters/Workspace"
         },
         {
           "$ref": "#/components/parameters/Invoice"
@@ -23791,327 +23363,6 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/accounts": {
-      "get": {
-        "operationId": "listAccounts",
-        "summary": "List account metadata without credential references",
-        "security": [
-          {
-            "adminBearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Account registered as unverified, or metadata returned. Registration does not activate inference."
-          },
-          "401": {
-            "description": "Invalid administrator token."
-          }
-        },
-        "tags": [
-          "Legacy account and cost APIs"
-        ],
-        "x-niu-authority": {
-          "audience": "platform",
-          "principals": [
-            "platform_admin",
-            "installation_admin"
-          ],
-          "required_capability": "read",
-          "scope": "platform"
-        }
-      },
-      "post": {
-        "operationId": "registerAccount",
-        "summary": "Register an unverified account",
-        "security": [
-          {
-            "adminBearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AccountInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Account registered as unverified, or metadata returned. Registration does not activate inference."
-          },
-          "401": {
-            "description": "Invalid administrator token."
-          }
-        },
-        "tags": [
-          "Legacy account and cost APIs"
-        ],
-        "x-niu-authority": {
-          "audience": "platform",
-          "principals": [
-            "platform_admin",
-            "installation_admin"
-          ],
-          "required_capability": "platform_admin",
-          "scope": "platform"
-        }
-      }
-    },
-    "/api/v1/organizations/{organization}/projects/{project}/budget": {
-      "post": {
-        "operationId": "createProjectBudget",
-        "summary": "Create a platform upstream cost budget (installation only)",
-        "description": "Fails with conflict if a budget exists. Previously dispatched work is not retroactively reserved. Further dispatch requires a trusted held reservation; configure pricing separately in the model route.",
-        "security": [
-          {
-            "adminBearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "currency",
-                  "limit_nanos"
-                ],
-                "properties": {
-                  "currency": {
-                    "type": "string",
-                    "pattern": "^[A-Z]{3}$"
-                  },
-                  "limit_nanos": {
-                    "type": "string",
-                    "pattern": "^[0-9]+$",
-                    "description": "Nonnegative integer billionths of currency, at most 9223372036854775807."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Created budget snapshot with decimal-string amounts and lifetime period."
-          },
-          "400": {
-            "description": "Invalid currency or amount."
-          },
-          "401": {
-            "description": "Administrator authentication required."
-          },
-          "409": {
-            "description": "Budget already exists or the workspace is absent from the organization."
-          },
-          "422": {
-            "description": "JSON does not match the required schema."
-          }
-        },
-        "tags": [
-          "Legacy account and cost APIs"
-        ],
-        "x-niu-authority": {
-          "audience": "platform",
-          "principals": [
-            "platform_admin",
-            "installation_admin"
-          ],
-          "required_capability": "platform_admin",
-          "scope": "platform"
-        }
-      },
-      "get": {
-        "operationId": "getProjectBudget",
-        "summary": "Read the platform upstream cost budget (installation only)",
-        "security": [
-          {
-            "adminBearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Budget data or null. limit_nanos, reserved_nanos and spent_nanos are exact decimal strings in billionths of currency. A null budget is not a zero limit."
-          },
-          "400": {
-            "description": "Invalid path or query parameter."
-          },
-          "401": {
-            "description": "Administrator authentication required."
-          }
-        },
-        "tags": [
-          "Legacy account and cost APIs"
-        ],
-        "x-niu-authority": {
-          "audience": "platform",
-          "principals": [
-            "platform_admin",
-            "installation_admin"
-          ],
-          "required_capability": "read",
-          "scope": "platform"
-        }
-      }
-    },
-    "/api/v1/organizations/{organization}/projects/{project}/costs": {
-      "get": {
-        "operationId": "listProjectCosts",
-        "summary": "Read platform upstream cost entries (installation only)",
-        "security": [
-          {
-            "adminBearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "after",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 50
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Data and nullable next_cursor. Monetary and token values are decimal strings. API-equivalent and cash charges remain distinct. Unsettled attempts are excluded; an empty page does not prove zero incurred cost. Traversal is a live view ordered by attempt UUID, not chronological or a snapshot."
-          },
-          "400": {
-            "description": "Invalid path or query parameter."
-          },
-          "401": {
-            "description": "Administrator authentication required."
-          }
-        },
-        "tags": [
-          "Legacy account and cost APIs"
-        ],
-        "x-niu-authority": {
-          "audience": "platform",
-          "principals": [
-            "platform_admin",
-            "installation_admin"
-          ],
-          "required_capability": "read",
-          "scope": "platform"
-        }
-      }
-    },
     "/api/v1/setup/default-workspace": {
       "post": {
         "operationId": "getOrCreateDefaultWorkspace",
@@ -26040,52 +25291,6 @@
           "created_at": {
             "type": "string",
             "format": "date-time"
-          }
-        }
-      },
-      "AccountInput": {
-        "type": "object",
-        "required": [
-          "provider",
-          "plan",
-          "authentication_mode",
-          "billing_mode",
-          "credential_reference",
-          "concurrency_limit"
-        ],
-        "properties": {
-          "provider": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "plan": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "authentication_mode": {
-            "type": "string",
-            "enum": [
-              "api_key",
-              "oauth_refresh"
-            ]
-          },
-          "billing_mode": {
-            "type": "string",
-            "enum": [
-              "metered_api",
-              "subscription"
-            ]
-          },
-          "credential_reference": {
-            "type": "string",
-            "description": "Opaque env or secret reference, never the secret value."
-          },
-          "concurrency_limit": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 10000
           }
         }
       },
@@ -28822,8 +28027,8 @@
           "format": "uuid"
         }
       },
-      "Project": {
-        "name": "project",
+      "Workspace": {
+        "name": "workspace",
         "in": "path",
         "required": true,
         "schema": {

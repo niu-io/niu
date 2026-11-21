@@ -173,7 +173,7 @@ pub struct DraftInput {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/chats/draft",
+///   "path": "/api/v1/workspaces/{workspace}/chats/draft",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getChatDraft",
@@ -187,16 +187,7 @@ pub struct DraftInput {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -298,7 +289,10 @@ pub struct DraftInput {
 ///       ],
 ///       "properties": {
 ///         "keyId": {
-///           "type": ["string", "null"],
+///           "type": [
+///             "string",
+///             "null"
+///           ],
 ///           "format": "uuid",
 ///           "description": "Selected API key in this workspace. Retained after revocation for explicit recovery; never grants invocation authority. Omitted on legacy drafts."
 ///         },
@@ -426,7 +420,7 @@ pub async fn draft(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/chats/draft",
+///   "path": "/api/v1/workspaces/{workspace}/chats/draft",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "saveChatDraft",
@@ -440,16 +434,7 @@ pub async fn draft(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -605,7 +590,7 @@ pub struct ArchiveInput {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}/archive",
+///   "path": "/api/v1/workspaces/{workspace}/chats/{id}/archive",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setChatSessionArchived",
@@ -654,16 +639,7 @@ pub struct ArchiveInput {
 ///     },
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -709,7 +685,7 @@ pub async fn archive(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/chats",
+///   "path": "/api/v1/workspaces/{workspace}/chats",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listChatSessions",
@@ -723,16 +699,7 @@ pub async fn archive(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -867,7 +834,7 @@ pub async fn list(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}",
+///   "path": "/api/v1/workspaces/{workspace}/chats/{id}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getChatSession",
@@ -876,16 +843,7 @@ pub async fn list(
 ///     "description": "Requires workspace read permission and the authenticated personal owner. Returns the full saved conversation and archive state without scanning history pages, including sessions beyond the recent-100 list. Selection and authoritative customer-charge hydration share a bounded read-only snapshot (250 ms lock and 2 s statement limits); preceding authorization and pool acquisition are separate. Saved browser accounting is ignored. Saved JSON above 32 MiB returns 413; no content is truncated. Archived sessions remain directly readable. Accepts an internal UUID alias or permanent chat reference; both require the same workspace and personal-owner authorization. The returned data includes its server-assigned reference.",
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1001,7 +959,7 @@ pub async fn get(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}",
+///   "path": "/api/v1/workspaces/{workspace}/chats/{id}",
 ///   "method": "delete",
 ///   "operation": {
 ///     "operationId": "deleteChatSession",
@@ -1025,16 +983,7 @@ pub async fn get(
 ///     },
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1127,7 +1076,7 @@ fn conversation_export(mut payload: Value) -> Value {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}/export",
+///   "path": "/api/v1/workspaces/{workspace}/chats/{id}/export",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "exportChatSession",
@@ -1198,7 +1147,14 @@ fn conversation_export(mut payload: Value) -> Value {
 ///                             "content": {
 ///                               "type": "string"
 ///                             },
-///                             "finishReason": {"type": ["string", "null"], "maxLength": 128, "description": "Model completion reason, when supplied. Transport completion alone does not establish a complete answer."},
+///                             "finishReason": {
+///                               "type": [
+///                                 "string",
+///                                 "null"
+///                               ],
+///                               "maxLength": 128,
+///                               "description": "Model completion reason, when supplied. Transport completion alone does not establish a complete answer."
+///                             },
 ///                             "phase": {
 ///                               "type": "string",
 ///                               "enum": [
@@ -1258,16 +1214,7 @@ fn conversation_export(mut payload: Value) -> Value {
 ///     },
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1310,7 +1257,7 @@ pub async fn export(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}",
+///   "path": "/api/v1/workspaces/{workspace}/chats/{id}",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "saveChatSession",
@@ -1413,7 +1360,14 @@ pub async fn export(
 ///                       "minimum": 0,
 ///                       "maximum": 9007199254740991
 ///                     },
-///                     "finishReason": {"type": ["string", "null"], "maxLength": 128, "description": "Model completion reason, when supplied. Transport completion alone does not establish a complete answer."},
+///                     "finishReason": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "maxLength": 128,
+///                       "description": "Model completion reason, when supplied. Transport completion alone does not establish a complete answer."
+///                     },
 ///                     "phase": {
 ///                       "type": "string",
 ///                       "enum": [
@@ -1521,7 +1475,10 @@ pub async fn export(
 ///                   "const": true
 ///                 },
 ///                 "reference": {
-///                   "type": ["string", "null"],
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
 ///                   "description": "Permanent server-assigned Chat reference for product links."
 ///                 },
 ///                 "revision": {
@@ -1559,16 +1516,7 @@ pub async fn export(
 ///     "x-niu-implementation": "implemented",
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

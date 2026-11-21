@@ -1,9 +1,9 @@
 //! Private Codex/ChatGPT plan connections using the documented public OAuth flow.
 //! No credential extraction from Codex, browser storage, or backend-api endpoints.
-use crate::{error::ApiError, state::AppState};
+use crate::{error::ApiError, state::AppState, web::workspace_path::WorkspacePath as Path};
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Query, State},
     http::HeaderMap,
     response::Redirect,
 };

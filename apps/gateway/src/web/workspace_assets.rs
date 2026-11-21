@@ -86,7 +86,7 @@ pub(crate) struct ListQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/assets",
+///   "path": "/api/v1/workspaces/{workspace}/assets",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaceAssets",
@@ -100,16 +100,7 @@ pub(crate) struct ListQuery {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -360,7 +351,7 @@ pub(crate) struct UploadQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/assets",
+///   "path": "/api/v1/workspaces/{workspace}/assets",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "uploadWorkspaceAsset",
@@ -374,16 +365,7 @@ pub(crate) struct UploadQuery {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -713,7 +695,7 @@ pub(crate) async fn upload(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}",
+///   "path": "/api/v1/workspaces/{workspace}/assets/{asset}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getWorkspaceAsset",
@@ -727,16 +709,7 @@ pub(crate) async fn upload(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -934,7 +907,7 @@ pub(crate) struct RenameInput {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}",
+///   "path": "/api/v1/workspaces/{workspace}/assets/{asset}",
 ///   "method": "patch",
 ///   "operation": {
 ///     "operationId": "renameWorkspaceAsset",
@@ -948,16 +921,7 @@ pub(crate) struct RenameInput {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1187,7 +1151,7 @@ pub(crate) struct DeleteQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}",
+///   "path": "/api/v1/workspaces/{workspace}/assets/{asset}",
 ///   "method": "delete",
 ///   "operation": {
 ///     "operationId": "deleteWorkspaceAsset",
@@ -1201,16 +1165,7 @@ pub(crate) struct DeleteQuery {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1291,7 +1246,7 @@ pub(crate) async fn delete(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}/content",
+///   "path": "/api/v1/workspaces/{workspace}/assets/{asset}/content",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "downloadWorkspaceAsset",
@@ -1305,16 +1260,7 @@ pub(crate) async fn delete(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

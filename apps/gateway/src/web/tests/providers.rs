@@ -576,19 +576,12 @@ async fn customer_billing_is_project_scoped_and_financial_writes_are_installatio
         .await
         .unwrap();
     let app = router(state);
-    let base = format!(
-        "/api/v1/organizations/{}/projects/{}/billing",
-        scope.organization_id, scope.project_id
-    );
+    let base = format!("/api/v1/workspaces/{}/billing", scope.project_id);
     assert_eq!(
         call(&app, Method::GET, &base, &owner.token, None).await.0,
         StatusCode::OK
     );
-    let foreign = format!(
-        "/api/v1/organizations/{}/projects/{}/billing",
-        scope.organization_id,
-        Uuid::new_v4()
-    );
+    let foreign = format!("/api/v1/workspaces/{}/billing", Uuid::new_v4());
     assert_eq!(
         call(&app, Method::GET, &foreign, &owner.token, None)
             .await
@@ -782,10 +775,7 @@ async fn inference_independent_ledgers(pool: PgPool) {
         "4000"
     );
     assert_eq!(sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM customer_charges c JOIN provider_earnings e ON e.attempt_id=c.attempt_id").fetch_one(&pool).await.unwrap(),1);
-    let billing_path = format!(
-        "/api/v1/organizations/{}/projects/{}/billing",
-        scope.organization_id, scope.project_id
-    );
+    let billing_path = format!("/api/v1/workspaces/{}/billing", scope.project_id);
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -887,10 +877,7 @@ async fn consumer_access_never_exposes_platform_costs_or_supplier_request_record
         .await
         .unwrap();
     let app = router(state);
-    let base = format!(
-        "/api/v1/organizations/{}/projects/{}",
-        scope.organization_id, scope.project_id
-    );
+    let base = format!("/api/v1/workspaces/{}", scope.project_id);
     for (suffix, expected) in [
         ("costs", StatusCode::FORBIDDEN),
         ("budget", StatusCode::FORBIDDEN),
@@ -1171,10 +1158,7 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
         call(&app, Method::GET, &missing, ADMIN, None).await.0,
         StatusCode::NOT_FOUND
     );
-    let tariff_path = format!(
-        "/api/v1/organizations/{}/projects/{}/billing/tariffs",
-        scope.organization_id, scope.project_id
-    );
+    let tariff_path = format!("/api/v1/workspaces/{}/billing/tariffs", scope.project_id);
     let update = json!({"model_alias":"fast","currency":"USD","prompt_rate":"0","completion_rate":"0","expected_revision":revision});
     let (status, _updated) = call(
         &app,

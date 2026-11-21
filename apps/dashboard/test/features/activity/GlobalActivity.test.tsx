@@ -13,7 +13,7 @@ function mockData(fail=false){vi.stubGlobal('fetch',vi.fn(async (input:unknown,i
  expect((init.headers as Record<string,string>).authorization).toBe('Bearer authorized-token');
  const path=String(input);
  if(path==='/api/v1/workspaces')return Response.json({data:workspaces});
- if(fail && path.includes('/projects/b/'))return new Response('',{status:403});
+ if(fail && path.includes('/workspaces/b/'))return new Response('',{status:403});
  return Response.json({data:[request],summary:summary(),next_cursor:null});
 }));}
 function open(path='/activity'){render(<MemoryRouter initialEntries={[path]}><Routes><Route path="/activity/:section?" element={<GlobalActivityRoute/>}/><Route path="/workspaces/a/executions" element={<p>Application request details</p>}/></Routes></MemoryRouter>);}
@@ -162,7 +162,7 @@ describe('Global Activity',()=>{
   vi.stubGlobal('fetch',vi.fn(async (input:unknown)=>{
     const path=String(input);
     if(path==='/api/v1/workspaces')return Response.json({data:workspaces});
-    if(path.includes('/projects/a/'))return Response.json({
+    if(path.includes('/workspaces/a/'))return Response.json({
       data:[],
       summary:{request_count:5,usage_count:5,prompt_tokens:'100',completion_tokens:'50',customer_charges:[],unresolved_customer_charge_count:2,unpriced_request_count:0,owner_funded_request_count:3},
       next_cursor:null,

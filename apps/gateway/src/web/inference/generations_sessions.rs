@@ -121,7 +121,7 @@ fn revision(v: &str) -> Result<i64, ApiError> {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}",
+///   "path": "/api/v1/workspaces/{workspace}/sessions/{session}",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "generationsSessionCreate",
@@ -135,16 +135,7 @@ fn revision(v: &str) -> Result<i64, ApiError> {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -159,6 +150,17 @@ fn revision(v: &str) -> Result<i64, ApiError> {
 ///         "schema": {
 ///           "type": "string",
 ///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "category",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "video"
+///           ]
 ///         }
 ///       }
 ///     ],
@@ -907,7 +909,7 @@ pub(in crate::web) async fn create(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}",
+///   "path": "/api/v1/workspaces/{workspace}/sessions/{session}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsSessionGet",
@@ -921,16 +923,7 @@ pub(in crate::web) async fn create(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -955,9 +948,9 @@ pub(in crate::web) async fn create(
 ///           "enum": [
 ///             "video",
 ///             "chat"
-///           ],
-///           "default": "video"
-///         }
+///           ]
+///         },
+///         "required": true
 ///       }
 ///     ],
 ///     "responses": {
@@ -1041,7 +1034,7 @@ pub(in crate::web) async fn get(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations",
+///   "path": "/api/v1/workspaces/{workspace}/sessions",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsSessionList",
@@ -1055,16 +1048,7 @@ pub(in crate::web) async fn get(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1106,9 +1090,9 @@ pub(in crate::web) async fn get(
 ///           "enum": [
 ///             "video",
 ///             "chat"
-///           ],
-///           "default": "video"
-///         }
+///           ]
+///         },
+///         "required": true
 ///       }
 ///     ],
 ///     "responses": {
@@ -1211,7 +1195,7 @@ pub(in crate::web) async fn list(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}",
+///   "path": "/api/v1/workspaces/{workspace}/sessions/{session}",
 ///   "method": "patch",
 ///   "operation": {
 ///     "operationId": "generationsSessionUpdate",
@@ -1225,16 +1209,7 @@ pub(in crate::web) async fn list(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1249,6 +1224,17 @@ pub(in crate::web) async fn list(
 ///         "schema": {
 ///           "type": "string",
 ///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "category",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "video"
+///           ]
 ///         }
 ///       }
 ///     ],
@@ -1344,7 +1330,7 @@ pub(in crate::web) async fn update(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}",
+///   "path": "/api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "generationsSessionAppend",
@@ -1358,16 +1344,7 @@ pub(in crate::web) async fn update(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1391,6 +1368,17 @@ pub(in crate::web) async fn update(
 ///         "schema": {
 ///           "type": "string",
 ///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "category",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "video"
+///           ]
 ///         }
 ///       }
 ///     ],
@@ -1490,7 +1478,7 @@ pub(in crate::web) async fn append(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}/task",
+///   "path": "/api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}/task",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "generationsSessionAttach",
@@ -1504,16 +1492,7 @@ pub(in crate::web) async fn append(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1537,6 +1516,17 @@ pub(in crate::web) async fn append(
 ///         "schema": {
 ///           "type": "string",
 ///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "category",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "video"
+///           ]
 ///         }
 ///       }
 ///     ],
@@ -1629,7 +1619,7 @@ pub(in crate::web) async fn attach(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}",
+///   "path": "/api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}",
 ///   "method": "delete",
 ///   "operation": {
 ///     "operationId": "generationsSessionDeleteInstruction",
@@ -1643,16 +1633,7 @@ pub(in crate::web) async fn attach(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1676,6 +1657,17 @@ pub(in crate::web) async fn attach(
 ///         "schema": {
 ///           "type": "string",
 ///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "category",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "video"
+///           ]
 ///         }
 ///       }
 ///     ],
@@ -1756,7 +1748,7 @@ pub(in crate::web) async fn delete_instruction(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}/intent",
+///   "path": "/api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}/intent",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "generationsSessionBindIntent",
@@ -1770,16 +1762,7 @@ pub(in crate::web) async fn delete_instruction(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1803,6 +1786,17 @@ pub(in crate::web) async fn delete_instruction(
 ///         "schema": {
 ///           "type": "string",
 ///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "category",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "video"
+///           ]
 ///         }
 ///       }
 ///     ],

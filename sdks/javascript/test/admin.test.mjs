@@ -32,8 +32,8 @@ test('detector disclosure and decision reads remain scoped, cancellable and body
   }});
   assert.deepEqual(await client.listWorkspaceDetectors(scope, {signal: abort.signal}), disclosure);
   assert.deepEqual(await client.listInputDetectorDecisions(scope, {signal: abort.signal}), decisions);
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/guardrails/detectors`));
-  assert.ok(calls[1].url.endsWith(`/organizations/${id}/projects/${id}/guardrails/detector-decisions`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/guardrails/detectors`));
+  assert.ok(calls[1].url.endsWith(`/workspaces/${id}/guardrails/detector-decisions`));
   for (const {init} of calls) {
     assert.equal(init.method, 'GET');
     assert.equal(init.body, undefined);
@@ -41,7 +41,6 @@ test('detector disclosure and decision reads remain scoped, cancellable and body
   }
   for (const method of ['listWorkspaceDetectors', 'listInputDetectorDecisions']) {
     assert.throws(() => client[method]({...scope, projectId: '../foreign'}), /UUID/);
-    assert.throws(() => client[method]({...scope, organizationId: '../foreign'}), /UUID/);
   }
   assert.equal(calls.length, 2);
 });
@@ -162,21 +161,6 @@ test('uncertain top-up creation is never retried automatically', async () => {
   await assert.rejects(client.createCustomerTopup(id,{amount_nanos:'1000000000',payment_method:'wxpaynative',idempotency_key:id}),/connection lost/);
   assert.equal(calls,1);
 });
-test('account management preserves scope, cancellation and explicit auth', async () => {
-  const calls = [];
-  const abort = new AbortController();
-  const client = new NiuAdminClient({ adminToken: 'test-admin', fetch: async (url, init) => {
-    calls.push({ url, init }); return Response.json({ id, data: [] });
-  }});
-  await client.listAccounts(scope, { signal: abort.signal });
-  await client.createAccount(scope, { provider: 'fixture', plan: 'monthly', authentication_mode: 'api_key', billing_mode: 'subscription', credential_reference: 'env:FIXTURE', concurrency_limit: 1 });
-  assert.equal(calls[0].url, `http://localhost:2555/api/v1/organizations/${id}/projects/${id}/accounts`);
-  assert.equal(calls[0].init.headers.authorization, 'Bearer test-admin');
-  assert.equal(calls[0].init.signal, abort.signal);
-  assert.equal(calls[0].init.redirect, 'error');
-  assert.deepEqual(calls.map(x => x.init.method), ['GET', 'POST']);
-});
-
 test('unified workspace key lifecycle sends /api/v1/workspaces/{workspace}/keys requests with aggregated policies', async () => {
   const calls = [];
   const admin = new NiuAdminClient({ adminToken: 'test-admin', fetch: async (url, init) => {
@@ -233,7 +217,7 @@ test('activity filters and retained content stay scoped and preserve exact custo
   assert.deepEqual(await client.getRequestPayload(scope,id),{data:null});
   assert.equal(await client.deleteRequestPayload(scope,id),undefined);
   assert.equal(calls[2].init.method,'DELETE');
-  assert.ok(calls[2].url.endsWith(`/organizations/${id}/projects/${id}/requests/${id}/payloads`));
+  assert.ok(calls[2].url.endsWith(`/workspaces/${id}/requests/${id}/payloads`));
   assert.throws(()=>client.listGatewayActivity(scope,{fromMs:100,toMs:1}),/range/);
   assert.throws(()=>client.listGatewayActivity(scope,{toMs:Number.MAX_SAFE_INTEGER+1}),/safe-integer/);
   assert.throws(()=>client.getRequestPayload(scope,'../other'),/UUID/);
@@ -335,7 +319,7 @@ test('Guardrail clients preserve explicit deny semantics and revision conflicts'
   assert.deepEqual(await client.activateWorkspaceGuardrail(scope, 0, policy), { revision: 1 });
   assert.equal(calls[2].init.method, 'PUT');
   assert.deepEqual(JSON.parse(calls[2].init.body), { expected_revision: 0, policy });
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/guardrails`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/guardrails`));
   await assert.rejects(client.activateWorkspaceGuardrail(scope, 0, policy), e => e instanceof NiuAPIError && e.status === 409);
   assert.equal(calls.length, 4);
   assert.throws(() => client.activateWorkspaceGuardrail(scope, -1, policy), /revision|Revision/);
@@ -393,7 +377,7 @@ test('retail tariff publication is workspace scoped, exact, revision aware and n
   }});
   await assert.rejects(client.publishCustomerTariff(scope, tariff, { signal: abort.signal }), e => e instanceof NiuAPIError && e.status === 409);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, `http://localhost:2555/api/v1/organizations/${id}/projects/${id}/billing/tariffs`);
+  assert.equal(calls[0].url, `http://localhost:2555/api/v1/workspaces/${id}/billing/tariffs`);
   assert.equal(calls[0].init.method, 'POST');
   assert.equal(calls[0].init.signal, abort.signal);
   assert.deepEqual(JSON.parse(calls[0].init.body), tariff);
@@ -409,7 +393,7 @@ test('customer billing reads retain exact amounts and unknown counts', async () 
   assert.deepEqual(await client.getCustomerBilling(scope), { data });
   assert.equal(request.init.method, 'GET');
   assert.equal(request.init.body, undefined);
-  assert.equal(request.url, `http://localhost:2555/api/v1/organizations/${id}/projects/${id}/billing`);
+  assert.equal(request.url, `http://localhost:2555/api/v1/workspaces/${id}/billing`);
 });
 
 
@@ -436,7 +420,7 @@ test('key Guardrail assignment is scoped, revision checked and not retried', asy
   }});
   assert.deepEqual(await client.getKeyGuardrail(scope, id), { data: null });
   assert.deepEqual(await client.assignKeyGuardrail(scope, id, 3, 0), { assignment_revision: 1 });
-  assert.ok(calls[1].url.endsWith(`/organizations/${id}/projects/${id}/keys/${id}/guardrail`));
+  assert.ok(calls[1].url.endsWith(`/workspaces/${id}/keys/${id}/guardrail`));
   assert.equal(calls[1].init.method, 'PUT');
   assert.deepEqual(JSON.parse(calls[1].init.body), { mode: 'fixed', policy_revision: 3, expected_assignment_revision: 0 });
   await assert.rejects(client.assignKeyGuardrail(scope, id, 3, 0), e => e instanceof NiuAPIError && e.status === 409);
@@ -476,7 +460,7 @@ test('key Guardrail history preserves scope, cursor and readable attribution', a
   const signal = new AbortController().signal;
   const client = new NiuAdminClient({ adminToken: 'test-admin', fetch: async (url, init) => { call = { url, init }; return Response.json(events); } });
   assert.deepEqual(await client.listKeyGuardrailHistory(scope, id, 4, { signal }), events);
-  assert.ok(call.url.endsWith(`/organizations/${id}/projects/${id}/keys/${id}/guardrail/history?before_assignment_revision=4`));
+  assert.ok(call.url.endsWith(`/workspaces/${id}/keys/${id}/guardrail/history?before_assignment_revision=4`));
   assert.equal(call.init.signal, signal);
   for (const invalid of [0, -1, 1.5]) assert.throws(() => client.listKeyGuardrailHistory(scope, id, invalid), /cursor/);
 });
@@ -508,7 +492,7 @@ test('synthetic input preview preserves scope, cancellation and explicit non-enf
   assert.deepEqual(await client.previewGuardrailInput(scope,input,{signal}),verdict);
   assert.equal(calls[0].init.signal,signal);
   assert.deepEqual(JSON.parse(calls[0].init.body),input);
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/guardrails/input-preview`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/guardrails/input-preview`));
   for(const invalid of [
     {...input,protocol:'unknown'},
     {...input,rules:Array.from({length:33},()=>input.rules[0])},
@@ -529,7 +513,7 @@ test('request Guardrail attribution is scoped and keeps missing history unknown'
   }});
   assert.deepEqual(await client.getRequestGuardrailDecision(scope,id,{signal}),{data:decision});
   assert.equal(calls[0].init.signal,signal);
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/requests/${id}/guardrails`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/requests/${id}/guardrails`));
   assert.deepEqual(await client.getRequestGuardrailDecision(scope,id),{data:null});
   assert.throws(()=>client.getRequestGuardrailDecision(scope,'../other'),/UUID/);
   assert.equal(calls.length,2);
@@ -559,7 +543,7 @@ test('invoice closure keeps idempotency and conflicts without hidden replay', as
   }});
   await assert.rejects(client.issueCustomerInvoice(scope,input,{signal}), e => e instanceof NiuAPIError && e.status===409);
   assert.equal(calls.length,1);
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/billing/invoices`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/billing/invoices`));
   assert.equal(calls[0].init.method,'POST');
   assert.equal(calls[0].init.signal,signal);
   assert.deepEqual(JSON.parse(calls[0].init.body),input);
@@ -575,7 +559,7 @@ test('invoice line reads retain exact money and use workspace authorization', as
   const signal=new AbortController().signal;
   const client=new NiuAdminClient({adminToken:'fixture',fetch:async(url,init)=>{call={url,init};return Response.json({data:lines});}});
   assert.deepEqual(await client.getCustomerInvoiceLines(scope,id,{signal}),{data:lines});
-  assert.ok(call.url.endsWith(`/organizations/${id}/projects/${id}/billing/invoices/${id}`));
+  assert.ok(call.url.endsWith(`/workspaces/${id}/billing/invoices/${id}`));
   assert.equal(call.init.method,'GET');assert.equal(call.init.body,undefined);assert.equal(call.init.signal,signal);
   assert.throws(()=>client.getCustomerInvoiceLines(scope,'../other'),/UUID/);
 });
@@ -595,7 +579,7 @@ test('preparation denial reads are scoped, cancellable, bounded and preserve mis
   const signal=new AbortController().signal;const calls=[];
   const client=new NiuAdminClient({adminToken:'fixture',fetch:async(url,init)=>{calls.push({url,init});return Response.json({data,coverage:'latest_100_preparation_denials'});}});
   assert.deepEqual(await client.listGuardrailPreparationDenials(scope,{signal}),{data,coverage:'latest_100_preparation_denials'});
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/guardrails/denials`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/guardrails/denials`));
   assert.equal(calls[0].init.method,'GET');assert.equal(calls[0].init.body,undefined);assert.equal(calls[0].init.signal,signal);
   assert.throws(()=>client.listGuardrailPreparationDenials({...scope,projectId:'../other'}),/UUID/);
   assert.equal(calls.length,1);
@@ -607,7 +591,7 @@ test('workspace Guardrail history preserves scope, cursor and cancellation', asy
   const signal = new AbortController().signal;
   const client = new NiuAdminClient({ adminToken: 'test-admin', fetch: async (url, init) => { call = { url, init }; return Response.json(page); } });
   assert.deepEqual(await client.listWorkspaceGuardrailHistory(scope, 4, { signal }), page);
-  assert.ok(call.url.endsWith(`/organizations/${id}/projects/${id}/guardrails/history?before_revision=4`));
+  assert.ok(call.url.endsWith(`/workspaces/${id}/guardrails/history?before_revision=4`));
   assert.equal(call.init.signal, signal);
   assert.equal(call.init.method, 'GET');
   for (const invalid of [0, -1, 1.5, NaN, Number.MAX_SAFE_INTEGER + 1]) assert.throws(() => client.listWorkspaceGuardrailHistory(scope, invalid), /cursor/);
@@ -621,7 +605,7 @@ test('workspace rollback sends explicit revisions and never retries conflicts', 
     return calls.length === 1 ? Response.json({ revision: 4, restored_from_revision: 1 }) : Response.json({ error: { message: 'Conflict' } }, { status: 409 });
   }});
   assert.deepEqual(await client.rollbackWorkspaceGuardrail(scope, 3, 1, { signal }), { revision: 4, restored_from_revision: 1 });
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/guardrails/rollback`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/guardrails/rollback`));
   assert.equal(calls[0].init.method, 'POST');
   assert.equal(calls[0].init.signal, signal);
   assert.deepEqual(JSON.parse(calls[0].init.body), { expected_revision: 3, target_revision: 1 });
@@ -637,7 +621,7 @@ test('saved Guardrail revision reads stay scoped and preserve cancellation', asy
   const page = { data: { revision: 1, policy: { name: 'Saved policy' } } };
   const client = new NiuAdminClient({ adminToken: 'test-admin', fetch: async (url, init) => { call = { url, init }; return Response.json(page); } });
   assert.deepEqual(await client.getWorkspaceGuardrailRevision(scope, 1, { signal }), page);
-  assert.ok(call.url.endsWith(`/organizations/${id}/projects/${id}/guardrails/revisions/1`));
+  assert.ok(call.url.endsWith(`/workspaces/${id}/guardrails/revisions/1`));
   assert.equal(call.init.signal, signal);
   for (const revision of [0, -1, NaN, 1.5]) assert.throws(() => client.getWorkspaceGuardrailRevision(scope, revision), /revision/);
 });
@@ -652,7 +636,7 @@ test('synthetic output preview is scoped, cancellable and never implicitly retri
     return calls.length === 1 ? Response.json(result) : Response.json({ error: { message: 'Capacity unavailable' } }, { status: 503 });
   }});
   assert.deepEqual(await client.previewGuardrailOutput(scope, input, { signal }), result);
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/guardrails/output-preview`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/guardrails/output-preview`));
   assert.equal(calls[0].init.signal, signal);
   assert.deepEqual(JSON.parse(calls[0].init.body), input);
   await assert.rejects(client.previewGuardrailOutput(scope, input), e => e instanceof NiuAPIError && e.status === 503);
@@ -684,7 +668,7 @@ test('dispatch denial reads preserve scope, cancellation and explicit limited co
     calls.push({ url, init }); return Response.json(result);
   }});
   assert.deepEqual(await client.listGuardrailDispatchDenials(scope, { signal: abort.signal }), result);
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/guardrails/dispatch-denials`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/guardrails/dispatch-denials`));
   assert.equal(calls[0].init.method, 'GET');
   assert.equal(calls[0].init.signal, abort.signal);
 });
@@ -696,7 +680,7 @@ test('CSV exports preserve full-range filters, exact text, cancellation and redi
   const client = new NiuAdminClient({ adminToken: 'workspace-reader', fetch: async (input, init) => {
     calls++;
     const url = new URL(input);
-    assert.equal(url.pathname, `/api/v1/organizations/${id}/projects/${id}/requests/export`);
+    assert.equal(url.pathname, `/api/v1/workspaces/${id}/requests/export`);
     assert.deepEqual(Object.fromEntries(url.searchParams), { sort: 'input_desc', from_ms: '1', to_ms: '2', model_alias: 'google/model & variant', key_id: id, status: 'confirmed_completed' });
     assert.equal(init.headers.authorization, 'Bearer workspace-reader');
     assert.equal(init.headers.accept, 'text/csv');
@@ -1024,7 +1008,7 @@ test('workspace retail limits use exact scoped owner writes and revision history
   assert.deepEqual(JSON.parse(calls[1].init.body), {limit_nanos: '9223372036854775807', expected_revision: '0'});
   assert.ok(calls[2].url.endsWith('/spending-limit/CNY/history?before_revision=9223372036854775807&limit=1'));
   for (const call of calls) {
-    assert.ok(call.url.includes(`/organizations/${id}/projects/${id}/spending-limit/CNY`));
+    assert.ok(call.url.includes(`/workspaces/${id}/spending-limit/CNY`));
     assert.equal(call.init.signal, controller.signal);
   }
   for (const value of ['-1', '1.0', '1e3', ' 1', '', '9223372036854775808']) {
@@ -1036,7 +1020,7 @@ test('workspace retail limits use exact scoped owner writes and revision history
   assert.throws(() => client.listWorkspaceSpendingLimitHistory(scope, 'CNY', {limit:101}));
   assert.equal(calls.length, 3);
   await client.listWorkspaceSpendingLimits(scope, {signal: controller.signal});
-  assert.ok(calls[3].url.endsWith(`/organizations/${id}/projects/${id}/spending-limit`));
+  assert.ok(calls[3].url.endsWith(`/workspaces/${id}/spending-limit`));
   assert.equal(calls[3].init.signal, controller.signal);
   assert.equal(calls[3].init.method, 'GET');
   assert.equal(calls[3].init.body, undefined);
@@ -1050,13 +1034,11 @@ test('image detector disclosure stays scoped, bodyless and cancellable', async (
     calls.push({url, init}); return Response.json(disclosure);
   }});
   assert.deepEqual(await client.listWorkspaceImageDetectors(scope, {signal: abort.signal}), disclosure);
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/guardrails/image-detectors`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/guardrails/image-detectors`));
   assert.equal(calls[0].init.method, 'GET');
   assert.equal(calls[0].init.body, undefined);
   assert.equal(calls[0].init.signal, abort.signal);
-  for (const field of ['organizationId', 'projectId']) {
-    assert.throws(() => client.listWorkspaceImageDetectors({...scope, [field]: '../foreign'}), /UUID/);
-  }
+  assert.throws(() => client.listWorkspaceImageDetectors({...scope, projectId: '../foreign'}), /UUID/);
   assert.equal(calls.length, 1);
 });
 
@@ -1066,7 +1048,7 @@ test('image preview sends explicit scoped consent once and excludes extra fields
   const client=new NiuAdminClient({adminToken:'test',fetch:async(url,init)=>{calls.push({url,init});return Response.json(result);}});
   const input={consent:{configuration_fingerprint:'a'.repeat(64),consent_to_image_processing:true,secret:'excluded'},image:'data:image/png;base64,fixture',activate:true};
   assert.deepEqual(await client.previewWorkspaceImageDetector(scope,'image_fixture',input,{signal:abort.signal}),result);
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/guardrails/image-detectors/image_fixture/preview`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/guardrails/image-detectors/image_fixture/preview`));
   assert.equal(calls[0].init.method,'POST'); assert.equal(calls[0].init.signal,abort.signal);
   assert.deepEqual(JSON.parse(calls[0].init.body),{consent:{configuration_fingerprint:'a'.repeat(64),consent_to_image_processing:true},image:input.image});
   for(const detector of ['../foreign','with space','']) assert.throws(()=>client.previewWorkspaceImageDetector(scope,detector,input),/detector/);
@@ -1132,7 +1114,7 @@ test('asset request deletion is scoped bodyless cancellable and does not retry',
     return calls.length===1 ? new Response(null,{status:204}) : Response.json({error:{message:'Forbidden'}},{status:403});
   }});
   await client.deleteAssetGroupRequest(scope,id,{signal:controller.signal});
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/asset-group-intents/${id}/request`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/asset-group-intents/${id}/request`));
   assert.equal(calls[0].init.method,'DELETE');
   assert.equal(calls[0].init.body,undefined);
   assert.equal(calls[0].init.signal,controller.signal);
@@ -1148,7 +1130,7 @@ test('asset request reads are scoped cancellable and do not expose management fi
   const result={data:{status:'prepared',created_at:'2026-10-07T00:00:00Z',request_content_status:'retained',request:{name:'Character',description:null}}};
   const client=new NiuAdminClient({adminToken:'test',fetch:async(url,init)=>{calls.push({url,init});return Response.json(result);}});
   assert.deepEqual(await client.getAssetGroupRequest(scope,id,{signal:controller.signal}),result);
-  assert.ok(calls[0].url.endsWith(`/organizations/${id}/projects/${id}/asset-group-intents/${id}/request`));
+  assert.ok(calls[0].url.endsWith(`/workspaces/${id}/asset-group-intents/${id}/request`));
   assert.equal(calls[0].init.method,'GET');assert.equal(calls[0].init.body,undefined);assert.equal(calls[0].init.signal,controller.signal);
   assert.throws(()=>client.getAssetGroupRequest(scope,'invalid'),/UUID/);assert.equal(calls.length,1);
 });
@@ -1159,7 +1141,7 @@ test('asset request discovery validates bounded cursors before sending and prese
   const client=new NiuAdminClient({adminToken:'test',fetch:async(url,init)=>{calls.push({url,init});return Response.json(result);}});
   assert.deepEqual(await client.listAssetGroupRequests(scope,{after:id,limit:1},{signal:controller.signal}),result);
   const url=new URL(calls[0].url);
-  assert.ok(url.pathname.endsWith(`/organizations/${id}/projects/${id}/asset-group-intents`));
+  assert.ok(url.pathname.endsWith(`/workspaces/${id}/asset-group-intents`));
   assert.equal(url.searchParams.get('after'),id);assert.equal(url.searchParams.get('limit'),'1');
   assert.equal(calls[0].init.method,'GET');assert.equal(calls[0].init.signal,controller.signal);
   for(const limit of [0,-1,101,1.5,NaN]) assert.throws(()=>client.listAssetGroupRequests(scope,{limit}),/limit/);

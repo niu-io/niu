@@ -65,7 +65,7 @@ async fn principal(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh",
+///   "path": "/api/v1/workspaces/{workspace}/tasks/{task}/refresh",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "refreshGenerationsTask",
@@ -79,16 +79,7 @@ async fn principal(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -201,7 +192,7 @@ pub(in crate::web) async fn refresh(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh",
+///   "path": "/api/v1/workspaces/{workspace}/tasks/{task}/results/{kind}/refresh",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "retrieveFreshGenerationsTaskResult",
@@ -215,16 +206,7 @@ pub(in crate::web) async fn refresh(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

@@ -222,7 +222,7 @@ export function prefetchRouteData(
     } else if (section === 'members') {
       prefetchGet(token, '/api/v1/organizations');
       prefetchGet(token, '/api/v1/operators?limit=1000');
-      if (orgId) prefetchGet(token, `/api/v1/organizations/${orgId}/projects`);
+      if (orgId) prefetchGet(token, `/api/v1/workspaces?organization_id=${encodeURIComponent(orgId)}`);
     } else if (section === 'organization') {
       prefetchGet(token, '/api/v1/organizations');
       prefetchGet(token, '/api/v1/workspaces', { persist: true });
@@ -241,7 +241,7 @@ export function prefetchRouteData(
   if (parts[0] === 'activity') {
     prefetchGet(token, '/api/v1/workspaces', { persist: true });
     if (ws) {
-      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=100`);
+      prefetchGet(token, `/api/v1/workspaces/${ws.id}/requests?limit=100`);
       prefetchGet(token, workspaceKeyPath(ws.id));
     }
     return;
@@ -252,7 +252,7 @@ export function prefetchRouteData(
       prefetchGet(token, workspaceKeyPath(ws.id));
       const q = `?organization_id=${encodeURIComponent(ws.organization_id)}&project_id=${encodeURIComponent(ws.id)}`;
       prefetchGet(token, `/api/v1/models${q}`, { persist: true });
-      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/chats`, { persist: true });
+      prefetchGet(token, `/api/v1/workspaces/${ws.id}/chats`, { persist: true });
       prefetchGet(token, '/v1/video/models');
     }
     return;
@@ -293,27 +293,27 @@ export function prefetchRouteData(
     if (!ws) return;
     const section = parts[2] ?? '';
     if (!section) {
-      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=10`);
+      prefetchGet(token, `/api/v1/workspaces/${ws.id}/requests?limit=10`);
     } else if (section === 'models') {
       const q = `?organization_id=${encodeURIComponent(ws.organization_id)}&project_id=${encodeURIComponent(ws.id)}`;
       prefetchGet(token, `/api/v1/models${q}`, { persist: true });
     } else if (section === 'keys') {
       if (parts[3] && parts[3] !== 'new') {
         prefetchGet(token, workspaceKeyPath(ws.id));
-        prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=10`);
-        prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/guardrails`);
+        prefetchGet(token, `/api/v1/workspaces/${ws.id}/requests?limit=10`);
+        prefetchGet(token, `/api/v1/workspaces/${ws.id}/guardrails`);
       } else {
         prefetchGet(token, workspaceKeyPagePath(ws.id));
-        prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=100`);
+        prefetchGet(token, `/api/v1/workspaces/${ws.id}/requests?limit=100`);
       }
     } else if (section === 'usage' || section === 'executions') {
-      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=100`);
+      prefetchGet(token, `/api/v1/workspaces/${ws.id}/requests?limit=100`);
       prefetchGet(token, workspaceKeyPath(ws.id));
     } else if (section === 'billing') {
-      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/billing`);
-      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/spending-limit`);
+      prefetchGet(token, `/api/v1/workspaces/${ws.id}/billing`);
+      prefetchGet(token, `/api/v1/workspaces/${ws.id}/spending-limit`);
     } else if (section === 'guardrails') {
-      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/guardrails`);
+      prefetchGet(token, `/api/v1/workspaces/${ws.id}/guardrails`);
     } else if (section === 'users') {
       prefetchGet(token, '/api/v1/organizations');
       prefetchGet(token, '/api/v1/operators?limit=1000');

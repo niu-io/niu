@@ -42,7 +42,7 @@ fn currency(value: &str) -> Result<(), ApiError> {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit",
+///   "path": "/api/v1/workspaces/{workspace}/keys/{key}/spending-limit",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [
@@ -125,16 +125,7 @@ fn currency(value: &str) -> Result<(), ApiError> {
 ///     },
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -192,7 +183,7 @@ pub async fn list(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}",
+///   "path": "/api/v1/workspaces/{workspace}/keys/{key}/spending-limit/{currency}",
 ///   "method": "put",
 ///   "operation": {
 ///     "security": [
@@ -278,16 +269,7 @@ pub async fn list(
 ///     },
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -390,7 +372,7 @@ pub async fn write(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history",
+///   "path": "/api/v1/workspaces/{workspace}/keys/{key}/spending-limit/{currency}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [
@@ -401,16 +383,7 @@ pub async fn write(
 ///     "operationId": "listKeySpendingLimitHistory",
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

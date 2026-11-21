@@ -3244,7 +3244,7 @@ pub struct UnitLimitHistoryQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/units/limit",
+///   "path": "/api/v1/workspaces/{workspace}/units/limit",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getWorkspaceCustomerUnitSpendingLimit",
@@ -3257,16 +3257,7 @@ pub struct UnitLimitHistoryQuery {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -3422,7 +3413,7 @@ pub async fn read_workspace_limit(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/units/limit",
+///   "path": "/api/v1/workspaces/{workspace}/units/limit",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setWorkspaceCustomerUnitSpendingLimit",
@@ -3435,16 +3426,7 @@ pub async fn read_workspace_limit(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -3629,7 +3611,7 @@ pub async fn write_workspace_limit(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/units/limit/history",
+///   "path": "/api/v1/workspaces/{workspace}/units/limit/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaceCustomerUnitSpendingLimitHistory",
@@ -3642,16 +3624,7 @@ pub async fn write_workspace_limit(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -5007,7 +4980,7 @@ pub async fn reverse_purchase(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit",
+///   "path": "/api/v1/workspaces/{workspace}/keys/{key}/units/limit",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getKeyCustomerUnitSpendingLimit",
@@ -5020,16 +4993,7 @@ pub async fn reverse_purchase(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -5194,7 +5158,7 @@ pub async fn read_key_limit(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit",
+///   "path": "/api/v1/workspaces/{workspace}/keys/{key}/units/limit",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setKeyCustomerUnitSpendingLimit",
@@ -5207,16 +5171,7 @@ pub async fn read_key_limit(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -5432,7 +5387,7 @@ pub async fn write_key_limit(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit/history",
+///   "path": "/api/v1/workspaces/{workspace}/keys/{key}/units/limit/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listKeyCustomerUnitSpendingLimitHistory",
@@ -5445,16 +5400,7 @@ pub async fn write_key_limit(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

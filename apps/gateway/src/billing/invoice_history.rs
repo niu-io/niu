@@ -5,7 +5,7 @@ use super::{
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/invoices",
+///   "path": "/api/v1/workspaces/{workspace}/billing/invoices",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listCustomerInvoices",
@@ -18,16 +18,7 @@ use super::{
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

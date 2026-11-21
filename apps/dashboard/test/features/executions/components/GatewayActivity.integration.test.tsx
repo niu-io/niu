@@ -7,7 +7,7 @@ import { saveLocale } from '../../../../app/shell/locale';
 
 const knownKeys = [{id:'key-1',name:'Build app',allowed_models:['*'],revoked:false,expired:false}];
 
-const base = '/api/v1/organizations/org-1/projects/project-1';
+const base = '/api/v1/workspaces/project-1';
 
 function makeRequest(attemptId: string, taskId: string | null, model: string, taskEvidence = null, customerCharge: { customer_charge_currency: string | null; customer_charge_nanos: string | null; customer_charge_status: string } = { customer_charge_currency: null, customer_charge_nanos: null, customer_charge_status: 'unpriced' }) {
   return {

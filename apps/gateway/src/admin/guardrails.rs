@@ -1,8 +1,9 @@
 use super::{
-    AdminPermission, ApiError, AppState, HeaderMap, Json, Path, State, TenantScope, Uuid, Value,
+    AdminPermission, ApiError, AppState, HeaderMap, Json, State, TenantScope, Uuid, Value,
     authorize, json,
 };
 use crate::guardrails::{EffectiveAccess, PolicyDraft};
+use crate::web::workspace_path::WorkspacePath as Path;
 use serde::Deserialize;
 
 async fn validate_policy(
@@ -88,7 +89,7 @@ pub async fn read(
 
 pub async fn read_revision(
     State(state): State<AppState>,
-    Path((organization_id, project_id, revision)): Path<(Uuid, Uuid, i64)>,
+    Path((organization_id, project_id, revision)): Path<(Uuid, Uuid, String)>,
     headers: HeaderMap,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
     let scope = TenantScope {
@@ -96,6 +97,9 @@ pub async fn read_revision(
         project_id,
     };
     authorized(&state, &headers, scope, AdminPermission::Read).await?;
+    let revision = revision
+        .parse::<i64>()
+        .map_err(|_| ApiError::invalid_request("Invalid policy revision"))?;
     if revision < 1 {
         return Err(ApiError::invalid_request("Invalid policy revision"));
     }
@@ -626,7 +630,7 @@ pub async fn dispatch_decision(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/guardrails/denials",
+///   "path": "/api/v1/workspaces/{workspace}/guardrails/denials",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listGuardrailPreparationDenials",
@@ -640,16 +644,7 @@ pub async fn dispatch_decision(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -819,7 +814,7 @@ pub async fn preparation_denials(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials",
+///   "path": "/api/v1/workspaces/{workspace}/guardrails/dispatch-denials",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listGuardrailDispatchDenials",
@@ -833,16 +828,7 @@ pub async fn preparation_denials(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1338,7 +1324,7 @@ pub async fn detector_description(
 /// Metadata-only audit for authorized workspace readers, including pre-admission denials.
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions",
+///   "path": "/api/v1/workspaces/{workspace}/guardrails/detector-decisions",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listInputDetectorDecisions",
@@ -1352,16 +1338,7 @@ pub async fn detector_description(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1524,7 +1501,7 @@ pub async fn detector_decisions(
 /// Processing declarations visible only within explicitly authorized workspaces.
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/guardrails/detectors",
+///   "path": "/api/v1/workspaces/{workspace}/guardrails/detectors",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaceDetectors",
@@ -1538,16 +1515,7 @@ pub async fn detector_decisions(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1733,7 +1701,7 @@ pub async fn workspace_detectors(
 /// Separate image-processing discovery; no policy activation or content dispatch.
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors",
+///   "path": "/api/v1/workspaces/{workspace}/guardrails/image-detectors",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaceImageDetectors",
@@ -1747,16 +1715,7 @@ pub async fn workspace_detectors(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1938,7 +1897,7 @@ pub struct ImageDetectorPreview {
 /// Explicitly consented synthetic image processing. Never grants dispatch access.
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview",
+///   "path": "/api/v1/workspaces/{workspace}/guardrails/image-detectors/{detector}/preview",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "previewWorkspaceImageDetector",
@@ -1952,16 +1911,7 @@ pub struct ImageDetectorPreview {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

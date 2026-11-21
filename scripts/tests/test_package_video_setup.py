@@ -14,7 +14,7 @@ class PackageVideoSetup(unittest.TestCase):
         calls=[]
         def request(method,path,**options):
             calls.append((method,path))
-            if path.endswith('/projects'):return 201,{'id':ID},''
+            if path == '/api/v1/workspaces':return 201,{'id':ID},''
             if path.endswith('/keys'):return 201,{'id':ID,'token':'synthetic'},''
             if path=='/v1/video/jobs':return 202,{'id':ID},''
             self.fail('deferred creation must not query upstream')
@@ -102,7 +102,7 @@ class PackageVideoSetup(unittest.TestCase):
         bill={'charge_nanos':'10','currency':'USD'}
         def request(method,path,**options):
             calls.append((method,path))
-            if path.endswith('/projects'):
+            if path == '/api/v1/workspaces':
                 return 201,{'id':ID},''
             if path.endswith('/keys'):
                 return 201,{'id':ID,'token':'synthetic-video-client'},''

@@ -132,7 +132,7 @@ const modelLabel = (alias: string) => { const title = catalogTitle(alias); retur
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace }) => ({
     endpoint: workspace
-      ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/billing`
+      ? `/api/v1/workspaces/${workspace.id}/billing`
       : null,
   }));
 }
@@ -170,7 +170,7 @@ function BillingView({ token, organization, project, headerAction }: { token: st
     if (value === 'balance') query.delete('tab'); else query.set('tab', value);
     setSearchParams(query);
   }
-  const base = `/api/v1/organizations/${organization}/projects/${project}/billing`;
+  const base = `/api/v1/workspaces/${project}/billing`;
   const invoicesPath = `${base}/invoices?limit=50`;
   const initialBilling = peekCachedGet<{ data: Billing }>(token, base)?.data ?? null;
   const initialInvoices = (() => {

@@ -671,6 +671,127 @@ fn require_owner_for_policy(auth: AdminAuthorization) -> Result<(), ApiError> {
 ///         }
 ///       }
 ///     },
+///     "WorkspaceKey": {
+///       "type": "object",
+///       "required": [
+///         "id",
+///         "revision",
+///         "name",
+///         "allowed_models",
+///         "invocation_allowed",
+///         "invocation_protocols",
+///         "expires_at_ms",
+///         "last_used_at_ms",
+///         "revoked",
+///         "expired",
+///         "slug"
+///       ],
+///       "properties": {
+///         "id": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "revision": {
+///           "type": "integer",
+///           "format": "int64",
+///           "minimum": 1
+///         },
+///         "name": {
+///           "type": "string"
+///         },
+///         "allowed_models": {
+///           "type": "array",
+///           "items": {
+///             "type": "string"
+///           }
+///         },
+///         "invocation_allowed": {
+///           "type": "boolean",
+///           "description": "Whether this key may invoke models; false identifies a management-only key. Model grants do not override this flag."
+///         },
+///         "invocation_protocols": {
+///           "type": "array",
+///           "items": {
+///             "type": "string",
+///             "enum": [
+///               "chat",
+///               "responses",
+///               "messages",
+///               "content",
+///               "decisions",
+///               "embeddings",
+///               "video"
+///             ]
+///           },
+///           "description": "Exact approved model interfaces; an interface outside this list remains denied regardless of the model grant."
+///         },
+///         "expires_at_ms": {
+///           "type": [
+///             "integer",
+///             "null"
+///           ],
+///           "format": "int64",
+///           "description": "Unix milliseconds for finite expiration. Null means no automatic expiration, not an invalid or unknown timestamp. Rotation preserves this state."
+///         },
+///         "last_used_at_ms": {
+///           "type": [
+///             "integer",
+///             "null"
+///           ],
+///           "format": "int64",
+///           "description": "Latest durable dispatch intent in Unix milliseconds. Null means no attributed dispatch is recorded, not that the credential was never authenticated. Rotation preserves the old key's history; its replacement starts without a dispatch record."
+///         },
+///         "revoked": {
+///           "type": "boolean"
+///         },
+///         "expired": {
+///           "type": "boolean"
+///         },
+///         "slug": {
+///           "type": "string",
+///           "maxLength": 48,
+///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+///           "description": "Stable readable slug for product URLs. Renaming preserves it."
+///         }
+///       }
+///     },
+///     "ApiErrorResponse": {
+///       "type": "object",
+///       "required": [
+///         "error"
+///       ],
+///       "description": "Gateway application error envelope. This does not describe framework body/path parsing failures or a proxy-generated response. Branch on error.type and HTTP status rather than matching message text.",
+///       "properties": {
+///         "error": {
+///           "type": "object",
+///           "required": [
+///             "message",
+///             "type",
+///             "param",
+///             "code"
+///           ],
+///           "properties": {
+///             "message": {
+///               "type": "string",
+///               "description": "Safe human-readable explanation; not a stable programmatic identifier."
+///             },
+///             "type": {
+///               "type": "string",
+///               "description": "Machine-readable failure category; new categories may be added."
+///             },
+///             "param": {
+///               "type": "null"
+///             },
+///             "code": {
+///               "type": "integer",
+///               "minimum": 400,
+///               "maximum": 599,
+///               "description": "HTTP status code, not a separate application error number."
+///             }
+///           }
+///         }
+///       }
+///     },
 ///     "WorkspaceKeyDetail": {
 ///       "description": "Workspace management key metadata and customer policies. Never contains the API secret or Provider procurement information.",
 ///       "allOf": [

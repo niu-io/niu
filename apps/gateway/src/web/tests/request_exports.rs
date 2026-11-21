@@ -11,8 +11,8 @@ async fn export(
     router(state)
         .oneshot(
             Request::get(format!(
-                "/api/v1/organizations/{}/projects/{}/requests/export{query}",
-                scope.organization_id, scope.project_id
+                "/api/v1/workspaces/{}/requests/export{query}",
+                scope.project_id
             ))
             .header("authorization", format!("Bearer {token}"))
             .body(axum::body::Body::empty())
@@ -360,8 +360,8 @@ async fn request_export_is_scoped_exact_filtered_and_never_silently_truncated(po
     let known = router(state.clone())
         .oneshot(
             Request::get(format!(
-                "/api/v1/organizations/{}/projects/{}/requests?limit=1&q=HtTp%20502",
-                scope.organization_id, scope.project_id
+                "/api/v1/workspaces/{}/requests?limit=1&q=HtTp%20502",
+                scope.project_id
             ))
             .header("authorization", format!("Bearer {}", viewer.token))
             .body(axum::body::Body::empty())
@@ -381,8 +381,8 @@ async fn request_export_is_scoped_exact_filtered_and_never_silently_truncated(po
     let response = router(state.clone())
         .oneshot(
             Request::get(format!(
-                "/api/v1/organizations/{}/projects/{}/requests?limit=1&http_status=unknown",
-                scope.organization_id, scope.project_id
+                "/api/v1/workspaces/{}/requests?limit=1&http_status=unknown",
+                scope.project_id
             ))
             .header("authorization", format!("Bearer {}", viewer.token))
             .body(axum::body::Body::empty())
@@ -514,7 +514,7 @@ async fn request_sorting_covers_the_filtered_range_and_paginates_known_and_unkno
         let mut after = None;
         loop {
             let cursor = after.map(|id| format!("&after={id}")).unwrap_or_default();
-            let response=router(state.clone()).oneshot(Request::get(format!("/api/v1/organizations/{}/projects/{}/requests?limit=2&model_alias=sort-model&sort={sort}{cursor}",scope.organization_id,scope.project_id)).header("authorization",format!("Bearer {token}")).body(axum::body::Body::empty()).unwrap()).await.unwrap();
+            let response=router(state.clone()).oneshot(Request::get(format!("/api/v1/workspaces/{}/requests?limit=2&model_alias=sort-model&sort={sort}{cursor}",scope.project_id)).header("authorization",format!("Bearer {token}")).body(axum::body::Body::empty()).unwrap()).await.unwrap();
             assert_eq!(response.status(), StatusCode::OK, "{sort}");
             let value: serde_json::Value =
                 serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
@@ -650,8 +650,8 @@ async fn request_search_matches_older_rows_before_pagination(pool: PgPool) {
         let response = router(state.clone())
             .oneshot(
                 Request::get(format!(
-                    "/api/v1/organizations/{}/projects/{}/requests?limit=1&q=HtTp%20502{after}",
-                    scope.organization_id, scope.project_id,
+                    "/api/v1/workspaces/{}/requests?limit=1&q=HtTp%20502{after}",
+                    scope.project_id,
                 ))
                 .header("authorization", format!("Bearer {}", viewer.token))
                 .body(axum::body::Body::empty())

@@ -1,11 +1,11 @@
 ---
 title: "Read historical native material operations"
-description: "GET /api/v1/organizations/{organization}/projects/{project}/media/operations/by-idempotency/{id}"
+description: "GET /api/v1/workspaces/{workspace}/media/operations/by-idempotency/{id}"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/organizations/{organization}/projects/{project}/media/operations/by-idempotency/{id}`
+`GET /api/v1/workspaces/{workspace}/media/operations/by-idempotency/{id}`
 
 Current authenticated workspace Read permission required. Native operation history is workspace-shared. Reads only immutable saved scope, original key, model and optional group/account context; does not authenticate or reenable an expired or revoked inference key, consult current model grants or catalog, select a default account, create a Provider client, call the Provider or retry a mutation. Safe Niu references and saved diagnostic metadata only; private Provider identifiers, source URLs, credentials and procurement prices are excluded. Prepared is not dispatch permission; unknown remains uncertain. A missing record does not prove an original request was never sent. Deleted resources retain operation history. Without context_group_id, includes all saved account bindings for this original key and model, without claiming they share an account. The path id is the original canonical nonnil request idempotency UUID, not an operation reference.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/media/operations/by-idempotency/{id}" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/media/operations/by-idempotency/{id}" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   --url-query 'key_id=<KEY_ID>' \
   --url-query 'model=<MODEL>'
@@ -36,18 +36,7 @@ curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/pr
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

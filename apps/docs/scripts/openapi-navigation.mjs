@@ -29,10 +29,10 @@ const groups = [
   ['Workspaces and content', [
     ['Workspace incidents', 'Active incidents observed in the authorized workspace.', '^/api/v1/workspaces/[^/]+/incidents$'],
     ['Agent management review', 'Member review and management of workspace model routing, event subscriptions and evaluation evidence.', '^/api/v1/workspaces/[^/]+/(?:routing|events|evaluations)(?:/|$)'],
-    ['Companies and workspaces', 'Company and workspace discovery and lifecycle. Legacy project path segments refer to workspaces.', '^/api/v1/(?:workspaces(?:$|/[^/]+$|/by-route/[^/]+$)|setup/default-workspace|organizations(?:/by-route/[^/]+|/[^/]+(?:/projects(?:/[^/]+)?)?)?$)'],
+    ['Companies and workspaces', 'Company and workspace discovery and lifecycle.', '^/api/v1/(?:workspaces(?:$|/[^/]+$|/by-route/[^/]+$)|setup/default-workspace|organizations(?:/by-route/[^/]+|/[^/]+)?$)'],
     ['Chat sessions', 'Saved conversations, drafts, exports and archive state. Saving content does not invoke a model.', '/chats(?:/|$)'],
-    ['Generation history', 'Durable generation sessions, saved tasks, artifacts and video request drafts.', '/(?:projects|workspaces)/[^/]+/(?:generations(?:/|$)|sessions(?:/|$)|tasks(?:/|$)|artifacts(?:/|$)|video/(?:draft|intents))'],
-    ['Workspace assets', 'Saved workspace assets and their content.', '/(?:projects|workspaces)/[^/]+/assets(?:/|$)'],
+    ['Generation history', 'Durable generation sessions, saved tasks, artifacts and video request drafts.', '/workspaces/[^/]+/(?:sessions(?:/|$)|tasks(?:/|$)|artifacts(?:/|$)|video/(?:draft|intents))'],
+    ['Workspace assets', 'Saved workspace assets and their content.', '/workspaces/[^/]+/assets(?:/|$)'],
     ['Media assets and verification', 'Upstream-specific asset groups, materials, operations and verification sessions. These are distinct from Provider onboarding.', '/(?:media/(?:asset|group|operation|verification|capabilities)|asset-group-intents|asset-management)'],
     ['Image ingestion', 'Image sources, inspection, ingestion and readiness reads.', '^/v1/media/(?:image-|sources/)'],
   ]],
@@ -42,14 +42,14 @@ const groups = [
     ['Financial reports', 'Financial summaries and Provider commercial positions. These are privileged reports, not customer account lifecycle APIs.', '^/api/v1/(?:financial-summary|commercial-position)$'],
     ['Customer balances', 'Company currency balances, limits, reservations, credit, adjustments and transaction history. Amounts are customer-facing, not Provider costs.', '(?:/platform/customer-accounts$|/billing/(?:accounts|balance|transactions|entries|reservations|charge-reconciliation|funding)|/spending-limit)'],
     ['Customer payments', 'Top-up methods, checkout history, payment callbacks and payment gateway integrations. Checkout creation is not confirmation of funding.', '(?:/billing/(?:topups|payment-methods)|^/payments/|^/api/v1/payments/readiness$|/platform/payments)'],
-    ['Branded consumption units', 'Versioned unit definitions, purchase conversion rules, unit tariffs, and unit spending limits. Publication does not activate Credits billing.', '(?:^/api/v1/platform/units(?:/|$)|/billing/units(?:/|$)|/(?:workspaces|projects)/[^/]+/units/limit(?:/|$))'],
+    ['Branded consumption units', 'Versioned unit definitions, purchase conversion rules, unit tariffs, and unit spending limits. Publication does not activate Credits billing.', '(?:^/api/v1/platform/units(?:/|$)|/billing/units(?:/|$)|/workspaces/[^/]+/units/limit(?:/|$))'],
     ['Customer prices and statements', 'Customer selling prices, price enrollment, invoices and statements. Prices are independent of Provider purchase rates.', '(?:^/api/v1/pricing|/billing(?:/|$))'],
   ]],
   ['Service and compatibility', [
     ['Branding and settings', 'Public branding, theme configuration and runtime settings.', '^/(?:v1/(?:branding|currency)|api/v1/platform/(?:branding|configuration|currency))$'],
     ['Audit and recovery', 'Audit events and financial recovery controls.', '^/api/v1/platform/(?:audit-events|financial-recovery)$'],
     ['Service health', 'Process health, readiness and composed extension readiness.', '^/(?:healthz|readyz|enterprise/readyz)$'],
-    ['Legacy account and cost APIs', 'Compatibility APIs for upstream account metadata and upstream accounting. These are not customer billing accounts or customer charges.', '/(?:accounts|budget|costs)(?:/|$)'],
+    ['Workspace connections', 'Workspace OAuth connections such as Codex.', '/codex-connections(?:/|$)'],
   ]],
 ];
 const methods = new Set(['get', 'post', 'put', 'patch', 'delete', 'head', 'options']);

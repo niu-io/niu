@@ -1,15 +1,15 @@
 ---
 title: "Restore a preserved policy as a new active revision"
-description: "POST /api/v1/organizations/{organization}/projects/{project}/guardrails/rollback"
+description: "POST /api/v1/workspaces/{workspace}/guardrails/rollback"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/organizations/{organization}/projects/{project}/guardrails/rollback`
+`POST /api/v1/workspaces/{workspace}/guardrails/rollback`
 
 Requires workspace write access. Revalidates the selected policy under the current supported schema. Prior revisions remain unchanged; stale expected revisions conflict.
 
-Operation: `post--api-v1-organizations--organization--projects--project--guardrails-rollback`.
+Operation: `post--api-v1-workspaces--workspace--guardrails-rollback`.
 
 ## Authentication
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/guardrails/rollback" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/workspaces/{workspace}/guardrails/rollback" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
@@ -36,18 +36,7 @@ curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/p
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

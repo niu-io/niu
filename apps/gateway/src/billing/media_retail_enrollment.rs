@@ -17,7 +17,7 @@ pub struct IdentityQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment",
+///   "path": "/api/v1/workspaces/{workspace}/billing/media-retail-price-enrollment",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "setRetailMediaEnrollment",
@@ -30,16 +30,7 @@ pub struct IdentityQuery {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -232,7 +223,7 @@ pub async fn publish(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/media-retail-price-enrollment",
+///   "path": "/api/v1/workspaces/{workspace}/billing/media-retail-price-enrollment",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getRetailMediaEnrollment",
@@ -245,16 +236,7 @@ pub async fn publish(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

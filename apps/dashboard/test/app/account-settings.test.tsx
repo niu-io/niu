@@ -23,7 +23,7 @@ describe('global settings routes',()=>{
   vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL)=>{
    const path=String(input);
    if(path==='/api/v1/organizations')return Response.json({data:[organization]});
-   if(path.endsWith('/projects'))return Response.json({data:[{id:'workspace-a',name:'Production'},{id:'workspace-b',name:'Staging'}]});
+   if(path.startsWith('/api/v1/workspaces?organization_id='))return Response.json({data:[{id:'workspace-a',name:'Production'},{id:'workspace-b',name:'Staging'}]});
    if(path.startsWith('/api/v1/operators'))return Response.json({data:[
     {id:'member-a',name:'Production member',role:'viewer',organization_id:organization.id,project_id:'workspace-a',revoked:false},
     {id:'member-b',name:'Staging member',role:'viewer',organization_id:organization.id,project_id:'workspace-b',revoked:false},

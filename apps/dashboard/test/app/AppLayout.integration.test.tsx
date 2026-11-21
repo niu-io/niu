@@ -173,7 +173,7 @@ describe('dashboard route layout', () => {
   it('keeps the selected workspace when an earlier rename finishes', async () => {
     mockHealth(); const originalFetch=globalThis.fetch;
     let finishRename!: (response:Response)=>void;
-    vi.stubGlobal('fetch',vi.fn<typeof fetch>((input,init)=>String(input)==='/api/v1/organizations/org/projects/production' && init?.method==='PATCH'
+    vi.stubGlobal('fetch',vi.fn<typeof fetch>((input,init)=>String(input)==='/api/v1/workspaces/production' && init?.method==='PATCH'
       ? new Promise<Response>(resolve=>{finishRename=resolve;}) : String(input)==='/api/v1/workspaces' ? Promise.resolve(Response.json({data:[{id:'default',name:'Default',organization_id:'org',organization_name:'Demo'},{id:'production',name:'Production',organization_id:'org',organization_name:'Demo'}]})) : originalFetch(input,init)));
     const router=renderAt('/workspaces/production/settings'); const user=userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Rename workspace' }));
@@ -322,10 +322,10 @@ describe('dashboard route layout', () => {
         listCalls += 1;
         if (listCalls > 1) return Response.json({error:{message:'List temporarily unavailable'}}, {status:503});
       }
-      if (path === '/api/v1/organizations/org/projects/production' && init?.method === 'PATCH') {
+      if (path === '/api/v1/workspaces/production' && init?.method === 'PATCH') {
         return Response.json({id:'production',name:JSON.parse(String(init.body)).name});
       }
-      if (path === '/api/v1/organizations/org/projects/production' && init?.method === 'DELETE') return new Response(null,{status:204});
+      if (path === '/api/v1/workspaces/production' && init?.method === 'DELETE') return new Response(null,{status:204});
       return originalFetch(input, init);
     }));
     const router = renderAt('/workspaces/production/settings');
@@ -850,7 +850,7 @@ describe('dashboard route layout', () => {
       if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Niu Labs' }] });
       if (path === '/api/v1/workspaces') return json({ data: [{ id: 'default', name: 'Default', organization_id: 'org-1', organization_name: 'Niu Labs' }] });
       if (path.split('?')[0] === '/api/v1/operators') return json({ data: [] });
-      if (path === '/api/v1/organizations/org-1/projects') return json({ data: [] });
+      if (path === '/api/v1/workspaces?organization_id=org-1') return json({ data: [] });
       return json({ data: [] });
     }));
 
@@ -893,7 +893,7 @@ describe('dashboard route layout', () => {
       if (path.split('?')[0] === '/api/v1/operators') return json({ data: [{
         id: 'owner-1', name: 'Current owner', role: 'owner', organization_id: 'org-1', project_id: null, revoked: false,
       }] });
-      if (path === '/api/v1/organizations/org-1/projects') return json({ data: [] });
+      if (path === '/api/v1/workspaces?organization_id=org-1') return json({ data: [] });
       if (path === '/api/v1/operators/owner-1/sessions') return json({ data: [{
         id: 'active-session', operator_id: 'owner-1', expires_at_unix: 2_000_000_000, revoked: false,
       }] });
