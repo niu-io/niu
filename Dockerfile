@@ -44,11 +44,14 @@ COPY branding branding
 COPY --from=dashboard /workspace/apps/dashboard/dist apps/dashboard/dist
 COPY --from=dashboard /workspace/apps/docs/dist apps/docs/dist
 COPY --from=dashboard /workspace/apps/catalog/dist apps/catalog/dist
-# Cache compilation inputs between source revisions. Copy the finished binary
-# outside the cache so the runtime image never depends on builder cache state.
+# Cache third-party compilation artifacts between revisions. Touch workspace
+# Rust sources before building so BuildKit layer-cached mtimes can never appear
+# older than cached target/*.rlib artifacts from another commit. Copy the
+# finished binary outside the cache so the runtime image never depends on cache state.
 RUN --mount=type=cache,id=niu-rust-registry,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=niu-rust-target-1-98,target=/workspace/target,sharing=locked \
-    cargo build --release --locked -p niu-gateway \
+    find apps/gateway/src crates plugins tests/extensions/reference-extension -type f -name '*.rs' -exec touch {} + \
+    && cargo build --release --locked -p niu-gateway \
     && cp target/release/niu-gateway /workspace/niu-gateway
 
 FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS runtime
