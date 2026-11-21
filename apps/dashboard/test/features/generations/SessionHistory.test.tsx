@@ -11,7 +11,7 @@ const b={...a,id:'33333333-3333-4333-8333-333333333333',name:'B'};
 const context={token:'member',workspace:a,workspaces:[a,b]} as DashboardContext;
 const sessionCursor='99999999-9999-4999-8999-999999999999';
 const sessionId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-const chatPath=(workspace:typeof a)=>`/organizations/${workspace.organization_id}/projects/${workspace.id}/chats`;
+const chatPath=(workspace:typeof a)=>`/workspaces/${workspace.id}/chats`;
 const sessionPath=(workspace:typeof a)=>`/workspaces/${workspace.id}/sessions`;
 const taskPath=(workspace:typeof a)=>`/workspaces/${workspace.id}/tasks`;
 const sessionRow=(workspace:typeof a)=>({id:sessionId,reference:'video-1001',workspace_id:workspace.id,owner:'member',category:'video' as const,title:'Active video session',revision:'1',archived:false,created_at:new Date(100).toISOString(),updated_at:new Date(300).toISOString()});

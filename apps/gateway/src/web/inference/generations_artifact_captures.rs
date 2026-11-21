@@ -49,7 +49,7 @@ fn kind(value: &str) -> Result<(), ApiError> {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture",
+///   "path": "/api/v1/workspaces/{workspace}/artifacts/{task}/{kind}/capture",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "retrieveGenerationsArtifactCapture",
@@ -63,16 +63,7 @@ fn kind(value: &str) -> Result<(), ApiError> {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -245,7 +236,7 @@ pub(in crate::web) async fn retrieve(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture",
+///   "path": "/api/v1/workspaces/{workspace}/artifacts/{task}/{kind}/capture",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "captureGenerationsArtifact",
@@ -259,16 +250,7 @@ pub(in crate::web) async fn retrieve(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

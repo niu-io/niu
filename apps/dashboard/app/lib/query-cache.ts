@@ -661,7 +661,7 @@ export function invalidateForMutation(token: string, path: string, method: strin
     substrings.add('/keys');
     substrings.add('workspace-video');
   }
-  if (cleanPath.includes('/workspaces') || cleanPath.includes('/projects') || cleanPath.includes('/organizations')) {
+  if (cleanPath.includes('/workspaces') || cleanPath.includes('/organizations')) {
     substrings.add('/workspaces');
     substrings.add('/organizations');
   }

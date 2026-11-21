@@ -12,10 +12,10 @@ pub(crate) mod platform_pricing;
 pub(crate) mod reservations;
 pub(crate) mod retail_pricing;
 pub(crate) mod usage_reconciliation;
-use crate::{error::ApiError, state::AppState};
+use crate::{error::ApiError, state::AppState, web::workspace_path::WorkspacePath as Path};
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Query, State},
     http::HeaderMap,
 };
 use niu_storage::{AdminPermission, ProviderOfferInput, TenantScope};
@@ -41,7 +41,7 @@ async fn authorize(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing",
+///   "path": "/api/v1/workspaces/{workspace}/billing",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [
@@ -362,16 +362,7 @@ async fn authorize(
 ///     },
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -401,7 +392,7 @@ pub async fn overview(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/tariffs",
+///   "path": "/api/v1/workspaces/{workspace}/billing/tariffs",
 ///   "method": "post",
 ///   "operation": {
 ///     "security": [
@@ -597,16 +588,7 @@ pub async fn overview(
 ///     },
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1809,7 +1791,7 @@ pub struct InvoiceInput {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/invoices",
+///   "path": "/api/v1/workspaces/{workspace}/billing/invoices",
 ///   "method": "post",
 ///   "operation": {
 ///     "security": [
@@ -1902,16 +1884,7 @@ pub struct InvoiceInput {
 ///     },
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1955,7 +1928,7 @@ pub struct InvoiceLinesQuery {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}",
+///   "path": "/api/v1/workspaces/{workspace}/billing/invoices/{invoice}",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [
@@ -1966,16 +1939,7 @@ pub struct InvoiceLinesQuery {
 ///     "operationId": "getCustomerInvoiceLines",
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -3330,7 +3294,7 @@ pub struct CustomerTariffHistoryQuery {
 /// Read immutable customer prices with the same workspace permission as billing.
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history",
+///   "path": "/api/v1/workspaces/{workspace}/billing/tariffs/{model}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listCustomerTariffHistory",
@@ -3343,16 +3307,7 @@ pub struct CustomerTariffHistoryQuery {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

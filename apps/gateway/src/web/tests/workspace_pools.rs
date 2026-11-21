@@ -137,32 +137,33 @@ async fn unfunded_management_connection_can_save_routing_without_expanding_scope
         .unwrap();
     let foreign_tenant = grant(&store, foreign_tenant_workspace, foreign_owner.operator_id).await;
     let app = router(state);
-    for prefix in ["/api/v1", "/api/v1"] {
-        assert_eq!(
-            send(
-                &app,
-                "GET",
-                &format!("{prefix}/organizations/{}/projects", scope.organization_id),
-                &owner.token,
-                Value::Null
-            )
-            .await
-            .0,
-            StatusCode::OK
-        );
-        assert_eq!(
-            send(
-                &app,
-                "GET",
-                &format!("{prefix}/organizations/{foreign_organization}/projects"),
-                &owner.token,
-                Value::Null
-            )
-            .await
-            .0,
-            StatusCode::NOT_FOUND
-        );
-    }
+    assert_eq!(
+        send(
+            &app,
+            "GET",
+            &format!(
+                "/api/v1/workspaces?organization_id={}",
+                scope.organization_id
+            ),
+            &owner.token,
+            Value::Null
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        send(
+            &app,
+            "GET",
+            &format!("/api/v1/workspaces?organization_id={foreign_organization}"),
+            &owner.token,
+            Value::Null
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
     let body = json!({"slug":"assistant","name":"Assistant","description":"Prepared without funding","enabled":true,"revision":0,"candidates":[{"alias":"fast","priority":100,"weight":1,"enabled":true}],"rules":[],"default_action":"candidates"});
     assert_eq!(
         send(

@@ -404,8 +404,8 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const startWithNewChat = new URLSearchParams(location.search).get('new') === '1';
   const selectionLocationKey = useRef(location.key);
   selectionLocationKey.current = location.key;
-  const historyEndpoint = `/api/v1/organizations/${organization}/projects/${workspaceId}/chats`;
-  const draftEndpoint = `/api/v1/organizations/${organization}/projects/${workspaceId}/chats/draft`;
+  const historyEndpoint = `/api/v1/workspaces/${workspaceId}/chats`;
+  const draftEndpoint = `/api/v1/workspaces/${workspaceId}/chats/draft`;
   const cachedHistory = token ? peekQuery<{data:SavedComparison[]}>(token,historyEndpoint,{persist:true})?.data : undefined;
   const cachedDraft = token ? peekQuery<ChatDraftSnapshot>(token,draftEndpoint) : undefined;
   const initialSelection = cachedHistory
@@ -910,7 +910,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
 
   async function loadCharges(attemptIds: string[], signal?: AbortSignal) {
     if (!attemptIds.length) return new Map<string, RequestLedgerEntry>();
-    const base = '/api/v1/organizations/' + encodeURIComponent(organization) + '/projects/' + encodeURIComponent(workspaceId);
+    const base = '/api/v1/workspaces/' + encodeURIComponent(workspaceId);
     const reads = await Promise.allSettled([...new Set(attemptIds)].map(async attemptId => {
       const response = await fetch(base + '/requests/' + encodeURIComponent(attemptId), { signal, headers: { authorization: 'Bearer ' + token } });
       const entry = await responseData<RequestLedgerEntry>(response);

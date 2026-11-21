@@ -99,6 +99,12 @@ async fn session_aliases_preserve_identity_replay_owner_and_workspace(pool: PgPo
     let canonical = format!("/api/v1/workspaces/{}/sessions/{id}", scope.project_id);
     let input = json!({"expected_revision":"0","title":"Video"});
     assert_eq!(
+        call(&app, "PUT", &legacy, ADMIN, Some(input.clone()))
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
         call(
             &app,
             "PUT",
@@ -110,7 +116,14 @@ async fn session_aliases_preserve_identity_replay_owner_and_workspace(pool: PgPo
         .0,
         StatusCode::FORBIDDEN
     );
-    let (status, created) = call(&app, "PUT", &legacy, ADMIN, Some(input.clone())).await;
+    let (status, created) = call(
+        &app,
+        "PUT",
+        &format!("{canonical}?category=video"),
+        ADMIN,
+        Some(input.clone()),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{created}");
     let (status, replay) = call(
         &app,
@@ -220,10 +233,10 @@ async fn session_aliases_preserve_identity_replay_owner_and_workspace(pool: PgPo
     );
     let new_chat = format!("/api/v1/workspaces/{}/chats/{id}", scope.project_id);
     assert_eq!(
-        call(&app, "GET", &old_chat, ADMIN, None).await,
-        call(&app, "GET", &new_chat, ADMIN, None).await
+        call(&app, "GET", &old_chat, ADMIN, None).await.0,
+        StatusCode::NOT_FOUND
     );
-    let old_revision = call(&app, "GET", &old_chat, ADMIN, None).await.1["revision"].clone();
+    let old_revision = call(&app, "GET", &new_chat, ADMIN, None).await.1["revision"].clone();
     let chat_update = json!({
         "prompt":"Follow-up", "title":"Saved Chat", "createdAt":1, "results":[],
         "expectedRevision":old_revision,
@@ -239,14 +252,10 @@ async fn session_aliases_preserve_identity_replay_owner_and_workspace(pool: PgPo
         StatusCode::OK
     );
     assert_eq!(
-        call(&app, "PUT", &old_chat, ADMIN, Some(chat_update))
+        call(&app, "PUT", &new_chat, ADMIN, Some(chat_update))
             .await
             .0,
         StatusCode::CONFLICT
-    );
-    assert_eq!(
-        call(&app, "GET", &new_chat, ADMIN, None).await,
-        call(&app, "GET", &old_chat, ADMIN, None).await
     );
     assert_eq!(
         call(

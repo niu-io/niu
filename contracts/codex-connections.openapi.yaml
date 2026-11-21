@@ -6,10 +6,9 @@ info:
 security:
   - adminBearer: []
 paths:
-  /api/v1/organizations/{organization}/projects/{project}/codex-connections:
+  /api/v1/workspaces/{workspace}/codex-connections:
     parameters:
-      - $ref: '#/components/parameters/organization'
-      - $ref: '#/components/parameters/project'
+      - $ref: '#/components/parameters/workspace'
     get:
       operationId: listPrivateCodexConnections
       description: Requires read access to the workspace. Never returns tokens, client registrations or credential references.
@@ -30,10 +29,9 @@ paths:
           description: Administrator authentication required.
         '404':
           description: Workspace is outside the administrator's scope.
-  /api/v1/organizations/{organization}/projects/{project}/codex-connections/sign-in:
+  /api/v1/workspaces/{workspace}/codex-connections/sign-in:
     parameters:
-      - $ref: '#/components/parameters/organization'
-      - $ref: '#/components/parameters/project'
+      - $ref: '#/components/parameters/workspace'
     post:
       operationId: startPrivateCodexSignIn
       description: Requires write access. Creates a single-use sign-in attempt lasting ten minutes. New connections use dynamic client registration; reconnecting preserves identity and the issued client ID.
@@ -84,10 +82,9 @@ paths:
           description: Workspace is outside the administrator's scope.
         '503':
           description: Encryption or sign-in attempt capacity is unavailable.
-  /api/v1/organizations/{organization}/projects/{project}/codex-connections/{id}:
+  /api/v1/workspaces/{workspace}/codex-connections/{id}:
     parameters:
-      - $ref: '#/components/parameters/organization'
-      - $ref: '#/components/parameters/project'
+      - $ref: '#/components/parameters/workspace'
       - name: id
         in: path
         required: true
@@ -153,18 +150,11 @@ components:
       type: http
       scheme: bearer
   parameters:
-    organization:
-      name: organization
+    workspace:
+      name: workspace
       in: path
       required: true
-      schema:
-        type: string
-        format: uuid
-    project:
-      name: project
-      in: path
-      required: true
-      description: Legacy API parameter naming for the Niu workspace.
+      description: Niu workspace identifier.
       schema:
         type: string
         format: uuid

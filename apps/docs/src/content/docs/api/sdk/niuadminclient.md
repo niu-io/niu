@@ -3907,23 +3907,6 @@ deleteAssetGroupRequest(scope: TenantScope, intentId: string, options?: RequestO
 deleteRequestPayload(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<void>;
 ```
 
-### listAccounts
-
-```typescript
-listAccounts(scope: TenantScope, options?: RequestOptions): Promise<{
-    data: SupplierAccount[];
-}>;
-```
-
-### createAccount
-
-```typescript
-createAccount(scope: TenantScope, account: SupplierAccountInput, options?: RequestOptions): Promise<{
-    id: string;
-    health: string;
-}>;
-```
-
 ### listWorkspaceAssets
 
 ```typescript

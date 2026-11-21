@@ -1308,8 +1308,8 @@ async fn buffered_output_withholds_content_but_preserves_incurred_charges(pool: 
     let response = router(state.clone())
         .oneshot(
             Request::get(format!(
-                "/api/v1/organizations/{}/projects/{}/requests?status=output_withheld&limit=1",
-                scope.organization_id, scope.project_id
+                "/api/v1/workspaces/{}/requests?status=output_withheld&limit=1",
+                scope.project_id
             ))
             .header(
                 "authorization",

@@ -79,7 +79,7 @@ async fn list(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks",
+///   "path": "/api/v1/workspaces/{workspace}/tasks",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsInventoryTasks",
@@ -92,16 +92,7 @@ async fn list(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -522,7 +513,7 @@ pub(in crate::web) async fn tasks(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts",
+///   "path": "/api/v1/workspaces/{workspace}/artifacts",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsInventoryArtifacts",
@@ -535,16 +526,7 @@ pub(in crate::web) async fn tasks(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -754,7 +736,7 @@ pub(in crate::web) async fn artifacts(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}",
+///   "path": "/api/v1/workspaces/{workspace}/tasks/{task}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsInventoryTask",
@@ -767,16 +749,7 @@ pub(in crate::web) async fn artifacts(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1084,7 +1057,7 @@ pub(in crate::web) async fn task(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}",
+///   "path": "/api/v1/workspaces/{workspace}/artifacts/{task}/{kind}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsInventoryArtifact",
@@ -1097,16 +1070,7 @@ pub(in crate::web) async fn task(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1275,7 +1239,7 @@ pub(in crate::web) async fn artifact(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content",
+///   "path": "/api/v1/workspaces/{workspace}/artifacts/{task}/{kind}/content",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsInventoryContent",
@@ -1288,16 +1252,7 @@ pub(in crate::web) async fn artifact(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

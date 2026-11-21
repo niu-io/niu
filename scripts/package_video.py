@@ -72,11 +72,11 @@ def configure_video(request, organization, endpoint, credential, offer_lookup):
 
 
 def create_video(request, organization, after_submit=None, defer_completion=False):
-    status, workspace, _ = request('POST', f'/api/v1/organizations/{organization}/projects',
-        admin=True,payload={'name':'Packaged video recovery'})
+    status, workspace, _ = request('POST', '/api/v1/workspaces',
+        admin=True,payload={'organization_id':organization,'name':'Packaged video recovery'})
     assert status == 201
     workspace_id = str(uuid.UUID(workspace['id']))
-    status, key, _ = request('POST', f'/api/v1/organizations/{organization}/projects/{workspace_id}/keys',
+    status, key, _ = request('POST', f'/api/v1/workspaces/{workspace_id}/keys',
         admin=True,payload={'name':'Packaged video client','allowed_models':['package-video'],'ttl_seconds':86400})
     assert status == 201 and key.get('token')
     status, job, _ = request('POST','/v1/video/jobs',bearer_token=key['token'],
@@ -108,7 +108,7 @@ def complete_saved_video(request, video):
 
 
 def revoke_video_key(request, video):
-    status, _, _ = request('DELETE',f'/api/v1/organizations/{video["organization"]}/projects/{video["workspace"]}/keys/{video["key_id"]}',admin=True)
+    status, _, _ = request('DELETE',f'/api/v1/workspaces/{video["workspace"]}/keys/{video["key_id"]}',admin=True)
     assert status == 204, 'video API key revocation failed'
 
 
@@ -203,11 +203,11 @@ def create_uncertain_video(request, configuration, fund_account):
         admin=True,payload={**configuration['customer_rate'], 'revision':'package-video-uncertain-selling',
             'tariff':{**configuration['customer_rate']['tariff'], 'revision':'package-video-uncertain-selling-tariff'}})
     assert status == 200
-    status, workspace, _ = request('POST',f'/api/v1/organizations/{organization}/projects',
-        admin=True,payload={'name':'Uncertain video recovery'})
+    status, workspace, _ = request('POST','/api/v1/workspaces',
+        admin=True,payload={'organization_id':organization,'name':'Uncertain video recovery'})
     assert status == 201
     workspace = str(uuid.UUID(workspace['id']))
-    status, key, _ = request('POST',f'/api/v1/organizations/{organization}/projects/{workspace}/keys',
+    status, key, _ = request('POST',f'/api/v1/workspaces/{workspace}/keys',
         admin=True,payload={'name':'Uncertain video client','allowed_models':['package-video'],'ttl_seconds':86400})
     assert status == 201 and key.get('token')
     status, job, _ = request('POST','/v1/video/jobs',bearer_token=key['token'],
@@ -241,8 +241,8 @@ def create_video_reader(request, organization, video):
         'organization_id':str(uuid.UUID(organization)), 'project_id':video['workspace'],
         'name':'Package video Logs reader','role':'viewer','expires_in_seconds':86400})
     assert status == 201 and reader.get('token'), 'scoped video reader creation failed'
-    status, foreign, _ = request('POST',f'/api/v1/organizations/{organization}/projects',admin=True,
-        payload={'name':'Foreign video diagnosis workspace'})
+    status, foreign, _ = request('POST','/api/v1/workspaces',admin=True,
+        payload={'organization_id':organization,'name':'Foreign video diagnosis workspace'})
     assert status == 201
     video.update(organization=str(uuid.UUID(organization)),reader_token=reader['token'],reader_id=str(uuid.UUID(reader['operator']['id'])),foreign_workspace=str(uuid.UUID(foreign['id'])))
 
@@ -253,7 +253,7 @@ def revoke_video_reader(request, video):
 
 
 def assert_revoked_video_reader_denied(request, video):
-    base=f'/api/v1/organizations/{video["organization"]}/projects/{video["workspace"]}/requests'
+    base=f'/api/v1/workspaces/{video["workspace"]}/requests'
     for path in [base+'?limit=100',f'{base}/{video["id"]}']:
         try:
             status, _, _ = request('GET',path,bearer_token=video['reader_token'])
@@ -263,7 +263,7 @@ def assert_revoked_video_reader_denied(request, video):
 
 
 def assert_video_activity_reconciled(request, video):
-    base=f'/api/v1/organizations/{video["organization"]}/projects/{video["workspace"]}/requests'
+    base=f'/api/v1/workspaces/{video["workspace"]}/requests'
     status, detail, _ = request('GET',f'{base}/{video["id"]}',bearer_token=video['reader_token'])
     assert status == 200
     status, listing, _ = request('GET',base+'?limit=100',bearer_token=video['reader_token'])
@@ -281,7 +281,7 @@ def assert_video_activity_reconciled(request, video):
         elif isinstance(value,list):
             for item in value:safe(item)
     safe(detail);safe(listing)
-    foreign=f'/api/v1/organizations/{video["organization"]}/projects/{video["foreign_workspace"]}/requests/{video["id"]}'
+    foreign=f'/api/v1/workspaces/{video["foreign_workspace"]}/requests/{video["id"]}'
     try:
         status, _, _ = request('GET',foreign,bearer_token=video['reader_token'])
     except urllib.error.HTTPError as error:

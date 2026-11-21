@@ -436,23 +436,23 @@ async fn three_plane_routes_enforce_boundaries_and_remove_cloned_dashboard_infer
         ("POST", "/v1/media/verifications"),
         (
             "GET",
-            "/api/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002/chats",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/chats",
         ),
         (
             "GET",
-            "/api/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002/generations",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/sessions?category=video",
         ),
         (
             "GET",
-            "/api/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002/generations/00000000-0000-0000-0000-000000000003",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/sessions/00000000-0000-0000-0000-000000000003?category=video",
         ),
         (
             "GET",
-            "/api/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002/generations/tasks",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/tasks",
         ),
         (
             "GET",
-            "/api/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002/generations/artifacts",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/artifacts",
         ),
         (
             "GET",

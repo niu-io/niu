@@ -28,7 +28,7 @@ export function useModelPopularity(models: Model[], token: string, organizationI
 
   const path =
     token && organizationId && projectId
-      ? `/api/v1/organizations/${encodeURIComponent(organizationId)}/projects/${encodeURIComponent(projectId)}/requests?limit=100`
+      ? `/api/v1/workspaces/${encodeURIComponent(projectId)}/requests?limit=100`
       : null;
 
   const { data: requestPage } = useCachedQuery<{ data?: RequestRecord[] } | null>(

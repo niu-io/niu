@@ -52,7 +52,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   const initialOpsPage = canManage ? peekCachedGet<{ data: Operator[]; next_cursor?: string | null }>(token, '/api/v1/operators?limit=1000') : undefined;
   const initialOps = initialOpsPage && Array.isArray(initialOpsPage.data) && !initialOpsPage.next_cursor ? initialOpsPage.data : null;
   const initialOrgId = lockedOrganization || initialOrganization || initialOrgs?.[0]?.id || '';
-  const initialProjects = canManage && initialOrgId ? (peekCachedGet<{ data: NamedResource[] }>(token, '/api/v1/organizations/' + initialOrgId + '/projects')?.data ?? []) : [];
+  const initialProjects = canManage && initialOrgId ? (peekCachedGet<{ data: NamedResource[] }>(token, '/api/v1/workspaces?organization_id=' + encodeURIComponent(initialOrgId))?.data ?? []) : [];
   const [organizations, setOrganizations] = useState<NamedResource[]>(() => initialOrgs ?? []);
   const [projects, setProjects] = useState<NamedResource[]>(() => initialProjects);
   const [operators, setOperators] = useState<Operator[]>(() => initialOps ?? []);
@@ -299,7 +299,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
       return;
     }
     const controller = new AbortController();
-    const projectsPath = '/api/v1/organizations/' + organization + '/projects';
+    const projectsPath = '/api/v1/workspaces?organization_id=' + encodeURIComponent(organization);
     const cachedProjects = peekCachedGet<{ data: NamedResource[] }>(token, projectsPath)?.data;
     setProjects(Array.isArray(cachedProjects) ? cachedProjects : []);
     cachedGet<{ data: NamedResource[] }>(

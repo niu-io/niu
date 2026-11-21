@@ -1,8 +1,11 @@
 //! Workspace content deletion; management credentials and procurement are never returned.
-use crate::{admin::authorize_project, error::ApiError, state::AppState};
+use crate::{
+    admin::authorize_project, error::ApiError, state::AppState,
+    web::workspace_path::WorkspacePath as Path,
+};
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Query, State},
     http::{HeaderMap, StatusCode},
 };
 use niu_storage::{AdminPermission, TenantScope};

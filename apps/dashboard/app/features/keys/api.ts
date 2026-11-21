@@ -81,10 +81,6 @@ export function workspaceKeyPagePath(workspaceId: string, limit = 50, after?: st
   return `${workspaceKeyPath(workspaceId)}?limit=${limit}${status === "all" ? "" : `&status=${status}`}${after ? `&after=${encodeURIComponent(after)}` : ''}`;
 }
 
-export function projectKeyPath(organization: string, project: string) {
-  return `/api/v1/organizations/${encodeURIComponent(organization)}/projects/${encodeURIComponent(project)}/keys`;
-}
-
 import { fetchQuery, invalidateForMutation, peekQuery, type FetchQueryOptions } from '@/lib/query-cache';
 
 export async function keyRequest<T>(

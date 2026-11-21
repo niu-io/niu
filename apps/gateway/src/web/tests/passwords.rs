@@ -1476,10 +1476,7 @@ async fn customer_console_provisioning_handoff_preserves_company_isolation(pool:
         request(
             &app,
             Method::GET,
-            &format!(
-                "/api/v1/organizations/{}/projects/{}/requests/export",
-                scope.organization_id, scope.project_id
-            ),
+            &format!("/api/v1/workspaces/{}/requests/export", scope.project_id),
             Some(token),
             None,
             Value::Null,

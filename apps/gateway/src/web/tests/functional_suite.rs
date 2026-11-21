@@ -597,10 +597,7 @@ async fn functional_end_to_end_multi_protocol_gateway_and_commercial_boundaries(
     assert_eq!(foreign_gen.status(), StatusCode::NOT_FOUND);
 
     // 6. Guardrail Policy Activation & Live Input Blocking Before Egress
-    let guardrail_path = format!(
-        "/api/v1/organizations/{org}/projects/{}/guardrails",
-        workspace_a.project_id
-    );
+    let guardrail_path = format!("/api/v1/workspaces/{}/guardrails", workspace_a.project_id);
     let activate_resp = app
         .clone()
         .oneshot(

@@ -55,9 +55,9 @@ function setup(overrides: { key?: ProjectKey; canConfigureSpending?: boolean; co
     canWrite
     canConfigureSpending={overrides.canConfigureSpending ?? true}
     metadataPath="/api/v1/workspaces/demo/keys/key-1"
-    guardrailPath="/api/v1/organizations/org/projects/demo/keys/key-1/guardrail"
-    workspaceGuardrailsPath="/api/v1/organizations/org/projects/demo/guardrails"
-    unitLimitPath="/api/v1/organizations/org/projects/demo/keys/key-1/units/limit"
+    guardrailPath="/api/v1/workspaces/demo/keys/key-1/guardrail"
+    workspaceGuardrailsPath="/api/v1/workspaces/demo/guardrails"
+    unitLimitPath="/api/v1/workspaces/demo/keys/key-1/units/limit"
     onKeyChanged={onKeyChanged}
     onSaved={onSaved}
     onCancel={() => {}}

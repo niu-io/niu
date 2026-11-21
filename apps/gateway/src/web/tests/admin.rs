@@ -48,13 +48,10 @@ async fn key_metadata_patch_requires_workspace_write_and_valid_grants(pool: PgPo
         .await
         .unwrap();
     let app = router(state.clone());
-    let path = format!(
-        "/api/v1/organizations/{}/projects/{}/keys/{}",
-        scope.organization_id, scope.project_id, key.id
-    );
+    let path = format!("/api/v1/workspaces/{}/keys/{}", scope.project_id, key.id);
     let foreign_path = format!(
-        "/api/v1/organizations/{}/projects/{}/keys/{}",
-        other.organization_id, other.project_id, foreign.id
+        "/api/v1/workspaces/{}/keys/{}",
+        other.project_id, foreign.id
     );
     let valid = json!({"name":"Renamed","allowed_models":["*"],"expected_revision":1});
     for (token, route, payload, expected) in [
@@ -136,7 +133,7 @@ async fn admin_cost_reporting_preserves_precision_and_requires_admin(pool: sqlx:
         .await
         .unwrap();
     let app = router(test_state(None, pool));
-    let base = format!("/api/v1/organizations/{org}/projects/{}", scope.project_id);
+    let base = format!("/api/v1/workspaces/{}", scope.project_id);
     let budget_path = format!("{base}/budget");
     for (auth, payload, expected) in [
         (
@@ -409,14 +406,8 @@ async fn project_operator_cannot_read_sibling_workspace_keys_or_activity(pool: s
     assert_eq!(workspaces["data"].as_array().unwrap().len(), 1);
     assert_eq!(workspaces["data"][0]["id"], first.project_id.to_string());
 
-    let first_base = format!(
-        "/api/v1/organizations/{organization_id}/projects/{}",
-        first.project_id
-    );
-    let second_base = format!(
-        "/api/v1/organizations/{organization_id}/projects/{}",
-        second.project_id
-    );
+    let first_base = format!("/api/v1/workspaces/{}", first.project_id);
+    let second_base = format!("/api/v1/workspaces/{}", second.project_id);
     let (status, keys) = get(&app, &format!("{first_base}/keys"), &operator.token).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(keys["data"].as_array().unwrap().len(), 1);
@@ -936,56 +927,16 @@ async fn quick_setup_requires_admin_and_reuses_default(pool: sqlx::PgPool) {
 async fn bootstrap_api_issues_scoped_keys_and_revokes_them(pool: sqlx::PgPool) {
     let app = router(test_state(None, pool));
     let org = admin_call(&app, "/api/v1/organizations", json!({"name": "team"})).await;
-    let project_path = format!(
-        "/api/v1/organizations/{}/projects",
-        org["id"].as_str().unwrap()
-    );
-    let project = admin_call(&app, &project_path, json!({"name": "app"})).await;
-    let key_path = format!("{}/{}/keys", project_path, project["id"].as_str().unwrap());
-    let account_path = format!(
-        "{}/{}/accounts",
-        project_path,
-        project["id"].as_str().unwrap()
-    );
-    let account = admin_call(
+    let project = admin_call(
         &app,
-        &account_path,
-        json!({
-            "provider": "fixture", "plan": "subscription", "authentication_mode": "oauth_refresh",
-            "billing_mode": "subscription", "credential_reference": "secret:fixture-account",
-            "concurrency_limit": 2,
-        }),
+        "/api/v1/workspaces",
+        json!({"organization_id": org["id"].as_str().unwrap(), "name": "app"}),
     )
     .await;
-    assert_eq!(account["health"], "unverified");
-    let response = app
-        .clone()
-        .oneshot(
-            Request::get(&account_path)
-                .header(
-                    "authorization",
-                    "Bearer niu-test-admin-token-that-is-long-1234",
-                )
-                .body(axum::body::Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    let accounts: Value =
-        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
-    assert_eq!(accounts["data"][0]["billing_mode"], "subscription");
-    assert!(accounts["data"][0].get("credential_reference").is_none());
-    let denied = app
-        .clone()
-        .oneshot(
-            Request::get(&account_path)
-                .body(axum::body::Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
+    let key_path = format!(
+        "/api/v1/workspaces/{}/keys",
+        project["id"].as_str().unwrap()
+    );
     let key = admin_call(
         &app,
         &key_path,
@@ -1112,10 +1063,7 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
     let policy = json!({"schema_version":1,"name":"Restricted","models":{"mode":"deny_all"},"providers":{"mode":"inherit"}});
     let mut invalid_input = policy.clone();
     invalid_input["input_rules"] = json!([{"pattern":"[private-pattern-fixture","action":"block"}]);
-    let policy_path = format!(
-        "/api/v1/organizations/{}/projects/{}/guardrails",
-        scope.organization_id, scope.project_id
-    );
+    let policy_path = format!("/api/v1/workspaces/{}/guardrails", scope.project_id);
     for (credential, expected) in [
         (&viewer.token, StatusCode::FORBIDDEN),
         (&writer.token, StatusCode::BAD_REQUEST),
@@ -1151,8 +1099,8 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
         .await
         .unwrap();
     let key_path = format!(
-        "/api/v1/organizations/{}/projects/{}/keys/{}/guardrail",
-        scope.organization_id, scope.project_id, assignment_key.id
+        "/api/v1/workspaces/{}/keys/{}/guardrail",
+        scope.project_id, assignment_key.id
     );
     let mut malformed_policy = policy.clone();
     malformed_policy["private-pattern-fixture"] = json!(true);
@@ -1259,8 +1207,8 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
         ),
     ] {
         let path = format!(
-            "/api/v1/organizations/{}/projects/{}/guardrails{suffix}",
-            target.organization_id, target.project_id
+            "/api/v1/workspaces/{}/guardrails{suffix}",
+            target.project_id
         );
         let response = app
             .clone()
@@ -1364,8 +1312,8 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
             .clone()
             .oneshot(
                 Request::get(format!(
-                    "/api/v1/organizations/{}/projects/{}/guardrails/denials",
-                    target.organization_id, target.project_id,
+                    "/api/v1/workspaces/{}/guardrails/denials",
+                    target.project_id,
                 ))
                 .header("authorization", format!("Bearer {}", viewer.token))
                 .body(axum::body::Body::empty())
@@ -1395,8 +1343,8 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
             .clone()
             .oneshot(
                 Request::post(format!(
-                    "/api/v1/organizations/{}/projects/{}/guardrails/rollback",
-                    target.organization_id, target.project_id
+                    "/api/v1/workspaces/{}/guardrails/rollback",
+                    target.project_id
                 ))
                 .header("authorization", format!("Bearer {token}"))
                 .header("content-type", "application/json")
@@ -1450,8 +1398,8 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
         ),
     ] {
         let uri = format!(
-            "/api/v1/organizations/{}/projects/{}/guardrails/history{suffix}",
-            target.organization_id, target.project_id
+            "/api/v1/workspaces/{}/guardrails/history{suffix}",
+            target.project_id
         );
         let response = app
             .clone()
@@ -1488,8 +1436,8 @@ async fn workspace_guardrail_api_enforces_roles_and_scope(pool: sqlx::PgPool) {
         ("invalid-credential", scope, 1, StatusCode::UNAUTHORIZED),
     ] {
         let uri = format!(
-            "/api/v1/organizations/{}/projects/{}/guardrails/revisions/{revision}",
-            target.organization_id, target.project_id
+            "/api/v1/workspaces/{}/guardrails/revisions/{revision}",
+            target.project_id
         );
         let response = app
             .clone()
@@ -1608,8 +1556,8 @@ async fn synthetic_input_preview_is_scoped_safe_and_never_dispatches(pool: PgPoo
     let app = router(state.clone());
     let path = |target: niu_storage::TenantScope| {
         format!(
-            "/api/v1/organizations/{}/projects/{}/guardrails/input-preview",
-            target.organization_id, target.project_id
+            "/api/v1/workspaces/{}/guardrails/input-preview",
+            target.project_id
         )
     };
     for (protocol, request, action, outcome, redacted) in [
@@ -1803,8 +1751,8 @@ async fn request_guardrail_attribution_requires_workspace_read_access(pool: PgPo
         (&viewer.token, scope, StatusCode::OK),
     ] {
         let path = format!(
-            "/api/v1/organizations/{}/projects/{}/requests/{attempt}/guardrails",
-            target.organization_id, target.project_id
+            "/api/v1/workspaces/{}/requests/{attempt}/guardrails",
+            target.project_id
         );
         let response = app
             .clone()
@@ -1865,8 +1813,8 @@ async fn synthetic_output_preview_is_scoped_bounded_and_does_not_dispatch(pool: 
     let app = router(state.clone());
     let path = |target: niu_storage::TenantScope| {
         format!(
-            "/api/v1/organizations/{}/projects/{}/guardrails/output-preview",
-            target.organization_id, target.project_id
+            "/api/v1/workspaces/{}/guardrails/output-preview",
+            target.project_id
         )
     };
     let chat =
@@ -2115,8 +2063,8 @@ async fn dispatch_denial_reads_are_scoped_and_content_free(pool: PgPool) {
         (&reader.token, scope, StatusCode::OK),
     ] {
         let path = format!(
-            "/api/v1/organizations/{}/projects/{}/guardrails/dispatch-denials",
-            target.organization_id, target.project_id
+            "/api/v1/workspaces/{}/guardrails/dispatch-denials",
+            target.project_id
         );
         let response = app
             .clone()
@@ -2534,8 +2482,8 @@ async fn required_input_detector_denies_before_inference_and_binds_clear_receipt
         .clone()
         .oneshot(
             Request::put(format!(
-                "/api/v1/organizations/{}/projects/{}/guardrails",
-                scope.organization_id, scope.project_id
+                "/api/v1/workspaces/{}/guardrails",
+                scope.project_id
             ))
             .header(
                 "authorization",
@@ -2752,8 +2700,8 @@ async fn required_input_detector_denies_before_inference_and_binds_clear_receipt
             .clone()
             .oneshot(
                 Request::get(format!(
-                    "/api/v1/organizations/{}/projects/{}/guardrails/detector-decisions",
-                    target.organization_id, target.project_id
+                    "/api/v1/workspaces/{}/guardrails/detector-decisions",
+                    target.project_id
                 ))
                 .header("authorization", format!("Bearer {}", viewer.token))
                 .body(axum::body::Body::empty())
@@ -2777,8 +2725,8 @@ async fn required_input_detector_denies_before_inference_and_binds_clear_receipt
         .clone()
         .oneshot(
             Request::get(format!(
-                "/api/v1/organizations/{}/projects/{}/guardrails/detectors",
-                scope.organization_id, scope.project_id
+                "/api/v1/workspaces/{}/guardrails/detectors",
+                scope.project_id
             ))
             .header("authorization", format!("Bearer {}", viewer.token))
             .body(axum::body::Body::empty())
@@ -2822,8 +2770,8 @@ async fn required_input_detector_denies_before_inference_and_binds_clear_receipt
         .clone()
         .oneshot(
             Request::get(format!(
-                "/api/v1/organizations/{}/projects/{}/guardrails/detectors",
-                other_org, scope.project_id
+                "/api/v1/workspaces/{}/guardrails/detectors",
+                scope.project_id
             ))
             .header("authorization", format!("Bearer {}", org_owner.token))
             .body(axum::body::Body::empty())
@@ -2921,10 +2869,7 @@ async fn customer_workspace_spending_management_requires_owner_and_scope(pool: P
         .await
         .unwrap();
     let app = router(state.clone());
-    let base = format!(
-        "/api/v1/organizations/{}/projects/{}/spending-limit/CNY",
-        scope.organization_id, scope.project_id
-    );
+    let base = format!("/api/v1/workspaces/{}/spending-limit/CNY", scope.project_id);
     async fn call(
         app: &Router,
         method: &str,
@@ -2979,10 +2924,7 @@ async fn customer_workspace_spending_management_requires_owner_and_scope(pool: P
         );
         assert!(rows.iter().all(|row| row.as_object().unwrap().len() == 4));
     }
-    let foreign_collection = format!(
-        "/api/v1/organizations/{}/projects/{}/spending-limit",
-        scope.organization_id, other.project_id
-    );
+    let foreign_collection = format!("/api/v1/workspaces/{}/spending-limit", other.project_id);
     assert_eq!(
         call(&app, "GET", &foreign_collection, &tokens[0], Value::Null)
             .await
@@ -2996,10 +2938,7 @@ async fn customer_workspace_spending_management_requires_owner_and_scope(pool: P
             StatusCode::FORBIDDEN
         );
     }
-    let foreign = format!(
-        "/api/v1/organizations/{}/projects/{}/spending-limit/CNY",
-        scope.organization_id, other.project_id
-    );
+    let foreign = format!("/api/v1/workspaces/{}/spending-limit/CNY", other.project_id);
     assert_eq!(
         call(&app, "PUT", &foreign, &tokens[0], input.clone())
             .await
@@ -3159,8 +3098,8 @@ async fn image_detector_discovery_is_scoped_and_does_not_enable_processing(pool:
         (foreign, Some(viewer.token.as_str()), StatusCode::FORBIDDEN),
     ] {
         let mut request = Request::get(format!(
-            "/api/v1/organizations/{}/projects/{}/guardrails/image-detectors",
-            target.organization_id, target.project_id
+            "/api/v1/workspaces/{}/guardrails/image-detectors",
+            target.project_id
         ));
         if let Some(token) = token {
             request = request.header("authorization", format!("Bearer {token}"));
@@ -3195,8 +3134,8 @@ async fn image_detector_discovery_is_scoped_and_does_not_enable_processing(pool:
     let response = app
         .oneshot(
             Request::get(format!(
-                "/api/v1/organizations/{}/projects/{}/guardrails/image-detectors",
-                organization, foreign.project_id
+                "/api/v1/workspaces/{}/guardrails/image-detectors",
+                foreign.project_id
             ))
             .header(
                 "authorization",
@@ -3311,8 +3250,8 @@ async fn image_detector_preview_requires_current_consent_and_workspace_write_acc
     let app = router(state.clone());
     let path = |scope: niu_storage::TenantScope| {
         format!(
-            "/api/v1/organizations/{}/projects/{}/guardrails/image-detectors/fixture-image/preview",
-            scope.organization_id, scope.project_id
+            "/api/v1/workspaces/{}/guardrails/image-detectors/fixture-image/preview",
+            scope.project_id
         )
     };
     let body = json!({"consent":{"configuration_fingerprint":fingerprint,"consent_to_image_processing":true},"image":reference});
@@ -3379,10 +3318,7 @@ async fn image_detector_preview_requires_current_consent_and_workspace_write_acc
             "synthetic preview must not persist content, approvals or charges"
         );
     }
-    let base = format!(
-        "/api/v1/organizations/{}/projects/{}/guardrails",
-        scope.organization_id, scope.project_id
-    );
+    let base = format!("/api/v1/workspaces/{}/guardrails", scope.project_id);
     let policy = json!({"schema_version":1,"name":"Required image inspection","models":{"mode":"inherit"},"providers":{"mode":"inherit"},"image_detectors":[{"detector":"fixture-image","configuration_fingerprint":fingerprint,"consent_to_image_processing":true}]});
     let activation = json!({"expected_revision":0,"policy":policy});
     assert_eq!(
@@ -3887,8 +3823,8 @@ async fn key_capacity_diagnostics_enforce_scope_and_read_permissions(pool: PgPoo
         )
     }
     let path = format!(
-        "/api/v1/organizations/{}/projects/{}/keys/{}/capacity",
-        scope.organization_id, scope.project_id, key.id
+        "/api/v1/workspaces/{}/keys/{}/capacity",
+        scope.project_id, key.id
     );
     let (status, value) = read(&app, &path, &reader.token).await;
     assert_eq!(status, StatusCode::OK, "{value}");
@@ -3902,8 +3838,8 @@ async fn key_capacity_diagnostics_enforce_scope_and_read_permissions(pool: PgPoo
         StatusCode::UNAUTHORIZED
     );
     let foreign = format!(
-        "/api/v1/organizations/{}/projects/{}/keys/{}/capacity",
-        scope.organization_id, other.project_id, key.id
+        "/api/v1/workspaces/{}/keys/{}/capacity",
+        other.project_id, key.id
     );
     assert_eq!(
         read(&app, &foreign, &reader.token).await.0,
@@ -4236,13 +4172,10 @@ async fn saved_detector_policy_restore_and_assignment_revalidate_current_eligibi
         .activate_workspace_guardrail(scope, 1, &current)
         .await
         .unwrap();
-    let base = format!(
-        "/api/v1/organizations/{}/projects/{}/guardrails",
-        scope.organization_id, scope.project_id
-    );
+    let base = format!("/api/v1/workspaces/{}/guardrails", scope.project_id);
     let assignment = format!(
-        "/api/v1/organizations/{}/projects/{}/keys/{}/guardrail",
-        scope.organization_id, scope.project_id, key.id
+        "/api/v1/workspaces/{}/keys/{}/guardrail",
+        scope.project_id, key.id
     );
     for mode in ["changed", "removed", "workspace-disabled", "matching"] {
         let mut candidate = config.clone();
@@ -4370,24 +4303,15 @@ async fn workspace_scoped_customer_management_aliases_preserve_parity_and_deny_f
     for (canonical, legacy) in [
         (
             format!("/api/v1/workspaces/{}/billing", ws_a.project_id),
-            format!(
-                "/api/v1/organizations/{}/projects/{}/billing",
-                org_a, ws_a.project_id
-            ),
+            format!("/api/v1/workspaces/{}/billing", ws_a.project_id),
         ),
         (
             format!("/api/v1/workspaces/{}/spending-limit", ws_a.project_id),
-            format!(
-                "/api/v1/organizations/{}/projects/{}/spending-limit",
-                org_a, ws_a.project_id
-            ),
+            format!("/api/v1/workspaces/{}/spending-limit", ws_a.project_id),
         ),
         (
             format!("/api/v1/workspaces/{}/requests", ws_a.project_id),
-            format!(
-                "/api/v1/organizations/{}/projects/{}/requests",
-                org_a, ws_a.project_id
-            ),
+            format!("/api/v1/workspaces/{}/requests", ws_a.project_id),
         ),
         (
             format!(
@@ -4395,8 +4319,8 @@ async fn workspace_scoped_customer_management_aliases_preserve_parity_and_deny_f
                 ws_a.project_id, key_a.id
             ),
             format!(
-                "/api/v1/organizations/{}/projects/{}/keys/{}/spending-limit",
-                org_a, ws_a.project_id, key_a.id
+                "/api/v1/workspaces/{}/keys/{}/spending-limit",
+                ws_a.project_id, key_a.id
             ),
         ),
         (
@@ -4405,8 +4329,8 @@ async fn workspace_scoped_customer_management_aliases_preserve_parity_and_deny_f
                 ws_a.project_id, key_a.id
             ),
             format!(
-                "/api/v1/organizations/{}/projects/{}/keys/{}/ip-policy",
-                org_a, ws_a.project_id, key_a.id
+                "/api/v1/workspaces/{}/keys/{}/ip-policy",
+                ws_a.project_id, key_a.id
             ),
         ),
         (
@@ -4415,8 +4339,8 @@ async fn workspace_scoped_customer_management_aliases_preserve_parity_and_deny_f
                 ws_a.project_id, key_a.id
             ),
             format!(
-                "/api/v1/organizations/{}/projects/{}/keys/{}/request-rate-limit",
-                org_a, ws_a.project_id, key_a.id
+                "/api/v1/workspaces/{}/keys/{}/request-rate-limit",
+                ws_a.project_id, key_a.id
             ),
         ),
         (
@@ -4425,8 +4349,8 @@ async fn workspace_scoped_customer_management_aliases_preserve_parity_and_deny_f
                 ws_a.project_id, key_a.id
             ),
             format!(
-                "/api/v1/organizations/{}/projects/{}/keys/{}/concurrency-limit",
-                org_a, ws_a.project_id, key_a.id
+                "/api/v1/workspaces/{}/keys/{}/concurrency-limit",
+                ws_a.project_id, key_a.id
             ),
         ),
         (
@@ -4435,8 +4359,8 @@ async fn workspace_scoped_customer_management_aliases_preserve_parity_and_deny_f
                 ws_a.project_id, key_a.id
             ),
             format!(
-                "/api/v1/organizations/{}/projects/{}/keys/{}/token-rate-limit",
-                org_a, ws_a.project_id, key_a.id
+                "/api/v1/workspaces/{}/keys/{}/token-rate-limit",
+                ws_a.project_id, key_a.id
             ),
         ),
         (
@@ -4445,8 +4369,8 @@ async fn workspace_scoped_customer_management_aliases_preserve_parity_and_deny_f
                 ws_a.project_id, key_a.id
             ),
             format!(
-                "/api/v1/organizations/{}/projects/{}/keys/{}/capacity",
-                org_a, ws_a.project_id, key_a.id
+                "/api/v1/workspaces/{}/keys/{}/capacity",
+                ws_a.project_id, key_a.id
             ),
         ),
     ] {

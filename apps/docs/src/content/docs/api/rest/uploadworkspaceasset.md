@@ -1,11 +1,11 @@
 ---
 title: "Save a workspace material"
-description: "POST /api/v1/organizations/{organization}/projects/{project}/assets"
+description: "POST /api/v1/workspaces/{workspace}/assets"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/organizations/{organization}/projects/{project}/assets`
+`POST /api/v1/workspaces/{workspace}/assets`
 
 Member Write permission required. Raw binary body with exact supported Content-Type and required name query; no multipart or base64 envelope. Authentication and a bounded upload slot precede body collection. Original bytes are immutable, encrypted with workspace/asset identity binding, limited to 8 MiB each and 256 MiB/256 active objects per workspace. Images undergo bounded pixel decoding; audio/video undergo local frame/container structural validation. This is not content-inspection approval, Provider upload, licensing evidence or inference authorization. Repeated uploads create distinct objects; uncertain clients should reconcile the library before repeating.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/assets" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/workspaces/{workspace}/assets" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   --url-query 'name=<NAME>' \
   -H 'Content-Type: image/png' \
@@ -37,18 +37,7 @@ curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/p
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

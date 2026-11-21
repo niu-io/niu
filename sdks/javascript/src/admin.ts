@@ -2187,13 +2187,13 @@ export class NiuAdminClient {
   /** Accept workspace IDs for current callers and scoped legacy references for compatibility. */
   renameWorkspace(scope: TenantScope | string, name: string, options?: RequestOptions): Promise<{ id: string; name: string }> {
     if (typeof scope === 'string') return this.renameWorkspaceById(scope, name, options);
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}`, { name }, options, 'PATCH');
+    return this.request(`/workspaces/${uuid(scope.projectId)}`, { name }, options, 'PATCH');
   }
 
   /** Only eligible empty workspaces may be deleted; existing business data is protected. */
   deleteWorkspace(scope: TenantScope | string, options?: RequestOptions): Promise<void> {
     if (typeof scope === 'string') return this.deleteWorkspaceById(scope, options);
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}`, undefined, options, 'DELETE');
+    return this.request(`/workspaces/${uuid(scope.projectId)}`, undefined, options, 'DELETE');
   }
 
   /** Exact persisted route lookup; missing and out-of-scope workspaces both return 404. */
@@ -2388,7 +2388,7 @@ export class NiuAdminClient {
    */
   cancelPreparedMediaOperation(scope: TenantScope, operationId: string, model: string, options?: RequestOptions): Promise<{ data: { status: 'not_sent' } }> {
     if (!model.trim()) throw new TypeError('A model is required');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/operations/${uuid(operationId)}/cancel${nativeCapabilityQuery(model)}`, undefined, options, 'POST');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/media/operations/${uuid(operationId)}/cancel${nativeCapabilityQuery(model)}`, undefined, options, 'POST');
   }
 
   /** Read saved native operations with current workspace Read access.
@@ -2402,13 +2402,13 @@ export class NiuAdminClient {
     const parameters = new URLSearchParams({ key_id: uuid(keyId) });
     if (query.after !== undefined) parameters.set('after', query.after);
     if (query.limit !== undefined) parameters.set('limit', String(query.limit));
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/asset-operation-models?${parameters}`, undefined, options, 'GET');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/media/asset-operation-models?${parameters}`, undefined, options, 'GET');
   }
 
   /** Read exact saved key/model history without restoring inference authority. */
   mediaOperationHistory(scope: TenantScope, context: MediaOperationHistoryContext) {
     if (!context.model.trim()) throw new TypeError('A model is required');
-    const path = `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/operations`;
+    const path = `/workspaces/${uuid(scope.projectId)}/media/operations`;
     const parameters = new URLSearchParams({ key_id: uuid(context.keyId), model: context.model });
     if (context.contextGroupId !== undefined) parameters.set('context_group_id', uuid(context.contextGroupId));
     return {
@@ -2771,12 +2771,12 @@ export class NiuAdminClient {
 
   /** Workspace read access. Missing receipt returns 404; never queries upstream or changes billing. */
   getRequestUsageReconciliation(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<RequestUsageReconciliation> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/usage-reconciliation`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/usage-reconciliation`, undefined, options);
   }
 
   /** Installation write only. Records supplemental usage; financial recovery settles separately. */
   reconcileRequestUsage(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<RequestUsageReconciliation> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/usage-reconciliation`, {}, options, 'POST');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/usage-reconciliation`, {}, options, 'POST');
   }
 
   /** Company-wide balance permission required. Keep currency fixed while following next_before. */
@@ -2956,7 +2956,7 @@ export class NiuAdminClient {
 
   /** Customer-safe billing read; server workspace authorization is authoritative. */
   getCustomerBilling(scope: TenantScope, options?: RequestOptions): Promise<{ data: CustomerBilling }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing`, undefined, options);
   }
 
   /** Scoped immutable selling history; amount strings are never coerced to numbers. */
@@ -2966,7 +2966,7 @@ export class NiuAdminClient {
     const query = new URLSearchParams();
     if (page.before !== undefined) query.set('before', uuid(page.before));
     if (page.limit !== undefined) query.set('limit', String(page.limit));
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/tariffs/${encodeURIComponent(model)}/history${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/tariffs/${encodeURIComponent(model)}/history${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** Current shared tariff-eligible aliases; publication rechecks availability. */
@@ -3065,12 +3065,12 @@ export class NiuAdminClient {
 
   /** Platform configuration only; does not create funding or qualify a video route. */
   setRetailMediaEnrollment(scope: TenantScope, input: RetailMediaEnrollmentPublication, options?: RequestOptions): Promise<{ data: RetailMediaEnrollmentResult }> {
-    return this.request(`/organizations/${encodeURIComponent(uuid(scope.organizationId))}/projects/${encodeURIComponent(uuid(scope.projectId))}/billing/media-retail-price-enrollment`, input, options, 'POST');
+    return this.request(`/workspaces/${encodeURIComponent(uuid(scope.projectId))}/billing/media-retail-price-enrollment`, input, options, 'POST');
   }
   /** Own customer selection is advisory; immutable task binding happens during admission. */
   getRetailMediaEnrollment(scope: TenantScope, dimensions: MediaBillingDimensions, meter: string, options?: RequestOptions): Promise<{ data: RetailMediaEnrollment }> {
     const query = new URLSearchParams({ model: dimensions.model, channel: dimensions.channel, resolution: dimensions.resolution, reference_video: String(dimensions.reference_video), meter });
-    return this.request(`/organizations/${encodeURIComponent(uuid(scope.organizationId))}/projects/${encodeURIComponent(uuid(scope.projectId))}/billing/media-retail-price-enrollment?${query}`, undefined, options);
+    return this.request(`/workspaces/${encodeURIComponent(uuid(scope.projectId))}/billing/media-retail-price-enrollment?${query}`, undefined, options);
   }
 
   /** Platform selling publication; preserves exact prior outcome for the same canonical intent/key. */
@@ -3118,12 +3118,12 @@ export class NiuAdminClient {
   setRetailTextEnrollment(scope: TenantScope, input: RetailTextEnrollmentPublication, options?: RequestOptions): Promise<{ data: Omit<RetailTextEnrollment,'pricing_source' | 'effective_price'> & { revision: string } }> {
     retailPublication(input); if (input.price_id !== null) uuid(input.price_id);
     if (!input.model_alias || input.model_alias !== input.model_alias.trim() || input.model_alias.length>200) throw new TypeError('Use a model alias');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/retail-price-enrollment`,input,options,'POST');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/retail-price-enrollment`,input,options,'POST');
   }
   getRetailTextEnrollment(scope: TenantScope, modelAlias: string, options?: RequestOptions): Promise<{ data: RetailTextEnrollment }> {
     if (!modelAlias || modelAlias!==modelAlias.trim() || modelAlias.length>200) throw new TypeError('Use a model alias');
     const query=new URLSearchParams({model_alias:modelAlias});
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/retail-price-enrollment?${query}`,undefined,options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/retail-price-enrollment?${query}`,undefined,options);
   }
 
   /** Named pricing targets; platform permission does not grant customer data access. */
@@ -3169,7 +3169,7 @@ export class NiuAdminClient {
     if (fee !== undefined && (typeof fee !== 'string' || !/^\d+$/.test(fee) || BigInt(fee) > 9_223_372_036_854_775_807n)) throw new Error('Request fee must be a nonnegative integer string within signed 64-bit range');
     const minimum = rates.minimum_charge_nanos;
     if (minimum !== undefined && (typeof minimum !== 'string' || !/^\d+$/.test(minimum) || BigInt(minimum) > 9_223_372_036_854_775_807n)) throw new Error('Minimum charge must be a nonnegative integer string within signed 64-bit range');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/tariffs`, rates, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/tariffs`, rates, options);
   }
 
   /** Platform-administrator video selling configuration; publication does not qualify dispatch. */
@@ -3300,7 +3300,7 @@ export class NiuAdminClient {
   /** Full customer-only invoice history; existing balance debits count as settlement. */
   listCustomerInvoices(scope: TenantScope, page: LedgerHistoryQuery = {}, options?: RequestOptions): Promise<CustomerInvoicePage> {
     const query = ledgerHistoryQuery(page);
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/invoices${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/invoices${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** Installation-only invoice closure. Preserve the caller's idempotency key on manual replay. */
@@ -3309,20 +3309,20 @@ export class NiuAdminClient {
       || input.from_ms < 0 || input.to_ms <= input.from_ms || input.to_ms - input.from_ms > 366 * 86_400_000
       || !/^[A-Z]{3}$/.test(input.currency)) throw new Error('Choose a nonnegative invoice range of at most 366 days and a three-letter currency');
     uuid(input.idempotency_key);
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/invoices`, input, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/invoices`, input, options);
   }
 
   /** Workspace-authorized customer line items. Unknown/out-of-scope invoices return 404; amounts and token counts remain exact decimal strings. */
   getCustomerInvoiceLines(scope: TenantScope, invoiceId: string, options?: RequestOptions, mediaAfter?: string): Promise<{ data: CustomerInvoiceLine[]; media_lines?: CustomerInvoiceMediaLine[]; media_next_cursor?: string | null }> {
     const cursor = mediaAfter === undefined ? '' : `?media_after=${uuid(mediaAfter)}`;
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/invoices/${uuid(invoiceId)}${cursor}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/invoices/${uuid(invoiceId)}${cursor}`, undefined, options);
   }
 
   /** Installation-only record of a confirmed external payment; does not collect or transfer money. */
   recordCustomerInvoicePayment(scope: TenantScope, invoiceId: string, paymentReference: string, options?: RequestOptions): Promise<{ data: { id: string } }> {
     const reference = paymentReference.trim();
     if (!reference || new TextEncoder().encode(reference).length > 200 || /\p{Cc}/u.test(reference)) throw new Error('Choose a payment reference of at most 200 bytes without control characters');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/invoices/${uuid(invoiceId)}/payment`, { payment_reference: reference }, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/invoices/${uuid(invoiceId)}/payment`, { payment_reference: reference }, options);
   }
 
   getWorkspaceGuardrail(scope: TenantScope, options?: RequestOptions): Promise<{ data: { revision: number; policy: GuardrailPolicy } | null }> {
@@ -3330,14 +3330,14 @@ export class NiuAdminClient {
   }
 
   getKeyIpPolicy(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyIpPolicy }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy`, undefined, options);
   }
 
   /** Null allows all sources; [] denies all. Secret rotation preserves the policy. */
   setKeyIpPolicy(scope: TenantScope, keyId: string, input: { allowed_cidrs: string[] | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     if (input.allowed_cidrs !== null && (!Array.isArray(input.allowed_cidrs) || input.allowed_cidrs.length > 64 || input.allowed_cidrs.some(value => typeof value !== 'string' || !value || value.length > 64 || value.trim() !== value))) throw new TypeError('Use up to 64 IP addresses or CIDRs, or explicit null');
     if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy`, { allowed_cidrs: input.allowed_cidrs, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy`, { allowed_cidrs: input.allowed_cidrs, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   listKeyIpPolicyHistory(scope: TenantScope, keyId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeyIpPolicyRevision[] }> {
@@ -3350,12 +3350,12 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   /** Read known token subtotals; unknown requests are not zero usage. No TPM enforcement. */
   getKeyTokenUsageWindow(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyTokenUsageWindow }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-usage-window`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-usage-window`, undefined, options);
   }
 
   /** All matching configurations, including disabled entries. No silent row cap.
@@ -3507,14 +3507,14 @@ export class NiuAdminClient {
   }
 
   getKeyRequestRateLimit(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyRequestRateLimit }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit`, undefined, options);
   }
 
   /** Null removes the rate limit; zero denies dispatch. Secret rotation preserves the policy. */
   setKeyRequestRateLimit(scope: TenantScope, keyId: string, input: { requests_per_minute: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     if (input.requests_per_minute !== null && (!Number.isInteger(input.requests_per_minute) || input.requests_per_minute < 0 || input.requests_per_minute > 1_000_000)) throw new TypeError('Use an integer request limit from 0 to 1000000, or explicit null');
     if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit`, { requests_per_minute: input.requests_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit`, { requests_per_minute: input.requests_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   listKeyRequestRateLimitHistory(scope: TenantScope, keyId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeyRequestRateLimitRevision[] }> {
@@ -3527,19 +3527,19 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
 
   getKeyTokenRateLimit(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyTokenRateLimit }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit`, undefined, options);
   }
 
   /** Null removes the rate limit; zero denies dispatch. Secret rotation preserves the policy. */
   setKeyTokenRateLimit(scope: TenantScope, keyId: string, input: { tokens_per_minute: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     if (input.tokens_per_minute !== null && (!Number.isInteger(input.tokens_per_minute) || input.tokens_per_minute < 0 || input.tokens_per_minute > 1_000_000_000_000)) throw new TypeError('Use an integer token budget from 0 to 1000000000000, or explicit null');
     if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit`, { tokens_per_minute: input.tokens_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit`, { tokens_per_minute: input.tokens_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   listKeyTokenRateLimitHistory(scope: TenantScope, keyId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeyTokenRateLimitRevision[] }> {
@@ -3552,7 +3552,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
 
@@ -3568,18 +3568,18 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid capacity page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/capacity${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/capacity${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   getKeyConcurrencyLimit(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyConcurrencyLimit }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit`, undefined, options);
   }
 
   /** Null removes the concurrency limit; zero denies dispatch. Secret rotation preserves the policy. */
   setKeyConcurrencyLimit(scope: TenantScope, keyId: string, input: { max_concurrent_requests: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     if (input.max_concurrent_requests !== null && (!Number.isInteger(input.max_concurrent_requests) || input.max_concurrent_requests < 0 || input.max_concurrent_requests > 10_000)) throw new TypeError('Use an integer request limit from 0 to 10000, or explicit null');
     if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit`, { max_concurrent_requests: input.max_concurrent_requests, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit`, { max_concurrent_requests: input.max_concurrent_requests, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   listKeyConcurrencyLimitHistory(scope: TenantScope, keyId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeyConcurrencyLimitRevision[] }> {
@@ -3592,7 +3592,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
 
@@ -3658,7 +3658,7 @@ export class NiuAdminClient {
   }
 
   listKeySpendingLimits(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeySpendingAccount[] }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit`, undefined, options);
   }
 
   /** Owner-only customer cap. Rotation shares this limit and its lifetime commitments. */
@@ -3666,7 +3666,7 @@ export class NiuAdminClient {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
     const exact = (value: unknown, maximum: bigint) => typeof value === 'string' && /^\d+$/.test(value) && BigInt(value) <= maximum;
     if ((input.limit_nanos !== null && !exact(input.limit_nanos, 9223372036854775807n)) || !exact(input.expected_revision, 9223372036854775806n)) throw new TypeError('Use exact nonnegative amounts and revision; null explicitly restores unlimited');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit/${encodeURIComponent(currency)}`, { limit_nanos: input.limit_nanos, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit/${encodeURIComponent(currency)}`, { limit_nanos: input.limit_nanos, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   listKeySpendingLimitHistory(scope: TenantScope, keyId: string, currency: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeySpendingLimitRevision[] }> {
@@ -3680,17 +3680,17 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit/${encodeURIComponent(currency)}/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit/${encodeURIComponent(currency)}/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   /** Currency discovery exposes this workspace's commitments, never company funds. */
   listWorkspaceSpendingLimits(scope: TenantScope, options?: RequestOptions): Promise<{ data: WorkspaceSpendingAccount[] }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/spending-limit`, undefined, options);
   }
 
   getWorkspaceSpendingLimit(scope: TenantScope, currency: string, options?: RequestOptions): Promise<{ data: WorkspaceSpendingLimit | null }> {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}`, undefined, options);
   }
 
   /** Owner-only retail limit; never changes company funds or procurement budgets. */
@@ -3698,7 +3698,7 @@ export class NiuAdminClient {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
     const exact = (value: unknown, maximum: bigint) => typeof value === 'string' && /^\d+$/.test(value) && BigInt(value) <= maximum;
     if (!exact(input.limit_nanos, 9223372036854775807n) || !exact(input.expected_revision, 9223372036854775806n)) throw new TypeError('Use exact nonnegative amounts and revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}`, { limit_nanos: input.limit_nanos, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}`, { limit_nanos: input.limit_nanos, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   listWorkspaceSpendingLimitHistory(scope: TenantScope, currency: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: WorkspaceSpendingLimitRevision[]; next_before_revision: string | null }> {
@@ -3712,14 +3712,14 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   /** Explicit Credits workspace cap and commitment; preserved monetary caps block Credits admission until configured. */
   getWorkspaceCustomerUnitSpendingLimit(scope: TenantScope | string, options?: RequestOptions): Promise<{ data: CustomerUnitSpendingLimit }> {
     const path = typeof scope === 'string'
       ? `/workspaces/${uuid(scope)}/units/limit`
-      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/units/limit`;
+      : `/workspaces/${uuid(scope.projectId)}/units/limit`;
     return typeof scope === 'string' ? this.apiRequest(path, undefined, options) : this.request(path, undefined, options);
   }
 
@@ -3732,7 +3732,7 @@ export class NiuAdminClient {
     const body = { limit_atoms: input.limit_atoms, expected_revision: input.expected_revision, idempotency_key: input.idempotency_key };
     const path = typeof scope === 'string'
       ? `/workspaces/${uuid(scope)}/units/limit`
-      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/units/limit`;
+      : `/workspaces/${uuid(scope.projectId)}/units/limit`;
     return typeof scope === 'string' ? this.apiRequest(path, body, options, 'PUT') : this.request(path, body, options, 'PUT');
   }
 
@@ -3749,7 +3749,7 @@ export class NiuAdminClient {
     const suffix = params.size ? `?${params}` : '';
     const path = typeof scope === 'string'
       ? `/workspaces/${uuid(scope)}/units/limit/history${suffix}`
-      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/units/limit/history${suffix}`;
+      : `/workspaces/${uuid(scope.projectId)}/units/limit/history${suffix}`;
     return typeof scope === 'string' ? this.apiRequest(path, undefined, options) : this.request(path, undefined, options);
   }
 
@@ -3758,7 +3758,7 @@ export class NiuAdminClient {
     const validKey = uuid(keyId);
     const path = typeof scope === 'string'
       ? `/workspaces/${uuid(scope)}/keys/${validKey}/units/limit`
-      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${validKey}/units/limit`;
+      : `/workspaces/${uuid(scope.projectId)}/keys/${validKey}/units/limit`;
     return typeof scope === 'string' ? this.apiRequest(path, undefined, options) : this.request(path, undefined, options);
   }
 
@@ -3772,7 +3772,7 @@ export class NiuAdminClient {
     const body = { limit_atoms: input.limit_atoms, expected_revision: input.expected_revision, idempotency_key: input.idempotency_key };
     const path = typeof scope === 'string'
       ? `/workspaces/${uuid(scope)}/keys/${validKey}/units/limit`
-      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${validKey}/units/limit`;
+      : `/workspaces/${uuid(scope.projectId)}/keys/${validKey}/units/limit`;
     return typeof scope === 'string' ? this.apiRequest(path, body, options, 'PUT') : this.request(path, body, options, 'PUT');
   }
 
@@ -3790,7 +3790,7 @@ export class NiuAdminClient {
     const suffix = params.size ? `?${params}` : '';
     const path = typeof scope === 'string'
       ? `/workspaces/${uuid(scope)}/keys/${validKey}/units/limit/history${suffix}`
-      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${validKey}/units/limit/history${suffix}`;
+      : `/workspaces/${uuid(scope.projectId)}/keys/${validKey}/units/limit/history${suffix}`;
     return typeof scope === 'string' ? this.apiRequest(path, undefined, options) : this.request(path, undefined, options);
   }
 
@@ -3813,29 +3813,29 @@ export class NiuAdminClient {
   }
 
   getKeyGuardrail(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: { assignment_revision: number; policy_revision: number | null; mode: KeyGuardrailMode; policy: GuardrailPolicy | null } | null }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, undefined, options);
   }
 
   assignKeyGuardrail(scope: TenantScope, keyId: string, policyRevision: number, expectedAssignmentRevision: number, options?: RequestOptions): Promise<{ assignment_revision: number }> {
     if (!Number.isSafeInteger(policyRevision) || policyRevision < 1 || !Number.isSafeInteger(expectedAssignmentRevision) || expectedAssignmentRevision < 0) throw new Error('Invalid policy or assignment revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'fixed', policy_revision: policyRevision, expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'fixed', policy_revision: policyRevision, expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
   }
 
   /** Follow the workspace's active policy; later activations apply without re-pinning this key. */
   followActiveKeyGuardrail(scope: TenantScope, keyId: string, expectedAssignmentRevision: number, options?: RequestOptions): Promise<{ assignment_revision: number }> {
     if (!Number.isSafeInteger(expectedAssignmentRevision) || expectedAssignmentRevision < 0) throw new Error('Invalid assignment revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'active', expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'active', expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
   }
 
   listKeyGuardrailHistory(scope: TenantScope, keyId: string, beforeAssignmentRevision?: number, options?: RequestOptions): Promise<{ data: Array<{ assignment_revision: number; policy_revision: number | null; mode: KeyGuardrailMode; policy_name: string | null; actor_name: string; created_at: string }>; next_cursor: number | null }> {
     if (beforeAssignmentRevision !== undefined && (!Number.isSafeInteger(beforeAssignmentRevision) || beforeAssignmentRevision < 1)) throw new Error('Invalid assignment history cursor');
     const suffix = beforeAssignmentRevision === undefined ? '' : `?before_assignment_revision=${beforeAssignmentRevision}`;
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail/history${suffix}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail/history${suffix}`, undefined, options);
   }
 
   clearKeyGuardrail(scope: TenantScope, keyId: string, expectedAssignmentRevision: number, options?: RequestOptions): Promise<{ assignment_revision: number }> {
     if (!Number.isSafeInteger(expectedAssignmentRevision) || expectedAssignmentRevision < 1) throw new Error('Invalid assignment revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'fixed', policy_revision: null, expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'fixed', policy_revision: null, expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
   }
 
   activateWorkspaceGuardrail(scope: TenantScope, expectedRevision: number, policy: GuardrailPolicy, options?: RequestOptions): Promise<{ revision: number }> {
@@ -3873,7 +3873,7 @@ export class NiuAdminClient {
   }
 
   private guardrailsPath(scope: TenantScope): string {
-    return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/guardrails`;
+    return `/workspaces/${uuid(scope.projectId)}/guardrails`;
   }
 
   /** Read the actor's mutable Video composer; unavailable saved keys confer no action grant. */
@@ -4251,7 +4251,7 @@ export class NiuAdminClient {
     }
     const parameters = gatewayActivityParameters(query);
     const suffix = parameters.size ? `?${parameters.toString()}` : '';
-    const path = `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests${suffix}`;
+    const path = `/workspaces/${uuid(scope.projectId)}/requests${suffix}`;
     return this.request(path, undefined, options);
   }
 
@@ -4260,12 +4260,12 @@ export class NiuAdminClient {
     if ('limit' in query || 'after' in query) throw new Error('Exports do not accept pagination parameters');
     const parameters = gatewayActivityParameters(query);
     const suffix = parameters.size ? `?${parameters}` : '';
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/export${suffix}`, undefined, options, 'GET', 'text/csv');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/requests/export${suffix}`, undefined, options, 'GET', 'text/csv');
   }
 
   /** Missing historical/denied attribution stays null; this does not claim content inspection. */
   getRequestGuardrailDecision(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<{data: RequestGuardrailDecision | null}> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/guardrails`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/guardrails`, undefined, options);
   }
 
   /** Installation-only disclosure; declarations are not verified processing guarantees. */
@@ -4307,12 +4307,12 @@ export class NiuAdminClient {
 
   /** Metadata-only required input decisions, including pre-admission denials. */
   listInputDetectorDecisions(scope: TenantScope, options?: RequestOptions): Promise<{ data: Array<{ detector: string; configuration_fingerprint: string; stage: 'input'; coverage: 'local_text'; enforcer_version: 'external-input-v1'; outcome: 'clear' | 'matched' | 'indeterminate'; reason: string; elapsed_ms: number; key_name: string; workspace_revision: number | null; key_policy_revision: number | null; key_assignment_revision: number | null; recorded_at: string }>; coverage: 'latest_100_input_detector_decisions' }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/guardrails/detector-decisions`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/guardrails/detector-decisions`, undefined, options);
   }
 
   /** Latest 100 pre-admission access denials; excludes content and dispatch-time race denials. */
   listGuardrailPreparationDenials(scope: TenantScope, options?: RequestOptions): Promise<{ data: GuardrailPreparationDenial[]; coverage: 'latest_100_preparation_denials' }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/guardrails/denials`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/guardrails/denials`, undefined, options);
   }
 
   /** Recorded policy exceptions only; eligibility status denials remain outside coverage. */
@@ -4324,11 +4324,11 @@ export class NiuAdminClient {
     workspace_revision: number | null; key_policy_revision: number | null;
     key_assignment_revision: number | null; recorded_at: string;
   }>; coverage: 'latest_100_dispatch_policy_exceptions' }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/guardrails/dispatch-denials`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/guardrails/dispatch-denials`, undefined, options);
   }
 
   getRequestPayload(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<{data: RequestPayload | null}> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/payloads`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/payloads`, undefined, options);
   }
 
   /** Local request discovery only; does not query upstream or establish asset readiness. */
@@ -4339,28 +4339,21 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('limit must be between 1 and 100');
       search.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/asset-group-intents${search.size ? '?' + search : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/asset-group-intents${search.size ? '?' + search : ''}`, undefined, options);
   }
 
   getAssetGroupRequest(scope: TenantScope, intentId: string, options?: RequestOptions): Promise<{data: {status: 'prepared'|'dispatching'|'uncertain'|'succeeded'; created_at: string; request_content_status: 'retained'|'deleted'|'expired'; request: {name: string; description: string|null}|null; dispatch?: {outcome: 'succeeded'|'uncertain'; reason: 'invalid_configuration'|'destination_rejected'|'upstream_uncertain'|'timeout'|null; duration_ms: number}|null}|null}> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/asset-group-intents/${uuid(intentId)}/request`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/asset-group-intents/${uuid(intentId)}/request`, undefined, options);
   }
 
   deleteAssetGroupRequest(scope: TenantScope, intentId: string, options?: RequestOptions): Promise<void> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/asset-group-intents/${uuid(intentId)}/request`, undefined, options, 'DELETE');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/asset-group-intents/${uuid(intentId)}/request`, undefined, options, 'DELETE');
   }
 
   deleteRequestPayload(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<void> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/payloads`, undefined, options, 'DELETE');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/payloads`, undefined, options, 'DELETE');
   }
 
-  listAccounts(scope: TenantScope, options?: RequestOptions): Promise<{ data: SupplierAccount[] }> {
-    return this.request(this.accountsPath(scope), undefined, options);
-  }
-
-  createAccount(scope: TenantScope, account: SupplierAccountInput, options?: RequestOptions): Promise<{ id: string; health: string }> {
-    return this.request(this.accountsPath(scope), account, options);
-  }
 
   private workspaceAssetsPath(scope: TenantScope | WorkspaceScope): string {
     return `/workspaces/${workspaceId(scope)}/assets`;
@@ -4404,9 +4397,6 @@ export class NiuAdminClient {
     return response.arrayBuffer();
   }
 
-  private accountsPath(scope: TenantScope): string {
-    return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/accounts`;
-  }
 
   private async apiRequest<T>(path: string, body?: unknown, options: RequestOptions & { idempotencyKey?: string } = {}, method?: string): Promise<T> {
     const requestMethod = method ?? (body === undefined ? 'GET' : 'POST');

@@ -11,7 +11,7 @@ import GatewayActivity from '@/features/executions/components/GatewayActivity';
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace }) => ({
     endpoint: workspace
-      ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/requests?limit=100`
+      ? `/api/v1/workspaces/${workspace.id}/requests?limit=100`
       : null,
   }));
 }

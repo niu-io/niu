@@ -1,15 +1,15 @@
 ---
 title: "Read immutable key policy assignment history"
-description: "GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history"
+description: "GET /api/v1/workspaces/{workspace}/keys/{key}/guardrail/history"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history`
+`GET /api/v1/workspaces/{workspace}/keys/{key}/guardrail/history`
 
 Returns at most 100 newest events with assignment/policy revisions, assignment mode, nullable policy name, readable actor name and creation time. Events created before assignment modes existed report fixed. A follow-active event has mode active and a null policy revision and name; removal remains a fixed event with a null policy revision and name. Internal actor identifiers and credentials are excluded. History before audit support was installed is not reconstructed. Cache-Control is no-store.
 
-Operation: `get--api-v1-organizations--organization--projects--project--keys--key--guardrail-history`.
+Operation: `get--api-v1-workspaces--workspace--keys--key--guardrail-history`.
 
 ## Authentication
 
@@ -28,24 +28,13 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/keys/{key}/guardrail/history" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
 ```
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

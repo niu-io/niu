@@ -588,7 +588,7 @@ export function useWorkspaceController({
   const deleteWorkspace = useCallback(
     async (target: Workspace) => {
       const revision = connectionRevision.current;
-      await request(token, `/api/v1/organizations/${target.organization_id}/projects/${target.id}`, 'DELETE');
+      await request(token, `/api/v1/workspaces/${target.id}`, 'DELETE');
       if (revision !== connectionRevision.current) return;
       const current = workspaceNavigation.current;
       const remaining = current.workspaces.filter(item => item.id !== target.id);

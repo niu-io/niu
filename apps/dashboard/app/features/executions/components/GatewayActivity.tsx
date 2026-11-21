@@ -246,7 +246,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   const initialCachedActivity = canHydrateFrameZero
     ? peekQuery<{ data: GatewayRequest[]; next_cursor: string | null; summary: ActivitySummary }>(
         token,
-        `/api/v1/organizations/${organization}/projects/${project}/requests?${initialQuery}`,
+        `/api/v1/workspaces/${project}/requests?${initialQuery}`,
       )
     : undefined;
   const [requests, setRequests] = useState<GatewayRequest[]>(() => initialCachedActivity?.data ?? []);
@@ -301,7 +301,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     if (!selectedAttempt) return;
     const controller = new AbortController();
     setPayloadLoading(true);
-    void get<{data: typeof payload}>(`/api/v1/organizations/${organization}/projects/${project}/requests/${selectedAttempt}/payloads`, token, controller.signal)
+    void get<{data: typeof payload}>(`/api/v1/workspaces/${project}/requests/${selectedAttempt}/payloads`, token, controller.signal)
       .then(value => {
         const data = value?.data;
         if (data !== null && (!data || typeof data !== 'object' || !Object.hasOwn(data, 'request')
@@ -430,7 +430,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     setExporting(true);
     setExportError('');
     try {
-      const response = await fetch(`/api/v1/organizations/${organization}/projects/${project}/requests/export${activityFilterQuery ? `?${activityFilterQuery}` : ''}`, {
+      const response = await fetch(`/api/v1/workspaces/${project}/requests/export${activityFilterQuery ? `?${activityFilterQuery}` : ''}`, {
         signal: controller.signal, headers: { authorization: `Bearer ${token}`, accept: 'text/csv' },
       });
       if (!response.ok) throw new Error(response.status === 413
@@ -528,7 +528,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     }
     const query = new URLSearchParams(activityFilterQuery);
     query.set('limit', compact ? '10' : '100');
-    const requestsPath = `/api/v1/organizations/${organization}/projects/${project}/requests?${query}`;
+    const requestsPath = `/api/v1/workspaces/${project}/requests?${query}`;
     const requestsCacheKey = requestsPath;
     const cached = peekQuery<{ data: GatewayRequest[]; next_cursor: string | null; summary: ActivitySummary }>(token, requestsCacheKey);
     if (cached) {
@@ -580,7 +580,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     query.set('after', nextCursor);
     try {
       const value = await get<{ data: GatewayRequest[]; next_cursor: string | null; summary: ActivitySummary }>(
-        `/api/v1/organizations/${organization}/projects/${project}/requests?${query}`,
+        `/api/v1/workspaces/${project}/requests?${query}`,
         token,
         controller.signal,
       );
@@ -684,7 +684,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     const attempt = externalRequest?.attemptId ?? (location.hash.startsWith(prefix) ? location.hash.slice(prefix.length) : '');
     if (!attempt || (!externalRequest && (loading || error)) || !organization || !project || requests.some(item=>item.attempt_id===attempt||item.reference===attempt)) return () => controller.abort();
     setLinkedLoading(true);
-    void get<{data:GatewayRequest}>(`/api/v1/organizations/${organization}/projects/${project}/requests/${encodeURIComponent(attempt)}`,token,controller.signal)
+    void get<{data:GatewayRequest}>(`/api/v1/workspaces/${project}/requests/${encodeURIComponent(attempt)}`,token,controller.signal)
       .then(value=>{
         if (controller.signal.aborted) return;
         if (!value.data || (value.data.attempt_id !== attempt && value.data.reference !== attempt)) throw new Error('Invalid request details');

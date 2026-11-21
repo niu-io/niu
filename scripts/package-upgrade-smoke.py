@@ -270,14 +270,14 @@ def create_upgrade_records():
     assert status == 201
     status, project = request(
         "POST",
-        f"/api/v1/organizations/{organization['id']}/projects",
-        payload={"name": "Migration recovery"},
+        "/api/v1/workspaces",
+        payload={"organization_id": organization["id"], "name": "Migration recovery"},
         admin=True,
     )
     assert status == 201
     status, key = request(
         "POST",
-        f"/api/v1/organizations/{organization['id']}/projects/{project['id']}/keys",
+        f"/api/v1/workspaces/{project['id']}/keys",
         payload={
             "name": "Upgrade smoke client",
             "allowed_models": ["upgrade-smoke"],
@@ -294,13 +294,13 @@ def assert_records_persist(organization, project, key):
     assert any(item["id"] == organization["id"] for item in organizations["data"])
     _, projects = request(
         "GET",
-        f"/api/v1/organizations/{organization['id']}/projects",
+        f"/api/v1/workspaces?organization_id={organization['id']}",
         admin=True,
     )
     assert any(item["id"] == project["id"] for item in projects["data"])
     _, keys = request(
         "GET",
-        f"/api/v1/organizations/{organization['id']}/projects/{project['id']}/keys",
+        f"/api/v1/workspaces/{project['id']}/keys",
         admin=True,
     )
     assert len(keys["data"]) == 1

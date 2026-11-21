@@ -91,8 +91,8 @@ def main():
             start()
             organization = smoke.request('POST', '/api/v1/organizations', admin=True,
                 payload={'name': 'Native asset recovery'})[1]['id']
-            workspace = smoke.request('POST', f'/api/v1/organizations/{organization}/projects',
-                admin=True, payload={'name': 'Recovery'})[1]['id']
+            workspace = smoke.request('POST', '/api/v1/workspaces',
+                admin=True, payload={'organization_id': organization, 'name': 'Recovery'})[1]['id']
             prepared = smoke.PACKAGE_ASSETS.prepare_asset_upgrade(smoke.asset_request, sql, organization, workspace)
             saved = smoke.PACKAGE_LISTINGS.prepare_listing_fixture(smoke.asset_request, sql,
                 prepared, master, include_lookups=True)

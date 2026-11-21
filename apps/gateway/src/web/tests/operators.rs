@@ -402,7 +402,10 @@ async fn scoped_directory_filters_before_list_limits(pool: sqlx::PgPool) {
     let (status, projects) = call(
         &app,
         Method::GET,
-        &format!("/api/v1/organizations/{}/projects", scope.organization_id),
+        &format!(
+            "/api/v1/workspaces?organization_id={}",
+            scope.organization_id
+        ),
         &operator.token,
         None,
     )
@@ -507,7 +510,7 @@ async fn platform_admin_session_rechecks_grants_without_expanding_customer_scope
         organizations["data"][0]["id"],
         scope.organization_id.to_string()
     );
-    let foreign = format!("/api/v1/organizations/{}/projects", Uuid::new_v4());
+    let foreign = format!("/api/v1/workspaces?organization_id={}", Uuid::new_v4());
     assert_eq!(
         call(&app, Method::GET, &foreign, &issued.token, None)
             .await
@@ -911,10 +914,7 @@ async fn workspace_key_last_use_is_reader_safe_and_not_inference_accessible(pool
         .await
         .unwrap();
     let app = router(state);
-    let path = format!(
-        "/api/v1/organizations/{}/projects/{}/keys",
-        scope.organization_id, scope.project_id
-    );
+    let path = format!("/api/v1/workspaces/{}/keys", scope.project_id);
     let (status, body) = call(&app, Method::GET, &path, &reader.token, None).await;
     assert_eq!(status, StatusCode::OK);
     let keys = body["data"].as_array().unwrap();
@@ -962,10 +962,7 @@ async fn workspace_key_last_use_is_reader_safe_and_not_inference_accessible(pool
         call(&app, Method::GET, &path, &key.token, None).await.0,
         StatusCode::UNAUTHORIZED
     );
-    let foreign = format!(
-        "/api/v1/organizations/{}/projects/{}/keys",
-        other.organization_id, other.project_id
-    );
+    let foreign = format!("/api/v1/workspaces/{}/keys", other.project_id);
     assert_eq!(
         call(&app, Method::GET, &foreign, &reader.token, None)
             .await

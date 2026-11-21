@@ -145,7 +145,7 @@ fn validate(payload: &Payload) -> Result<(), ApiError> {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/video/draft",
+///   "path": "/api/v1/workspaces/{workspace}/video/draft",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getVideoComposerDraft",
@@ -159,16 +159,7 @@ fn validate(payload: &Payload) -> Result<(), ApiError> {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -499,7 +490,7 @@ pub async fn draft(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/video/draft",
+///   "path": "/api/v1/workspaces/{workspace}/video/draft",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "saveVideoComposerDraft",
@@ -513,16 +504,7 @@ pub async fn draft(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

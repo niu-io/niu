@@ -160,8 +160,8 @@ def main():
             require(api('GET', base + '/' + order['id'])['data'] == order, 'Restart lost pending checkout')
             require(api('POST', base, intent)['data'] == order, 'Restart changed idempotent replay')
             other = api('POST', '/api/v1/organizations', {'name': 'Separate company', 'currency': 'CNY'})
-            workspace = api('POST', f'/api/v1/organizations/{org["id"]}/projects',
-                {'name': 'Restricted workspace'})
+            workspace = api('POST', '/api/v1/workspaces',
+                {'organization_id': org['id'], 'name': 'Restricted workspace'})
 
             def actor(organization, role, project=None):
                 body = dict(organization_id=organization, name='Checkout authorization',

@@ -1,15 +1,15 @@
 ---
 title: "Pin a workspace policy revision or follow the active workspace policy"
-description: "PUT /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail"
+description: "PUT /api/v1/workspaces/{workspace}/keys/{key}/guardrail"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail`
+`PUT /api/v1/workspaces/{workspace}/keys/{key}/guardrail`
 
 Key restrictions intersect mandatory workspace restrictions and cannot weaken them. mode fixed pins policy_revision; mode active explicitly follows the workspace's current active policy and must not include policy_revision. Omission of mode keeps the historical fixed/clear behaviour for existing clients. Revision zero creates an assignment; subsequent updates require its current assignment revision. A fixed-mode explicit null policy_revision clears only the key assignment while retaining an incremented assignment revision and immutable history. Omitting policy_revision without mode active is rejected. An active assignment also removes any pinned key layer. Rotation preserves the assignment mode and pinned revision; mandatory workspace restrictions remain enforced and later workspace edits need no key re-pin in active mode.
 
-Operation: `put--api-v1-organizations--organization--projects--project--keys--key--guardrail`.
+Operation: `put--api-v1-workspaces--workspace--keys--key--guardrail`.
 
 ## Authentication
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/workspaces/{workspace}/keys/{key}/guardrail" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
@@ -36,18 +36,7 @@ curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/pr
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

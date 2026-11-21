@@ -33,7 +33,7 @@ function renderAt(path: string) {
     if (requestPath === '/api/v1/organizations') return json({ data: [organization] });
     if (requestPath === '/api/v1/workspaces') return json({ data: workspaces });
     if (requestPath.split('?')[0] === '/api/v1/operators') return json({ data: operators });
-    if (requestPath.endsWith('/projects')) return json({ data: workspaces });
+    if (requestPath.startsWith('/api/v1/workspaces?organization_id=')) return json({ data: workspaces });
     return json({ data: [] });
   }));
   const router = createMemoryRouter(appRoutes, { initialEntries: [path] });

@@ -100,7 +100,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
     const chatRows:Chat[]=[];
     void Promise.allSettled([
       (async()=>{
-        try{const page=await cachedKeyGet<{data:Chat[]}>(token,`/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/chats`,{signal:controller.signal,persist:true});chatRows.push(...page.data);}
+        try{const page=await cachedKeyGet<{data:Chat[]}>(token,`/api/v1/workspaces/${workspace.id}/chats`,{signal:controller.signal,persist:true});chatRows.push(...page.data);}
         catch{if(!controller.signal.aborted)chatsFailed=true;}
       })(),
       (async()=>{

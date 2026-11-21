@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Enforce Niu API v1 hygiene and prevent regression to retired route patterns.
 
-Milestone A (Phase 1) invariants:
+Enforced invariants:
 - Zero `.dual_route(` calls or `/admin/v1/` mounts in apps/gateway/src/web/routes.rs.
 - Zero retired `/api/v1/session/mode` routes in gateway or OpenAPI.
+- Zero legacy `/projects` routes or `contracts/route-aliases.json` compatibility aliases.
 - Zero untyped bare `{ "type": "object" }` 2xx response schemas in handler-operations.json.
 """
 from __future__ import annotations
@@ -19,6 +20,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 def main() -> int:
     errors: list[str] = []
 
+    if (ROOT / "contracts/route-aliases.json").exists():
+        errors.append("contracts/route-aliases.json must stay deleted")
+
     routes_src = (ROOT / "apps/gateway/src/web/routes.rs").read_text(encoding="utf-8")
     if ".dual_route(" in routes_src:
         errors.append("routes.rs: retired `.dual_route(` found; mount canonical `/api/v1/*` routes directly")
@@ -27,15 +31,21 @@ def main() -> int:
             errors.append(f"routes.rs:{line_no}: retired `/admin/v1` route reference found: {line.strip()}")
         if '"/api/v1/session/mode"' in line:
             errors.append(f"routes.rs:{line_no}: retired `/api/v1/session/mode` route found")
+        if "/projects" in line and not line.strip().startswith("//"):
+            errors.append(f"routes.rs:{line_no}: retired `/projects` route reference found: {line.strip()}")
 
     openapi_text = (ROOT / "contracts/openapi.yaml").read_text(encoding="utf-8")
     if re.search(r"^  /api/v1/session/mode:", openapi_text, re.M):
         errors.append("contracts/openapi.yaml: retired `/api/v1/session/mode` path found")
     if re.search(r"^  /admin/v1/", openapi_text, re.M):
         errors.append("contracts/openapi.yaml: retired `/admin/v1/` path found")
+    if re.search(r"^  [^\n]*/projects(?:/|:)", openapi_text, re.M):
+        errors.append("contracts/openapi.yaml: retired `/projects` path found")
 
     handlers = json.loads((ROOT / "contracts/generated/handler-operations.json").read_text(encoding="utf-8"))
     for path, item in handlers.get("paths", {}).items():
+        if "/projects" in path:
+            errors.append(f"handler-operations.json: retired `/projects` path found: {path}")
         for method, op in item.items():
             if method not in ("get", "post", "put", "patch", "delete"):
                 continue
@@ -52,7 +62,7 @@ def main() -> int:
             print(f"  - {err}", file=sys.stderr)
         return 1
 
-    print("API style gate passed (0 legacy /admin/v1 or dual_route mounts, 0 retired session/mode, 0 untyped 2xx schemas).")
+    print("API style gate passed (0 legacy /admin/v1, /projects, route-aliases, session/mode, or untyped 2xx schemas).")
     return 0
 
 

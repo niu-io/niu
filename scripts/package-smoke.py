@@ -247,12 +247,12 @@ def assert_resources_persist(organization_id, project_id, issued_key):
     _, organizations, _ = request("GET", "/api/v1/organizations", admin=True)
     assert any(item["id"] == organization_id for item in organizations["data"])
     _, projects, _ = request(
-        "GET", f"/api/v1/organizations/{organization_id}/projects", admin=True
+        "GET", f"/api/v1/workspaces?organization_id={organization_id}", admin=True
     )
     assert any(item["id"] == project_id for item in projects["data"])
     _, keys, _ = request(
         "GET",
-        f"/api/v1/organizations/{organization_id}/projects/{project_id}/keys",
+        f"/api/v1/workspaces/{project_id}/keys",
         admin=True,
     )
     assert len(keys["data"]) == 1
@@ -932,15 +932,15 @@ def main():
     initialize_prepaid_account(organization_id)
     project_status, project, _ = request(
         "POST",
-        f"/api/v1/organizations/{organization_id}/projects",
-        payload={"name": "Persistence"},
+        "/api/v1/workspaces",
+        payload={"organization_id": organization_id, "name": "Persistence"},
         admin=True,
     )
     assert project_status == 201
     project_id = project["id"]
     key_status, issued_key, _ = request(
         "POST",
-        f"/api/v1/organizations/{organization_id}/projects/{project_id}/keys",
+        f"/api/v1/workspaces/{project_id}/keys",
         payload={"name": "Smoke client", "allowed_models": ["fast"], "ttl_seconds": 86400},
         admin=True,
     )
@@ -952,7 +952,7 @@ def main():
 
     PACKAGE_IMAGES.assert_image_admission(request, database_value, issued_key["token"])
     assert models_for_key["data"][0]["customer_pricing"] is None
-    billing_path = f"/api/v1/organizations/{organization_id}/projects/{project_id}/billing"
+    billing_path = f"/api/v1/workspaces/{project_id}/billing"
     tariff_status, tariff, _ = request(
         "POST", billing_path + "/tariffs", admin=True,
         payload={"model_alias": "fast", "currency": "USD", "prompt_rate": "1234567891",
@@ -990,13 +990,6 @@ def main():
         PACKAGE_UPDATES.assert_update_fixture(asset_request, database_value, update_state)
         if update_state['status'] == 'uncertain':
             PACKAGE_UPDATES.assert_update_replay_denied(asset_request, update_state)
-    if not COMPOSE_MODE:
-        budget_status, _, _ = request(
-            "POST",
-            f"/api/v1/organizations/{organization_id}/projects/{project_id}/budget",
-            admin=True, payload={"currency": "USD", "limit_nanos": "1000000000"},
-        )
-        assert budget_status == 201, "fixture procurement budget was not established"
     attempt_ids = [] if COMPOSE_MODE else [verify_packaged_inference(issued_key["token"])]
     if not COMPOSE_MODE:
         attempt_ids.append(verify_packaged_streaming(issued_key["token"]))

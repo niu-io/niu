@@ -148,7 +148,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     vi.stubGlobal(
       'fetch',
       createBaseFetchMock((url, init) => {
-        if (url === '/api/v1/organizations/org-1/projects/ws-alpha/guardrails') {
+        if (url === '/api/v1/workspaces/ws-alpha/guardrails') {
           return new Promise<Response>((resolve, reject) => {
             resolveSlowGuardrails = resolve;
             init?.signal?.addEventListener(
@@ -223,7 +223,7 @@ describe('production router & query-cache data lifecycle (niu-8hv.3)', () => {
     expect(
       peekQuery(
         'niu-browser-member-session',
-        '/api/v1/organizations/org-1/projects/ws-alpha/guardrails',
+        '/api/v1/workspaces/ws-alpha/guardrails',
       ),
     ).toBeUndefined();
   });

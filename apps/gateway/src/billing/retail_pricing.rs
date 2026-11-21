@@ -1307,7 +1307,7 @@ pub struct EnrollmentQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment",
+///   "path": "/api/v1/workspaces/{workspace}/billing/retail-price-enrollment",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "setRetailTextEnrollment",
@@ -1320,16 +1320,7 @@ pub struct EnrollmentQuery {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1476,7 +1467,7 @@ pub async fn enroll_text(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment",
+///   "path": "/api/v1/workspaces/{workspace}/billing/retail-price-enrollment",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getRetailTextEnrollment",
@@ -1489,16 +1480,7 @@ pub async fn enroll_text(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
