@@ -55,7 +55,7 @@ describe('account sign-in service availability', () => {
       if (path === '/api/v1/auth/config') {
         return Response.json({ password_login: true, browser_token_login: true, setup_required: true });
       }
-      if (path === '/api/v1/auth/installation/setup' && init?.method === 'POST') {
+      if (path === '/api/v1/setup' && init?.method === 'POST') {
         return Response.json({ session: { id: 'sess-1', operator_id: 'op-1' } }, { status: 201 });
       }
       return Response.json({});
@@ -72,7 +72,7 @@ describe('account sign-in service availability', () => {
 
     await waitFor(() => expect(context.connectWithToken).toHaveBeenCalledWith('niu-browser-member-session'));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin'));
-    const setupCall = fetcher.mock.calls.find(([url]) => String(url) === '/api/v1/auth/installation/setup');
+    const setupCall = fetcher.mock.calls.find(([url]) => String(url) === '/api/v1/setup');
     expect(setupCall).toBeTruthy();
     expect(JSON.parse(String(setupCall?.[1]?.body))).toEqual({
       administrator_token: 'bootstrap-secret-123',

@@ -2585,7 +2585,7 @@ async fn initial_installation_setup_creates_first_platform_admin_once(pool: PgPo
     let bad_origin = request(
         &app,
         Method::POST,
-        "/api/v1/auth/installation/setup",
+        "/api/v1/setup",
         None,
         Some("https://evil.example.test"),
         json!({
@@ -2602,7 +2602,7 @@ async fn initial_installation_setup_creates_first_platform_admin_once(pool: PgPo
     let bad_token = request(
         &app,
         Method::POST,
-        "/api/v1/auth/installation/setup",
+        "/api/v1/setup",
         None,
         Some("https://niu.example.test"),
         json!({
@@ -2620,7 +2620,7 @@ async fn initial_installation_setup_creates_first_platform_admin_once(pool: PgPo
     let short_pw = request(
         &app,
         Method::POST,
-        "/api/v1/auth/installation/setup",
+        "/api/v1/setup",
         None,
         Some("https://niu.example.test"),
         json!({
@@ -2637,7 +2637,7 @@ async fn initial_installation_setup_creates_first_platform_admin_once(pool: PgPo
     let created = request(
         &app,
         Method::POST,
-        "/api/v1/auth/installation/setup",
+        "/api/v1/setup",
         None,
         Some("https://niu.example.test"),
         json!({
@@ -2672,7 +2672,7 @@ async fn initial_installation_setup_creates_first_platform_admin_once(pool: PgPo
     let repeat = request(
         &app,
         Method::POST,
-        "/api/v1/auth/installation/setup",
+        "/api/v1/setup",
         None,
         Some("https://niu.example.test"),
         json!({

@@ -754,7 +754,7 @@ fn auth_and_operator_routes(app: Router<AppState>) -> Router<AppState> {
             .layer(middleware::from_fn(password_response_headers)),
     )
     .dual_route(
-        "/auth/installation/setup",
+        "/setup",
         axum::routing::post(crate::admin::passwords::complete_installation_setup)
             .layer(DefaultBodyLimit::max(4096))
             .layer(middleware::from_fn(password_response_headers)),

@@ -114,7 +114,7 @@ export default function InstallationRoute() {
     setSetupError('');
     setSubmitting(true);
     try {
-      const response = await fetch('/api/v1/auth/installation/setup', {
+      const response = await fetch('/api/v1/setup', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({

@@ -641,7 +641,7 @@ pub struct InstallationSetupInput {
 /// # OpenAPI
 /// ```openapi
 /// {
-///   "path": "/api/v1/auth/installation/setup",
+///   "path": "/api/v1/setup",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "completeInitialInstallationSetup",
