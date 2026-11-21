@@ -407,24 +407,29 @@ impl Store {
         principal: OperatorPrincipal,
         route_slug: &str,
     ) -> Result<Option<WorkspaceRoute>, StoreError> {
+        let trimmed = route_slug.trim();
+        let parsed_id = Uuid::parse_str(trimmed).ok();
         Ok(sqlx::query_as(
             "SELECT p.id, p.organization_id, p.name, p.route_slug, p.route_slug AS slug, \
                     ARRAY(SELECT a.slug FROM workspace_slug_aliases a WHERE a.project_id = p.id) AS slug_aliases \
              FROM projects p \
-             WHERE (p.route_slug = $1 OR EXISTS (SELECT 1 FROM workspace_slug_aliases a WHERE a.project_id = p.id AND a.slug = $1)) \
-               AND (
-                   (p.organization_id = $2 AND ($3::uuid IS NULL OR p.id = $3))
-                   OR EXISTS (
-                       SELECT 1 FROM account_memberships m
-                       JOIN admin_operators mo ON mo.id = m.operator_id AND mo.organization_id = m.organization_id
-                       WHERE m.identity_id = COALESCE((SELECT im.identity_id FROM account_memberships im WHERE im.operator_id = $4), $4)
-                         AND m.organization_id = p.organization_id
-                         AND mo.revoked_at IS NULL
-                         AND (mo.project_id IS NULL OR mo.project_id = p.id)
-                   )
+             WHERE (p.route_slug = $1 \
+                 OR EXISTS (SELECT 1 FROM workspace_slug_aliases a WHERE a.project_id = p.id AND a.slug = $1) \
+                 OR ($2::uuid IS NOT NULL AND p.id = $2)) \
+               AND ( \
+                   (p.organization_id = $3 AND ($4::uuid IS NULL OR p.id = $4)) \
+                   OR EXISTS ( \
+                       SELECT 1 FROM account_memberships m \
+                       JOIN admin_operators mo ON mo.id = m.operator_id AND mo.organization_id = m.organization_id \
+                       WHERE m.identity_id = COALESCE((SELECT im.identity_id FROM account_memberships im WHERE im.operator_id = $5), $5) \
+                         AND m.organization_id = p.organization_id \
+                         AND mo.revoked_at IS NULL \
+                         AND (mo.project_id IS NULL OR mo.project_id = p.id) \
+                   ) \
                )",
         )
-        .bind(route_slug)
+        .bind(trimmed)
+        .bind(parsed_id)
         .bind(principal.scope.organization_id)
         .bind(principal.scope.project_id)
         .bind(principal.id)

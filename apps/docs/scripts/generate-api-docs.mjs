@@ -303,7 +303,9 @@ function buildAudienceView(title, audiences, { canonicalOnly = false, sanitizePu
   return view;
 }
 
-outputs.set('contracts/generated/public-openapi.json', JSON.stringify(buildAudienceView(spec.info.title, ['public', 'model', 'console', 'customer-management'], { canonicalOnly: true, sanitizePublicDescription: true }), null, 2) + '\n');
+const publicView = buildAudienceView(spec.info.title, ['public', 'model', 'console', 'customer-management'], { canonicalOnly: true, sanitizePublicDescription: true });
+outputs.set('contracts/generated/public-openapi.json', JSON.stringify(publicView, null, 2) + '\n');
+outputs.set('contracts/generated/public-openapi.yaml', YAML.stringify(publicView));
 outputs.set('contracts/generated/views/model-openapi.json', JSON.stringify(buildAudienceView('Niu Model & Inference API', ['model', 'public']), null, 2) + '\n');
 outputs.set('contracts/generated/views/customer-management-openapi.json', JSON.stringify(buildAudienceView('Niu Customer Workspace & Billing Management API', ['customer-management'], { canonicalOnly: true, sanitizePublicDescription: true }), null, 2) + '\n');
 outputs.set('contracts/generated/views/console-openapi.json', JSON.stringify(buildAudienceView('Niu Console & Saved Session API', ['console']), null, 2) + '\n');
@@ -330,9 +332,9 @@ for (const [route,item] of Object.entries(spec.paths)) for (const [method,operat
   operations++;
   const group = /^\/v1\/(video|media|images)/.test(route) ? 'Video and media APIs'
     : /^\/v1(?:\/|$)|^\/v1beta\//.test(route) ? 'Model APIs'
-    : /^\/api\/v1\/(providers|provider-memberships|vendors|routing-registry|pools)/.test(route) ? 'Providers and routing APIs'
-    : /^\/api\/v1\/(auth\/|session$|operators)/.test(route) ? 'Authentication and sessions'
-    : /^\/api\/v1\/(organizations|workspaces|setup\/default-workspace|guardrails|metrics|models|pricing|financial-summary|commercial-position)/.test(route) ? 'Workspace and company APIs'
+    : /^\/api\/v1\/admin\/(providers|routing|incidents)/.test(route) ? 'Providers and routing APIs'
+    : /^\/api\/v1\/(auth\/|session$|members|setup$|public\/)/.test(route) ? 'Authentication and sessions'
+    : /^\/api\/v1\/(organizations|workspaces|setup\/default-workspace|guardrails|credits|models|admin\/)/.test(route) ? 'Workspace and company APIs'
     : 'Service endpoints';
   if (!restGroups.has(group)) restGroups.set(group, []);
   restGroups.get(group).push({route, method, link:`- [\`${method.toUpperCase()} ${route}\` — ${operation.summary || operation.operationId}](/docs/api/rest/${slug}/)`});

@@ -923,26 +923,22 @@ fn auth_and_operator_routes(app: Router<AppState>) -> Router<AppState> {
         axum::routing::post(crate::admin::default_workspace),
     )
     .route(
-        "/api/v1/organizations/by-route/{route_slug}",
-        get(crate::admin::organization_route),
-    )
-    .route(
         "/api/v1/organizations/{organization}",
-        axum::routing::patch(crate::admin::rename_organization).layer(DefaultBodyLimit::max(1024)),
+        get(crate::admin::organization_route)
+            .patch(crate::admin::rename_organization)
+            .layer(DefaultBodyLimit::max(1024)),
     )
     .route(
         "/api/v1/organizations",
         get(crate::admin::organizations).post(crate::admin::organization),
     )
     .route(
-        "/api/v1/workspaces/by-route/{route_slug}",
-        get(crate::admin::workspace_route),
-    )
-    .route(
         "/api/v1/workspaces/{workspace}",
-        axum::routing::patch(crate::admin::workspace_aliases::rename)
+        get(crate::admin::workspace_route)
+            .patch(crate::admin::workspace_aliases::rename)
             .delete(crate::admin::workspace_aliases::delete),
     )
+    .route("/api/v1/credits", get(admin_credits))
     .route(
         "/api/v1/workspaces",
         get(crate::admin::workspaces).post(crate::admin::create_workspace),
@@ -1036,6 +1032,7 @@ fn media_and_inference_routes(app: Router<AppState>) -> Router<AppState> {
     .route("/catalog/v1/models", get(catalog_models))
     .route("/v1/models", get(public_models))
     .route("/v1/key", get(inspect_key))
+    .route("/v1/credits", get(key_credits))
     .route("/v1/generations/{id}", get(get_generation))
     .route(
         "/api/v1/workspaces/{workspace}/media/asset-operation-models",
@@ -1665,6 +1662,8 @@ pub(crate) fn router(state: AppState) -> Router {
         .merge(super::static_site::router())
         .route("/healthz", get(health))
         .route("/readyz", get(ready))
+        .route("/openapi.json", get(openapi_json))
+        .route("/openapi.yaml", get(openapi_yaml))
         .route("/enterprise/readyz", get(enterprise_ready))
         .route("/plugins/readyz", get(enterprise_ready));
     let app = media_and_inference_routes(app);
@@ -1746,6 +1745,88 @@ async fn health() -> Json<Value> {
         "status": "ok",
         "service": "niu"
     }))
+}
+
+/// ```openapi
+/// {
+///   "path": "/openapi.json",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getOpenApiJson",
+///     "summary": "Download the public OpenAPI 3.1 JSON specification",
+///     "description": "Public, bundled OpenAPI 3.1 JSON document covering Niu's model runtime, console, and customer management APIs with x-niu-authority metadata. Excludes confidential platform/provider procurement schemas.",
+///     "security": [],
+///     "x-niu-implementation": "implemented",
+///     "responses": {
+///       "200": {
+///         "description": "Bundled OpenAPI 3.1 JSON specification.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": ["openapi", "info", "paths"],
+///               "properties": {
+///                 "openapi": { "type": "string" },
+///                 "info": { "type": "object" },
+///                 "paths": { "type": "object" }
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
+async fn openapi_json() -> ([(axum::http::HeaderName, &'static str); 2], &'static str) {
+    (
+        [
+            (
+                axum::http::header::CONTENT_TYPE,
+                "application/json; charset=utf-8",
+            ),
+            (CACHE_CONTROL, "public, max-age=300"),
+        ],
+        include_str!("../../../../contracts/generated/public-openapi.json"),
+    )
+}
+
+/// ```openapi
+/// {
+///   "path": "/openapi.yaml",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getOpenApiYaml",
+///     "summary": "Download the public OpenAPI 3.1 YAML specification",
+///     "description": "Public, bundled OpenAPI 3.1 YAML document covering Niu's model runtime, console, and customer management APIs with x-niu-authority metadata. Excludes confidential platform/provider procurement schemas.",
+///     "security": [],
+///     "x-niu-implementation": "implemented",
+///     "responses": {
+///       "200": {
+///         "description": "Bundled OpenAPI 3.1 YAML specification.",
+///         "content": {
+///           "application/yaml": {
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
+async fn openapi_yaml() -> ([(axum::http::HeaderName, &'static str); 2], &'static str) {
+    (
+        [
+            (
+                axum::http::header::CONTENT_TYPE,
+                "application/yaml; charset=utf-8",
+            ),
+            (CACHE_CONTROL, "public, max-age=300"),
+        ],
+        include_str!("../../../../contracts/generated/public-openapi.yaml"),
+    )
 }
 
 async fn ready(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
@@ -2533,6 +2614,168 @@ async fn inspect_key(
 
 /// ```openapi
 /// {
+///   "path": "/v1/credits",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getKeyCredits",
+///     "summary": "Read customer-facing balance summary for the authenticated API key's organization",
+///     "description": "Requires a current workspace API key. Returns customer-facing prepaid balance, reservations, and available balance per currency for the key's organization. Never exposes Provider purchase prices, upstream expenses, or platform margins.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Customer balance accounts for the authenticated key's organization.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": ["data"],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "required": ["currency"],
+///                     "properties": {
+///                       "currency": { "type": "string" }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, revoked, expired or invalid key."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+async fn key_credits(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let principal = state
+        .authorize_api_headers_with_permission(&headers, niu_storage::AdminPermission::Read)
+        .await?;
+    let summary = state
+        .store
+        .customer_balance_summary(principal.scope().organization_id)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({ "data": summary })))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CreditsQuery {
+    organization_id: Option<uuid::Uuid>,
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/credits",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getOrganizationCredits",
+///     "summary": "Read customer-facing balance summary for the active or selected organization",
+///     "description": "Requires an authorized member session or installation credential. Defaults to the caller's active organization; installation callers may pass organization_id. Returns customer-facing balance summaries only, never Provider purchase costs or platform margins.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization_id",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Optional organization UUID. Defaults to the active session organization."
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Customer balance summary for the resolved organization.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": ["data"],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "required": ["currency"],
+///                     "properties": {
+///                       "currency": { "type": "string" }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Installation caller omitted organization_id."
+///       },
+///       "401": {
+///         "description": "Authentication required."
+///       },
+///       "404": {
+///         "description": "Organization missing or outside authorized scope."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+async fn admin_credits(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<CreditsQuery>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state
+        .authorize_admin_headers(&headers, niu_storage::AdminPermission::Read)
+        .await?;
+    let organization = match &auth {
+        crate::state::AdminAuthorization::Installation => {
+            query.organization_id.ok_or_else(|| {
+                ApiError::invalid_request(
+                    "organization_id is required for installation credentials",
+                )
+            })?
+        }
+        crate::state::AdminAuthorization::Operator(operator) => query
+            .organization_id
+            .unwrap_or(operator.scope.organization_id),
+    };
+    if !auth.permits_billing_account(organization) {
+        return Err(ApiError::not_found());
+    }
+    let summary = state
+        .store
+        .customer_balance_summary(organization)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({ "data": summary })))
+}
+
+/// ```openapi
+/// {
 ///   "path": "/v1/generations/{id}",
 ///   "method": "get",
 ///   "operation": {
@@ -3178,6 +3421,22 @@ mod tests {
             cursor = idx;
         }
         assert!(!expanded.is_empty());
+    }
+
+    #[tokio::test]
+    async fn root_openapi_json_and_yaml_serve_public_contract() {
+        let (json_headers, json_body) = openapi_json().await;
+        assert_eq!(json_headers[0].1, "application/json; charset=utf-8");
+        let parsed: Value = serde_json::from_str(json_body).expect("valid OpenAPI JSON");
+        assert_eq!(parsed["openapi"], "3.1.0");
+        assert!(parsed["paths"]["/v1/chat/completions"].is_object());
+        assert!(parsed["paths"]["/v1/credits"].is_object());
+        assert!(parsed["paths"]["/api/v1/admin/customers"].is_null());
+
+        let (yaml_headers, yaml_body) = openapi_yaml().await;
+        assert_eq!(yaml_headers[0].1, "application/yaml; charset=utf-8");
+        assert!(yaml_body.contains("openapi: 3.1.0"));
+        assert!(yaml_body.contains("/v1/chat/completions:"));
     }
 
     #[test]

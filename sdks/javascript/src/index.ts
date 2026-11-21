@@ -1064,6 +1064,11 @@ export class NiuClient {
     return this.request('/key', undefined, options);
   }
 
+  /** Read customer-facing balance summary for the authenticated API key's organization. */
+  getCredits(options?: RequestOptions): Promise<{ data: import('./admin.js').CustomerBalance[] }> {
+    return this.request('/credits', undefined, options);
+  }
+
   /** Retrieve token breakdown, timings, and customer charge for one generation attempt. */
   getGeneration(id: string, options?: RequestOptions): Promise<{ data: GenerationView }> {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {

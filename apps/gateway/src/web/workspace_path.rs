@@ -31,17 +31,50 @@ impl<T: DeserializeOwned + Send> FromRequestParts<AppState> for WorkspacePath<T>
                 .map(|Path(value)| Self(value))
                 .map_err(IntoResponse::into_response);
         }
-        let workspace = parameters[0].1.parse::<Uuid>().map_err(|_| {
-            ApiError::invalid_request("Invalid workspace identifier").into_response()
-        })?;
-        let (_, scope) = crate::admin::workspace_aliases::authorize_workspace(
-            state,
-            &parts.headers,
-            workspace,
-            AdminPermission::Read,
-        )
-        .await
-        .map_err(IntoResponse::into_response)?;
+        let raw_workspace = parameters[0].1.trim();
+        let scope = if let Ok(workspace) = raw_workspace.parse::<Uuid>() {
+            let (_, scope) = crate::admin::workspace_aliases::authorize_workspace(
+                state,
+                &parts.headers,
+                workspace,
+                AdminPermission::Read,
+            )
+            .await
+            .map_err(IntoResponse::into_response)?;
+            scope
+        } else {
+            let authorization = state
+                .authorize_admin_headers(&parts.headers, AdminPermission::Read)
+                .await
+                .map_err(IntoResponse::into_response)?;
+            if raw_workspace.is_empty()
+                || raw_workspace.chars().count() > 81
+                || !raw_workspace
+                    .chars()
+                    .all(|c| (c.is_alphanumeric() && !c.is_uppercase()) || c == '-')
+            {
+                return Err(
+                    ApiError::invalid_request("Invalid workspace identifier").into_response()
+                );
+            }
+            let route = match authorization {
+                crate::state::AdminAuthorization::Installation => state
+                    .store
+                    .workspace_route(raw_workspace, None, None)
+                    .await
+                    .map_err(|e| ApiError::from_store(e).into_response())?,
+                crate::state::AdminAuthorization::Operator(operator) => state
+                    .store
+                    .workspace_route_for_member(operator, raw_workspace)
+                    .await
+                    .map_err(|e| ApiError::from_store(e).into_response())?,
+            }
+            .ok_or_else(|| ApiError::not_found().into_response())?;
+            niu_storage::TenantScope {
+                organization_id: route.organization_id,
+                project_id: route.id,
+            }
+        };
         if parts.extensions.get::<MatchedPath>().is_some_and(|path| {
             path.as_str()
                 .starts_with("/api/v1/workspaces/{workspace}/sessions")

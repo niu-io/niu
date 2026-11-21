@@ -496,8 +496,8 @@ pub(crate) async fn gate(
         *request.method(),
         axum::http::Method::PATCH | axum::http::Method::DELETE
     ) && path == "/api/v1/workspaces/{workspace}";
-    let lookup = path.ends_with("/workspaces/by-route/{route_slug}")
-        && request.method() == axum::http::Method::GET;
+    let lookup =
+        path == "/api/v1/workspaces/{workspace}" && request.method() == axum::http::Method::GET;
     if customer_feature(&path)
         && !directory
         && !workspace_management

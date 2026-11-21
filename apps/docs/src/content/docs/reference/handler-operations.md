@@ -8711,11 +8711,11 @@ HTTP 401: Missing, invalid, expired or inference-only credential.
 
 HTTP 403: Authenticated member lacks installation authority, including a platform administrator.
 
-## Resolve an authorized canonical workspace route
+## Get an authorized workspace by UUID or canonical slug
 
-`GET /api/v1/workspaces/by-route/{route_slug}`
+`GET /api/v1/workspaces/{workspace}`
 
-Exact persisted route lookup independent of workspace list limits. Renames preserve the route. Historical name aliases are not supported. Foreign, missing and malformed references return the same 404.
+Exact persisted workspace UUID, slug, or alias lookup independent of workspace list limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.
 
 Implementation: `implemented`. Operation: `resolveWorkspaceRoute`.
 
@@ -8733,7 +8733,7 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 ### Parameters
 
-`route_slug` (path, required)
+`workspace` (path, required)
 
 ```json
 {
@@ -8808,11 +8808,11 @@ HTTP 403: Credential lacks read permission.
 
 HTTP 404: No authorized workspace matches the reference.
 
-## Resolve an authorized canonical organization route
+## Get an authorized organization by UUID or canonical slug
 
-`GET /api/v1/organizations/by-route/{route_slug}`
+`GET /api/v1/organizations/{organization}`
 
-Exact persisted organization slug or alias lookup independent of directory page limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.
+Exact persisted organization UUID, slug, or alias lookup independent of directory page limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.
 
 Implementation: `implemented`. Operation: `resolveOrganizationRoute`.
 
@@ -8830,7 +8830,7 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 ### Parameters
 
-`route_slug` (path, required)
+`organization` (path, required)
 
 ```json
 {
@@ -40921,6 +40921,70 @@ HTTP 501: Selected channel does not configure verification management
 
 HTTP 503: Credential, encrypted content or bounded storage unavailable
 
+## Download the public OpenAPI 3.1 JSON specification
+
+`GET /openapi.json`
+
+Public, bundled OpenAPI 3.1 JSON document covering Niu's model runtime, console, and customer management APIs with x-niu-authority metadata. Excludes confidential platform/provider procurement schemas.
+
+Implementation: `implemented`. Operation: `getOpenApiJson`.
+
+### Authentication
+
+No OpenAPI security scheme is required. Signature and other request validation still apply as described above.
+
+### Responses
+
+HTTP 200: Bundled OpenAPI 3.1 JSON specification.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "openapi",
+    "info",
+    "paths"
+  ],
+  "properties": {
+    "openapi": {
+      "type": "string"
+    },
+    "info": {
+      "type": "object"
+    },
+    "paths": {
+      "type": "object"
+    }
+  }
+}
+```
+
+## Download the public OpenAPI 3.1 YAML specification
+
+`GET /openapi.yaml`
+
+Public, bundled OpenAPI 3.1 YAML document covering Niu's model runtime, console, and customer management APIs with x-niu-authority metadata. Excludes confidential platform/provider procurement schemas.
+
+Implementation: `implemented`. Operation: `getOpenApiYaml`.
+
+### Authentication
+
+No OpenAPI security scheme is required. Signature and other request validation still apply as described above.
+
+### Responses
+
+HTTP 200: Bundled OpenAPI 3.1 YAML specification.
+
+Content type: `application/yaml`.
+
+```json
+{
+  "type": "string"
+}
+```
+
 ## List key-accessible model aliases and workspace customer prices
 
 `GET /v1/models`
@@ -41302,6 +41366,132 @@ Content type: `application/json`.
 ```
 
 HTTP 401: Missing, revoked, expired or invalid key.
+
+## Read customer-facing balance summary for the authenticated API key's organization
+
+`GET /v1/credits`
+
+Requires a current workspace API key. Returns customer-facing prepaid balance, reservations, and available balance per currency for the key's organization. Never exposes Provider purchase prices, upstream expenses, or platform margins.
+
+Implementation: `implemented`. Operation: `getKeyCredits`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Customer balance accounts for the authenticated key's organization.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "currency"
+        ],
+        "properties": {
+          "currency": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Missing, revoked, expired or invalid key.
+
+## Read customer-facing balance summary for the active or selected organization
+
+`GET /api/v1/credits`
+
+Requires an authorized member session or installation credential. Defaults to the caller's active organization; installation callers may pass organization_id. Returns customer-facing balance summaries only, never Provider purchase costs or platform margins.
+
+Implementation: `implemented`. Operation: `getOrganizationCredits`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization_id` (query, optional)
+
+Optional organization UUID. Defaults to the active session organization.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Customer balance summary for the resolved organization.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "currency"
+        ],
+        "properties": {
+          "currency": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Installation caller omitted organization_id.
+
+HTTP 401: Authentication required.
+
+HTTP 404: Organization missing or outside authorized scope.
 
 ## Get generation usage, latency, and customer charge by ID
 

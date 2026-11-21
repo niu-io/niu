@@ -268,6 +268,15 @@ getKey(options?: RequestOptions): Promise<{
 }>;
 ```
 
+### getCredits
+
+```typescript
+/** Read customer-facing balance summary for the authenticated API key's organization. */
+getCredits(options?: RequestOptions): Promise<{
+    data: import('./admin.js').CustomerBalance[];
+}>;
+```
+
 ### getGeneration
 
 ```typescript

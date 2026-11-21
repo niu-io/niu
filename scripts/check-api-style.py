@@ -41,9 +41,19 @@ def main() -> int:
     if (ROOT / "contracts/route-aliases.json").exists():
         errors.append("contracts/route-aliases.json must stay deleted")
 
+    for required_spec in (
+        "contracts/generated/public-openapi.json",
+        "contracts/generated/public-openapi.yaml",
+    ):
+        if not (ROOT / required_spec).exists():
+            errors.append(f"Missing generated OpenAPI discovery artifact: {required_spec}")
+
     routes_src = (ROOT / "apps/gateway/src/web/routes.rs").read_text(encoding="utf-8")
     if ".dual_route(" in routes_src:
         errors.append("routes.rs: retired `.dual_route(` found; mount canonical `/api/v1/*` routes directly")
+    for required_route in ('"/openapi.json"', '"/openapi.yaml"'):
+        if required_route not in routes_src:
+            errors.append(f"routes.rs: missing required root discovery route {required_route}")
     for line_no, line in enumerate(routes_src.splitlines(), start=1):
         stripped = line.strip()
         if stripped.startswith("//") or "concat!" in stripped:
@@ -52,6 +62,8 @@ def main() -> int:
             errors.append(f"routes.rs:{line_no}: retired `/api/v1/session/mode` route found")
         if "/projects" in line:
             errors.append(f"routes.rs:{line_no}: retired `/projects` route reference found: {stripped}")
+        if "/by-route/" in line:
+            errors.append(f"routes.rs:{line_no}: retired `/by-route/` route reference found: {stripped}")
         for prefix in RETIRED_ROUTE_PREFIXES:
             if f'"{prefix}' in line and "test" not in line.lower():
                 errors.append(f"routes.rs:{line_no}: retired `{prefix}` route reference found: {stripped}")
@@ -61,6 +73,8 @@ def main() -> int:
         errors.append("contracts/openapi.yaml: retired `/api/v1/session/mode` path found")
     if re.search(r"^  [^\n]*/projects(?:/|:)", openapi_text, re.M):
         errors.append("contracts/openapi.yaml: retired `/projects` path found")
+    if re.search(r"^  [^\n]*/by-route/", openapi_text, re.M):
+        errors.append("contracts/openapi.yaml: retired `/by-route/` path found")
     for prefix in RETIRED_ROUTE_PREFIXES:
         if re.search(rf"^  {re.escape(prefix)}(?:[:/{{]|$)", openapi_text, re.M):
             errors.append(f"contracts/openapi.yaml: retired `{prefix}` path found")
@@ -69,6 +83,8 @@ def main() -> int:
     for path, item in handlers.get("paths", {}).items():
         if "/projects" in path:
             errors.append(f"handler-operations.json: retired `/projects` path found: {path}")
+        if "/by-route/" in path:
+            errors.append(f"handler-operations.json: retired `/by-route/` path found: {path}")
         for prefix in RETIRED_ROUTE_PREFIXES:
             if path == prefix or path.startswith(prefix.rstrip("/") + "/"):
                 errors.append(f"handler-operations.json: retired `{prefix}` path found: {path}")
@@ -88,7 +104,7 @@ def main() -> int:
             print(f"  - {err}", file=sys.stderr)
         return 1
 
-    print("API style gate passed (0 legacy /admin/v1, /projects, /platform, /vendors, /providers, /operators, /v1/branding|currency, or untyped 2xx schemas).")
+    print("API style gate passed (0 legacy /admin/v1, /projects, /by-route, /platform, /vendors, /providers, /operators, /v1/branding|currency, or untyped 2xx schemas; /openapi.json & /openapi.yaml verified).")
     return 0
 
 

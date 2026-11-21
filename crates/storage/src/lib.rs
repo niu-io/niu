@@ -870,18 +870,29 @@ impl Store {
     }
 
     /// Resolve in the database with scope predicates, independent of list limits.
+    /// Accepts canonical slug, alias, or UUID.
     pub async fn workspace_route(
         &self,
         route_slug: &str,
         organization_id: Option<Uuid>,
         project_id: Option<Uuid>,
     ) -> Result<Option<WorkspaceRoute>, StoreError> {
-        Ok(sqlx::query_as("SELECT p.id,p.organization_id,p.name,p.route_slug,p.route_slug AS slug,ARRAY(SELECT a.slug FROM workspace_slug_aliases a WHERE a.project_id=p.id) AS slug_aliases FROM projects p WHERE (p.route_slug=$1 OR EXISTS(SELECT 1 FROM workspace_slug_aliases a WHERE a.project_id=p.id AND a.slug=$1)) AND ($2::uuid IS NULL OR p.organization_id=$2) AND ($3::uuid IS NULL OR p.id=$3)")
-            .bind(route_slug)
-            .bind(organization_id)
-            .bind(project_id)
-            .fetch_optional(&self.pool)
-            .await?)
+        let trimmed = route_slug.trim();
+        let parsed_id = Uuid::parse_str(trimmed).ok();
+        Ok(sqlx::query_as(
+            "SELECT p.id,p.organization_id,p.name,p.route_slug,p.route_slug AS slug,\
+             ARRAY(SELECT a.slug FROM workspace_slug_aliases a WHERE a.project_id=p.id) AS slug_aliases \
+             FROM projects p \
+             WHERE (p.route_slug=$1 OR EXISTS(SELECT 1 FROM workspace_slug_aliases a WHERE a.project_id=p.id AND a.slug=$1) OR ($2::uuid IS NOT NULL AND p.id=$2)) \
+               AND ($3::uuid IS NULL OR p.organization_id=$3) \
+               AND ($4::uuid IS NULL OR p.id=$4)",
+        )
+        .bind(trimmed)
+        .bind(parsed_id)
+        .bind(organization_id)
+        .bind(project_id)
+        .fetch_optional(&self.pool)
+        .await?)
     }
 
     /// Resolve the owning organization of a workspace by ID with optional member scope.

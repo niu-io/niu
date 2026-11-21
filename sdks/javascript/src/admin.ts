@@ -2196,12 +2196,18 @@ export class NiuAdminClient {
     return this.request(`/workspaces/${uuid(scope.projectId)}`, undefined, options, 'DELETE');
   }
 
-  /** Exact persisted route lookup; missing and out-of-scope workspaces both return 404. */
+  /** Exact persisted workspace UUID or slug lookup; missing and out-of-scope workspaces both return 404. */
   resolveWorkspaceRoute(routeSlug: string, options?: RequestOptions): Promise<WorkspaceRoute> {
     if (typeof routeSlug !== 'string' || !routeSlug.trim() || routeSlug !== routeSlug.trim() || routeSlug === '.' || routeSlug.includes('..') || /[/?#\\\x00-\x1f\x7f]/.test(routeSlug)) {
       throw new TypeError('Provide a valid workspace route slug');
     }
-    return this.request(`/workspaces/by-route/${encodeURIComponent(routeSlug)}`, undefined, options);
+    return this.request(`/workspaces/${encodeURIComponent(routeSlug)}`, undefined, options);
+  }
+
+  /** Read customer-facing balance summary for the active or selected organization. */
+  getCredits(organizationId?: string, options?: RequestOptions): Promise<{ data: CustomerBalance[] }> {
+    const query = organizationId ? `?organization_id=${encodeURIComponent(uuid(organizationId))}` : '';
+    return this.request(`/credits${query}`, undefined, options);
   }
 
   /** Complete active Provider grants for the signed-in operator; installation sessions return an empty list. */
