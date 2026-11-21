@@ -5483,7 +5483,7 @@
         }
       }
     },
-    "/api/v1/auth/installation/setup": {
+    "/api/v1/setup": {
       "post": {
         "operationId": "completeInitialInstallationSetup",
         "tags": [

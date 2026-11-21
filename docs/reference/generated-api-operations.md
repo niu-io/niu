@@ -5651,7 +5651,7 @@ Content type: `application/json`.
 
 ## Create the first platform administrator account during initial setup
 
-`POST /api/v1/auth/installation/setup`
+`POST /api/v1/setup`
 
 One-time first-run bootstrap for a blank deployment where browser password authentication is enabled and no active password-enabled platform administrator exists yet. Requires the configured browser Origin and a valid administrator token from NIU_ADMIN_TOKENS. Creates the first owner account with platform administration enabled in the default workspace, issues an eight-hour HttpOnly browser session cookie with platform administrator mode active, and rejects subsequent calls with 409 Conflict. Responses are not cached.
 
