@@ -1,6 +1,8 @@
 import {
+  IconActivity,
   IconAdjustmentsHorizontal,
   IconAlertTriangle,
+  IconBuildingStore,
   IconChartLine,
   IconCreditCard,
   IconHistory,
@@ -8,6 +10,8 @@ import {
   IconPalette,
   IconPlugConnected,
   IconRoute,
+  IconServer2,
+  IconSettings,
   IconTag,
   IconUserCheck,
   IconUserShield,
@@ -29,6 +33,7 @@ export type AdminNavGroup = {
   id: string;
   labelEn?: string;
   labelZh?: string;
+  icon?: TablerIcon;
   items: AdminNavItem[];
 };
 
@@ -43,6 +48,7 @@ const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     id: 'supply',
     labelEn: 'Supply',
     labelZh: '供给',
+    icon: IconServer2,
     items: [
       { to: '/admin/providers', labelEn: 'Providers', labelZh: '模型供应商', icon: IconPlugConnected },
       { to: '/admin/routing', labelEn: 'Custom models', labelZh: '自定义模型', icon: IconRoute },
@@ -52,6 +58,7 @@ const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     id: 'commerce',
     labelEn: 'Commerce',
     labelZh: '商业',
+    icon: IconBuildingStore,
     items: [
       { to: '/admin/pricing', labelEn: 'Pricing', labelZh: '客户定价', icon: IconTag, resaleOnly: true },
       { to: '/admin/customers', labelEn: 'Customers', labelZh: '客户管理', icon: IconUsers, resaleOnly: true },
@@ -70,6 +77,7 @@ const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     id: 'operations',
     labelEn: 'Operations',
     labelZh: '运营',
+    icon: IconActivity,
     items: [
       { to: '/admin/reports', labelEn: 'Financial reports', labelZh: '财务报表', icon: IconChartLine, resaleOnly: true },
       { to: '/admin/incidents', labelEn: 'Incidents', labelZh: '连接事故', icon: IconAlertTriangle },
@@ -80,6 +88,7 @@ const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     id: 'settings',
     labelEn: 'Settings',
     labelZh: '设置',
+    icon: IconSettings,
     items: [
       { to: '/admin/branding', labelEn: 'Branding', labelZh: '品牌定制', icon: IconPalette },
       { to: '/admin/settings/registration', labelEn: 'Registration policy', labelZh: '注册策略', icon: IconUserShield },
@@ -110,4 +119,8 @@ export function isAdminNavItemActive(item: AdminNavItem, pathname: string): bool
     );
   }
   return clean === item.to || clean.startsWith(`${item.to}/`);
+}
+
+export function isAdminNavGroupActive(group: AdminNavGroup, pathname: string): boolean {
+  return group.items.some(item => isAdminNavItemActive(item, pathname));
 }

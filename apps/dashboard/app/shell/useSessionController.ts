@@ -99,7 +99,11 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
           if (revision !== connectionRevision.current || controller.signal.aborted) return;
           if (!sessionResponse.ok) {
             if (revision === connectionRevision.current && !(restoring && sessionResponse.status === 401)) {
-              setError('Could not sign in. Try again.');
+              setError(
+                sessionResponse.status === 401 && authenticationPath.current === '/installation'
+                  ? 'That administrator token is invalid. Verify NIU_ADMIN_TOKENS and try again.'
+                  : 'Could not sign in. Try again.',
+              );
             }
             return;
           }
@@ -188,7 +192,12 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
   const connect = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      await authenticate(draftToken);
+      const trimmed = draftToken.trim();
+      if (!trimmed) {
+        setError('Enter an administrator token.');
+        return;
+      }
+      await authenticate(trimmed);
     },
     [authenticate, draftToken],
   );

@@ -107,4 +107,43 @@ describe('account sign-in service availability', () => {
     expect(JSON.parse(fetcher.mock.calls[2][1].body)).toEqual({ email: 'another@example.test', password: 'fixture-password' });
     expect(context.connect).not.toHaveBeenCalled();
   });
+
+  it('guides users to /installation when token sign-in on /login returns 401', async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(Response.json({ password_login: false, browser_token_login: true }))
+      .mockResolvedValueOnce(Response.json({ error: { message: 'Unauthorized' } }, { status: 401 }));
+    vi.stubGlobal('fetch', fetcher);
+    showLogin();
+    const user = userEvent.setup();
+    const input = await screen.findByLabelText('User access token');
+    await user.type(input, 'niu_admin_env_token_fixture');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await screen.findByText('That access token is invalid, expired or revoked.');
+    expect(screen.getByRole('link', { name: 'Sign in via Installation administration' }).getAttribute('href')).toBe('/installation');
+  });
+
+  it('trims whitespace on /installation administrator token and shows a clear 401 error', async () => {
+    const seenAuth: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path === '/healthz') return Response.json({ status: 'ok' });
+      if (path === '/api/v1/session') {
+        const auth = new Headers(init?.headers).get('authorization') ?? '';
+        seenAuth.push(auth);
+        return Response.json({ error: { message: 'Unauthorized' } }, { status: 401 });
+      }
+      return Response.json({ data: [] });
+    }));
+    const router = createMemoryRouter([{ element: <AppLayout />, children: [
+      { path: '/installation', element: <InstallationRoute /> },
+      { path: '/login', element: <LoginRoute /> },
+    ] }], { initialEntries: ['/installation'] });
+    render(<RouterProvider router={router} />);
+    const user = userEvent.setup();
+    const input = await screen.findByLabelText('Administrator token');
+    await user.type(input, '  my-env-admin-token  ');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await screen.findByText('That administrator token is invalid. Verify NIU_ADMIN_TOKENS and try again.');
+    expect(seenAuth).toContain('Bearer my-env-admin-token');
+  });
 });

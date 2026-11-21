@@ -23,16 +23,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { getAdminNavGroups, isAdminNavItemActive } from './admin-navigation';
+import { getAdminNavGroups } from './admin-navigation';
+import { AdminSidebarMenu } from './AdminSidebarMenu';
 import { request } from '@/features/providers/api';
 import { useCachedQuery } from '@/lib/query-cache';
 import { canManagePlatform, type DashboardContext } from './dashboard-context';
@@ -250,36 +248,11 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
               })}
             </SidebarMenu>
           ) : (
-            adminGroups.map(group => (
-              <SidebarGroup key={group.id} className="px-1 py-1">
-                {group.labelEn && (
-                  <SidebarGroupLabel className="h-6 px-2 text-[11px] font-medium tracking-wider uppercase text-sidebar-foreground/60">
-                    {isZh ? group.labelZh : group.labelEn}
-                  </SidebarGroupLabel>
-                )}
-                <SidebarGroupContent>
-                  <SidebarMenu className="workspace-nav-menu">
-                    {group.items.map(item => {
-                      const label = isZh ? item.labelZh : item.labelEn;
-                      return (
-                        <SidebarMenuItem key={item.to}>
-                          <SidebarMenuButton
-                            asChild
-                            isActive={isAdminNavItemActive(item, location.pathname)}
-                            className="nav-item provider-zone-item"
-                          >
-                            <ProductRailLink to={item.to} end={item.end}>
-                              <item.icon className="nav-icon" aria-hidden="true" />
-                              <span>{label}</span>
-                            </ProductRailLink>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            ))
+            <AdminSidebarMenu
+              groups={adminGroups}
+              pathname={location.pathname}
+              menuClassName="workspace-nav-menu"
+            />
           )}
         </nav>
       </SidebarContent>

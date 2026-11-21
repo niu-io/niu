@@ -4490,6 +4490,8 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "The health check could not reach the server.": "健康检查无法连接服务器。",
   "The health check failed.": "健康检查失败。",
   "Could not sign in. Try again.": "登录失败，请重试。",
+  "Enter an administrator token.": "请输入管理员令牌。",
+  "That administrator token is invalid. Verify NIU_ADMIN_TOKENS and try again.": "该管理员令牌无效，请核对环境变量 NIU_ADMIN_TOKENS 后重试。",
   "Sign-out unavailable": "退出登录不可用",
   "Your session has expired or been revoked. Sign in again.": "会话已过期或被撤销。请重新登录。",
   "This organization is no longer available to your account.": "你的账户已无法访问此组织。",

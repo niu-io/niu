@@ -41,6 +41,7 @@ export default function LoginRoute() {
   const [username, setUsername] = useState(() => searchParams.get('email') ?? '');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState('');
+  const [tokenAuthFailed, setTokenAuthFailed] = useState(false);
   const [pendingApprovalNotice, setPendingApprovalNotice] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -100,7 +101,7 @@ export default function LoginRoute() {
   const signIn = useCallback(async (kind: 'password'|'token'|'demo') => {
     if(inFlight.current || checking || configurationFailed || !(kind==='demo'?demoLogin:kind==='token'?tokenLogin:memberLogin))return;
     const controller=new AbortController();request.current=controller;inFlight.current=true;
-    setLocalError('');setPendingApprovalNotice(false);setSubmitting(true);
+    setLocalError('');setTokenAuthFailed(false);setPendingApprovalNotice(false);setSubmitting(true);
     try {
       const response=await fetch(kind==='demo'?'/api/v1/auth/browser/demo':kind==='token'?'/api/v1/auth/browser/token':'/api/v1/auth/browser/login',{
         method:'POST',headers:{'content-type':'application/json'},
@@ -113,6 +114,9 @@ export default function LoginRoute() {
         if (response.status === 403 && payload?.error?.type === 'registration_pending_approval') {
           setPendingApprovalNotice(true);
           return;
+        }
+        if (response.status === 401 && kind === 'token') {
+          setTokenAuthFailed(true);
         }
         setLocalError(response.status===401
           ? kind==='demo'?t('Demo sign-in is unavailable. Try again later.', '演示登录暂不可用，请稍后再试。'):kind==='token'?t('That access token is invalid, expired or revoked.', '该访问令牌无效、已过期或已吊销。'):t('That email or password did not match.', '邮箱或密码不匹配。')
@@ -153,7 +157,7 @@ export default function LoginRoute() {
 
   function changeMode(next:'password'|'token'){
     if(inFlight.current)return;
-    setLocalError('');setPendingApprovalNotice(false);setAccessToken('');setPassword('');setMode(next);
+    setLocalError('');setTokenAuthFailed(false);setPendingApprovalNotice(false);setAccessToken('');setPassword('');setMode(next);
   }
 
   const registerHref = returnTo !== '/workspaces/default/'
@@ -234,13 +238,19 @@ export default function LoginRoute() {
                 autoFocus
                 spellCheck={false}
                 value={accessToken}
-                onChange={event => setAccessToken(event.target.value)}
+                onChange={event => { setAccessToken(event.target.value); setTokenAuthFailed(false); }}
                 disabled={submitting}
                 required
                 maxLength={256}
                 aria-describedby="login-error"
               />
-              <p className="dashboard-login-hint">{t('Use the temporary access token your workspace owner shared with you.', '请使用工作空间所有者分享给您的临时访问令牌。')}</p>
+              <p className="dashboard-login-hint">
+                {t('Use the member access token your workspace owner shared with you. For NIU_ADMIN_TOKENS, use', '请使用工作空间所有者分享给您的成员访问令牌；环境变量 NIU_ADMIN_TOKENS 请前往')}{locale === 'zh-CN' ? '' : ' '}
+                <Link className="underline underline-offset-2" to="/installation">
+                  {t('Installation administration', '实例管理')}
+                </Link>
+                {t('.', '登录。')}
+              </p>
             </div>
           ) : (
             <>
@@ -277,7 +287,18 @@ export default function LoginRoute() {
             </>
           ))}
           {(localError || context.error) && (
-            <p id="login-error" className="dashboard-login-error" role="alert">{t(localError || context.error)}</p>
+            <div id="login-error" className="space-y-1.5" role="alert">
+              <p className="dashboard-login-error">{t(localError || context.error)}</p>
+              {mode === 'token' && tokenAuthFailed && (
+                <p className="dashboard-login-hint">
+                  {t('Using an administrator token from NIU_ADMIN_TOKENS?', '如果您使用的是环境变量 NIU_ADMIN_TOKENS 中的管理员令牌，')}{locale === 'zh-CN' ? '' : ' '}
+                  <Link className="underline underline-offset-2" to="/installation">
+                    {t('Sign in via Installation administration', '请前往实例管理登录')}
+                  </Link>
+                  {t('.', '。')}
+                </p>
+              )}
+            </div>
           )}
           {configurationFailed && (
             <div className="dashboard-login-unavailable">
