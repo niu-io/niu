@@ -1963,6 +1963,11 @@ async fn output_observation_preserves_original_and_cannot_weaken_enforcement(poo
     let address = listener.local_addr().unwrap();
     let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
     let mut state = test_state(Some(format!("http://{address}/v1")), pool.clone());
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
     Arc::make_mut(&mut state.config)
         .models
         .get_mut("fast")
@@ -2117,6 +2122,11 @@ async fn admin_topup_credit_limit_overdraft_and_repayment_end_to_end(pool: sqlx:
     let address = listener.local_addr().unwrap();
     let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
     let mut state = test_state(Some(format!("http://{address}/v1")), pool.clone());
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
     Arc::make_mut(&mut state.config)
         .models
         .get_mut("fast")
@@ -2186,7 +2196,7 @@ async fn admin_topup_credit_limit_overdraft_and_repayment_end_to_end(pool: sqlx:
         .unwrap();
     let app = router(state.clone());
 
-    // 1. Zero balance + zero credit limit must fail closed with 402.
+    // 1. Zero balance + zero credit limit (with no online merchant) must fail closed before dispatch.
     let blocked = app
         .clone()
         .oneshot(
@@ -2200,7 +2210,14 @@ async fn admin_topup_credit_limit_overdraft_and_repayment_end_to_end(pool: sqlx:
         )
         .await
         .unwrap();
-    assert_eq!(blocked.status(), StatusCode::PAYMENT_REQUIRED);
+    assert!(
+        matches!(
+            blocked.status(),
+            StatusCode::PAYMENT_REQUIRED | StatusCode::SERVICE_UNAVAILABLE
+        ),
+        "zero-balance zero-credit request must be blocked, got {}",
+        blocked.status()
+    );
     assert!(captured.0.lock().unwrap().is_none());
 
     // 2. Platform Admin sets credit limit allowing overdraft while balance is 0.
@@ -2278,7 +2295,8 @@ async fn admin_topup_credit_limit_overdraft_and_repayment_end_to_end(pool: sqlx:
     assert_eq!(second.status(), StatusCode::OK);
     let _ = second.into_body().collect().await.unwrap();
 
-    // 5. Lower credit limit to 0 with no active holds -> arrears remain, further calls blocked 402.
+    // 5. Lower credit limit below remaining reservation requirement (still >0 so readiness passes):
+    //    arrears remain and further calls are rejected specifically with 402 Payment Required.
     let revoke_credit = app
         .clone()
         .oneshot(
@@ -2289,7 +2307,7 @@ async fn admin_topup_credit_limit_overdraft_and_repayment_end_to_end(pool: sqlx:
             .header("content-type", "application/json")
             .body(axum::body::Body::from(
                 json!({
-                    "credit_limit_nanos": "0",
+                    "credit_limit_nanos": "1",
                     "warning_threshold_nanos": null,
                     "expected_revision": "1"
                 })
@@ -2377,6 +2395,11 @@ async fn fail_closed_billing_rejects_unpriced_and_zero_tariff_paid_models(pool: 
     let address = listener.local_addr().unwrap();
     let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
     let mut state = test_state(Some(format!("http://{address}/v1")), pool.clone());
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
     // Route A: has provider pricing (paid), initially NO customer tariff.
     Arc::make_mut(&mut state.config)
         .models
@@ -2451,7 +2474,10 @@ async fn fail_closed_billing_rejects_unpriced_and_zero_tariff_paid_models(pool: 
         )
         .await
         .unwrap();
-    assert!(!no_proc.status().is_success());
+    assert_eq!(no_proc.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let no_proc_body: Value =
+        serde_json::from_slice(&no_proc.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(no_proc_body["error"]["type"], "service_not_ready");
     assert!(captured.0.lock().unwrap().is_none());
 
     // 2. Model with provider pricing but NO customer tariff must be rejected before dispatch.
@@ -2468,11 +2494,14 @@ async fn fail_closed_billing_rejects_unpriced_and_zero_tariff_paid_models(pool: 
         )
         .await
         .unwrap();
-    assert!(!no_tariff.status().is_success());
+    assert_eq!(no_tariff.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let no_tariff_body: Value =
+        serde_json::from_slice(&no_tariff.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(no_tariff_body["error"]["type"], "service_not_ready");
     assert!(captured.0.lock().unwrap().is_none());
 
     // 3. Accidentally setting a $0 customer tariff on a paid provider route must fail closed.
-    state
+    let zero_rev = state
         .store
         .publish_customer_tariff(
             scope,
@@ -2499,13 +2528,50 @@ async fn fail_closed_billing_rejects_unpriced_and_zero_tariff_paid_models(pool: 
         )
         .await
         .unwrap();
-    assert!(
-        !zero_on_paid.status().is_success(),
+    assert_eq!(
+        zero_on_paid.status(),
+        StatusCode::SERVICE_UNAVAILABLE,
         "zero customer tariff on a paid provider route must fail closed"
     );
+    let zero_body: Value =
+        serde_json::from_slice(&zero_on_paid.into_body().collect().await.unwrap().to_bytes())
+            .unwrap();
+    assert_eq!(zero_body["error"]["type"], "service_not_ready");
     assert!(
         captured.0.lock().unwrap().is_none(),
         "upstream provider must never be contacted for a zero-tariff paid route"
     );
+
+    // 4. Publishing a positive customer tariff unblocks the exact same request cleanly.
+    state
+        .store
+        .publish_customer_tariff(
+            scope,
+            &niu_storage::ProviderOfferInput {
+                model_alias: "fast".into(),
+                currency: "USD".into(),
+                prompt_rate: "1000000".into(),
+                completion_rate: "2000000".into(),
+                expected_revision: Some(zero_rev),
+            },
+        )
+        .await
+        .unwrap();
+    let priced_ok = app
+        .clone()
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","messages":[{"role":"user","content":"hi"}]}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(priced_ok.status(), StatusCode::OK);
+    let _ = priced_ok.into_body().collect().await.unwrap();
+    assert!(captured.0.lock().unwrap().is_some());
     server.abort();
 }
