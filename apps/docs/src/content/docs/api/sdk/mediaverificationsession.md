@@ -5,7 +5,7 @@ description: "Generated TypeScript declaration for MediaVerificationSession"
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/media-verification.ts). [All SDK types](/docs/api/sdk/).
+[SDK source](https://github.com/niu-io/niu/blob/release/0.4/sdks/javascript/src/media-verification.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
 /** Niu session identity; the upstream verification token remains private. */
