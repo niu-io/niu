@@ -9,21 +9,18 @@ import {
 } from '@tabler/icons-react';
 import type { PlatformRegistrationQueuePage } from '@niu-io/sdk';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import AgentConnection from './AgentConnection';
 import { createContext, useContext, useEffect, useState, type RefObject } from 'react';
 import { useLocation } from 'react-router';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import { navigation } from './navigation';
-import { getAdminNavGroups, isAdminNavItemActive } from './admin-navigation';
+import { getAdminNavGroups } from './admin-navigation';
+import { AdminSidebarMenu } from './AdminSidebarMenu';
 import {
   useSidebar,
   SidebarHeader,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
@@ -145,40 +142,12 @@ export function ShellNavigation({
         {toggleButton}
       </SidebarHeader>
       <SidebarContent className="px-2 pb-2 group-data-[collapsible=icon]:px-0">
-        <nav aria-label={t('Admin navigation', '管理后台导航')} className="space-y-1">
-          {adminGroups.map(group => (
-            <SidebarGroup key={group.id} className="px-1 py-1 group-data-[collapsible=icon]:px-0">
-              {group.labelEn && (
-                <SidebarGroupLabel className="h-6 px-2 text-[11px] font-medium tracking-wider uppercase text-sidebar-foreground/60">
-                  {isZh ? group.labelZh : group.labelEn}
-                </SidebarGroupLabel>
-              )}
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {group.items.map(item => {
-                    const label = isZh ? item.labelZh : item.labelEn;
-                    const active = isAdminNavItemActive(item, pathname);
-                    const badgeCount = item.badgeKey === 'pendingRegistrations' ? pendingRegistrations : 0;
-                    return (
-                      <SidebarMenuItem key={item.to}>
-                        <SidebarMenuButton asChild isActive={active} tooltip={label}>
-                          <ProductRailLink to={item.to} end={item.end} aria-label={label}>
-                            <item.icon aria-hidden="true" />
-                            <span className="min-w-0 flex-1 truncate">{label}</span>
-                            {badgeCount > 0 && (
-                              <Badge variant="default" className="ml-auto h-5 min-w-5 justify-center px-1.5 text-[11px] group-data-[collapsible=icon]:hidden">
-                                {badgeCount}
-                              </Badge>
-                            )}
-                          </ProductRailLink>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ))}
+        <nav aria-label={t('Admin navigation', '管理后台导航')}>
+          <AdminSidebarMenu
+            groups={adminGroups}
+            pathname={pathname}
+            pendingRegistrations={pendingRegistrations}
+          />
         </nav>
       </SidebarContent>
     </>;
