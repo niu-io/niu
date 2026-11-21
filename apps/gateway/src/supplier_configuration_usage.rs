@@ -25,7 +25,7 @@ fn default_limit() -> u32 {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/providers/{provider}/configuration-usage",
+///   "path": "/api/v1/admin/providers/{provider}/configuration-usage",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getProviderConfigurationUsage",

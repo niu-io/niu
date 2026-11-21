@@ -861,7 +861,7 @@ listPaymentIntegrations(options?: RequestOptions): Promise<{
 ### getPlatformEPayConfiguration
 
 ```typescript
-/** Platform administrator read. Public display settings also exist at GET /v1/branding. */
+/** Platform administrator read. Public display settings also exist at GET /api/v1/public/branding. */
 getPlatformEPayConfiguration(options?: RequestOptions): Promise<{
     data: EPayConfiguration;
 }>;

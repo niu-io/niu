@@ -1,11 +1,11 @@
 ---
 title: "Inspect captured quote versions and recover uncertain refreshes"
-description: "GET /api/v1/providers/{provider}/pricing/history"
+description: "GET /api/v1/admin/providers/{provider}/pricing/history"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/providers/{provider}/pricing/history`
+`GET /api/v1/admin/providers/{provider}/pricing/history`
 
 Platform administration required. Newest-first immutable version summaries, at most 50 per page, without full quote payloads. after is an exclusive revision cursor. Read a chosen revision to inspect original evidence; no source fetch or mutation is performed.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/pricing/history" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/{provider}/pricing/history" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

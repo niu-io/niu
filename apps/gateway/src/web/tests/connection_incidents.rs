@@ -60,8 +60,11 @@ async fn connection_incident_reads_require_platform_authority_and_disable_cachin
             assert_eq!(data["notifications"]["incidents"], 0);
         }
     }
-    let path = format!("/api/v1/vendors/{}/incidents", vendor.id);
-    for path in [&path, "/api/v1/incidents"] {
+    let path = format!(
+        "/api/v1/admin/providers/connections/{}/incidents",
+        vendor.id
+    );
+    for path in [&path, "/api/v1/admin/incidents"] {
         for (token, expected) in [
             (None, StatusCode::UNAUTHORIZED),
             (Some(owner.token.as_str()), StatusCode::FORBIDDEN),

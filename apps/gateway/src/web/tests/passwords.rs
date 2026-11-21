@@ -67,7 +67,7 @@ async fn password_api_issues_scoped_sessions_and_reset_revokes_them(pool: PgPool
         .await
         .unwrap();
     let app = router(state.clone());
-    let path = format!("/api/v1/operators/{}/password", member.operator_id);
+    let path = format!("/api/v1/members/{}/password", member.operator_id);
     let foreign_organization = Uuid::new_v4();
     sqlx::query("INSERT INTO organizations(id,name) VALUES($1,'Foreign password organization')")
         .bind(foreign_organization)
@@ -87,7 +87,7 @@ async fn password_api_issues_scoped_sessions_and_reset_revokes_them(pool: PgPool
         )
         .await
         .unwrap();
-    let read_path = format!("/api/v1/operators/{}/password", member.operator_id);
+    let read_path = format!("/api/v1/members/{}/password", member.operator_id);
     let read = request(
         &app,
         Method::GET,
@@ -113,7 +113,7 @@ async fn password_api_issues_scoped_sessions_and_reset_revokes_them(pool: PgPool
         assert_eq!(denied.1["cache-control"], "no-store");
         assert!(denied.2.get("email").is_none());
     }
-    let missing = format!("/api/v1/operators/{}/password", Uuid::new_v4());
+    let missing = format!("/api/v1/members/{}/password", Uuid::new_v4());
     assert_eq!(
         request(&app, Method::GET, &missing, Some(ADMIN), None, Value::Null)
             .await
@@ -1224,18 +1224,18 @@ async fn customer_console_provisioning_handoff_preserves_company_isolation(pool:
     let input = json!({"organization_id":company["id"],"project_id":null,"name":"Customer owner","role":"owner","issue_session":false});
     let owner = create(
         &app,
-        "/api/v1/operators",
+        "/api/v1/members",
         "customer-handoff-owner",
         input.clone(),
     )
     .await;
     assert_eq!(
         owner,
-        create(&app, "/api/v1/operators", "customer-handoff-owner", input).await
+        create(&app, "/api/v1/members", "customer-handoff-owner", input).await
     );
     assert!(owner["token"].is_null());
     let password_path = format!(
-        "/api/v1/operators/{}/password",
+        "/api/v1/members/{}/password",
         owner["operator"]["id"].as_str().unwrap()
     );
     assert_eq!(request(&app, Method::PUT, &password_path, Some(ADMIN), None,
@@ -1283,7 +1283,7 @@ async fn customer_console_provisioning_handoff_preserves_company_isolation(pool:
     assert_eq!(workspaces.2["data"].as_array().unwrap().len(), 1);
     assert_eq!(workspaces.2["data"][0]["id"], workspace["id"]);
     let foreign_users = format!(
-        "/api/v1/operators?organization_id={}",
+        "/api/v1/members?organization_id={}",
         original.organization_id
     );
     assert_eq!(
@@ -1789,7 +1789,7 @@ async fn multi_organization_membership_claiming_isolation_and_internal_mode_admi
     let invited = request(
         &app,
         Method::POST,
-        "/api/v1/operators",
+        "/api/v1/members",
         Some(&bob_owner.token),
         None,
         json!({
@@ -1854,7 +1854,7 @@ async fn multi_organization_membership_claiming_isolation_and_internal_mode_admi
         let role_resp = request(
             &app,
             Method::PATCH,
-            &format!("/api/v1/operators/{invited_op_id}"),
+            &format!("/api/v1/members/{invited_op_id}"),
             Some(&bob_owner.token),
             None,
             json!({"role": next, "expected_role": expected}),
@@ -1867,7 +1867,7 @@ async fn multi_organization_membership_claiming_isolation_and_internal_mode_admi
         request(
             &app,
             Method::PATCH,
-            &format!("/api/v1/operators/{invited_op_id}"),
+            &format!("/api/v1/members/{invited_op_id}"),
             Some(&bob_owner.token),
             None,
             json!({"role": "viewer", "expected_role": "owner"}),
@@ -1880,7 +1880,7 @@ async fn multi_organization_membership_claiming_isolation_and_internal_mode_admi
         request(
             &app,
             Method::PATCH,
-            &format!("/api/v1/operators/{}", bob_owner.operator_id),
+            &format!("/api/v1/members/{}", bob_owner.operator_id),
             Some(ADMIN),
             None,
             json!({"role": "viewer", "expected_role": "owner"}),
@@ -1916,7 +1916,7 @@ async fn multi_organization_membership_claiming_isolation_and_internal_mode_admi
     let ws_only_op = request(
         &app,
         Method::POST,
-        "/api/v1/operators",
+        "/api/v1/members",
         Some(&alice_token),
         None,
         json!({
@@ -1936,7 +1936,7 @@ async fn multi_organization_membership_claiming_isolation_and_internal_mode_admi
         request(
             &app,
             Method::POST,
-            "/api/v1/operators",
+            "/api/v1/members",
             Some(ws_only_token),
             None,
             json!({
@@ -1979,7 +1979,7 @@ async fn multi_organization_membership_claiming_isolation_and_internal_mode_admi
     ));
 
     // 5. Race test: concurrent organization switch / revocation against workspace mutations and dispatch
-    let revoke_path = format!("/api/v1/operators/{invited_op_id}");
+    let revoke_path = format!("/api/v1/members/{invited_op_id}");
     let switch_fut = request(
         &app,
         Method::PUT,
@@ -2058,7 +2058,7 @@ async fn multi_organization_membership_claiming_isolation_and_internal_mode_admi
     let personal_vendor = request(
         &internal_app,
         Method::POST,
-        "/api/v1/vendors",
+        "/api/v1/admin/providers/connections",
         Some(ADMIN),
         None,
         json!({
@@ -2081,7 +2081,7 @@ async fn multi_organization_membership_claiming_isolation_and_internal_mode_admi
     let add_model = request(
         &internal_app,
         Method::POST,
-        &format!("/api/v1/vendors/{personal_vendor_id}/models"),
+        &format!("/api/v1/admin/providers/connections/{personal_vendor_id}/models"),
         Some(ADMIN),
         None,
         json!({
@@ -2200,11 +2200,11 @@ async fn limited_preview_registration_requires_approval_and_provisions_workspace
         .await
         .unwrap();
     for (method, path, payload) in [
-        (Method::GET, "/api/v1/platform/registration", Value::Null),
-        (Method::GET, "/api/v1/platform/registrations", Value::Null),
+        (Method::GET, "/api/v1/admin/registration", Value::Null),
+        (Method::GET, "/api/v1/admin/registrations", Value::Null),
         (
             Method::PUT,
-            "/api/v1/platform/registration",
+            "/api/v1/admin/registration",
             json!({ "mode": "disabled", "expected_revision": "1" }),
         ),
     ] {
@@ -2329,7 +2329,7 @@ async fn limited_preview_registration_requires_approval_and_provisions_workspace
     let queue = request(
         &app,
         Method::GET,
-        "/api/v1/platform/registrations?status=pending",
+        "/api/v1/admin/registrations?status=pending",
         Some(ADMIN),
         None,
         Value::Null,
@@ -2349,7 +2349,7 @@ async fn limited_preview_registration_requires_approval_and_provisions_workspace
     let approved = request(
         &app,
         Method::POST,
-        &format!("/api/v1/platform/registrations/{request_id}/approve"),
+        &format!("/api/v1/admin/registrations/{request_id}/approve"),
         Some(ADMIN),
         None,
         json!({
@@ -2443,7 +2443,7 @@ async fn limited_preview_registration_requires_approval_and_provisions_workspace
     let pending_list = request(
         &app,
         Method::GET,
-        "/api/v1/platform/registrations?status=pending",
+        "/api/v1/admin/registrations?status=pending",
         Some(ADMIN),
         None,
         Value::Null,
@@ -2453,7 +2453,7 @@ async fn limited_preview_registration_requires_approval_and_provisions_workspace
     let rejected = request(
         &app,
         Method::POST,
-        &format!("/api/v1/platform/registrations/{grace_id}/reject"),
+        &format!("/api/v1/admin/registrations/{grace_id}/reject"),
         Some(ADMIN),
         None,
         json!({ "expected_revision": "1", "note": "Need team details" }),
@@ -2490,7 +2490,7 @@ async fn limited_preview_registration_requires_approval_and_provisions_workspace
     let policy_saved = request(
         &app,
         Method::PUT,
-        "/api/v1/platform/registration",
+        "/api/v1/admin/registration",
         Some(ADMIN),
         None,
         json!({ "mode": "disabled", "expected_revision": "1" }),
@@ -2520,7 +2520,7 @@ async fn limited_preview_registration_requires_approval_and_provisions_workspace
     let audit = request(
         &app,
         Method::GET,
-        "/api/v1/platform/audit-events?limit=20",
+        "/api/v1/admin/audit?limit=20",
         Some(ADMIN),
         None,
         Value::Null,

@@ -161,7 +161,7 @@ describe('Limited Preview registration flow', () => {
       'fetch',
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
-        if (url === '/api/v1/platform/registration') {
+        if (url === '/api/v1/admin/registration') {
           return Response.json({
             data: {
               mode: 'approval_required',
@@ -171,7 +171,7 @@ describe('Limited Preview registration flow', () => {
             },
           });
         }
-        if (url.startsWith('/api/v1/platform/registrations?')) {
+        if (url.startsWith('/api/v1/admin/registrations?')) {
           return Response.json({
             data: approved ? [] : [pendingRow],
             next_cursor: null,
@@ -185,7 +185,7 @@ describe('Limited Preview registration flow', () => {
             },
           });
         }
-        if (url === `/api/v1/platform/registrations/${requestId}/approve` && init?.method === 'POST') {
+        if (url === `/api/v1/admin/registrations/${requestId}/approve` && init?.method === 'POST') {
           approved = true;
           return Response.json({ data: approvedRow });
         }

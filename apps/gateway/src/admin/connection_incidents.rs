@@ -12,7 +12,7 @@ pub struct IncidentQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{vendor}/incidents",
+///   "path": "/api/v1/admin/providers/connections/{vendor}/incidents",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listVendorIncidents",
@@ -94,7 +94,7 @@ pub struct PlatformIncidentQuery {
 
 /// ```openapi
 /// {
-///   "path":"/api/v1/incidents","method":"get",
+///   "path":"/api/v1/admin/incidents","method":"get",
 ///   "operation":{
 ///     "operationId":"listConnectionIncidents",
 ///     "summary":"Read platform upstream connection incidents",
@@ -214,7 +214,7 @@ pub async fn workspace_list(
 }
 
 /// ```openapi
-/// {"path":"/api/v1/incidents/{incident}/connection","method":"get","operation":{"operationId":"resolveIncidentConnection","summary":"Resolve a platform incident to its connection","description":"Platform administration required. Resolves a durable incident reference to its connection identifier for authorized management navigation. Returns no credential, upstream URL, request content or financial information. A missing incident returns 404. This read does not change configuration or call the Provider. Cache-Control no-store.","security":[{"bearerAuth":[]}],"parameters":[{"name":"incident","in":"path","required":true,"schema":{"type":"string","pattern":"^incident-[1-9][0-9]*$"}}],"responses":{"200":{"description":"Internal connection routing identifier","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"type":"object","required":["connection_id"],"properties":{"connection_id":{"type":"string","format":"uuid"}}}}}}}},"400":{"description":"Invalid incident reference"},"401":{"description":"Authentication required"},"403":{"description":"Platform administration required"},"404":{"description":"Incident unavailable"},"503":{"description":"Evidence unavailable"}},"x-niu-implementation":"implemented"}}
+/// {"path":"/api/v1/admin/incidents/{incident}/connection","method":"get","operation":{"operationId":"resolveIncidentConnection","summary":"Resolve a platform incident to its connection","description":"Platform administration required. Resolves a durable incident reference to its connection identifier for authorized management navigation. Returns no credential, upstream URL, request content or financial information. A missing incident returns 404. This read does not change configuration or call the Provider. Cache-Control no-store.","security":[{"bearerAuth":[]}],"parameters":[{"name":"incident","in":"path","required":true,"schema":{"type":"string","pattern":"^incident-[1-9][0-9]*$"}}],"responses":{"200":{"description":"Internal connection routing identifier","content":{"application/json":{"schema":{"type":"object","required":["data"],"properties":{"data":{"type":"object","required":["connection_id"],"properties":{"connection_id":{"type":"string","format":"uuid"}}}}}}}},"400":{"description":"Invalid incident reference"},"401":{"description":"Authentication required"},"403":{"description":"Platform administration required"},"404":{"description":"Incident unavailable"},"503":{"description":"Evidence unavailable"}},"x-niu-implementation":"implemented"}}
 /// ```
 pub async fn resolve_connection(
     State(state): State<AppState>,

@@ -1,11 +1,11 @@
 ---
 title: "Read upstream connection incidents and recovery evidence"
-description: "GET /api/v1/vendors/{vendor}/incidents"
+description: "GET /api/v1/admin/providers/connections/{vendor}/incidents"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/vendors/{vendor}/incidents`
+`GET /api/v1/admin/providers/connections/{vendor}/incidents`
 
 Requires platform administration. Returns adapter-qualified refusals grouped by connection and model, with durable references, occurrence counts and evidence-based recovery times. Covers recognized account restrictions, qualified OpenRouter authentication refusals, and repeated 5xx or connection/timeout failures within five minutes. Unknown HTTP refusals do not establish an account restriction. Recovery requires a later confirmed complete successful request under the current enabled connection and model mapping revisions. This read performs no upstream request, retries, routing changes or financial mutations. No request content, raw upstream bodies, credentials, procurement prices or tenant identities are returned. Pages contain at most 50 records, newest incident first. Follow next_before; a null cursor ends the current view.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/vendors/{vendor}/incidents" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/connections/{vendor}/incidents" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

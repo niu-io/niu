@@ -16,9 +16,9 @@ def configure_video(request, organization, endpoint, credential, offer_lookup):
         assert status in (200, 201), 'packaged video configuration failed'
         return result
 
-    supplier = admin('POST', '/api/v1/providers', {'name':'Package video synthetic Supplier'})['data']['id']
+    supplier = admin('POST', '/api/v1/admin/providers', {'name':'Package video synthetic Supplier'})['data']['id']
     supplier = str(uuid.UUID(supplier))
-    vendor = admin('POST', '/api/v1/vendors', {'name':'Package video fixture credential',
+    vendor = admin('POST', '/api/v1/admin/providers/connections', {'name':'Package video fixture credential',
         'adapter':'openai','api_base':endpoint,'api_key':credential,'enabled':True,'supplier_id':supplier})['data']
     vendor_id = str(uuid.UUID(vendor['id']))
     schema = {'version':1,'revision':'package-video-schema','model_alias':'package-video',
@@ -32,28 +32,28 @@ def configure_video(request, organization, endpoint, credential, offer_lookup):
         'required_controls':[],'exclusive_controls':[],'callbacks_qualified':False,
         'output':{'specifications':[{'resolution':'720p','ratio':'16:9','width':1280,'height':720}],
         'estimator':'SeedancePixelsV1','estimator_revision':'synthetic-package-formula'}}
-    model = admin('POST', f'/api/v1/vendors/{vendor_id}/models', {'alias':'package-video',
+    model = admin('POST', f'/api/v1/admin/providers/connections/{vendor_id}/models', {'alias':'package-video',
         'upstream_model':'fixture-video-model','public_catalog':False,'enabled':True,
         'capabilities':{'video_schema':schema},'pricing':None,'expected_revision':None})['data']
     revision = str(uuid.uuid4())
-    published = admin('POST', f'/api/v1/providers/{supplier}/media-offers', {'revision':revision,
+    published = admin('POST', f'/api/v1/admin/providers/{supplier}/media-offers', {'revision':revision,
         'model_alias':'package-video','vendor_id':vendor_id,'vendor_revision':vendor['revision'],
         'model_revision':model['revision'],'schema_revision':schema['revision'],'expected_revision':None})
     assert published['data']['revision'] == revision, 'video offer revision changed unexpectedly'
     offer = str(uuid.UUID(offer_lookup(supplier)))
     expiry = int(time.time() * 1000) + 3600000
-    admin('PUT', f'/api/v1/providers/{supplier}/qualification', {
+    admin('PUT', f'/api/v1/admin/providers/{supplier}/qualification', {
         'supply_rights_sha256':'a'*64,'supply_capability_sha256':'b'*64,
         'data_handling_sha256':'c'*64,'valid_until_ms':expiry})
-    admin('PUT', f'/api/v1/providers/{supplier}/offers/{offer}/qualification', {
+    admin('PUT', f'/api/v1/admin/providers/{supplier}/offers/{offer}/qualification', {
         'rate_revision':revision,'model_identity_sha256':'d'*64,'protocol_matrix_sha256':'e'*64,
         'protocol_matrix_version':'synthetic-package-video-v1','data_handling_sha256':'f'*64,
         'availability_sha256':'1'*64,'agreed_rates_sha256':'2'*64,'valid_until_ms':expiry})
-    actor = admin('POST', '/api/v1/operators', {'organization_id':organization,'project_id':None,
+    actor = admin('POST', '/api/v1/members', {'organization_id':organization,'project_id':None,
         'name':'Package synthetic Supplier manager','role':'owner','expires_in_seconds':86400})
     actor_id = str(uuid.UUID(actor['operator']['id']))
-    admin('PUT', f'/api/v1/providers/{supplier}/members/{actor_id}', {'role':'manager','active':True})
-    status, _, _ = request('PATCH', f'/api/v1/providers/{supplier}/offers/{offer}',
+    admin('PUT', f'/api/v1/admin/providers/{supplier}/members/{actor_id}', {'role':'manager','active':True})
+    status, _, _ = request('PATCH', f'/api/v1/admin/providers/{supplier}/offers/{offer}',
         bearer_token=actor['token'],payload={'active':True})
     assert status == 200, 'synthetic media offer activation failed'
     rational = lambda amount: {'numerator':str(amount),'denominator':'1'}
@@ -66,7 +66,7 @@ def configure_video(request, organization, endpoint, credential, offer_lookup):
     admin('POST', f'/api/v1/organizations/{organization}/billing/media-rates', {**common,
         'revision':'package-video-selling','vendor_id':vendor_id,'tariff':tariff,
         'maximum_quantity':rational(200000),'liability_qualification_revision':'synthetic-package-bound'})
-    admin('POST', f'/api/v1/providers/{supplier}/media-rates', {**common,
+    admin('POST', f'/api/v1/admin/providers/{supplier}/media-rates', {**common,
         'revision':'package-video-purchase','tariff':{**tariff,'revision':'package-video-purchase-tariff','amount_units':40}})
     return {'supplier':supplier,'vendor':vendor_id,'vendor_revision':vendor['revision'],'endpoint':endpoint,'model':'package-video','customer_rate':{**common,'revision':'package-video-selling','vendor_id':vendor_id,'tariff':tariff,'maximum_quantity':rational(200000),'liability_qualification_revision':'synthetic-package-bound'}}
 
@@ -166,13 +166,13 @@ def rotate_fixture_credential(request, configuration, credential):
         raise ValueError('Synthetic rotation requires a local fixture endpoint')
     vendor = str(uuid.UUID(configuration['vendor']))
     supplier = str(uuid.UUID(configuration['supplier']))
-    status, current, _ = request('GET',f'/api/v1/vendors?supplier={supplier}',admin=True)
+    status, current, _ = request('GET',f'/api/v1/admin/providers/connections?supplier={supplier}',admin=True)
     assert status == 200, 'could not read the synthetic credential revision'
     matches = [row for row in current['data'] if row['id'] == vendor]
     assert len(matches) == 1, 'synthetic credential is unavailable'
     revision = matches[0]['revision']
     assert type(revision) is int and revision > 0, 'invalid synthetic credential revision'
-    status, _, _ = request('PUT',f'/api/v1/vendors/{vendor}',admin=True,payload={
+    status, _, _ = request('PUT',f'/api/v1/admin/providers/connections/{vendor}',admin=True,payload={
         'name':'Package video fixture credential','api_base':configuration['endpoint'],
         'enabled':True,'expected_revision':revision,'api_key':credential})
     assert status == 200, 'synthetic credential rotation failed'
@@ -237,7 +237,7 @@ def assert_uncertain_video_retained(request, video):
 
 def create_video_reader(request, organization, video):
     """An ordinary scoped reader diagnoses customer charges, never procurement."""
-    status, reader, _ = request('POST','/api/v1/operators',admin=True,payload={
+    status, reader, _ = request('POST','/api/v1/members',admin=True,payload={
         'organization_id':str(uuid.UUID(organization)), 'project_id':video['workspace'],
         'name':'Package video Logs reader','role':'viewer','expires_in_seconds':86400})
     assert status == 201 and reader.get('token'), 'scoped video reader creation failed'
@@ -248,7 +248,7 @@ def create_video_reader(request, organization, video):
 
 
 def revoke_video_reader(request, video):
-    status, _, _ = request('DELETE',f'/api/v1/operators/{video["reader_id"]}',admin=True)
+    status, _, _ = request('DELETE',f'/api/v1/members/{video["reader_id"]}',admin=True)
     assert status == 204, 'video reader revocation failed'
 
 

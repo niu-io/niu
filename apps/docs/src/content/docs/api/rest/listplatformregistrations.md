@@ -1,11 +1,11 @@
 ---
 title: "List Limited Preview registration requests"
-description: "GET /api/v1/platform/registrations"
+description: "GET /api/v1/admin/registrations"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/platform/registrations`
+`GET /api/v1/admin/registrations`
 
 Platform administration required. Returns submitted registration requests, counts by status, and the current policy. Password hashes are never returned.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/platform/registrations" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/registrations" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

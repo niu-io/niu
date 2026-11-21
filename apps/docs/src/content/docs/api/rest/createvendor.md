@@ -1,11 +1,11 @@
 ---
 title: "Create an encrypted Provider API-key configuration"
-description: "POST /api/v1/vendors"
+description: "POST /api/v1/admin/providers/connections"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/vendors`
+`POST /api/v1/admin/providers/connections`
 
  Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/vendors" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/connections" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

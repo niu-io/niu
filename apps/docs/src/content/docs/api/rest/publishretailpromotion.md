@@ -1,11 +1,11 @@
 ---
 title: "Publish one finite global or customer price"
-description: "POST /api/v1/pricing/standard-prices/{price}/promotions"
+description: "POST /api/v1/admin/pricing/standard-prices/{price}/promotions"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/pricing/standard-prices/{price}/promotions`
+`POST /api/v1/admin/pricing/standard-prices/{price}/promotions`
 
 Explicit platform administration required; ordinary customer/Provider membership does not grant access. The explicit result references an exact immutable undiscounted standard revision of this price identity. Null customer_organization_id means global; a company reference means customer-specific. Inclusive start/exclusive end are exact UTC epoch-second strings, with finite end greater than start. Same-scope overlap is rejected; at selection an eligible customer rule overrides the global rule, never stacks. Every text category/fixed charge/context tier must preserve meaning and not increase; media retains dimensions, meter, unit, decimal scale, rounding and minimum and only discounts amount_units. Retained original baselines survive later standard updates. No existing request or job is repriced.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/pricing/standard-prices/{price}/promotions" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/pricing/standard-prices/{price}/promotions" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

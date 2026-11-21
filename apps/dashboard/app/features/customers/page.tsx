@@ -32,7 +32,7 @@ type Company = { organization_id: string; organization_name: string; accounts: C
 type AccountPage = { data: Company[]; next_after: string | null };
 export type Editor = { kind: 'credit' | 'grant' | 'history' | 'correction' | 'units'; company: Company; account: CustomerBalance | null; prepared?: PreparedCustomerBalanceGrant; gift?: IssuedCustomerBalanceGrant };
 
-const CUSTOMER_ACCOUNTS_PATH = '/api/v1/platform/customer-accounts?limit=50';
+const CUSTOMER_ACCOUNTS_PATH = '/api/v1/admin/customers?limit=50';
 const COLUMN_WIDTHS = ['w-[22%]', 'w-[12%]', 'w-[8%]', 'w-[12%]', 'w-[12%]', 'w-[12%]', 'w-[12%]', 'w-[10%]'];
 
 /** Company-level Credits summary; repeated on each currency row so it stays visible. */
@@ -147,7 +147,7 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
-    void request<PlatformRegistrationQueuePage>(token, '/api/v1/platform/registrations?status=pending&limit=1', 'GET', undefined, controller.signal)
+    void request<PlatformRegistrationQueuePage>(token, '/api/v1/admin/registrations?status=pending&limit=1', 'GET', undefined, controller.signal)
       .then(page => {
         if (!controller.signal.aborted) setPendingRegistrations(page.counts.pending);
       })

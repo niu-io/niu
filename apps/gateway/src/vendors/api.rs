@@ -211,7 +211,7 @@ pub struct VendorFilter {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors",
+///   "path": "/api/v1/admin/providers/connections",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listVendors",
@@ -470,7 +470,7 @@ pub async fn list(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors",
+///   "path": "/api/v1/admin/providers/connections",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "createVendor",
@@ -638,7 +638,7 @@ pub async fn create(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/retire",
+///   "path": "/api/v1/admin/providers/connections/{id}/retire",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "retireVendorConnection",
@@ -673,7 +673,7 @@ pub async fn retire(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}",
+///   "path": "/api/v1/admin/providers/connections/{id}",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "updateVendor",
@@ -830,7 +830,7 @@ pub async fn update(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/models",
+///   "path": "/api/v1/admin/providers/connections/{id}/models",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listVendorModels",
@@ -1598,7 +1598,7 @@ pub async fn list_models(
 /// credential. Only a small allowlist of model metadata reaches the dashboard.
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/catalog",
+///   "path": "/api/v1/admin/providers/connections/{id}/catalog",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderModelCatalog",
@@ -2020,7 +2020,7 @@ pub struct CheckModelInput {
 /// listed. This is a bounded catalog read, not a billable inference request.
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/check",
+///   "path": "/api/v1/admin/providers/connections/{id}/check",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "checkVendorModel",
@@ -2357,7 +2357,7 @@ fn check_response(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/models",
+///   "path": "/api/v1/admin/providers/connections/{id}/models",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "upsertVendorModel",
@@ -2475,7 +2475,7 @@ pub async fn upsert_model(
 /// Explicit metadata refresh; discovery GET stays read-only.
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/catalog",
+///   "path": "/api/v1/admin/providers/connections/{id}/catalog",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "refreshProviderCatalogMetadata",
@@ -2566,7 +2566,7 @@ pub struct SupplierAssociation {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/supplier",
+///   "path": "/api/v1/admin/providers/connections/{id}/supplier",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getConfigurationProvider",
@@ -2657,7 +2657,7 @@ pub async fn supplier(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/supplier",
+///   "path": "/api/v1/admin/providers/connections/{id}/supplier",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "associateConfigurationProvider",
@@ -2879,7 +2879,7 @@ pub async fn revoke_asset_management(
 
 /// Explicit discovery and atomic import for an already saved Provider connection.
 /// ```openapi
-/// {"path":"/api/v1/vendors/{id}/import","method":"post","operation":{"operationId":"importPersonalProviderModels","security":[{"bearerAuth":[]}],"summary":"Discover and import Provider models","description":"Platform administration required. Reads the bounded upstream catalog, then atomically creates missing model mappings. Owner-funded mappings are enabled; shared commercial mappings start disabled and unpriced. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification or selling eligibility. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Import counts and discovery evidence."},"400":{"description":"Unsupported catalog identifiers."},"409":{"description":"Connection changed or an alias conflicts; no models imported."},"502":{"description":"Upstream catalog read failed; saved connection is retained."}},"x-niu-implementation":"implemented"}}
+/// {"path":"/api/v1/admin/providers/connections/{id}/import","method":"post","operation":{"operationId":"importPersonalProviderModels","security":[{"bearerAuth":[]}],"summary":"Discover and import Provider models","description":"Platform administration required. Reads the bounded upstream catalog, then atomically creates missing model mappings. Owner-funded mappings are enabled; shared commercial mappings start disabled and unpriced. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification or selling eligibility. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Import counts and discovery evidence."},"400":{"description":"Unsupported catalog identifiers."},"409":{"description":"Connection changed or an alias conflicts; no models imported."},"502":{"description":"Upstream catalog read failed; saved connection is retained."}},"x-niu-implementation":"implemented"}}
 /// ```
 pub async fn import_models(
     State(state): State<AppState>,

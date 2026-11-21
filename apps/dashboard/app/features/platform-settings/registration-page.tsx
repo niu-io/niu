@@ -21,7 +21,7 @@ export default function PlatformRegistrationPolicyPage() {
     const controller = new AbortController();
     void request<PlatformRegistrationQueuePage>(
       token,
-      '/api/v1/platform/registrations?status=pending&limit=1',
+      '/api/v1/admin/registrations?status=pending&limit=1',
       'GET',
       undefined,
       controller.signal,

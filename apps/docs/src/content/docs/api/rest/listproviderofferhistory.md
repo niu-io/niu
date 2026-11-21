@@ -1,11 +1,11 @@
 ---
 title: "List immutable Provider quote history"
-description: "GET /api/v1/providers/{provider}/offers/{offer}/revisions"
+description: "GET /api/v1/admin/providers/{provider}/offers/{offer}/revisions"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/providers/{provider}/offers/{offer}/revisions`
+`GET /api/v1/admin/providers/{provider}/offers/{offer}/revisions`
 
 Installation administration or active membership in this Provider is required. Company ownership does not grant procurement access. Newest first by created_at and revision UUID with exclusive keyset pagination, not commit order. One statement snapshot keeps each page and current pointer coherent; separate pages do not share a snapshot. New publications appear on a fresh first page. A foreign or missing cursor returns 409; a missing or inaccessible Provider/offer returns 404. Text prices are exact nanounits per million tokens; media text prices are null and use separate media rate cards. No credentials, endpoints or customer prices. Reading does not authorize, activate or reprice offers. Internal identifiers are API references, not UI labels.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/offers/{offer}/revisions" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/{provider}/offers/{offer}/revisions" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

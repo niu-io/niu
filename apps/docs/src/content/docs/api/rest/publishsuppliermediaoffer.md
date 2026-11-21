@@ -1,11 +1,11 @@
 ---
 title: "Save an inactive versioned media offer without text-token prices"
-description: "POST /api/v1/providers/{provider}/media-offers"
+description: "POST /api/v1/admin/providers/{provider}/media-offers"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/providers/{provider}/media-offers`
+`POST /api/v1/admin/providers/{provider}/media-offers`
 
 Installation write authority only. Requires exact current credential, model and syntactically validated video schema revisions plus explicit Provider ownership. Personal credentials and foreign aliases are rejected. Publication clears activation and offer authorization. Separate specification-selected purchase and customer selling cards are required for paid video dispatch. Exact receipt replay returns the saved revision without replacing a newer offer, including after configuration changes; a changed document or another Provider's receipt conflicts. Rebinding is allowed only to another credential explicitly owned by the same Provider, and original job routes/prices remain pinned. Neither a saved offer nor an administrator authorization establishes live protocol availability.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/providers/{provider}/media-offers" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/{provider}/media-offers" \
   -H "Authorization: Bearer $NIU_MEMBER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

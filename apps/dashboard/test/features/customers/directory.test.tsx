@@ -24,7 +24,7 @@ function stubApi(options:ApiOptions={}){
  const calls:string[]=[];
  vi.stubGlobal('fetch',vi.fn(async input=>{
   const url=String(input);calls.push(url);
-  if(url.includes('/platform/customer-accounts')){
+  if(url.includes('/admin/customers')){
    if(url.includes('after=')&&options.accountsAfter)return Response.json(options.accountsAfter);
    return Response.json(options.accounts??firstPage);
   }
@@ -32,7 +32,7 @@ function stubApi(options:ApiOptions={}){
    if(options.workspacesError)throw new Error('Directory unavailable');
    return Response.json(options.workspaces??{data:[workspace],next_cursor:null});
   }
-  if(url.includes('/operators'))return Response.json(options.operators??{data:[owner],next_cursor:null});
+  if(url.includes('/members'))return Response.json(options.operators??{data:[owner],next_cursor:null});
   if(url.includes('/auth/config'))return Response.json({password_login:true});
   throw new Error('Unexpected '+url);
  }));
@@ -88,12 +88,12 @@ it('shows a retryable error and recovers without losing the financial directory'
  let fail=true;
  vi.stubGlobal('fetch',vi.fn(async input=>{
   const url=String(input);
-  if(url.includes('/platform/customer-accounts')){
+  if(url.includes('/admin/customers')){
    if(fail){fail=false;throw new Error('Customer directory unavailable');}
    return Response.json(firstPage);
   }
   if(url.includes('/workspaces'))return Response.json({data:[workspace],next_cursor:null});
-  if(url.includes('/operators'))return Response.json({data:[owner],next_cursor:null});
+  if(url.includes('/members'))return Response.json({data:[owner],next_cursor:null});
   throw new Error('Unexpected '+url);
  }));
  show();

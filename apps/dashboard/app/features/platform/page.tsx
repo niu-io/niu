@@ -33,9 +33,9 @@ function PaymentConfiguration({token}: {token: string}) {
   const scope = token || 'public';
   const mutation = useRef<AbortController | null>(null);
   useEffect(() => () => mutation.current?.abort(), []);
-  const initialConfig = peekQuery<{data: Configuration}>(scope, '/api/v1/platform/configuration')?.data ?? null;
-  const initialPayment = peekQuery<{data: Settings}>(scope, '/api/v1/platform/payments/epay')?.data ?? null;
-  const initialMock = peekQuery<{data: {available:boolean; enabled:boolean; readiness?:string}}>(scope, '/api/v1/platform/payments/mock')?.data ?? null;
+  const initialConfig = peekQuery<{data: Configuration}>(scope, '/api/v1/admin/configuration')?.data ?? null;
+  const initialPayment = peekQuery<{data: Settings}>(scope, '/api/v1/admin/payments/epay')?.data ?? null;
+  const initialMock = peekQuery<{data: {available:boolean; enabled:boolean; readiness?:string}}>(scope, '/api/v1/admin/payments/mock')?.data ?? null;
   const [mock, setMock] = useState<{available:boolean; enabled:boolean; readiness?:string} | null>(() => initialMock);
   const [mockOpen, setMockOpen] = useState(false);
   const [mockEnabled, setMockEnabled] = useState(false);
@@ -62,7 +62,7 @@ function PaymentConfiguration({token}: {token: string}) {
     if(verificationRequest.current)return;
     const controller=new AbortController();verificationRequest.current=controller;setVerificationBusy(true);setVerificationError('');
     try {
-      const result=await request<{data:Configuration}>(token,'/api/v1/platform/configuration','GET',undefined,controller.signal);
+      const result=await request<{data:Configuration}>(token,'/api/v1/admin/configuration','GET',undefined,controller.signal);
       if(!controller.signal.aborted)setConfiguration(result.data);
     } catch {
       if(!controller.signal.aborted){setVerificationError('Verification status could not be refreshed. The last known status is still shown. Try again.');}
@@ -82,9 +82,9 @@ function PaymentConfiguration({token}: {token: string}) {
     const controller = new AbortController();
     setError('');
     setKey('');
-    const cachedCfg = peekQuery<{data: Configuration}>(scope, '/api/v1/platform/configuration')?.data;
-    const cachedPay = peekQuery<{data: Settings}>(scope, '/api/v1/platform/payments/epay')?.data;
-    const cachedMock = peekQuery<{data: {available:boolean; enabled:boolean; readiness?:string}}>(scope, '/api/v1/platform/payments/mock')?.data;
+    const cachedCfg = peekQuery<{data: Configuration}>(scope, '/api/v1/admin/configuration')?.data;
+    const cachedPay = peekQuery<{data: Settings}>(scope, '/api/v1/admin/payments/epay')?.data;
+    const cachedMock = peekQuery<{data: {available:boolean; enabled:boolean; readiness?:string}}>(scope, '/api/v1/admin/payments/mock')?.data;
     if (cachedCfg && cachedPay) {
       setConfiguration(cachedCfg);
       setSettings(cachedPay);
@@ -96,13 +96,13 @@ function PaymentConfiguration({token}: {token: string}) {
     if (cachedMock) setMock(cachedMock);
     const force = revision > 0;
     void Promise.all([
-      fetchQuery(scope, '/api/v1/platform/configuration', signal => request<{data: Configuration}>(token, '/api/v1/platform/configuration', 'GET', undefined, signal), { signal: controller.signal, force, awaitRevalidate: true }),
-      fetchQuery(scope, '/api/v1/platform/payments/epay', signal => request<{data: Settings}>(token, '/api/v1/platform/payments/epay', 'GET', undefined, signal), { signal: controller.signal, force, awaitRevalidate: true }),
+      fetchQuery(scope, '/api/v1/admin/configuration', signal => request<{data: Configuration}>(token, '/api/v1/admin/configuration', 'GET', undefined, signal), { signal: controller.signal, force, awaitRevalidate: true }),
+      fetchQuery(scope, '/api/v1/admin/payments/epay', signal => request<{data: Settings}>(token, '/api/v1/admin/payments/epay', 'GET', undefined, signal), { signal: controller.signal, force, awaitRevalidate: true }),
     ])
       .then(([status, payment]) => { if (!controller.signal.aborted) {setConfiguration(status.data); setSettings(payment.data);setSavedSettings(payment.data);setKey('');} })
       .catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Payment gateways could not be loaded.'); })
       .finally(() => {if (!controller.signal.aborted) setLoading(false);});
-    void fetchQuery(scope, '/api/v1/platform/payments/mock', signal => request<{data:{available:boolean;enabled:boolean;readiness?:string}}>(token, '/api/v1/platform/payments/mock', 'GET', undefined, signal), { signal: controller.signal, force, awaitRevalidate: true })
+    void fetchQuery(scope, '/api/v1/admin/payments/mock', signal => request<{data:{available:boolean;enabled:boolean;readiness?:string}}>(token, '/api/v1/admin/payments/mock', 'GET', undefined, signal), { signal: controller.signal, force, awaitRevalidate: true })
       .then(result => {if (!controller.signal.aborted) setMock(result.data);})
       .catch(() => {if (!controller.signal.aborted) setMockError('Mock gateway status could not be loaded.');});
     return () => controller.abort();
@@ -113,9 +113,9 @@ function PaymentConfiguration({token}: {token: string}) {
     setBusy(true); setError('');
     const {revision: expected_revision, has_key: _hasKey, ...input} = settings;
     try {
-      const result = await request<{data: Settings}>(token, '/api/v1/platform/payments/epay', 'PUT', {...input, key, expected_revision}, controller.signal);
+      const result = await request<{data: Settings}>(token, '/api/v1/admin/payments/epay', 'PUT', {...input, key, expected_revision}, controller.signal);
       if (controller.signal.aborted) return;
-      invalidateQueries('/api/v1/platform/');
+      invalidateQueries('/api/v1/admin/');
       setSettings(result.data);setSavedSettings(result.data);setKey('');setOpen(false);setRevision(value => value + 1);
     } catch (reason) {if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Payment configuration could not be saved.');}
     finally {if (mutation.current === controller) {mutation.current = null; if (!controller.signal.aborted) setBusy(false);}}
@@ -124,9 +124,9 @@ function PaymentConfiguration({token}: {token: string}) {
     setMockBusy(true); setMockError('');
     const controller = new AbortController(); mutation.current = controller;
     try {
-      const result = await request<{data:{available:boolean;enabled:boolean;readiness?:string}}>(token, '/api/v1/platform/payments/mock', 'PUT', {enabled:mockEnabled}, controller.signal);
+      const result = await request<{data:{available:boolean;enabled:boolean;readiness?:string}}>(token, '/api/v1/admin/payments/mock', 'PUT', {enabled:mockEnabled}, controller.signal);
       if (controller.signal.aborted) return;
-      invalidateQueries('/api/v1/platform/');
+      invalidateQueries('/api/v1/admin/');
       setMock(result.data);setMockOpen(false);setRevision(value => value+1);
       window.dispatchEvent(new Event('niu:payment-mode'));
     } catch (error) { if (!controller.signal.aborted) setMockError(error instanceof Error ? error.message : 'Mock gateway could not be saved.'); }
@@ -137,7 +137,7 @@ function PaymentConfiguration({token}: {token: string}) {
     const controller = new AbortController(); stripeCheck.current = controller;
     setStripeBusy(true); setStripeError(''); setStripeResult('');
     try {
-      const response = await request<{data:{result:'account_enabled'|'account_disabled'|'credentials_rejected'|'check_unavailable'}}>(token, '/api/v1/platform/payments/stripe/verification', 'POST', undefined, controller.signal);
+      const response = await request<{data:{result:'account_enabled'|'account_disabled'|'credentials_rejected'|'check_unavailable'}}>(token, '/api/v1/admin/payments/stripe/verification', 'POST', undefined, controller.signal);
       if (controller.signal.aborted) return;
       if (response.data.result === 'account_enabled') setStripeResult('Stripe reports that this account can accept charges. This check does not test checkout or payment notifications.');
       else if (response.data.result === 'account_disabled') setStripeError('Stripe has not enabled charges for this account. Complete the account requirements in Stripe, then check again.');

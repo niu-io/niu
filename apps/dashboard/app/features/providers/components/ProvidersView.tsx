@@ -35,7 +35,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   const { providerId: routeProviderId, supplierId: routeSupplierId } = useProviderParams();
   const routeScopedId = routeProviderId ?? routeSupplierId;
   const providerId = routeScopedId ?? search.get('provider') ?? search.get('supplier');
-  const connectionsPath = '/api/v1/vendors' + (providerId ? '?supplier=' + encodeURIComponent(providerId) : '');
+  const connectionsPath = '/api/v1/admin/providers/connections' + (providerId ? '?supplier=' + encodeURIComponent(providerId) : '');
   const canManage = Boolean(session.permissions?.platform_admin || (session.kind === 'installation' && session.permissions?.manage_operators !== false));
   const cachedConnections = canManage && token ? peekCachedGet<{ data: ProviderConnection[] }>(token, connectionsPath)?.data ?? null : null;
   const initialConnections = cachedConnections && fixedConnectionId ? cachedConnections.filter(connection => connection.id === fixedConnectionId) : cachedConnections;
@@ -156,7 +156,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     await mutate(async (signal, generation) => {
       let result: { data: ProviderConnection };
       try {
-        result = await request<{ data: ProviderConnection }>(token, '/api/v1/vendors', 'POST', input, signal);
+        result = await request<{ data: ProviderConnection }>(token, '/api/v1/admin/providers/connections', 'POST', input, signal);
         if (!result?.data?.id || typeof result.data.id !== 'string') throw new Error('Invalid creation response.');
       } catch (reason) {
         if (signal.aborted || generation !== authGeneration.current) throw reason;
@@ -188,7 +188,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     await mutate(async (signal, generation) => {
       const result = await request<{ data: ProviderConnection }>(
         token,
-        `/api/v1/vendors/${encodeURIComponent(selectedConnectionId)}`,
+        `/api/v1/admin/providers/connections/${encodeURIComponent(selectedConnectionId)}`,
         'PUT',
         input,
         signal,
@@ -207,12 +207,12 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     try {
       await request(
         token,
-        `/api/v1/vendors/${encodeURIComponent(selectedConnection.id)}/retire`,
+        `/api/v1/admin/providers/connections/${encodeURIComponent(selectedConnection.id)}/retire`,
         'POST',
         {},
       );
       setDisconnectOpen(false);
-      invalidateForMutation(token, '/api/v1/vendors', 'POST');
+      invalidateForMutation(token, '/api/v1/admin/providers/connections', 'POST');
       await reloadConnections(undefined, true);
       void refreshWorkspace().catch(() => { /* Workspace refresh updates its own catalog/session error state. */ });
     } catch (reason) {

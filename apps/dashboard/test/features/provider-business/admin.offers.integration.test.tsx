@@ -45,22 +45,22 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
     const method = init?.method ?? "GET";
     const body = typeof init?.body === "string" ? JSON.parse(init.body) as Record<string, unknown> : undefined;
     requests.push({ path, method, body });
-    if (path.startsWith("/api/v1/vendors")) return Response.json({data:[]});
-    if (path === "/api/v1/operators") return Response.json({ data: [
+    if (path.startsWith("/api/v1/admin/providers/connections")) return Response.json({data:[]});
+    if (path === "/api/v1/members") return Response.json({ data: [
       { id: "account-demo", name: "Demo", revoked: false },
       { id: "account-revoked", name: "Revoked account", revoked: true },
     ] });
-    if (path === `/api/v1/providers/${supplierId}/members`) return Response.json({ data: [
+    if (path === `/api/v1/admin/providers/${supplierId}/members`) return Response.json({ data: [
       { operator_id: "account-demo", name: "Demo", role: "manager", active: true, revoked: false },
       { operator_id: "account-revoked", name: "Revoked account", role: "viewer", active: false, revoked: true },
     ] });
 
-    if (path === "/api/v1/providers") {
+    if (path === "/api/v1/admin/providers") {
       return Response.json({
         data: [{ id: supplierId, name: "Example provider", members: 0 }],
       });
     }
-    if (path === `/api/v1/providers/${supplierId}/administration?days=90`) {
+    if (path === `/api/v1/admin/providers/${supplierId}/administration?days=90`) {
       if (failInitialRead) {
         failInitialRead = false;
         return Response.json({ error: { message: 'Provider data temporarily unavailable' } }, { status: 503 });
@@ -87,11 +87,11 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
     if (path.includes('/media-offer-models')) return Response.json({data:[{model_alias:'example/model',api_key_name:'Video credential',vendor_id:supplierId,vendor_revision:'2',model_revision:'1',schema_revision:'private-schema',channel:'ark-direct-v1',offer_revision:rateRevision,offer_id:offerId,offer_active:false,offer_qualified:false,offer_current:true,route_ready:true,resolutions:['720p'],reference_video:false,meter:'video_tokens'}],has_more:false,next_after:null});
     if (offersHasMore && path.includes('/offers?limit=100&after=')) return Response.json({data:[{id:'later-offer',model_alias:'later/model',revision:'later-revision',rate_kind:'text',currency:'USD',prompt_rate:'3000000000',completion_rate:'4000000000',active:false,qualified:false,route_ready:false}],next_after:null});
     if (path.includes('/media-rates')) return Response.json({data:[],has_more:false,next_after:null});
-    if (path === `/api/v1/providers/${supplierId}/offers/${offerId}/authorization` && method === "PUT") {
+    if (path === `/api/v1/admin/providers/${supplierId}/offers/${offerId}/authorization` && method === "PUT") {
       offerActive = true; offerQualified = true;
       return Response.json({data:{active:true,authorization_id:"authorization"}});
     }
-    if (path === `/api/v1/providers/${supplierId}/offers/${offerId}` && method === "PATCH") {
+    if (path === `/api/v1/admin/providers/${supplierId}/offers/${offerId}` && method === "PATCH") {
       offerActive = false;
       return Response.json({data:{active:false}});
     }
@@ -172,7 +172,7 @@ describe("installation Provider commercial offer lifecycle", () => {
     expect(screen.queryByText("account-demo")).toBeNull();
     await user.click(screen.getByRole("menuitemradio", { name: "Demo" }));
     await user.click(screen.getByRole("button", { name: "Save", exact: true }));
-    await waitFor(() => expect(requests.some(item => item.path === `/api/v1/providers/${supplierId}/members/account-demo` && item.method === "PUT")).toBe(true));
+    await waitFor(() => expect(requests.some(item => item.path === `/api/v1/admin/providers/${supplierId}/members/account-demo` && item.method === "PUT")).toBe(true));
   });
   it("summarizes media offers on Overview and links to dedicated pricing without repeating rates", async () => {
     setup("1000000000", false, true, "overview");
@@ -219,7 +219,7 @@ describe("installation Provider commercial offer lifecycle", () => {
     await user.click(await screen.findByRole("button",{name:"Actions for example/model"}));
     await user.click(await screen.findByRole("menuitem",{name:"Pause offer"}));
     await user.click(screen.getByRole("button",{name:"Pause offer",exact:true}));
-    await waitFor(()=>expect(requests.find(item=>item.path===`/api/v1/providers/${supplierId}/offers/${offerId}` && item.method==="PATCH")?.body).toEqual({active:false}));
+    await waitFor(()=>expect(requests.find(item=>item.path===`/api/v1/admin/providers/${supplierId}/offers/${offerId}` && item.method==="PATCH")?.body).toEqual({active:false}));
     expect(document.body.textContent).not.toContain(offerId);
     expect(document.body.textContent).not.toContain(rateRevision);
   });
@@ -265,13 +265,13 @@ it.each([false, true])('creates atomic Provider setup and handles discovery fail
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input);
     reads.push(path);
-    if (path === '/api/v1/vendors' && init?.method === 'POST') {
+    if (path === '/api/v1/admin/providers/connections' && init?.method === 'POST') {
       created = true;
       writes.push(JSON.parse(String(init.body)));
       return Response.json({ data: { id: 'configured-api' } });
     }
     if (path.endsWith('/provider') || path.endsWith('/supplier')) return discoveryFails ? Response.json({ error: { message: 'Discovery unavailable' } }, { status: 503 }) : Response.json({ data: { id: supplierId, name: 'Test provider' } });
-    if (path === '/api/v1/providers') return Response.json({ data: created ? [{ id: supplierId, name: 'Test provider', members: 0 }] : [] });
+    if (path === '/api/v1/admin/providers') return Response.json({ data: created ? [{ id: supplierId, name: 'Test provider', members: 0 }] : [] });
     return Response.json({ data: { offers: [], balances: [], consumption: [], settlements: [], earnings: [] } });
   }));
   render(<MemoryRouter initialEntries={['/admin/providers/overview?create=provider']}><Routes><Route path='/admin/providers/:section' element={<ProviderAdministration />} /></Routes></MemoryRouter>);
@@ -285,7 +285,7 @@ it.each([false, true])('creates atomic Provider setup and handles discovery fail
   if (discoveryFails) expect(await screen.findByText('API key saved, but Provider details could not be opened. Refresh the Provider list.')).toBeTruthy();
   else {
     expect(await screen.findByText('Provider created. Add models and agreed rates to continue setup.')).toBeTruthy();
-    await waitFor(() => expect(reads).toContain(`/api/v1/providers/${supplierId}/administration?days=90`));
+    await waitFor(() => expect(reads).toContain(`/api/v1/admin/providers/${supplierId}/administration?days=90`));
   }
   expect(document.body.textContent).not.toContain('fixture-credential');
 });
@@ -548,20 +548,20 @@ it('creates a new Provider in Provider Administration, resolves ownership via /s
     const path = String(input);
     const method = init?.method ?? 'GET';
     requests.push({ path, method });
-    if (path === `/api/v1/vendors/${createdVendorId}/provider`) {
+    if (path === `/api/v1/admin/providers/connections/${createdVendorId}/provider`) {
       return Response.json({ error: { message: 'Not found' } }, { status: 404 });
     }
-    if (path === '/api/v1/vendors' && method === 'POST') {
+    if (path === '/api/v1/admin/providers/connections' && method === 'POST') {
       providers.push({ id: createdSupplierId, name: 'New Supply Co', slug: 'new-supply-co', members: 0 });
       return Response.json({ data: { id: createdVendorId } }, { status: 201 });
     }
-    if (path === `/api/v1/vendors/${createdVendorId}/supplier` && method === 'GET') {
+    if (path === `/api/v1/admin/providers/connections/${createdVendorId}/supplier` && method === 'GET') {
       return Response.json({ data: { id: createdSupplierId, name: 'New Supply Co' } });
     }
-    if (path === '/api/v1/providers') {
+    if (path === '/api/v1/admin/providers') {
       return Response.json({ data: providers });
     }
-    if (path.startsWith('/api/v1/vendors')) {
+    if (path.startsWith('/api/v1/admin/providers/connections')) {
       return Response.json({ data: [] });
     }
     if (path.includes('/administration?')) {
@@ -592,7 +592,7 @@ it('creates a new Provider in Provider Administration, resolves ownership via /s
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   await screen.findByText('Provider created. Add models and agreed rates to continue setup.');
   expect(screen.queryByText(/Provider details could not be opened/)).toBeNull();
-  expect(requests.some(req => req.path === `/api/v1/vendors/${createdVendorId}/supplier` && req.method === 'GET')).toBe(true);
+  expect(requests.some(req => req.path === `/api/v1/admin/providers/connections/${createdVendorId}/supplier` && req.method === 'GET')).toBe(true);
   expect(requests.some(req => req.path.endsWith('/provider'))).toBe(false);
-  await waitFor(() => expect(requests.some(req => req.path.includes(`/api/v1/providers/${createdSupplierId}/administration`))).toBe(true));
+  await waitFor(() => expect(requests.some(req => req.path.includes(`/api/v1/admin/providers/${createdSupplierId}/administration`))).toBe(true));
 });

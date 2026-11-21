@@ -22,7 +22,7 @@ type CurrencyState = {
   reload: () => void;
 };
 
-const CURRENCY_CACHE_KEY = 'GET:/v1/currency';
+const CURRENCY_CACHE_KEY = 'GET:/api/v1/public/currency';
 
 // No guessed currency while durable platform configuration is unavailable.
 const CurrencyContext = createContext<CurrencyState>({
@@ -61,7 +61,7 @@ export function PlatformCurrencyProvider({ children }: { children: ReactNode }) 
       'public',
       CURRENCY_CACHE_KEY,
       async signal => {
-        const response = await fetch('/v1/currency', { signal });
+        const response = await fetch('/api/v1/public/currency', { signal });
         if (!response.ok) throw new Error('Platform currency is unavailable.');
         const body = await response.json();
         const value = body?.data?.currency;

@@ -1,15 +1,15 @@
 ---
 title: "Prepare an encrypted metadata patch for a saved ordinary group"
-description: "POST /api/v1/vendors/{id}/asset-management/group-updates"
+description: "POST /api/v1/admin/providers/connections/{id}/asset-management/group-updates"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/vendors/{id}/asset-management/group-updates`
+`POST /api/v1/admin/providers/connections/{id}/asset-management/group-updates`
 
 Platform administrator only. Requires a successful saved group and current distinct UpdateAssetGroup qualification. Derives the original upstream identity from storage. Saves immutable update identity and digest with an encrypted 24-hour patch. Same update identity and patch is idempotent; changed patch conflicts. Does not dispatch, claim completion, release a hold or charge inference. Explicit empty description is retained; omit a field to leave it unchanged.
 
-Operation: `post--api-v1-vendors--id--asset-management-group-updates`.
+Operation: `post--api-v1-admin-providers-connections--id--asset-management-group-updates`.
 
 ## Authentication
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/group-updates" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/asset-management/group-updates" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

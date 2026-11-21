@@ -23,12 +23,12 @@ type CatalogReadiness = { callable: boolean; readiness_issues: string[] };
 type CheckState = { identity: string; sequence: number; pending: boolean; result?: ProviderModelCheck; error?: string };
 function peekScopedModels(token: string, providerId: string): { connections: ProviderConnection[]; entries: Entry[] } | null {
   if (!token || !providerId) return null;
-  const vendors = peekCachedGet<{ data: ProviderConnection[] }>(token, `/api/v1/vendors?supplier=${encodeURIComponent(providerId)}`)?.data;
+  const vendors = peekCachedGet<{ data: ProviderConnection[] }>(token, `/api/v1/admin/providers/connections?supplier=${encodeURIComponent(providerId)}`)?.data;
   if (!vendors) return null;
   const scoped = vendors.filter(item => (item.provider ?? item.supplier)?.id === providerId);
   const entries: Entry[] = [];
   for (const connection of scoped) {
-    const models = peekCachedGet<{ data: ProviderModel[] }>(token, `/api/v1/vendors/${encodeURIComponent(connection.id)}/models`)?.data;
+    const models = peekCachedGet<{ data: ProviderModel[] }>(token, `/api/v1/admin/providers/connections/${encodeURIComponent(connection.id)}/models`)?.data;
     if (!models) return null;
     for (const model of models) entries.push({ connection, model });
   }
@@ -101,10 +101,10 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
     }
     setError('');
     void (async () => {
-      const result = await cachedGet<{data: ProviderConnection[]}>(token, `/api/v1/vendors?supplier=${encodeURIComponent(providerId)}`, { signal: controller.signal, force });
+      const result = await cachedGet<{data: ProviderConnection[]}>(token, `/api/v1/admin/providers/connections?supplier=${encodeURIComponent(providerId)}`, { signal: controller.signal, force });
       const scoped = result.data.filter(item => (item.provider ?? item.supplier)?.id === providerId);
       const models = await Promise.all(scoped.map(async connection => {
-        const response = await cachedGet<{data: ProviderModel[]}>(token, `/api/v1/vendors/${encodeURIComponent(connection.id)}/models`, { signal: controller.signal, force });
+        const response = await cachedGet<{data: ProviderModel[]}>(token, `/api/v1/admin/providers/connections/${encodeURIComponent(connection.id)}/models`, { signal: controller.signal, force });
         return response.data.map(model => ({ connection, model }));
       }));
       const nextReadiness: Record<string, CatalogReadiness> = {};
@@ -160,7 +160,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
     const controller = new AbortController(); catalogRequest.current?.abort(); catalogRequest.current = controller;
     setCatalogLoading(true); setCatalogError('');
     try {
-      const result = await request<{data: ProviderCatalogModel[]; discovery?: ProviderDiscoveryEvidence}>(token, `/api/v1/vendors/${encodeURIComponent(editor.connectionId)}/catalog`, 'GET', undefined, controller.signal);
+      const result = await request<{data: ProviderCatalogModel[]; discovery?: ProviderDiscoveryEvidence}>(token, `/api/v1/admin/providers/connections/${encodeURIComponent(editor.connectionId)}/catalog`, 'GET', undefined, controller.signal);
       if (!controller.signal.aborted) { setCatalog(result.data); setDiscovery(result.discovery ?? null); }
     } catch { if (!controller.signal.aborted) { setCatalogError('Catalog unavailable.'); setDiscovery(null); } }
     finally { if (!controller.signal.aborted) setCatalogLoading(false); }
@@ -175,7 +175,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
     const sequence = ++checkSequence.current;
     setChecks(current => ({ ...current, [key]: { identity, sequence, pending: true } }));
     try {
-      const result = await request<{ data: ProviderModelCheck }>(token, `/api/v1/vendors/${encodeURIComponent(connection.id)}/check`, 'POST', { alias: model.alias });
+      const result = await request<{ data: ProviderModelCheck }>(token, `/api/v1/admin/providers/connections/${encodeURIComponent(connection.id)}/check`, 'POST', { alias: model.alias });
       if (!active.current) return;
       setChecks(current => current[key]?.sequence === sequence
         ? { ...current, [key]: { identity, sequence, pending: false, result: result.data } } : current);
@@ -189,7 +189,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
     if (!canManage || !editor || !selectedConnection || write.current) return;
     const controller = new AbortController(); write.current = controller; setBusy(true); setNotice(''); setActionError('');
     try {
-      await request(token, `/api/v1/vendors/${encodeURIComponent(selectedConnection.id)}/models`, 'POST', input, controller.signal);
+      await request(token, `/api/v1/admin/providers/connections/${encodeURIComponent(selectedConnection.id)}/models`, 'POST', input, controller.signal);
       if (!active.current || controller.signal.aborted) return;
       setEditor(null); setNotice('Model saved. Availability is being refreshed.');
       setRevision(value => value + 1); onSaved();
@@ -204,7 +204,7 @@ function ScopedModels({ token, providerId, providerSlug, canManage, offers, offe
     if (!canManage || write.current || loading || error) return;
     const controller = new AbortController(); write.current = controller; setBusy(true); setImporting(connection.id); setNotice(''); setActionError('');
     try {
-      const result = await request<{ data: { imported: number; discovered: number } }>(token, `/api/v1/vendors/${encodeURIComponent(connection.id)}/import`, 'POST', {}, controller.signal);
+      const result = await request<{ data: { imported: number; discovered: number } }>(token, `/api/v1/admin/providers/connections/${encodeURIComponent(connection.id)}/import`, 'POST', {}, controller.signal);
       if (!active.current || controller.signal.aborted) return;
       setNotice(uiF('Imported {0} of {1} discovered models.', [result.data.imported, result.data.discovered]));
       setRevision(value => value + 1); onSaved();

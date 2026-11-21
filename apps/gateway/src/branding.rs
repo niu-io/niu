@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 
 /// ```openapi
 /// {
-///   "path": "/v1/branding",
+///   "path": "/api/v1/public/branding",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getPublicBranding",
@@ -144,7 +144,7 @@ pub(crate) async fn public(State(state): State<AppState>) -> Result<Json<Value>,
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/branding",
+///   "path": "/api/v1/admin/branding",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getBranding",
@@ -201,7 +201,7 @@ pub(crate) struct Write {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/branding",
+///   "path": "/api/v1/admin/branding",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "saveBranding",

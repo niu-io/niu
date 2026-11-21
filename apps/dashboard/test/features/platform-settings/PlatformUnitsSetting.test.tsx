@@ -32,8 +32,8 @@ it('shows a clean purchase rate and one billing-mode switch without atom or scal
   };
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
     const path = String(input);
-    if (path === '/api/v1/platform/units') return Response.json({ data: configuration });
-    if (path.startsWith('/api/v1/platform/units/mode')) return Response.json({ data: mode });
+    if (path === '/api/v1/admin/units') return Response.json({ data: configuration });
+    if (path.startsWith('/api/v1/admin/units/mode')) return Response.json({ data: mode });
     return Response.json({ error: { message: `Unexpected ${path}` } }, { status: 404 });
   }));
   render(<PlatformUnitsSetting token="units-test-token" />);

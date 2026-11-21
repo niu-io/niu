@@ -473,20 +473,20 @@ def verify_member_session(token, organization_id, project_id):
     assert identity["data"]["permissions"]["platform_admin"] is True
     assert identity["data"]["operator"]["organization_id"] == organization_id
     assert identity["data"]["operator"]["project_id"] == project_id
-    assert request("GET", "/api/v1/vendors", bearer_token=token)[0] == 200
+    assert request("GET", "/api/v1/admin/providers/connections", bearer_token=token)[0] == 200
     _, organizations, _ = request("GET", "/api/v1/organizations", bearer_token=token)
     assert [row["id"] for row in organizations["data"]] == [organization_id]
 
 
 def initialize_member_administrator(organization_id, project_id):
-    status, member, _ = request("POST", "/api/v1/operators", admin=True, payload={
+    status, member, _ = request("POST", "/api/v1/members", admin=True, payload={
         "organization_id": organization_id, "project_id": project_id,
         "name": "Packaged member", "role": "owner", "expires_in_seconds": 3600,
     })
     assert status == 201
     operator = str(uuid.UUID(member["operator"]["id"]))
     password = secrets.token_urlsafe(32)
-    assert request("PUT", f"/api/v1/operators/{operator}/password", admin=True,
+    assert request("PUT", f"/api/v1/members/{operator}/password", admin=True,
                    payload={"email": "package@example.test", "password": password,
                             "expected_revision": None})[0] == 200
     status, signed_in, _ = request("POST", "/api/v1/auth/login",
@@ -494,7 +494,7 @@ def initialize_member_administrator(organization_id, project_id):
     assert status == 200
     token = signed_in["token"]
     try:
-        request("GET", "/api/v1/vendors", bearer_token=token)
+        request("GET", "/api/v1/admin/providers/connections", bearer_token=token)
     except urllib.error.HTTPError as error:
         assert error.code == 403, "ordinary member gained platform administration"
         error.close()
@@ -921,7 +921,7 @@ def main():
     assert bundle_status == 200 and len(bundle) > 500, "the dashboard JavaScript bundle was not served"
 
     currency_status, _, _ = request(
-        "PUT", "/api/v1/platform/currency", payload={"currency": "USD"}, admin=True
+        "PUT", "/api/v1/admin/currency", payload={"currency": "USD"}, admin=True
     )
     assert currency_status == 200
     organization_status, organization, _ = request(

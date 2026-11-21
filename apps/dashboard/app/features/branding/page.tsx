@@ -70,7 +70,7 @@ export default function BrandingPage() {
   const [search, setSearch] = useSearchParams();
   const tab = search.get('tab') === 'theme' ? 'theme' : 'branding';
   const initialBranding = (() => {
-    const raw = peekQuery<unknown>(scope, '/api/v1/platform/branding');
+    const raw = peekQuery<unknown>(scope, '/api/v1/admin/branding');
     if (raw === undefined) return null;
     try { return parseBranding(raw); } catch { return null; } // Cached branding is optional; the network read below reports failures.
   })();
@@ -92,7 +92,7 @@ export default function BrandingPage() {
 
   useEffect(() => {
     const controller = new AbortController(); setError('');
-    const cachedRaw = peekQuery<unknown>(scope, '/api/v1/platform/branding');
+    const cachedRaw = peekQuery<unknown>(scope, '/api/v1/admin/branding');
     if (cachedRaw !== undefined && attempt === 0) {
       try {
         const current = parseBranding(cachedRaw);
@@ -107,8 +107,8 @@ export default function BrandingPage() {
     }
     void fetchQuery(
       scope,
-      '/api/v1/platform/branding',
-      signal => request<unknown>(token, '/api/v1/platform/branding', 'GET', undefined, signal),
+      '/api/v1/admin/branding',
+      signal => request<unknown>(token, '/api/v1/admin/branding', 'GET', undefined, signal),
       { signal: controller.signal, force: attempt > 0, awaitRevalidate: true },
     )
       .then(value => { if (!controller.signal.aborted) { const current = parseBranding(value); setSaved(current); setDraft(copy(current.settings)); setReloadNeeded(false); } })
@@ -138,8 +138,8 @@ export default function BrandingPage() {
     if (!draft.display_name.trim() || draft.display_name !== draft.display_name.trim()) { setError(t('Enter a display name without leading or trailing spaces.', '请输入首尾不含空格的显示名称。')); setReloadNeeded(false); return; }
     setBusy(true); setError(''); setNotice(''); setReloadNeeded(false);
     try {
-      const current = parseBranding(await request(token, '/api/v1/platform/branding', 'PUT', { expected_revision: saved.revision, settings: draft }));
-      invalidateQueries('/api/v1/platform/branding');
+      const current = parseBranding(await request(token, '/api/v1/admin/branding', 'PUT', { expected_revision: saved.revision, settings: draft }));
+      invalidateQueries('/api/v1/admin/branding');
       setSaved(current); setDraft(copy(current.settings)); branding.update(current); setEditorSection(null); setNotice(t('Changes saved.', '更改已保存。'));
     } catch (reason) {
       const status = reason instanceof VendorRequestError ? reason.status : 0;
@@ -154,8 +154,8 @@ export default function BrandingPage() {
     const defaults = copy(defaultBranding);
     setBusy(true); setError(''); setNotice(''); setReloadNeeded(false);
     try {
-      const current = parseBranding(await request(token, '/api/v1/platform/branding', 'PUT', { expected_revision: saved.revision, settings: defaults }));
-      invalidateQueries('/api/v1/platform/branding');
+      const current = parseBranding(await request(token, '/api/v1/admin/branding', 'PUT', { expected_revision: saved.revision, settings: defaults }));
+      invalidateQueries('/api/v1/admin/branding');
       setSaved(current); setDraft(copy(current.settings)); branding.update(current); setResetOpen(false); setNotice(t('Reset to Niu defaults.', '已恢复 Niu 默认设置。'));
     } catch (reason) {
       const status = reason instanceof VendorRequestError ? reason.status : 0;

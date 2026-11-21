@@ -16,7 +16,7 @@ export default function IncidentConnection({ reference }: { reference: string })
     const controller = new AbortController();
     setConnection(undefined); setError(false);
     if (!/^incident-[1-9][0-9]*$/.test(reference)) { setError(true); return () => controller.abort(); }
-    void request<{ data: { connection_id: string } }>(context.token, `/api/v1/incidents/${encodeURIComponent(reference)}/connection`, 'GET', undefined, controller.signal)
+    void request<{ data: { connection_id: string } }>(context.token, `/api/v1/admin/incidents/${encodeURIComponent(reference)}/connection`, 'GET', undefined, controller.signal)
       .then(result => {
         if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(result.data?.connection_id)) throw new Error('Invalid connection');
         if (!controller.signal.aborted) setConnection(result.data.connection_id);

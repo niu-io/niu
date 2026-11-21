@@ -27,7 +27,7 @@ export default function LegacyMediaContracts({ token, onClose, returnFocus }: { 
     const controller = new AbortController(); active.current = controller;
     setLoading(true); setError(''); setFailedCursor(after);
     try {
-      const page = await request<{data: RetailCustomer[]; next_after: string | null}>(token, '/api/v1/pricing/customers?limit=100' + (after ? '&after=' + encodeURIComponent(after) : ''), 'GET', undefined, controller.signal);
+      const page = await request<{data: RetailCustomer[]; next_after: string | null}>(token, '/api/v1/admin/pricing/customers?limit=100' + (after ? '&after=' + encodeURIComponent(after) : ''), 'GET', undefined, controller.signal);
       if (controller.signal.aborted) return;
       if (!Array.isArray(page.data) || page.data.some(row => !row.organization_id || !row.organization_name?.trim() || !Number.isFinite(Date.parse(row.created_at)))) throw new Error('Company details could not be read.');
       if (page.next_after !== null && (typeof page.next_after !== 'string' || !page.next_after || seenCursors.current.has(page.next_after))) throw new Error('The company list did not advance. Retry loading companies.');

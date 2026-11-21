@@ -14,16 +14,16 @@ const groups = [
     ['Video generation', 'Discover video models, estimate a request, submit a job, and retrieve its status and results.', '/video/(?:models|estimate|jobs)'],
   ]],
   ['Providers and routing', [
-    ['Connection incidents', 'Qualified upstream access failures and verified operational recovery.', '^/api/v1/incidents(?:/|$)'],
-    ['Providers', 'Provider identities, model purchase offers, usage and settlements. Each operation documents its actual authority and current constraints.', '^/api/v1/(?:providers|provider-memberships)'],
-    ['Provider API connections', 'Upstream endpoints, stored credentials, model mappings, discovery and connection diagnostics.', '^/api/v1/vendors(?!/[^/]+/asset-management)'],
-    ['Model routing', 'Published routing snapshots and candidate pools.', '^/api/v1/(?:routing-registry|routing)'],
+    ['Connection incidents', 'Qualified upstream access failures and verified operational recovery.', '^/api/v1/admin/incidents(?:/|$)'],
+    ['Provider API connections', 'Upstream endpoints, stored credentials, model mappings, discovery and connection diagnostics.', '^/api/v1/admin/providers/connections(?!/[^/]+/asset-management)(?:/|$)'],
+    ['Providers', 'Provider identities, model purchase offers, usage and settlements. Each operation documents its actual authority and current constraints.', '^/api/v1/admin/providers(?!/connections(?:/|$))'],
+    ['Model routing', 'Published routing snapshots and candidate pools.', '^/api/v1/admin/routing(?:/|$)'],
   ]],
   ['Authentication and access', [
     ['Member invitations', 'Purpose-bound one-time invitations to join an organization or workspace. Acceptance requires an existing signed-in account with the intended email; no reusable member credential is issued.', '^/api/v1/(?:invitations(?:/|$)|organizations/[^/]+/invitations$|session/invitations$)'],
-    ['Registration review', 'Limited Preview account registration policy and platform administrator approval queue.', '^/api/v1/platform/registrations?(?:/|$)'],
-    ['Authentication', 'Initial installation setup, sign-in configuration, Limited Preview registration submission, browser sessions, profile, password and appearance. Credential requirements differ by operation.', '^/api/v1/(?:auth/|session(?:/|$)|setup$)'],
-    ['Users and sessions', 'User identities, roles, sessions and authentication events.', '^/api/v1/operators'],
+    ['Registration review', 'Limited Preview account registration policy and platform administrator approval queue.', '^/api/v1/admin/registrations?(?:/|$)'],
+    ['Authentication', 'Initial installation setup, sign-in configuration, Limited Preview registration submission, browser sessions, profile, password and appearance. Credential requirements differ by operation.', '^/api/v1/(?:auth/|session(?:/|$)|setup$|public/config$)'],
+    ['Users and sessions', 'User identities, roles, sessions and authentication events.', '^/api/v1/(?:members|admin/members)(?:/|$)'],
     ['API keys', 'Workspace inference keys, key self-introspection, rotation, grants, access policies and limits.', '(?:^/v1/key$|/keys/requests/[^/]+$|/keys(?:/[^/]+)?(?:/(?:rotate|token-rate-limit|token-usage-window|spending-limit|units/limit|ip-policy|request-rate-limit|concurrency-limit|capacity|guardrail)(?:/.*)?)?$)'],
   ]],
   ['Workspaces and content', [
@@ -39,15 +39,15 @@ const groups = [
   ['Usage and billing', [
     ['Request logs and usage', 'Generation lookups, request history, exports, diagnostics, timing and captured usage reconciliation.', '(?:^/v1/generations/|/(?:requests|metrics)(?:/|$))'],
     ['Guardrails', 'Policy configuration, previews, history, key bindings and recorded denials.', '/guardrail'],
-    ['Financial reports', 'Financial summaries and Provider commercial positions. These are privileged reports, not customer account lifecycle APIs.', '^/api/v1/(?:financial-summary|commercial-position)$'],
-    ['Customer balances', 'Company currency balances, limits, reservations, credit, adjustments and transaction history. Amounts are customer-facing, not Provider costs.', '(?:/platform/customer-accounts$|/billing/(?:accounts|balance|transactions|entries|reservations|charge-reconciliation|funding)|/spending-limit)'],
-    ['Customer payments', 'Top-up methods, checkout history, payment callbacks and payment gateway integrations. Checkout creation is not confirmation of funding.', '(?:/billing/(?:topups|payment-methods)|^/payments/|^/api/v1/payments/readiness$|/platform/payments)'],
-    ['Branded consumption units', 'Versioned unit definitions, purchase conversion rules, unit tariffs, and unit spending limits. Publication does not activate Credits billing.', '(?:^/api/v1/platform/units(?:/|$)|/billing/units(?:/|$)|/workspaces/[^/]+/units/limit(?:/|$))'],
-    ['Customer prices and statements', 'Customer selling prices, price enrollment, invoices and statements. Prices are independent of Provider purchase rates.', '(?:^/api/v1/pricing|/billing(?:/|$))'],
+    ['Financial reports', 'Financial summaries and Provider commercial positions. These are privileged reports, not customer account lifecycle APIs.', '^/api/v1/admin/finance/(?:summary|position)$'],
+    ['Customer balances', 'Company currency balances, limits, reservations, credit, adjustments and transaction history. Amounts are customer-facing, not Provider costs.', '(?:^/api/v1/admin/customers$|/billing/(?:accounts|balance|transactions|entries|reservations|charge-reconciliation|funding)|/spending-limit)'],
+    ['Customer payments', 'Top-up methods, checkout history, payment callbacks and payment gateway integrations. Checkout creation is not confirmation of funding.', '(?:/billing/(?:topups|payment-methods)|^/payments/|^/api/v1/payments/readiness$|^/api/v1/admin/payments(?:/|$))'],
+    ['Branded consumption units', 'Versioned unit definitions, purchase conversion rules, unit tariffs, and unit spending limits. Publication does not activate Credits billing.', '(?:^/api/v1/admin/units(?:/|$)|/billing/units(?:/|$)|/workspaces/[^/]+/units/limit(?:/|$))'],
+    ['Customer prices and statements', 'Customer selling prices, price enrollment, invoices and statements. Prices are independent of Provider purchase rates.', '(?:^/api/v1/admin/pricing|/billing(?:/|$))'],
   ]],
   ['Service and compatibility', [
-    ['Branding and settings', 'Public branding, theme configuration and runtime settings.', '^/(?:v1/(?:branding|currency)|api/v1/platform/(?:branding|configuration|currency))$'],
-    ['Audit and recovery', 'Audit events and financial recovery controls.', '^/api/v1/platform/(?:audit-events|financial-recovery)$'],
+    ['Branding and settings', 'Public branding, theme configuration and runtime settings.', '^/api/v1/(?:public/(?:branding|currency)|admin/(?:branding|configuration|currency))$'],
+    ['Audit and recovery', 'Audit events and financial recovery controls.', '^/api/v1/admin/(?:audit|finance/recovery)$'],
     ['Service health', 'Process health, readiness and composed extension readiness.', '^/(?:healthz|readyz|enterprise/readyz)$'],
     ['Workspace connections', 'Workspace OAuth connections such as Codex.', '/codex-connections(?:/|$)'],
   ]],
@@ -82,7 +82,7 @@ export function deriveOperationAuthority(path, method, operation) {
       scope: 'workspace',
     };
   }
-  if (/^\/api\/v1\/(?:providers|provider-memberships)/.test(path)) {
+  if (/^\/api\/v1\/admin\/providers(?!\/connections(?:\/|$))/.test(path)) {
     return {
       audience: 'provider',
       principals: ['provider_member', 'platform_admin', 'installation_admin'],
@@ -92,10 +92,9 @@ export function deriveOperationAuthority(path, method, operation) {
   }
   const lowerMethod = String(method || '').toLowerCase();
   if (
-    /^\/api\/v1\/(?:platform\/|vendors|incidents|routing-registry|routing|pricing|financial-summary|commercial-position|operators|setup(?:\/|$))/.test(path) ||
+    /^\/api\/v1\/(?:admin\/|members(?:\/|$)|setup(?:\/|$))/.test(path) ||
     /\/billing\/(?:quotes|units\/(?:grants|refunds|charges\/[^/]+\/refunds|purchases\/[^/]+\/reversals|requests\/[^/]+\/reconciliations)|entries\/[^/]+\/reversal|media-rates|funding\/settled|accounts\/[^/]+\/(?:policy|grants))/.test(path) ||
     (lowerMethod === 'post' && /\/billing\/invoices(?:\/[^/]+\/payment)?$/.test(path)) ||
-    /\/(?:projects|workspaces)\/[^/]+\/(?:accounts|budget|costs)(?:\/|$)/.test(path) ||
     /\/(?:tariffs|retail-price-enrollment|media-retail-price-enrollment|usage-reconciliation)/.test(path)
   ) {
     return {

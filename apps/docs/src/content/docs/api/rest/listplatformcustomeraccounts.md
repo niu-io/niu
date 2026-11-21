@@ -1,11 +1,11 @@
 ---
 title: "Discover named customer accounts and Credits summaries for platform financial administration"
-description: "GET /api/v1/platform/customer-accounts"
+description: "GET /api/v1/admin/customers"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/platform/customer-accounts`
+`GET /api/v1/admin/customers`
 
 Explicit platform administration only, independent of ordinary company membership. Named companies, their current currency balance summaries, and a standard-unit Credits summary when issued lots exist; companies without accounts have an empty accounts array. The Credits summary exposes no atoms, lots or provenance. It is a display summary, not a spendable-capacity guarantee; the organization unit-balance endpoint remains authoritative for exact lot and expiry detail. No payment references, transactions, customer request content, Provider costs or credentials. Shares customer balance arithmetic: available equals posted balance plus approved credit minus outstanding request liability. Approval is not a cash receipt. UUID references are routing-only, never display labels. Company UUID keyset order; limit defaults to 50, maximum 100 companies. Pass next_after unchanged as after; missing cursor returns 409. Each page has one bounded read snapshot, separate pages do not share it; concurrent inserts before the cursor require refreshing. No funds, accounts or policies are created. Cache-Control no-store.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/platform/customer-accounts" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/customers" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

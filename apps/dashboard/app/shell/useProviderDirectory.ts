@@ -23,8 +23,8 @@ export function useProviderDirectory(
     reload: reloadProviders,
   } = useCachedQuery<{ data: ProviderIdentity[] }>(
     token,
-    enabled ? '/api/v1/providers' : null,
-    signal => request<{ data: ProviderIdentity[] }>(token, '/api/v1/providers', 'GET', undefined, signal),
+    enabled ? '/api/v1/admin/providers' : null,
+    signal => request<{ data: ProviderIdentity[] }>(token, '/api/v1/admin/providers', 'GET', undefined, signal),
     {
       enabled,
       persist: true,

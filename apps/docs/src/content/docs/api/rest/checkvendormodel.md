@@ -1,11 +1,11 @@
 ---
 title: "Check provider reachability and whether a mapped model is listed"
-description: "POST /api/v1/vendors/{id}/check"
+description: "POST /api/v1/admin/providers/connections/{id}/check"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/vendors/{id}/check`
+`POST /api/v1/admin/providers/connections/{id}/check`
 
 Performs a bounded GET to the provider's /models endpoint. Anthropic and Gemini use native authentication headers and a 1000-model page; absence from an incomplete page remains unknown. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota. Requires installation administration or an explicitly granted platform administrator.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/vendors/{id}/check" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/check" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

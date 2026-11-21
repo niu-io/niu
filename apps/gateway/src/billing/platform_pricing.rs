@@ -16,7 +16,7 @@ pub struct TariffPage {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/targets",
+///   "path": "/api/v1/admin/pricing/targets",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPlatformPricingTargets",
@@ -136,7 +136,7 @@ pub async fn targets(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs",
+///   "path": "/api/v1/admin/pricing/organizations/{organization}/workspaces/{project}/tariffs",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPlatformCustomerTariffs",
@@ -404,7 +404,7 @@ pub async fn tariffs(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/models",
+///   "path": "/api/v1/admin/pricing/models",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPlatformPricingModels",

@@ -61,11 +61,11 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
     reload,
   } = useCachedQuery<{ data: ProviderIdentity[] }>(
     context.token,
-    platformManager && context.token ? '/api/v1/providers' : null,
+    platformManager && context.token ? '/api/v1/admin/providers' : null,
     async signal => {
       const result = await request<{ data: ProviderIdentity[] }>(
         context.token,
-        '/api/v1/providers',
+        '/api/v1/admin/providers',
         'GET',
         undefined,
         signal,

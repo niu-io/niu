@@ -1,11 +1,11 @@
 ---
 title: "Publish confidential agreed Provider media purchase terms"
-description: "POST /api/v1/providers/{provider}/media-rates"
+description: "POST /api/v1/admin/providers/{provider}/media-rates"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/providers/{provider}/media-rates`
+`POST /api/v1/admin/providers/{provider}/media-rates`
 
 Installation write permission only; Provider membership and company roles do not authorize procurement configuration. Pins the Provider's current authorized offer and exact credential/model/schema revisions. Publication is immutable and exact replay is idempotent. Missing, ambiguous, stale or differently metered purchase rates block commercial video dispatch before egress. Customer selling rates are independent. No customer charge or platform margin belongs in this body; owner-funded personal use does not acquire a Provider earning. Maximum JSON body is 128 KiB.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/providers/{provider}/media-rates" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/{provider}/media-rates" \
   -H "Authorization: Bearer $NIU_MEMBER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

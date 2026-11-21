@@ -6,7 +6,7 @@ import CustomerSetup from '../../../app/features/customers/setup';
 import type {NiuAdminClient} from '@niu-io/sdk/admin';
 const company={id:'10000000-0000-4000-8000-000000000001',name:'Example customer'};
 const owner={id:'30000000-0000-4000-8000-000000000001',name:'Alex',organization_id:company.id,project_id:null,role:'owner',revoked:false};
-function fixture(owners:unknown[]=[]){vi.stubGlobal('fetch',vi.fn(async(input)=>String(input).startsWith('/api/v1/operators?')?Response.json({data:owners,next_cursor:null}):Response.json({password_login:true})));}
+function fixture(owners:unknown[]=[]){vi.stubGlobal('fetch',vi.fn(async(input)=>String(input).startsWith('/api/v1/members?')?Response.json({data:owners,next_cursor:null}):Response.json({password_login:true})));}
 function client(){return {listWorkspaces:vi.fn().mockResolvedValue({data:[]}),createOperatorIdentity:vi.fn(),createWorkspace:vi.fn(),getMemberPasswordConfiguration:vi.fn().mockResolvedValue({configured:false,email:null,revision:null}),setMemberPassword:vi.fn()};}
 function show(api:ReturnType<typeof client>){return render(<MemoryRouter><CustomerSetup company={company} token="test" client={api as unknown as NiuAdminClient} onClose={()=>{}} onWorkspaceCreated={()=>{}}/></MemoryRouter>);}
 afterEach(()=>{cleanup();sessionStorage.clear();vi.unstubAllGlobals();});

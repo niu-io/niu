@@ -336,23 +336,29 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
         .unwrap();
     let app = router(state);
     for path in [
-        "/api/v1/routing",
-        "/api/v1/routing/aW5kZXg",
-        "/api/v1/routing/aW5kZXg/history",
+        "/api/v1/admin/routing",
+        "/api/v1/admin/routing/aW5kZXg",
+        "/api/v1/admin/routing/aW5kZXg/history",
     ] {
         assert_eq!(
             call(&app, "GET", path, &customer.token, None).await.0,
             StatusCode::FORBIDDEN
         );
     }
-    let (status, page) = call(&app, "GET", "/api/v1/routing?limit=1", ADMIN, None).await;
+    let (status, page) = call(&app, "GET", "/api/v1/admin/routing?limit=1", ADMIN, None).await;
     assert_eq!(status, StatusCode::OK, "{page}");
     assert_eq!(page["data"].as_array().unwrap().len(), 1);
     assert_eq!(page["has_more"], true);
     assert_eq!(
-        call(&app, "GET", "/api/v1/routing/index?limit=1", ADMIN, None)
-            .await
-            .1,
+        call(
+            &app,
+            "GET",
+            "/api/v1/admin/routing/index?limit=1",
+            ADMIN,
+            None
+        )
+        .await
+        .1,
         page
     );
     let mut seen = vec![page["data"][0]["alias"].as_str().unwrap().to_owned()];
@@ -365,7 +371,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
         let (status, page) = call(
             &app,
             "GET",
-            &format!("/api/v1/routing?{query}"),
+            &format!("/api/v1/admin/routing?{query}"),
             ADMIN,
             None,
         )
@@ -392,7 +398,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
         let legacy = call(
             &app,
             "GET",
-            &format!("/api/v1/routing?{query}"),
+            &format!("/api/v1/admin/routing?{query}"),
             ADMIN,
             None,
         )
@@ -400,7 +406,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
         let member = call(
             &app,
             "GET",
-            &format!("/api/v1/routing/{encoded}"),
+            &format!("/api/v1/admin/routing/{encoded}"),
             ADMIN,
             None,
         )
@@ -412,7 +418,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
             call(
                 &app,
                 "GET",
-                &format!("/api/v1/routing/{encoded}/history"),
+                &format!("/api/v1/admin/routing/{encoded}/history"),
                 ADMIN,
                 None
             )
@@ -420,7 +426,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
             call(
                 &app,
                 "GET",
-                &format!("/api/v1/routing/history?{query}"),
+                &format!("/api/v1/admin/routing/history?{query}"),
                 ADMIN,
                 None
             )
@@ -432,7 +438,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
             call(
                 &app,
                 "GET",
-                &format!("/api/v1/routing/{reference}"),
+                &format!("/api/v1/admin/routing/{reference}"),
                 ADMIN,
                 None
             )
@@ -445,7 +451,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
         call(
             &app,
             "GET",
-            "/api/v1/routing?alias=index&limit=1",
+            "/api/v1/admin/routing?alias=index&limit=1",
             ADMIN,
             None
         )
@@ -454,7 +460,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
         StatusCode::BAD_REQUEST
     );
     assert_eq!(
-        call(&app, "GET", "/api/v1/routing", "invalid", None)
+        call(&app, "GET", "/api/v1/admin/routing", "invalid", None)
             .await
             .0,
         StatusCode::UNAUTHORIZED
@@ -478,7 +484,7 @@ async fn pool_collection_and_encoded_members_preserve_legacy_contract(pool: PgPo
     for alias in aliases {
         let response = reqwest::Client::new()
             .get(format!(
-                "http://{proxy_address}/api/v1/routing/{}",
+                "http://{proxy_address}/api/v1/admin/routing/{}",
                 URL_SAFE_NO_PAD.encode(alias),
             ))
             .send()
@@ -550,7 +556,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, created) = call(
         &app,
         "PUT",
-        "/api/v1/routing",
+        "/api/v1/admin/routing",
         ADMIN,
         Some(json!({
             "alias": alias,
@@ -585,7 +591,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, fetched) = call(
         &app,
         "GET",
-        &format!("/api/v1/routing/{encoded}"),
+        &format!("/api/v1/admin/routing/{encoded}"),
         ADMIN,
         None,
     )
@@ -600,7 +606,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, preview_vision) = call(
         &app,
         "POST",
-        &format!("/api/v1/routing/{encoded}/preview"),
+        &format!("/api/v1/admin/routing/{encoded}/preview"),
         ADMIN,
         Some(json!({
             "has_vision": true,
@@ -610,7 +616,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::OK, "{preview_vision}");
     validate_response(
-        "/api/v1/routing/{reference}/preview",
+        "/api/v1/admin/routing/{reference}/preview",
         "post",
         "200",
         &preview_vision,
@@ -624,7 +630,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, preview_default) = call(
         &app,
         "POST",
-        &format!("/api/v1/routing/{encoded}/preview"),
+        &format!("/api/v1/admin/routing/{encoded}/preview"),
         ADMIN,
         Some(json!({
             "has_vision": false,
@@ -646,13 +652,18 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, audit) = call(
         &app,
         "GET",
-        &format!("/api/v1/routing/{encoded}/audit"),
+        &format!("/api/v1/admin/routing/{encoded}/audit"),
         ADMIN,
         None,
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{audit}");
-    validate_response("/api/v1/routing/{reference}/audit", "get", "200", &audit);
+    validate_response(
+        "/api/v1/admin/routing/{reference}/audit",
+        "get",
+        "200",
+        &audit,
+    );
     assert_eq!(audit["data"]["alias"], alias);
     assert_eq!(audit["data"]["billing_mode"], "candidate_tariff");
     assert_eq!(audit["data"]["public_catalog"], true);
@@ -662,7 +673,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, updated) = call(
         &app,
         "PUT",
-        "/api/v1/routing",
+        "/api/v1/admin/routing",
         ADMIN,
         Some(json!({
             "alias": alias,
@@ -687,7 +698,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, audit_updated) = call(
         &app,
         "GET",
-        &format!("/api/v1/routing/{encoded}/audit"),
+        &format!("/api/v1/admin/routing/{encoded}/audit"),
         ADMIN,
         None,
     )
@@ -698,7 +709,7 @@ async fn pool_rules_preview_audit_and_billing_modes_roundtrip(pool: PgPool) {
     let (status, history) = call(
         &app,
         "GET",
-        &format!("/api/v1/routing/{encoded}/history"),
+        &format!("/api/v1/admin/routing/{encoded}/history"),
         ADMIN,
         None,
     )

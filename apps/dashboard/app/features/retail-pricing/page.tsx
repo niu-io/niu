@@ -31,7 +31,7 @@ import { PromotionsManager } from './promotions';
 import { BrandedUnitTariffsSection } from './unit-tariffs';
 import type { RetailPriceRecord, RetailPriceHistory } from '@niu-io/sdk/admin';
 
-const base = '/api/v1/pricing/standard-prices';
+const base = '/api/v1/admin/pricing/standard-prices';
 const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString(readUILocale()) : translateUI('Date unavailable');
 const seconds = (value: string) => /^\d+$/.test(value) ? date(new Date(Number(value) * 1000).toISOString()) : translateUI('Date unavailable');
 export default function RetailPricingRoute() {

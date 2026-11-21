@@ -1,11 +1,11 @@
 ---
 title: "Refresh descriptive metadata for existing vendor model mappings"
-description: "POST /api/v1/vendors/{id}/catalog"
+description: "POST /api/v1/admin/providers/connections/{id}/catalog"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/vendors/{id}/catalog`
+`POST /api/v1/admin/providers/connections/{id}/catalog`
 
 Fetches the bounded provider catalog and updates matching upstream IDs only. Preserves aliases, routing, capability declarations and billing prices. Increments revisions when metadata changes. Missing provider models are retained. Requires installation administration or an explicitly granted platform administrator.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/vendors/{id}/catalog" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/catalog" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

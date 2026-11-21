@@ -183,7 +183,7 @@ async fn runtime_snapshot_from_configuration(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/payments/epay",
+///   "path": "/api/v1/admin/payments/epay",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getPlatformEPayConfiguration",
@@ -306,7 +306,7 @@ pub(crate) struct Write {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/payments/epay",
+///   "path": "/api/v1/admin/payments/epay",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "savePlatformEPayConfiguration",

@@ -221,7 +221,7 @@ export function prefetchRouteData(
       prefetchGet(token, `/api/v1/organizations/${orgId}/billing/transactions`);
     } else if (section === 'members') {
       prefetchGet(token, '/api/v1/organizations');
-      prefetchGet(token, '/api/v1/operators?limit=1000');
+      prefetchGet(token, '/api/v1/members?limit=1000');
       if (orgId) prefetchGet(token, `/api/v1/workspaces?organization_id=${encodeURIComponent(orgId)}`);
     } else if (section === 'organization') {
       prefetchGet(token, '/api/v1/organizations');
@@ -261,26 +261,26 @@ export function prefetchRouteData(
   if (parts[0] === 'admin' && canManagePlatform(session)) {
     const sub = parts[1] ?? 'providers';
     if (sub === 'providers') {
-      prefetchGet(token, '/api/v1/providers', { persist: true });
-      prefetchGet(token, '/api/v1/vendors');
+      prefetchGet(token, '/api/v1/admin/providers', { persist: true });
+      prefetchGet(token, '/api/v1/admin/providers/connections');
     } else if (sub === 'customers' || sub === 'balances') {
-      prefetchGet(token, '/api/v1/platform/customer-accounts?limit=50');
+      prefetchGet(token, '/api/v1/admin/customers?limit=50');
     } else if (sub === 'routing') {
-      prefetchGet(token, '/api/v1/routing/index?limit=50');
+      prefetchGet(token, '/api/v1/admin/routing/index?limit=50');
     } else if (sub === 'pricing') {
-      prefetchGet(token, '/api/v1/pricing/standard-prices?limit=50');
-      prefetchGet(token, '/api/v1/platform/units');
-      prefetchGet(token, '/api/v1/platform/units/media/tariffs');
+      prefetchGet(token, '/api/v1/admin/pricing/standard-prices?limit=50');
+      prefetchGet(token, '/api/v1/admin/units');
+      prefetchGet(token, '/api/v1/admin/units/media/tariffs');
     } else if (sub === 'payments') {
-      prefetchGet(token, '/api/v1/platform/configuration');
-      prefetchGet(token, '/api/v1/platform/payments/epay');
-      prefetchGet(token, '/api/v1/platform/payments/mock');
+      prefetchGet(token, '/api/v1/admin/configuration');
+      prefetchGet(token, '/api/v1/admin/payments/epay');
+      prefetchGet(token, '/api/v1/admin/payments/mock');
     } else if (sub === 'branding') {
-      prefetchGet(token, '/api/v1/platform/branding');
+      prefetchGet(token, '/api/v1/admin/branding');
     } else if (sub === 'settings') {
-      prefetchGet(token, '/api/v1/platform/units');
+      prefetchGet(token, '/api/v1/admin/units');
     } else if (sub === 'audit') {
-      prefetchGet(token, '/api/v1/platform/audit-events?limit=50');
+      prefetchGet(token, '/api/v1/admin/audit?limit=50');
     }
     return;
   }
@@ -316,7 +316,7 @@ export function prefetchRouteData(
       prefetchGet(token, `/api/v1/workspaces/${ws.id}/guardrails`);
     } else if (section === 'users') {
       prefetchGet(token, '/api/v1/organizations');
-      prefetchGet(token, '/api/v1/operators?limit=1000');
+      prefetchGet(token, '/api/v1/members?limit=1000');
     } else if (section === 'routing') {
       prefetchGet(token, `/api/v1/workspaces/${encodeURIComponent(ws.id)}/routing`);
     } else if (section === 'evaluations') {

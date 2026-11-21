@@ -117,7 +117,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
   const { t: uiT, format: uiF } = useUILocale();
   const scope = token || 'public';
   const { currency: platformCurrency, reload: reloadPlatformCurrency } = usePlatformCurrency();
-  const initialConfig = peekQuery<{ data: UnitConfiguration }>(scope, '/api/v1/platform/units')?.data ?? null;
+  const initialConfig = peekQuery<{ data: UnitConfiguration }>(scope, '/api/v1/admin/units')?.data ?? null;
   const [config, setConfig] = useState<UnitConfiguration | null>(() => initialConfig);
   const [preview, setPreview] = useState<ModeSnapshot | null>(null);
   const [savedPreview, setSavedPreview] = useState<SavedModePreview | null>(null);
@@ -159,11 +159,11 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
     setLoading(true);
     setError('');
     try {
-      if (force) invalidateQueries('/api/v1/platform/units');
+      if (force) invalidateQueries('/api/v1/admin/units');
       const cfgResp = await fetchQuery(
         scope,
-        '/api/v1/platform/units',
-        signal => request<{ data: UnitConfiguration }>(token, '/api/v1/platform/units', 'GET', undefined, signal),
+        '/api/v1/admin/units',
+        signal => request<{ data: UnitConfiguration }>(token, '/api/v1/admin/units', 'GET', undefined, signal),
         { force, awaitRevalidate: true },
       );
       const cfg = cfgResp.data;
@@ -174,7 +174,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
       }
       const nextTarget = preferredTarget ?? (cfg.billing_mode === 'credits' ? 'currency' : 'credits');
       setTargetMode(nextTarget);
-      const modePath = `/api/v1/platform/units/mode?target=${encodeURIComponent(nextTarget)}`;
+      const modePath = `/api/v1/admin/units/mode?target=${encodeURIComponent(nextTarget)}`;
       const modeResp = await fetchQuery(
         scope,
         modePath,
@@ -211,7 +211,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
     setDefError('');
     setNotice('');
     try {
-      await request(token, '/api/v1/platform/units/definitions', 'POST', {
+      await request(token, '/api/v1/admin/units/definitions', 'POST', {
         name: trimmed,
         display_precision: Number(precision),
         expected_revision: config.revision,
@@ -245,7 +245,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
     setRuleError('');
     setNotice('');
     try {
-      await request(token, '/api/v1/platform/units/rules', 'POST', {
+      await request(token, '/api/v1/admin/units/rules', 'POST', {
         definition_revision: config.definition.revision,
         payment_currency: currencyCode,
         numerator: scaledUnits.toString(),
@@ -270,7 +270,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
     setModeError('');
     setNotice('');
     try {
-      const resp = await request<{ data: SavedModePreview }>(token, '/api/v1/platform/units/mode/previews', 'POST', {
+      const resp = await request<{ data: SavedModePreview }>(token, '/api/v1/admin/units/mode/previews', 'POST', {
         target_mode: targetMode,
         expected_revision: config.revision,
         idempotency_key: crypto.randomUUID(),
@@ -293,7 +293,7 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
     setModeError('');
     setNotice('');
     try {
-      await request(token, '/api/v1/platform/units/mode', 'PUT', {
+      await request(token, '/api/v1/admin/units/mode', 'PUT', {
         preview_id: savedPreview.id,
         expected_revision: config.revision,
         idempotency_key: crypto.randomUUID(),

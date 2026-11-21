@@ -81,7 +81,7 @@ export default function MediaRatePublisher({ token, supplier, organization, prev
   // revision keeps its qualification reference; a new revision gets a stable
   // system reference so liability bounds stay traceable without inventing review.
   const [liabilityReference] = useState(() => previousCustomer?.liability_qualification_revision || crypto.randomUUID());
-  const endpoint = customer ? `/api/v1/organizations/${encodeURIComponent(organization)}/billing` : `/api/v1/providers/${encodeURIComponent(supplier!)}`;
+  const endpoint = customer ? `/api/v1/organizations/${encodeURIComponent(organization)}/billing` : `/api/v1/admin/providers/${encodeURIComponent(supplier!)}`;
   // Purchase rates read every configured video model, including those whose
   // offer is paused, stale or not created yet. Saving the rate resolves the
   // offer binding instead of requiring a separate pinning dialog. Customer

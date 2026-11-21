@@ -1,11 +1,11 @@
 ---
 title: "List models eligible for customer tariff publication"
-description: "GET /api/v1/pricing/models"
+description: "GET /api/v1/admin/pricing/models"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/pricing/models`
+`GET /api/v1/admin/pricing/models`
 
 Explicit platform administration required. Uses the same shared catalog as customer tariff publication, excluding personal owner-funded and unavailable aliases. This is a current eligibility read, not a price, supply qualification or dispatch guarantee. Publication rechecks eligibility. Sorted by model alias; limit defaults to 50, maximum 100. Pass next_after unchanged; null means complete. An unavailable cursor returns 409: restart pagination. No credentials, upstream mappings or procurement prices. Cache-Control no-store.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/pricing/models" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/pricing/models" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

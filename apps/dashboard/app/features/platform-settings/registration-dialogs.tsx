@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ApiRequestError, request } from '@/lib/api-client';
 import { useLocale } from '@/shell/ui-locale';
 
-const REGISTRATION_QUEUE_PATH = '/api/v1/platform/registrations';
+const REGISTRATION_QUEUE_PATH = '/api/v1/admin/registrations';
 
 export function ApproveRegistrationDialog({
   token,

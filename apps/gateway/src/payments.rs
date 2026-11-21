@@ -65,7 +65,7 @@ pub(crate) fn background_polling_enabled() -> Result<bool, &'static str> {
 /// Product support inventory, independent of merchant activation or live qualification.
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/payments/integrations",
+///   "path": "/api/v1/admin/payments/integrations",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPaymentIntegrations",
@@ -4268,7 +4268,7 @@ mod epay_tests {
         let response = app
             .clone()
             .oneshot(
-                Request::put("/api/v1/platform/payments/epay")
+                Request::put("/api/v1/admin/payments/epay")
                     .header("authorization", auth)
                     .header("content-type", "application/json")
                     .body(Body::from(settings.to_string()))
@@ -4303,7 +4303,7 @@ mod epay_tests {
         let response = app
             .clone()
             .oneshot(
-                Request::put("/api/v1/platform/payments/epay")
+                Request::put("/api/v1/admin/payments/epay")
                     .header("authorization", auth)
                     .header("content-type", "application/json")
                     .body(Body::from(rotated.to_string()))
@@ -4322,7 +4322,7 @@ mod epay_tests {
         let response = app
             .clone()
             .oneshot(
-                Request::put("/api/v1/platform/payments/epay")
+                Request::put("/api/v1/admin/payments/epay")
                     .header("authorization", auth)
                     .header("content-type", "application/json")
                     .body(Body::from(settings.to_string()))

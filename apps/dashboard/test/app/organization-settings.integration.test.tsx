@@ -32,7 +32,7 @@ function renderAt(path: string) {
     if (requestPath.split('?')[0] === '/api/v1/payments/readiness') return json({ data: { ready: true, reason: null } });
     if (requestPath === '/api/v1/organizations') return json({ data: [organization] });
     if (requestPath === '/api/v1/workspaces') return json({ data: workspaces });
-    if (requestPath.split('?')[0] === '/api/v1/operators') return json({ data: operators });
+    if (requestPath.split('?')[0] === '/api/v1/members') return json({ data: operators });
     if (requestPath.startsWith('/api/v1/workspaces?organization_id=')) return json({ data: workspaces });
     return json({ data: [] });
   }));

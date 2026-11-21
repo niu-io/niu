@@ -73,7 +73,7 @@ function stubGatewayFetch(options: {
       if (pathname === '/healthz') {
         return new Response(JSON.stringify({ status: 'ok' }), { status: 200 });
       }
-      if (pathname === '/v1/branding') {
+      if (pathname === '/api/v1/public/branding') {
         return new Response(
           JSON.stringify({
             data: {

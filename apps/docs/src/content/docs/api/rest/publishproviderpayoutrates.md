@@ -1,11 +1,11 @@
 ---
 title: "Publish an immutable agreed Provider payout schedule"
-description: "POST /api/v1/providers/{provider}/offers"
+description: "POST /api/v1/admin/providers/{provider}/offers"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`POST /api/v1/providers/{provider}/offers`
+`POST /api/v1/admin/providers/{provider}/offers`
 
 Installation-only publication binds an existing vendor model alias to one Provider. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer; an administrator must explicitly authorize the new revision before dispatch eligibility returns. Procurement budgets and customer charges remain independent.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/providers/{provider}/offers" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/{provider}/offers" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

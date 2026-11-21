@@ -24,7 +24,7 @@ export default function ProviderSettings() {
   const activeProviderId = providerId ?? supplierId ?? '';
   const { token, session } = useDashboardContext();
   const canManageIntegration = Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session.permissions?.manage_operators !== false));
-  const path = `/api/v1/providers/${encodeURIComponent(activeProviderId)}`;
+  const path = `/api/v1/admin/providers/${encodeURIComponent(activeProviderId)}`;
   const initialProfile = token && activeProviderId ? peekCachedGet<{ data: Profile }>(token, path)?.data ?? null : null;
   const [profile, setProfile] = useState<Profile | null>(initialProfile);
   const [draft, setDraft] = useState(() => initialProfile ? { name: initialProfile.name, description: initialProfile.description, website_url: initialProfile.website_url, logo_url: initialProfile.logo_url } : empty);

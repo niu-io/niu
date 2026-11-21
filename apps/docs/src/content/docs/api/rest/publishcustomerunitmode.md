@@ -1,11 +1,11 @@
 ---
 title: "Publish a preview-confirmed installation billing mode"
-description: "PUT /api/v1/platform/units/mode"
+description: "PUT /api/v1/admin/units/mode"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /api/v1/platform/units/mode`
+`PUT /api/v1/admin/units/mode`
 
 Platform administration required and rechecked under lock. Requires an unexpired originally compatible saved preview, its matching current revision and a distinct target mode. Rechecks customer obligations atomically while holding financial-table locks. Concurrent financial activity returns a retryable 409; re-read compatibility if state changed. Balances, prices, monetary limits and historical records are never converted. A successful publication creates an immutable change receipt and advances the installation revision once. Identical idempotent retry returns the original receipt even after subsequent mode changes; it does not reapply the old mode. Mode activation alone does not establish configured unit prices, compatible spending limits, model availability or media readiness. Existing monetary limits require explicit compatible configuration before affected Credits admission. New monetary grants/funding require currency mode and new unit issuance requires Credits mode.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/platform/units/mode" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/admin/units/mode" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

@@ -1,11 +1,11 @@
 ---
 title: "Update Provider business profile"
-description: "PATCH /api/v1/providers/{provider}"
+description: "PATCH /api/v1/admin/providers/{provider}"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PATCH /api/v1/providers/{provider}`
+`PATCH /api/v1/admin/providers/{provider}`
 
 Requires platform write authority. Name is required. Omitted or null description/URL fields retain saved values; an empty string clears them. All text is trimmed. Supply the integer expected_revision to reject stale edits; omission or null preserves legacy unconditional updates. Every accepted update increments the profile revision and atomically records the authorized actor and resulting Provider name in its audit event, even if values are unchanged. URLs are stored metadata and are not fetched by this operation.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PATCH "$NIU_ORIGIN/api/v1/providers/{provider}" \
+curl --fail-with-body -X PATCH "$NIU_ORIGIN/api/v1/admin/providers/{provider}" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

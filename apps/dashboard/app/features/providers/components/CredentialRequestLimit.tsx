@@ -15,7 +15,7 @@ function valid(policy: VendorRequestRateLimit) {
 }
 export default function CredentialRequestLimit({ token, vendorId }: { token: string; vendorId: string }) {
   const { t: uiT } = useUILocale();
-  const endpoint = `/api/v1/vendors/${encodeURIComponent(vendorId)}/request-rate-limit`;
+  const endpoint = `/api/v1/admin/providers/connections/${encodeURIComponent(vendorId)}/request-rate-limit`;
   const [policy, setPolicy] = useState<VendorRequestRateLimit | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

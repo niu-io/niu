@@ -13,9 +13,9 @@ beforeEach(() => {
 it('keeps the connection dialog and saved key recovery visible when discovery fails during a directory refresh', async () => {
   let writes = 0;
   vi.mocked(request).mockImplementation(async (_token, path, method = 'GET') => {
-    if (path === '/api/v1/providers/presets') return {data:[{id:'babelark',name:'BabelArk',protocol:'openai',api_base:'https://api.babelark.ai/v1',website:'https://api.babelark.ai'}]};
-    if (path === '/api/v1/providers') return {data:[]};
-    if (path === '/api/v1/vendors' && method === 'POST') { writes++; return {data:{id:'saved-key',revision:1}}; }
+    if (path === '/api/v1/admin/providers/presets') return {data:[{id:'babelark',name:'BabelArk',protocol:'openai',api_base:'https://api.babelark.ai/v1',website:'https://api.babelark.ai'}]};
+    if (path === '/api/v1/admin/providers') return {data:[]};
+    if (path === '/api/v1/admin/providers/connections' && method === 'POST') { writes++; return {data:{id:'saved-key',revision:1}}; }
     if (path.endsWith('/supplier')) return {data:{id:'provider'}};
     if (path.endsWith('/integration')) return {data:{effective_type:'babelark',revision:0}};
     if (path.endsWith('/import')) throw new ProviderRequestError('Catalog unavailable.', 502);
@@ -161,8 +161,8 @@ it.each(['transport','server','timeout'])('reconciles uncertain Provider creatio
       if (failure==='transport') throw new TypeError('Connection lost');
       throw new ProviderRequestError('Unavailable',failure==='timeout'?408:503);
     }
-    if(path==='/api/v1/providers/presets') return {data:[]};
-    expect(path).toBe('/api/v1/providers');
+    if(path==='/api/v1/admin/providers/presets') return {data:[]};
+    expect(path).toBe('/api/v1/admin/providers');
     return {data:saved?[{id:'created',name:'Saved business',members:0,api_keys:0,models:0}]:[]};
   });
   const user=userEvent.setup();

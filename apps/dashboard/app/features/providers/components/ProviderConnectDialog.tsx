@@ -35,7 +35,7 @@ export default function ProviderConnectDialog({ preset, onClose, onSaved }: { pr
     try {
       if (!saved) {
         try {
-          const result = await request<{ data: ProviderConnection }>(token, '/api/v1/vendors', 'POST', {
+          const result = await request<{ data: ProviderConnection }>(token, '/api/v1/admin/providers/connections', 'POST', {
             name: name.trim(), adapter: preset.adapter, api_base: base.trim(), api_key: key,
             enabled: true, create_supplier: true,
             ...(!resale && { access_scope: accessScope, personal_organization_id: organization.id }),
@@ -49,13 +49,13 @@ export default function ProviderConnectDialog({ preset, onClose, onSaved }: { pr
         }
       }
       // Save service identity at Provider scope; credentials inherit it.
-      const owner = await request<{data:{id:string}}>(token, `/api/v1/vendors/${encodeURIComponent(saved.id)}/supplier`);
-      const path = `/api/v1/providers/${encodeURIComponent(owner.data.id)}/integration`;
+      const owner = await request<{data:{id:string}}>(token, `/api/v1/admin/providers/connections/${encodeURIComponent(saved.id)}/supplier`);
+      const path = `/api/v1/admin/providers/${encodeURIComponent(owner.data.id)}/integration`;
       const current = await request<{ data: ProviderIntegration }>(token, path);
       if (current.data.effective_type !== preset.integration) {
         await request(token, path, 'PUT', { integration_type: preset.integration, expected_revision: current.data.revision });
       }
-      const result = await request<{ data: { imported: number; discovered: number } }>(token, `/api/v1/vendors/${encodeURIComponent(saved.id)}/import`, 'POST', {});
+      const result = await request<{ data: { imported: number; discovered: number } }>(token, `/api/v1/admin/providers/connections/${encodeURIComponent(saved.id)}/import`, 'POST', {});
       setImported(result.data.discovered); onSaved();
       await refreshWorkspace();
     } catch (reason) {

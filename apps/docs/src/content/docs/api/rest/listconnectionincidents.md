@@ -1,11 +1,11 @@
 ---
 title: "Read platform upstream connection incidents"
-description: "GET /api/v1/incidents"
+description: "GET /api/v1/admin/incidents"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/incidents`
+`GET /api/v1/admin/incidents`
 
 Platform administration only. Reads recognized model-scoped upstream incidents, including repeated 5xx or connection/timeout failures within five minutes, across connections, with their meaningful connection name and optional Provider name/slug. Includes sanitized incident evidence only. Filter active or resolved and follow next_before for at most 50 results per page. No upstream calls, configuration changes or financial mutations. Cache-Control no-store. An empty result means no covered incidents are recorded, not proof of healthy supply. coverage.proactive_probe is not_configured: Niu opens incidents only from observed requests, not from idle-connection health probes, so this view cannot certify an unrequested connection as healthy.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/incidents" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/incidents" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

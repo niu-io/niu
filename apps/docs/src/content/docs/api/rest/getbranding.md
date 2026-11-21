@@ -1,11 +1,11 @@
 ---
 title: "Read platform branding and theme configuration"
-description: "GET /api/v1/platform/branding"
+description: "GET /api/v1/admin/branding"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/platform/branding`
+`GET /api/v1/admin/branding`
 
 Installation credentials or an explicit platform-administrator grant required; company owner/admin role alone does not grant platform administration. Returns the same public-safe branding/theme shape. When no saved configuration exists, returns revision string 0 and Niu defaults. Theme fields are part of settings; there is no separate theme endpoint.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/platform/branding" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/branding" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

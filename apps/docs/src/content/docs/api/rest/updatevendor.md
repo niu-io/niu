@@ -1,11 +1,11 @@
 ---
 title: "Update one Provider API-key configuration or rotate its credential"
-description: "PUT /api/v1/vendors/{id}"
+description: "PUT /api/v1/admin/providers/connections/{id}"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`PUT /api/v1/vendors/{id}`
+`PUT /api/v1/admin/providers/connections/{id}`
 
 Adapter is immutable. Changes affect new requests; already dispatched work can finish using its original configuration. Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/vendors/{id}" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

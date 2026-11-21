@@ -64,7 +64,7 @@ function localDateNow(starts = '0') {
 export default function MediaRateHistory({ token, supplier, organization, canConfigure = true, providerView = false, allowPublish = true, showConfiguredModels = false, refreshSignal = 0 }: { token: string; canConfigure?: boolean; providerView?: boolean; allowPublish?: boolean; showConfiguredModels?: boolean; refreshSignal?: number } & ({ supplier: string; organization?: never } | { organization: string; supplier?: never })) {
   const { t: uiT } = useUILocale();
   const customer = organization !== undefined;
-  const endpoint = customer ? `/api/v1/organizations/${encodeURIComponent(organization)}/billing/media-rates` : `/api/v1/providers/${encodeURIComponent(supplier!)}/media-rates`;
+  const endpoint = customer ? `/api/v1/organizations/${encodeURIComponent(organization)}/billing/media-rates` : `/api/v1/admin/providers/${encodeURIComponent(supplier!)}/media-rates`;
   const firstPagePath = `${endpoint}?limit=50`;
   const initialPage = token ? peekCachedGet<RatePage>(token, firstPagePath) : undefined;
   const [records, setRecords] = useState<RateRecord[]>(() => initialPage?.data ?? []);
@@ -141,7 +141,7 @@ export default function MediaRateHistory({ token, supplier, organization, canCon
     const controller = new AbortController();
     setModelsLoading(true);
     setModelsError('');
-    void request<{data: ProviderMediaOfferModel[];has_more:boolean;next_after:string|null}>(token, `/api/v1/providers/${encodeURIComponent(supplier)}/media-offer-models?limit=100`, 'GET', undefined, controller.signal)
+    void request<{data: ProviderMediaOfferModel[];has_more:boolean;next_after:string|null}>(token, `/api/v1/admin/providers/${encodeURIComponent(supplier)}/media-offer-models?limit=100`, 'GET', undefined, controller.signal)
       .then(page => {
         if (controller.signal.aborted) return;
         setConfiguredModels(page.data);
@@ -157,7 +157,7 @@ export default function MediaRateHistory({ token, supplier, organization, canCon
     setModelsLoading(true);
     setModelsError('');
     try {
-      const page = await request<{data: ProviderMediaOfferModel[];has_more:boolean;next_after:string|null}>(token, `/api/v1/providers/${encodeURIComponent(supplier)}/media-offer-models?limit=100&after=${encodeURIComponent(modelsCursor)}`);
+      const page = await request<{data: ProviderMediaOfferModel[];has_more:boolean;next_after:string|null}>(token, `/api/v1/admin/providers/${encodeURIComponent(supplier)}/media-offer-models?limit=100&after=${encodeURIComponent(modelsCursor)}`);
       setConfiguredModels(current => [...current, ...page.data]);
       setModelsCursor(page.has_more ? page.next_after : null);
     } catch (reason) {
@@ -180,8 +180,8 @@ export default function MediaRateHistory({ token, supplier, organization, canCon
     setModelBusy(model.model_alias);
     setModelActionError('');
     try {
-      if (active) await request(token, `/api/v1/providers/${encodeURIComponent(supplier!)}/offers/${encodeURIComponent(model.offer_id)}/authorization`, 'PUT', { rate_revision: model.offer_revision });
-      else await request(token, `/api/v1/providers/${encodeURIComponent(supplier!)}/offers/${encodeURIComponent(model.offer_id)}`, 'PATCH', { active: false });
+      if (active) await request(token, `/api/v1/admin/providers/${encodeURIComponent(supplier!)}/offers/${encodeURIComponent(model.offer_id)}/authorization`, 'PUT', { rate_revision: model.offer_revision });
+      else await request(token, `/api/v1/admin/providers/${encodeURIComponent(supplier!)}/offers/${encodeURIComponent(model.offer_id)}`, 'PATCH', { active: false });
       setNotice(active ? uiT('Offer enabled. Provider access and customer selling prices remain separate.') : uiT('Offer paused. Existing jobs keep their original route and prices.'));
       setModelsRevision(value => value + 1);
       setRevision(value => value + 1);

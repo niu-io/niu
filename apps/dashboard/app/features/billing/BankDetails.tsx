@@ -13,7 +13,7 @@ const fields = [
   ['beneficiary', 'Account holder', '收款户名'], ['bank', 'Bank name', '开户行'],
   ['account', 'Account number', '收款账号'], ['currency', 'Currency', '币种'],
 ] as const;
-const endpoint = '/api/v1/platform/payments/bank';
+const endpoint = '/api/v1/admin/payments/bank';
 
 export function BankConfiguration({ token }: { token: string }) {
   const { t } = useLocale();

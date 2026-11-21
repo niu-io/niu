@@ -35,7 +35,7 @@ pub struct PreviewQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices",
+///   "path": "/api/v1/admin/pricing/standard-prices",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "publishRetailStandard",
@@ -790,7 +790,7 @@ pub async fn publish_standard(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices",
+///   "path": "/api/v1/admin/pricing/standard-prices",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listRetailStandards",
@@ -894,7 +894,7 @@ pub async fn list(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices/{price}/promotions",
+///   "path": "/api/v1/admin/pricing/standard-prices/{price}/promotions",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "publishRetailPromotion",
@@ -983,7 +983,7 @@ pub async fn publish_promotion(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire",
+///   "path": "/api/v1/admin/pricing/standard-prices/{price}/promotions/{promotion}/retire",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "retireRetailPromotion",
@@ -1081,7 +1081,7 @@ pub async fn retire_promotion(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices/{price}/history",
+///   "path": "/api/v1/admin/pricing/standard-prices/{price}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getRetailPriceHistory",
@@ -1219,7 +1219,7 @@ pub async fn history(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices/{price}/preview",
+///   "path": "/api/v1/admin/pricing/standard-prices/{price}/preview",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "previewRetailPrice",
@@ -1615,7 +1615,7 @@ pub struct RegisteredModelPage {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices/models",
+///   "path": "/api/v1/admin/pricing/standard-prices/models",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listRegisteredRetailModels",
@@ -1741,7 +1741,7 @@ pub async fn registered_models(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/customers",
+///   "path": "/api/v1/admin/pricing/customers",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listRetailCustomerTargets",
@@ -1860,7 +1860,7 @@ pub async fn customers(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices/{price}/promotions",
+///   "path": "/api/v1/admin/pricing/standard-prices/{price}/promotions",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listRetailPromotions",

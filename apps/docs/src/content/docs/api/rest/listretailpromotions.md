@@ -1,11 +1,11 @@
 ---
 title: "Read promotion periods with complete retirement coverage"
-description: "GET /api/v1/pricing/standard-prices/{price}/promotions"
+description: "GET /api/v1/admin/pricing/standard-prices/{price}/promotions"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`GET /api/v1/pricing/standard-prices/{price}/promotions`
+`GET /api/v1/admin/pricing/standard-prices/{price}/promotions`
 
 Explicit platform administration only. Each bounded page joins every returned promotion to its committed cutoff and original standard, regardless of history pagination. as_of is database UTC epoch seconds; state is scheduled, within_period or ended based on original start and the lesser of original end/cutoff. Within-period is temporal eligibility only: a global rule can be overridden by a customer rule, and this is not supply, enrollment, spending permission or a request snapshot. Current head version, original/results and names are from one statement snapshot. Other pages have separate snapshots/times. Newest publication version first; pass next_before unchanged. A cursor must name a promotion of this price; unavailable price/cursor returns 409. No procurement, credentials or financial mutations. Cache-Control no-store. The current standard and management version share this page snapshot; use them together for a new publication, then rely on server version comparison.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/pricing/standard-prices/{price}/promotions" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/pricing/standard-prices/{price}/promotions" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

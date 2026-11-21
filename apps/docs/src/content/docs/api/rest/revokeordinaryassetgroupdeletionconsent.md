@@ -1,11 +1,11 @@
 ---
 title: "Revoke local deletion consent without erasing history"
-description: "DELETE /api/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}"
+description: "DELETE /api/v1/admin/providers/connections/{id}/asset-management/group-deletion-consents/{consent}"
 ---
 
 Generated from the checked-in source. Do not edit this reference by hand.
 
-`DELETE /api/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}`
+`DELETE /api/v1/admin/providers/connections/{id}/asset-management/group-deletion-consents/{consent}`
 
 Platform administrator only. Idempotent and scoped; absent or mismatched records return 204 without changes. Does not delete an upstream group, erase claims/outcomes, cancel already dispatched work or restore consumed consent. Future claims must recheck revocation. No billing mutation.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}" \
+curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/asset-management/group-deletion-consents/{consent}" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   --url-query 'organization_id=<ORGANIZATION_ID>' \
   --url-query 'project_id=<PROJECT_ID>'

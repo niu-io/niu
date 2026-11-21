@@ -67,7 +67,7 @@ import type {
   ModelRoutePoolRuleConditions,
 } from '@niu-io/sdk/admin';
 
-const POOLS_INDEX_PATH = '/api/v1/routing/index?limit=50';
+const POOLS_INDEX_PATH = '/api/v1/admin/routing/index?limit=50';
 
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ snapshot }) => ({
@@ -121,7 +121,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
     setFailedCursor(undefined);
     const query = new URLSearchParams({ limit: '50' });
     if (after) query.set('after', after);
-    const path = '/api/v1/routing/index?' + query.toString();
+    const path = '/api/v1/admin/routing/index?' + query.toString();
     try {
       const result = after
         ? await request<PoolsIndexPage>(token, path, 'GET', undefined, controller.signal)
@@ -621,7 +621,7 @@ function RoutePoolEditorDialog({
     setDiscovering(true);
     void (async () => {
       try {
-        const providerResult = await request<{ data: ProviderConnection[] }>(token, '/api/v1/vendors', 'GET', undefined, controller.signal);
+        const providerResult = await request<{ data: ProviderConnection[] }>(token, '/api/v1/admin/providers/connections', 'GET', undefined, controller.signal);
         if (controller.signal.aborted) return;
         if (!Array.isArray(providerResult.data)) throw new Error('Invalid Provider list');
         const modelLists: DiscoveredRoute[][] = [];
@@ -633,7 +633,7 @@ function RoutePoolEditorDialog({
             try {
               const models = await request<{ data: ProviderModel[] }>(
                 token,
-                `/api/v1/vendors/${encodeURIComponent(provider.id)}/models`,
+                `/api/v1/admin/providers/connections/${encodeURIComponent(provider.id)}/models`,
                 'GET',
                 undefined,
                 controller.signal,
@@ -899,7 +899,7 @@ function RoutePoolEditorDialog({
     pendingAlias.current = trimmedAlias;
     attemptedPayload.current = payload;
     try {
-      await request<{ data: { revision: number } }>(token, '/api/v1/routing', 'PUT', payload);
+      await request<{ data: { revision: number } }>(token, '/api/v1/admin/routing', 'PUT', payload);
       onSaved(
         t(
           `Saved custom model "${trimmedAlias}".`,
@@ -942,7 +942,7 @@ function RoutePoolEditorDialog({
     try {
       let current: ModelRoutePool | null;
       try {
-        const result = await request<{data: ModelRoutePool}>(token, `/api/v1/routing/${encodePoolReference(pendingAlias.current)}`, 'GET');
+        const result = await request<{data: ModelRoutePool}>(token, `/api/v1/admin/routing/${encodePoolReference(pendingAlias.current)}`, 'GET');
         current = result.data;
         if (!current || current.alias !== pendingAlias.current || !Number.isSafeInteger(current.revision) || !Array.isArray(current.candidates) || (current.rules !== undefined && !Array.isArray(current.rules))) throw new Error('Invalid saved state');
       } catch (reason) {
@@ -1718,7 +1718,7 @@ function RoutePoolPreviewDialog({
     try {
       const response = await request<{ data: ModelRoutePoolPreviewResult }>(
         token,
-        `/api/v1/routing/${encodePoolReference(pool.alias)}/preview`,
+        `/api/v1/admin/routing/${encodePoolReference(pool.alias)}/preview`,
         'POST',
         {
           protocol,
@@ -1952,7 +1952,7 @@ function RoutePoolAuditDialog({
     try {
       const response = await request<{ data: ModelRoutePoolAudit }>(
         token,
-        `/api/v1/routing/${encodePoolReference(pool.alias)}/audit?days=${windowDays}`,
+        `/api/v1/admin/routing/${encodePoolReference(pool.alias)}/audit?days=${windowDays}`,
         'GET',
       );
       setAudit(response.data);
@@ -2213,7 +2213,7 @@ function RoutePoolHistoryDialog({
       if (beforeRevision !== undefined) query.set('before_revision', String(beforeRevision));
       const result = await request<{ data: ModelRoutePoolRevision[] }>(
         token,
-        '/api/v1/routing/history?' + query.toString(),
+        '/api/v1/admin/routing/history?' + query.toString(),
         'GET',
         undefined,
         controller.signal,

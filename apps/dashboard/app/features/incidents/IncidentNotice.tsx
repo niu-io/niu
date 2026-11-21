@@ -9,7 +9,7 @@ import { loadIncidents } from './api';
 export default function IncidentNotice({ token }: { token: string }) {
   const { t } = useLocale();
   const location = useLocation();
-  const cacheKey = '/api/v1/platform/incidents?status=active';
+  const cacheKey = '/api/v1/admin/incidents?status=active';
   const cachedActive = peekQuery<boolean>(token, cacheKey);
   const [active, setActive] = useState(() => cachedActive ?? false);
   const [error, setError] = useState(false);
