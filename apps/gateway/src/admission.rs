@@ -19,6 +19,7 @@ const MAX_ADMISSION_BATCH_DELAY: Duration = Duration::from_micros(200);
 const MAX_COMPLETION_BATCH_DELAY: Duration = Duration::from_millis(2);
 const MAX_IN_FLIGHT_BATCHES: usize = 4;
 
+#[allow(dead_code)]
 #[derive(Clone)]
 pub(crate) struct GatewayWrites {
     admissions: mpsc::Sender<AdmissionCommand>,
@@ -27,6 +28,7 @@ pub(crate) struct GatewayWrites {
     inference_in_flight: Arc<AtomicUsize>,
 }
 
+#[allow(dead_code)]
 enum AdmissionCommand {
     Admit(Box<PendingAdmission>),
     Shutdown(oneshot::Sender<()>),
@@ -51,12 +53,14 @@ pub(crate) struct PricedGatewayCompletion {
     pub(crate) provider_model: Option<String>,
 }
 
+#[allow(dead_code)]
 struct PendingAdmission {
     record: GatewayAdmission,
     batch_candidate: bool,
     reply: oneshot::Sender<Result<GatewayAdmissionStatus, AdmissionError>>,
 }
 
+#[allow(dead_code)]
 pub(crate) struct UnpricedAdmissionRequest<'a> {
     pub evaluation: Option<niu_storage::EvaluationBinding>,
     pub route_generation: Option<i64>,
@@ -73,6 +77,7 @@ pub(crate) struct UnpricedAdmissionRequest<'a> {
     pub(crate) revision: &'a str,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum AdmissionError {
     EvaluationBindingMismatch,
@@ -116,6 +121,7 @@ impl GatewayWrites {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn admit_unpriced(
         &self,
         principal: &Principal,

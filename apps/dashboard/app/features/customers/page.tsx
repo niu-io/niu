@@ -25,12 +25,13 @@ import { NiuAdminClient, type CompanyMetadata, type CustomerBalance, type Issued
 import CustomerSetup from './setup';
 import { GrantEditor, GrantHistory } from './grants';
 import { GiftCorrectionEditor } from './gift-corrections';
+import { TopupEditor } from './topups';
 import { CompanyBrandedUnitsDialog } from './unit-accounts';
 import { readPending, savePending, clearPending, type PendingCreation } from './pending';
 
 type Company = { organization_id: string; organization_name: string; accounts: CustomerBalance[]; credits?: PlatformCustomerCreditSummary | null };
 type AccountPage = { data: Company[]; next_after: string | null };
-export type Editor = { kind: 'credit' | 'grant' | 'history' | 'correction' | 'units'; company: Company; account: CustomerBalance | null; prepared?: PreparedCustomerBalanceGrant; gift?: IssuedCustomerBalanceGrant };
+export type Editor = { kind: 'topup' | 'credit' | 'grant' | 'history' | 'correction' | 'units'; company: Company; account: CustomerBalance | null; prepared?: PreparedCustomerBalanceGrant; gift?: IssuedCustomerBalanceGrant };
 
 const CUSTOMER_ACCOUNTS_PATH = '/api/v1/admin/customers?limit=50';
 const COLUMN_WIDTHS = ['w-[22%]', 'w-[12%]', 'w-[8%]', 'w-[12%]', 'w-[12%]', 'w-[12%]', 'w-[12%]', 'w-[10%]'];
@@ -193,8 +194,9 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
       <DropdownMenuContent align="end">
         {canSetup && <><DropdownMenuItem onSelect={() => openSetup(company)}>{uiT("Set up")}</DropdownMenuItem><DropdownMenuSeparator /></>}
         <DropdownMenuItem onSelect={() => openEditor({ kind: 'units', company, account })}>{uiT("Manage Branded Credits")}</DropdownMenuItem>
+        <DropdownMenuItem disabled={!platformCurrency || (account !== null && account.currency !== platformCurrency)} onSelect={() => openEditor({ kind: 'topup', company, account })}>{uiT("Top up balance")}</DropdownMenuItem>
         <DropdownMenuItem disabled={!platformCurrency || (account !== null && account.currency !== platformCurrency)} onSelect={() => openEditor({ kind: 'credit', company, account })}>{uiT("Set credit")}</DropdownMenuItem>
-        {account && <DropdownMenuItem disabled={account.currency !== platformCurrency} onSelect={() => openEditor({ kind: 'grant', company, account })}>{uiT("Grant noncash balance")}</DropdownMenuItem>}
+        <DropdownMenuItem disabled={!platformCurrency || (account !== null && account.currency !== platformCurrency)} onSelect={() => openEditor({ kind: 'grant', company, account })}>{uiT("Grant noncash balance")}</DropdownMenuItem>
         {account && <DropdownMenuItem onSelect={() => openEditor({ kind: 'history', company, account })}>{uiT("Noncash grants")}</DropdownMenuItem>}
       </DropdownMenuContent>
     </DropdownMenu>;
@@ -232,9 +234,10 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
       </TableRow>])}</TableBody>
     </Table>}
     {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{loading ? uiT("Loading…") : uiT("More companies")}</Button>}
-    <CreateCompany onRestoreFocus={() => opener.current?.focus()} open={create} onOpenChange={setCreate} client={client} onCreated={company => { invalidateQueries(CUSTOMER_ACCOUNTS_PATH); setCompanies(old => [{ organization_id: company.id, organization_name: company.name, accounts: [], credits: null }, ...old.filter(row => row.organization_id !== company.id)]); setCreate(false); setSelected(company); }} />
+    <CreateCompany onRestoreFocus={() => opener.current?.focus()} open={create} onOpenChange={setCreate} client={client} onCreated={company => { invalidateQueries(CUSTOMER_ACCOUNTS_PATH); setCompanies(old => [{ organization_id: company.id, organization_name: company.name, accounts: [], credits: null }, ...old.filter(row => row.organization_id !== company.id)]); setCreate(false); setSelected(company); void load(); }} />
     {selected && <CustomerSetup onRestoreFocus={() => opener.current?.focus()} key={selected.id} company={selected} token={token} client={client} onClose={() => { setSelected(null); setSetupRevision(value => value + 1); void load(); }} onWorkspaceCreated={() => { onWorkspaceCreated(); setSetupRevision(value => value + 1); }} />}
     {editor?.kind === 'units' && <CompanyBrandedUnitsDialog token={token} organizationId={editor.company.organization_id} organizationName={companyLabel(editor.company)} returnFocusTo={opener.current} onClose={() => { setEditor(null); void load(); }} onChanged={msg => { setNotice(msg); void load(); }} />}
+    {editor?.kind === 'topup' && <TopupEditor token={token} editor={editor} onClose={() => setEditor(null)} onSaved={() => { setEditor(null); setNotice('Customer balance topped up.'); void load(); }} />}
     {editor?.kind === 'grant' && <GrantEditor token={token} editor={editor} onClose={() => { setEditor(null); void load(); }} onIssued={() => { setNotice('Noncash grant issuance confirmed. This is not a cash receipt.'); void load(); }} />}
     {editor?.kind === 'history' && <GrantHistory token={token} editor={editor} onClose={() => { setEditor(null); void load(); }} onOpen={prepared => setEditor({ ...editor, kind: 'grant', prepared })} onCorrect={gift => setEditor({ ...editor, kind: 'correction', gift })} />}
     {editor?.kind === 'correction' && editor.gift && <GiftCorrectionEditor token={token} editor={{ ...editor, gift: editor.gift }} onClose={() => { setEditor({ ...editor, kind: 'history' }); void load(); }} onCorrected={() => { setNotice('Noncash gift correction confirmed. No cash refund was recorded.'); void load(); }} />}

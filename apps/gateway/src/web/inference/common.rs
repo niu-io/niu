@@ -851,72 +851,10 @@ pub(super) async fn begin_retry_attempt(
             .await
             .map_err(ApiError::from_store)?
     } else {
-        state
-            .gateway_writes
-            .admit_unpriced(
-                principal,
-                crate::admission::UnpricedAdmissionRequest {
-                    evaluation,
-                    route_generation,
-                    managed_route: managed_route.cloned(),
-                    token_bound,
-                    token_bound_estimator,
-                    inspected_guardrails: snapshot,
-                    scope,
-                    model: public_model,
-                    upstream_model: &model.upstream_model,
-                    provider: &model.provider,
-                    api_base: model.api_base.as_deref(),
-                    task_id,
-                    revision: &revision,
-                },
-            )
-            .await
-            .map_err(|error| match error {
-                crate::admission::AdmissionError::EvaluationBindingMismatch => {
-                    ApiError::from_store(niu_storage::StoreError::EvaluationBindingMismatch)
-                }
-                crate::admission::AdmissionError::EvaluationGrantRequired => {
-                    ApiError::from_store(niu_storage::StoreError::EvaluationGrantRequired)
-                }
-                crate::admission::AdmissionError::TokenRateExceeded => {
-                    ApiError::from_store(niu_storage::StoreError::KeyTokenRateExceeded)
-                }
-                crate::admission::AdmissionError::TokenBoundRequired => {
-                    ApiError::from_store(niu_storage::StoreError::KeyTokenBoundRequired)
-                }
-                crate::admission::AdmissionError::ConcurrencyExceeded => {
-                    ApiError::from_store(niu_storage::StoreError::KeyConcurrencyExceeded)
-                }
-                crate::admission::AdmissionError::VendorRequestRateExceeded => {
-                    ApiError::from_store(niu_storage::StoreError::VendorRequestRateExceeded)
-                }
-                crate::admission::AdmissionError::RequestRateExceeded => {
-                    ApiError::from_store(niu_storage::StoreError::KeyRequestRateExceeded)
-                }
-                crate::admission::AdmissionError::RequestRateDisabled => {
-                    ApiError::from_store(niu_storage::StoreError::KeyRequestRateDisabled)
-                }
-                crate::admission::AdmissionError::VendorRequestRateDisabled => {
-                    ApiError::from_store(niu_storage::StoreError::VendorRequestRateDisabled)
-                }
-                crate::admission::AdmissionError::Unauthorized => ApiError::unauthorized(),
-                crate::admission::AdmissionError::ManagedRouteChanged => {
-                    ApiError::from_store(niu_storage::StoreError::ManagedRouteChanged)
-                }
-                crate::admission::AdmissionError::GuardrailAdmissionConflict => {
-                    ApiError::from_store(niu_storage::StoreError::GuardrailAdmissionConflict)
-                }
-                crate::admission::AdmissionError::Conflict => {
-                    ApiError::from_store(niu_storage::StoreError::Conflict)
-                }
-                crate::admission::AdmissionError::AccountUnavailable => {
-                    ApiError::from_store(niu_storage::StoreError::AccountUnavailable)
-                }
-                crate::admission::AdmissionError::StorageUnavailable => {
-                    ApiError::storage_unavailable()
-                }
-            })?
+        // Shared commercial routes must never fall back to unpriced admission.
+        return Err(ApiError::from_store(
+            niu_storage::StoreError::ProcurementUnavailable,
+        ));
     };
     let buffered_stream_output = buffered_stream_slot.map(|slot| {
         let state = state.clone();

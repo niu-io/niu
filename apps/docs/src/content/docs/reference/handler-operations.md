@@ -17305,6 +17305,113 @@ HTTP 404: Company billing scope unavailable to this principal
 
 HTTP 503: Storage unavailable
 
+## Record settled customer account top-up
+
+`POST /api/v1/organizations/{organization}/billing/funding/settled`
+
+Explicit platform administration required; ordinary company owners/admins cannot credit their own accounts. Atomically records a positive settled top-up into the company's currency account (creating a zero-balance account first if absent) keyed idempotently by (channel, payment_reference). Repeating the exact same organization, currency, amount, channel and payment reference returns success without crediting twice; reusing the same (channel, payment_reference) with different parameters returns 409.
+
+Implementation: `implemented`. Operation: `recordSettledCustomerFunding`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "currency",
+    "amount_nanos",
+    "channel",
+    "payment_reference"
+  ],
+  "properties": {
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "amount_nanos": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,18}$",
+      "description": "Positive exact currency nanounits, maximum 9223372036854775807."
+    },
+    "channel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "payment_reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Settled top-up recorded, or identical previously recorded reference confirmed
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "recorded"
+      ],
+      "properties": {
+        "recorded": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid currency, amount, channel or payment reference
+
+HTTP 401: Authentication required
+
+HTTP 403: Explicit platform administration required
+
+HTTP 409: Unknown company or conflicting payment reference reuse
+
 ## Configure approved credit and low-balance threshold
 
 `PUT /api/v1/organizations/{organization}/billing/accounts/{currency}/policy`

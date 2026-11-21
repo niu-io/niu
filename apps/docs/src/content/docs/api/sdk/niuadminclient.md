@@ -1784,6 +1784,17 @@ listCustomerTopups(organizationId: string, options?: RequestOptions & {
 }>;
 ```
 
+### recordSettledFunding
+
+```typescript
+/** Platform administration settled top-up; idempotent on (channel, payment_reference). */
+recordSettledFunding(organizationId: string, input: SettledCustomerFundingInput, options?: RequestOptions): Promise<{
+    data: {
+        recorded: true;
+    };
+}>;
+```
+
 ### reverseCustomerBalanceEntry
 
 ```typescript

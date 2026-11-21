@@ -16626,6 +16626,108 @@
         "x-niu-implementation": "implemented"
       }
     },
+    "/api/v1/organizations/{organization}/billing/funding/settled": {
+      "post": {
+        "operationId": "recordSettledCustomerFunding",
+        "summary": "Record settled customer account top-up",
+        "description": "Explicit platform administration required; ordinary company owners/admins cannot credit their own accounts. Atomically records a positive settled top-up into the company's currency account (creating a zero-balance account first if absent) keyed idempotently by (channel, payment_reference). Repeating the exact same organization, currency, amount, channel and payment reference returns success without crediting twice; reusing the same (channel, payment_reference) with different parameters returns 409.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "currency",
+                  "amount_nanos",
+                  "channel",
+                  "payment_reference"
+                ],
+                "properties": {
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "amount_nanos": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]{0,18}$",
+                    "description": "Positive exact currency nanounits, maximum 9223372036854775807."
+                  },
+                  "channel": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "payment_reference": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Settled top-up recorded, or identical previously recorded reference confirmed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "recorded"
+                      ],
+                      "properties": {
+                        "recorded": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid currency, amount, channel or payment reference"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Explicit platform administration required"
+          },
+          "409": {
+            "description": "Unknown company or conflicting payment reference reuse"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
     "/api/v1/organizations/{organization}/billing/accounts/{currency}/policy": {
       "put": {
         "operationId": "configureCustomerBalancePolicy",

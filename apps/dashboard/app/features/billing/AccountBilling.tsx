@@ -254,7 +254,9 @@ export default function AccountBilling({token, organization, canConfigure = fals
             </div>
             {(unitSnapshot?.billing_mode ?? platformBillingMode) !== 'credits' && account.currency === platformCurrency && (BigInt(account.available_nanos) <= 0n
               ? <Alert variant="destructive"><AlertTitle>{t("Insufficient funds")}</AlertTitle><AlertDescription>{canConfigure ? t("Paid requests are paused until funds are added.") : t("Paid requests are paused. Contact your billing administrator to add funds.")}</AlertDescription></Alert>
-              : account.low_balance && <Alert><AlertTitle>{t("Low balance")}</AlertTitle><AlertDescription>{t("Your account balance is below the warning threshold. Approved credit is excluded from this warning.")}</AlertDescription></Alert>)}
+              : account.low_balance
+                ? <Alert><AlertTitle>{t("Low balance")}</AlertTitle><AlertDescription>{t("Your account balance is below the warning threshold. Approved credit is excluded from this warning.")}</AlertDescription></Alert>
+                : BigInt(account.balance_nanos) < 0n && BigInt(account.credit_limit_nanos) > 0n && <Alert><AlertTitle>{t("Using approved credit")}</AlertTitle><AlertDescription>{t("Your posted balance is negative, and paid requests continue using your remaining approved credit limit.")}</AlertDescription></Alert>)}
           </div>)}
           {!accountError && accounts?.length === 0 && (unitSnapshot?.balances.length ?? 0) === 0 && <Empty className="min-h-40 rounded-xl bg-muted/55 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconCoins size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{canConfigure ? t("No prepaid account configured.") : t("No prepaid account configured. Contact your billing administrator.")}</EmptyDescription></EmptyHeader></Empty>}
         </section>}

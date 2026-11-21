@@ -152,7 +152,7 @@ impl Store {
         let mut bytes = [0u8; 16];
         bytes.copy_from_slice(&digest[..16]);
         let id = Uuid::from_bytes(bytes);
-        let workspace = self.default_workspace().await?;
+        let workspace = self.default_prepaid_workspace().await?;
         sqlx::query("INSERT INTO admin_operators(id,name,role,organization_id,project_id) VALUES($1,'Local development account','viewer',$2,NULL) ON CONFLICT(id) DO NOTHING")
             .bind(id).bind(workspace.organization_id).execute(&self.pool).await?;
         Ok(id)
