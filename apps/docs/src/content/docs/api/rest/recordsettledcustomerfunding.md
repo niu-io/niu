@@ -1,5 +1,5 @@
 ---
-title: "Record an externally verified settled customer payment"
+title: "Record settled customer account top-up"
 description: "POST /api/v1/organizations/{organization}/billing/funding/settled"
 ---
 
@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `POST /api/v1/organizations/{organization}/billing/funding/settled`
 
-Installation write access only. Trusted administration must verify external payment settlement before calling. This is not a customer self-credit endpoint or a payment-channel callback integration. The channel/payment reference credits funds once; changed organization, currency or amount is a conflict. Pending payments must not be submitted. No commercial payment channel is implied by this administrative record API.
+Explicit platform administration required; ordinary company owners/admins cannot credit their own accounts. Atomically records a positive settled top-up into the company's currency account (creating a zero-balance account first if absent) keyed idempotently by (channel, payment_reference). Repeating the exact same organization, currency, amount, channel and payment reference returns success without crediting twice; reusing the same (channel, payment_reference) with different parameters returns 409.
 
 Operation: `recordSettledCustomerFunding`.
 
@@ -18,7 +18,7 @@ Use the credential and permission scope described above. Each object below is an
 ```json
 [
   {
-    "adminBearerAuth": []
+    "bearerAuth": []
   }
 ]
 ```
@@ -29,7 +29,7 @@ Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, quer
 
 ```sh
 curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/billing/funding/settled" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+  -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```
@@ -72,8 +72,8 @@ Location: **path**. **Required.**
     },
     "amount_nanos": {
       "type": "string",
-      "pattern": "^[0-9]+$",
-      "description": "Positive signed-64-bit nanounit amount"
+      "pattern": "^[1-9][0-9]{0,18}$",
+      "description": "Positive exact currency nanounits, maximum 9223372036854775807."
     },
     "channel": {
       "type": "string",
@@ -93,20 +93,25 @@ Location: **path**. **Required.**
 
 ### HTTP 200
 
-Recorded or identical receipt replay
+Settled top-up recorded, or identical previously recorded reference confirmed
 
 Content type: `application/json`.
 
 ```json
 {
   "type": "object",
+  "required": [
+    "data"
+  ],
   "properties": {
     "data": {
       "type": "object",
+      "required": [
+        "recorded"
+      ],
       "properties": {
         "recorded": {
-          "type": "boolean",
-          "const": true
+          "type": "boolean"
         }
       }
     }
@@ -116,7 +121,7 @@ Content type: `application/json`.
 
 ### HTTP 400
 
-Invalid funding details
+Invalid currency, amount, channel or payment reference
 
 ### HTTP 401
 
@@ -124,12 +129,14 @@ Authentication required
 
 ### HTTP 403
 
-Installation write access required
+Explicit platform administration required
 
 ### HTTP 409
 
-Unknown organization or conflicting payment reference
+Unknown company or conflicting payment reference reuse
 
 ## Behavior and supported scope
 
-Installation write access only. Trusted administration must verify external payment settlement before calling. This is not a customer self-credit endpoint or a payment-channel callback integration. The channel/payment reference credits funds once; changed organization, currency or amount is a conflict. Pending payments must not be submitted. No commercial payment channel is implied by this administrative record API.
+Explicit platform administration required; ordinary company owners/admins cannot credit their own accounts. Atomically records a positive settled top-up into the company's currency account (creating a zero-balance account first if absent) keyed idempotently by (channel, payment_reference). Repeating the exact same organization, currency, amount, channel and payment reference returns success without crediting twice; reusing the same (channel, payment_reference) with different parameters returns 409.
+
+**Supported scope:** implemented

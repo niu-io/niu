@@ -15269,15 +15269,26 @@
       }
     },
     "/api/v1/organizations/{organization}/billing/funding/settled": {
-      "parameters": [
-        {
-          "$ref": "#/components/parameters/Organization"
-        }
-      ],
       "post": {
         "operationId": "recordSettledCustomerFunding",
-        "summary": "Record an externally verified settled customer payment",
-        "description": "Installation write access only. Trusted administration must verify external payment settlement before calling. This is not a customer self-credit endpoint or a payment-channel callback integration. The channel/payment reference credits funds once; changed organization, currency or amount is a conflict. Pending payments must not be submitted. No commercial payment channel is implied by this administrative record API.",
+        "summary": "Record settled customer account top-up",
+        "description": "Explicit platform administration required; ordinary company owners/admins cannot credit their own accounts. Atomically records a positive settled top-up into the company's currency account (creating a zero-balance account first if absent) keyed idempotently by (channel, payment_reference). Repeating the exact same organization, currency, amount, channel and payment reference returns success without crediting twice; reusing the same (channel, payment_reference) with different parameters returns 409.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -15298,8 +15309,8 @@
                   },
                   "amount_nanos": {
                     "type": "string",
-                    "pattern": "^[0-9]+$",
-                    "description": "Positive signed-64-bit nanounit amount"
+                    "pattern": "^[1-9][0-9]{0,18}$",
+                    "description": "Positive exact currency nanounits, maximum 9223372036854775807."
                   },
                   "channel": {
                     "type": "string",
@@ -15318,18 +15329,23 @@
         },
         "responses": {
           "200": {
-            "description": "Recorded or identical receipt replay",
+            "description": "Settled top-up recorded, or identical previously recorded reference confirmed",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
                     "data": {
                       "type": "object",
+                      "required": [
+                        "recorded"
+                      ],
                       "properties": {
                         "recorded": {
-                          "type": "boolean",
-                          "const": true
+                          "type": "boolean"
                         }
                       }
                     }
@@ -15339,23 +15355,19 @@
             }
           },
           "400": {
-            "description": "Invalid funding details"
+            "description": "Invalid currency, amount, channel or payment reference"
           },
           "401": {
             "description": "Authentication required"
           },
           "403": {
-            "description": "Installation write access required"
+            "description": "Explicit platform administration required"
           },
           "409": {
-            "description": "Unknown organization or conflicting payment reference"
+            "description": "Unknown company or conflicting payment reference reuse"
           }
         },
-        "security": [
-          {
-            "adminBearerAuth": []
-          }
-        ],
+        "x-niu-implementation": "implemented",
         "tags": [
           "Customer balances"
         ],
@@ -28096,15 +28108,6 @@
       }
     },
     "parameters": {
-      "Organization": {
-        "name": "organization",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        }
-      },
       "Workspace": {
         "name": "workspace",
         "in": "path",

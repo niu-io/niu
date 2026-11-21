@@ -74,41 +74,7 @@ paths:
   /api/v1/organizations/{organization}/billing/balance:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1balance'
   /api/v1/organizations/{organization}/billing/funding/settled:
-    parameters:
-      - $ref: '#/components/parameters/Organization'
-    post:
-      operationId: recordSettledCustomerFunding
-      summary: Record an externally verified settled customer payment
-      description: Installation write access only. Trusted administration must verify external payment settlement before calling. This is not a customer self-credit endpoint or a payment-channel callback integration. The channel/payment reference credits funds once; changed organization, currency or amount is a conflict. Pending payments must not be submitted. No commercial payment channel is implied by this administrative record API.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [currency, amount_nanos, channel, payment_reference]
-              properties:
-                currency: { type: string, pattern: '^[A-Z]{3}$' }
-                amount_nanos: { type: string, pattern: '^[0-9]+$', description: Positive signed-64-bit nanounit amount }
-                channel: { type: string, minLength: 1, maxLength: 100 }
-                payment_reference: { type: string, minLength: 1, maxLength: 200 }
-      responses:
-        '200':
-          description: Recorded or identical receipt replay
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      recorded: { type: boolean, const: true }
-        '400': { description: Invalid funding details }
-        '401': { description: Authentication required }
-        '403': { description: Installation write access required }
-        '409': { description: Unknown organization or conflicting payment reference }
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1funding~1settled'
   /api/v1/workspaces/{workspace}/billing:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1workspaces~1{workspace}~1billing'
   /api/v1/workspaces/{workspace}/billing/tariffs:
