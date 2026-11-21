@@ -1,9 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import LoginRoute from '../../app/features/login/page';
 import InstallationRoute from '../../app/features/login/installation-page';
+import { invalidateAuthConfigCache } from '../../app/lib/auth-config';
 import AppLayout from '../../app/shell/AppLayout';
 import { BrandingProvider, defaultBranding } from '../../app/shell/branding';
 
@@ -11,29 +12,90 @@ vi.mock('../../app/features/models/public-catalog', () => ({
   loadPublicCatalogModels: vi.fn(async () => ({ models: [] })),
 }));
 
-function showLogin(withBranding = false) {
+beforeEach(() => {
+  invalidateAuthConfigCache();
+});
+
+function showLogin(withBranding = false, initialPath = '/login') {
   const context = { token: '', error: '', connect: vi.fn(), connectWithToken: vi.fn(), draftToken: '', setDraftToken: vi.fn() };
-  const router = createMemoryRouter([{ element: <Outlet context={context} />, children: [{ path: '/login', element: <LoginRoute /> }] }], { initialEntries: ['/login'] });
+  const router = createMemoryRouter([{ element: <Outlet context={context} />, children: [
+    { path: '/login', element: <LoginRoute /> },
+    { path: '/installation', element: <InstallationRoute /> },
+    { path: '/admin', element: <div>Admin destination</div> },
+    { path: '/workspaces/default/', element: <div>Workspace destination</div> },
+  ] }], { initialEntries: [initialPath] });
   const app = <RouterProvider router={router} />;
   render(withBranding ? <BrandingProvider>{app}</BrandingProvider> : app);
-  return context;
+  return { context, router };
 }
 
 describe('account sign-in service availability', () => {
-  it('explains how to obtain or recover account access when password sign-in is available', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => Response.json({password_login:true,browser_token_login:false})));
+  it('renders clean email and password sign-in without access-token mode or /installation link once initialized', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ password_login: true, browser_token_login: true, setup_required: false })));
     showLogin();
     await screen.findByText(/Need an account or forgot your password\? Ask your organization owner for an invitation or contact your installation administrator\./);
-    expect(screen.getByRole('link', { name: 'Administrator token sign-in' }).getAttribute('href')).toBe('/installation');
-    expect(screen.queryByRole('link', {name:/reset password/i})).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Use an access token' })).toBeNull();
+    expect(screen.queryByLabelText('User access token')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Administrator token sign-in' })).toBeNull();
+    expect(screen.queryByRole('link', { name: /reset password/i })).toBeNull();
   });
+
+  it('redirects /login to /installation for first-run setup when setup_required is true', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ password_login: true, browser_token_login: true, setup_required: true })));
+    const { router } = showLogin(false, '/login');
+    expect(await screen.findByRole('heading', { name: 'Set up administrator account' })).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/installation');
+    expect(screen.getByLabelText('Setup token (NIU_ADMIN_TOKENS)')).toBeTruthy();
+    expect(screen.getByLabelText('Administrator email')).toBeTruthy();
+  });
+
+  it('completes first-run administrator setup on /installation and navigates to /admin', async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path === '/api/v1/auth/config') {
+        return Response.json({ password_login: true, browser_token_login: true, setup_required: true });
+      }
+      if (path === '/api/v1/auth/installation/setup' && init?.method === 'POST') {
+        return Response.json({ session: { id: 'sess-1', operator_id: 'op-1' } }, { status: 201 });
+      }
+      return Response.json({});
+    });
+    vi.stubGlobal('fetch', fetcher);
+    const { context, router } = showLogin(false, '/installation');
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText('Setup token (NIU_ADMIN_TOKENS)'), '  bootstrap-secret-123  ');
+    await user.type(screen.getByLabelText('Display name'), 'Platform Owner');
+    await user.type(screen.getByLabelText('Administrator email'), 'owner@example.test');
+    await user.type(screen.getByLabelText('Password'), 'strong initial admin passphrase');
+    await user.type(screen.getByLabelText('Confirm password'), 'strong initial admin passphrase');
+    await user.click(screen.getByRole('button', { name: 'Create administrator account' }));
+
+    await waitFor(() => expect(context.connectWithToken).toHaveBeenCalledWith('niu-browser-member-session'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/admin'));
+    const setupCall = fetcher.mock.calls.find(([url]) => String(url) === '/api/v1/auth/installation/setup');
+    expect(setupCall).toBeTruthy();
+    expect(JSON.parse(String(setupCall?.[1]?.body))).toEqual({
+      administrator_token: 'bootstrap-secret-123',
+      name: 'Platform Owner',
+      email: 'owner@example.test',
+      password: 'strong initial admin passphrase',
+    });
+  });
+
+  it('redirects /installation back to /login once initialization is complete', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ password_login: true, browser_token_login: true, setup_required: false })));
+    const { router } = showLogin(false, '/installation');
+    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/login');
+  });
+
   it.each([
     { display_name: 'Example Cloud', logo_data_url: null },
     { display_name: 'Niu', logo_data_url: 'data:image/png;base64,iVBORw0KGgo=' },
   ])('preserves deployment branding on the sign-in header: $display_name', async override => {
     vi.stubGlobal('fetch', vi.fn(async input => String(input) === '/v1/branding'
       ? Response.json({ data: { revision: '7', settings: { ...defaultBranding, ...override } } })
-      : Response.json({ password_login: true })));
+      : Response.json({ password_login: true, setup_required: false })));
     showLogin(true);
     await waitFor(() => {
       const home = screen.getByRole('link', { name: `${override.display_name} home` });
@@ -58,19 +120,12 @@ describe('account sign-in service availability', () => {
     expect(router.state.location.pathname).toBe('/installation');
   });
   it('offers the installation administrator path when account sign-in is not configured', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => Response.json({password_login:false,browser_token_login:false})));
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ password_login: false, browser_token_login: false, setup_required: false })));
     showLogin();
     await screen.findByText('Account sign-in is not configured. Contact your installation administrator.');
-    expect(screen.getByRole('link', {name:'Open installation administration'}).getAttribute('href')).toBe('/installation');
+    expect(screen.getByRole('link', { name: 'Open installation administration' }).getAttribute('href')).toBe('/installation');
     expect(screen.queryByLabelText('Password')).toBeNull();
     expect(screen.queryByLabelText('User access token')).toBeNull();
-  });
-  it('shows user-token sign-in directly when it is available without password login', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => Response.json({password_login:false,browser_token_login:true})));
-    showLogin();
-    expect(await screen.findByLabelText('User access token')).toBeTruthy();
-    expect((screen.getByRole('button', {name:'Sign in'}) as HTMLButtonElement).disabled).toBe(false);
-    expect(screen.queryByLabelText('Password')).toBeNull();
   });
   it.each(['offline', 'disabled', 'missing', 'malformed'])('keeps account fields when configuration is %s', async failure => {
     vi.stubGlobal('fetch', vi.fn(async () => {
@@ -79,7 +134,7 @@ describe('account sign-in service availability', () => {
       if (failure === 'malformed') return new Response('invalid JSON');
       return Response.json({ enabled: false });
     }));
-    const context = showLogin();
+    const { context } = showLogin();
     await screen.findByText('Sign-in is temporarily unavailable.');
     expect(screen.getByLabelText('Email')).toBeTruthy();
     expect(screen.getByLabelText('Password')).toBeTruthy();
@@ -91,10 +146,10 @@ describe('account sign-in service availability', () => {
   it('retries configuration and submits account credentials without token fallback', async () => {
     const fetcher = vi.fn()
       .mockRejectedValueOnce(new Error('offline'))
-      .mockResolvedValueOnce(Response.json({ password_login: true }))
+      .mockResolvedValueOnce(Response.json({ password_login: true, setup_required: false }))
       .mockResolvedValueOnce(Response.json({ ok: true }));
     vi.stubGlobal('fetch', fetcher);
-    const context = showLogin();
+    const { context } = showLogin();
     await screen.findByText('Sign-in is temporarily unavailable.');
     const user = userEvent.setup();
     await user.type(screen.getByLabelText('Email'), 'another@example.test');
@@ -108,25 +163,12 @@ describe('account sign-in service availability', () => {
     expect(context.connect).not.toHaveBeenCalled();
   });
 
-  it('guides users to /installation when token sign-in on /login returns 401', async () => {
-    const fetcher = vi.fn()
-      .mockResolvedValueOnce(Response.json({ password_login: false, browser_token_login: true }))
-      .mockResolvedValueOnce(Response.json({ error: { message: 'Unauthorized' } }, { status: 401 }));
-    vi.stubGlobal('fetch', fetcher);
-    showLogin();
-    const user = userEvent.setup();
-    const input = await screen.findByLabelText('User access token');
-    await user.type(input, 'niu_admin_env_token_fixture');
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
-    await screen.findByText('That access token is invalid, expired or revoked.');
-    expect(screen.getByRole('link', { name: 'Sign in via Installation administration' }).getAttribute('href')).toBe('/installation');
-  });
-
-  it('trims whitespace on /installation administrator token and shows a clear 401 error', async () => {
+  it('trims whitespace on /installation administrator token and shows a clear 401 error when password sign-in is disabled', async () => {
     const seenAuth: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input);
       if (path === '/healthz') return Response.json({ status: 'ok' });
+      if (path === '/api/v1/auth/config') return Response.json({ password_login: false, setup_required: false });
       if (path === '/api/v1/session') {
         const auth = new Headers(init?.headers).get('authorization') ?? '';
         seenAuth.push(auth);

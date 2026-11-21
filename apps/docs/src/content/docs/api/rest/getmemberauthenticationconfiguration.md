@@ -74,6 +74,10 @@ Content type: `application/json`.
     "demo_login": {
       "type": "boolean"
     },
+    "setup_required": {
+      "type": "boolean",
+      "description": "True when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /installation is required."
+    },
     "registration_mode": {
       "type": "string",
       "enum": [

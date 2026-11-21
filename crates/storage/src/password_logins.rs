@@ -55,6 +55,176 @@ pub fn is_valid_email_address(email: &str) -> bool {
 }
 
 impl Store {
+    /// True when at least one active, non-revoked platform administrator account
+    /// has password sign-in configured.
+    pub async fn has_platform_admin_password_account(&self) -> Result<bool, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT EXISTS( \
+                 SELECT 1 \
+                 FROM admin_operators o \
+                 LEFT JOIN account_memberships m ON m.operator_id = o.id \
+                 JOIN member_password_credentials c ON c.operator_id = COALESCE(m.identity_id, o.id) \
+                 WHERE o.platform_admin AND o.revoked_at IS NULL \
+             )",
+        )
+        .fetch_one(&self.pool)
+        .await?)
+    }
+
+    /// One-time first-run bootstrap: create the initial password-enabled platform
+    /// administrator account in the default organization and issue an elevated
+    /// browser session. Fails with Conflict once any active password-enabled
+    /// platform administrator exists.
+    pub async fn complete_initial_installation(
+        &self,
+        email: &str,
+        display_name: Option<&str>,
+        password_hash: &str,
+    ) -> Result<IssuedOperatorSession, StoreError> {
+        let email = email_address(email).ok_or(StoreError::InvalidOperator)?;
+        if !crate::passwords::supported_password_hash(password_hash) {
+            return Err(StoreError::InvalidOperator);
+        }
+        let name = match display_name
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            Some(value) => {
+                if value.chars().count() > 100 || value.chars().any(char::is_control) {
+                    return Err(StoreError::InvalidOperator);
+                }
+                value.to_owned()
+            }
+            None => email
+                .split('@')
+                .next()
+                .filter(|value| !value.is_empty())
+                .unwrap_or("Administrator")
+                .to_owned(),
+        };
+        let workspace = self.default_prepaid_workspace().await?;
+        let mut tx = self.begin_tx().await?;
+        sqlx::query("SELECT pg_advisory_xact_lock(78641239)")
+            .execute(&mut *tx)
+            .await?;
+        let already_initialized: bool = sqlx::query_scalar(
+            "SELECT EXISTS( \
+                 SELECT 1 \
+                 FROM admin_operators o \
+                 LEFT JOIN account_memberships m ON m.operator_id = o.id \
+                 JOIN member_password_credentials c ON c.operator_id = COALESCE(m.identity_id, o.id) \
+                 WHERE o.platform_admin AND o.revoked_at IS NULL \
+             )",
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        if already_initialized {
+            return Err(StoreError::Conflict);
+        }
+        let email_exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM member_password_credentials WHERE email = $1)",
+        )
+        .bind(&email)
+        .fetch_one(&mut *tx)
+        .await?;
+        if email_exists {
+            return Err(StoreError::RegistrationEmailExists);
+        }
+        let operator_id = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO admin_operators(id, name, role, organization_id, project_id, platform_admin) \
+             VALUES($1, $2, 'owner', $3, NULL, true)",
+        )
+        .bind(operator_id)
+        .bind(&name)
+        .bind(workspace.organization_id)
+        .execute(&mut *tx)
+        .await?;
+        crate::account_organization_creation::ensure_operator_identity_in_tx(
+            &mut tx,
+            operator_id,
+            workspace.organization_id,
+        )
+        .await?;
+        sqlx::query(
+            "INSERT INTO member_password_credentials(operator_id, email, password_hash, revision) \
+             VALUES($1, $2, $3, 1)",
+        )
+        .bind(operator_id)
+        .bind(&email)
+        .bind(password_hash)
+        .execute(&mut *tx)
+        .await
+        .map_err(|error| {
+            if error
+                .as_database_error()
+                .is_some_and(|db| db.is_unique_violation())
+            {
+                StoreError::RegistrationEmailExists
+            } else {
+                error.into()
+            }
+        })?;
+        sqlx::query(
+            "INSERT INTO platform_admin_events(operator_id, granted, actor_kind) \
+             VALUES($1, true, 'installation')",
+        )
+        .bind(operator_id)
+        .execute(&mut *tx)
+        .await?;
+        let scope = OperatorScope {
+            organization_id: workspace.organization_id,
+            project_id: None,
+        };
+        insert_operator_audit_event(
+            &mut tx,
+            OperatorAuditActor::Installation,
+            "operator_created",
+            operator_id,
+            None,
+            scope,
+        )
+        .await?;
+        insert_operator_audit_event(
+            &mut tx,
+            OperatorAuditActor::Installation,
+            "password_changed",
+            operator_id,
+            None,
+            scope,
+        )
+        .await?;
+        let issued = issue_session(&mut tx, operator_id, 28800).await?;
+        sqlx::query(
+            "UPDATE admin_sessions \
+             SET browser_session = true, \
+                 admin_mode_until = LEAST(to_timestamp(expires_at_unix), clock_timestamp() + interval '6 hours') \
+             WHERE id = $1",
+        )
+        .bind(issued.session.id)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "INSERT INTO admin_mode_events(operator_id, session_id, enabled) \
+             VALUES($1, $2, true)",
+        )
+        .bind(operator_id)
+        .bind(issued.session.id)
+        .execute(&mut *tx)
+        .await?;
+        insert_operator_audit_event(
+            &mut tx,
+            OperatorAuditActor::Operator(operator_id),
+            "password_login_succeeded",
+            operator_id,
+            Some(issued.session.id),
+            scope,
+        )
+        .await?;
+        crate::commit_tx(tx).await?;
+        Ok(issued)
+    }
+
     /// Non-secret configuration for an authorized member manager. Callers must
     /// check the member scope first; this does not grant identity discovery.
     pub async fn member_password_configuration(

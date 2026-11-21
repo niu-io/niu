@@ -2540,3 +2540,190 @@ async fn limited_preview_registration_requires_approval_and_provisions_workspace
     assert!(actions.contains(&"registration_rejected"), "{actions:?}");
     assert!(actions.contains(&"registration_disabled"), "{actions:?}");
 }
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn initial_installation_setup_creates_first_platform_admin_once(pool: PgPool) {
+    let mut state = test_state(None, pool.clone());
+    // Without password auth configured, setup_required stays false.
+    let disabled_app = router(state.clone());
+    let disabled_cfg = request(
+        &disabled_app,
+        Method::GET,
+        "/api/v1/auth/config",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(disabled_cfg.0, StatusCode::OK);
+    assert_eq!(disabled_cfg.2["password_login"], false);
+    assert_eq!(disabled_cfg.2["setup_required"], false);
+
+    state.password_auth = Some(Arc::new(
+        crate::admin::passwords::Runtime::new("https://niu.example.test")
+            .await
+            .unwrap(),
+    ));
+    let app = router(state.clone());
+
+    // Blank deployment with password auth enabled advertises setup_required = true.
+    let initial_cfg = request(
+        &app,
+        Method::GET,
+        "/api/v1/auth/config",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(initial_cfg.0, StatusCode::OK);
+    assert_eq!(initial_cfg.2["password_login"], true);
+    assert_eq!(initial_cfg.2["setup_required"], true);
+
+    // Wrong Origin is rejected with 403.
+    let bad_origin = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/installation/setup",
+        None,
+        Some("https://evil.example.test"),
+        json!({
+            "administrator_token": ADMIN,
+            "name": "Founder",
+            "email": "founder@example.test",
+            "password": "initial admin passphrase 123"
+        }),
+    )
+    .await;
+    assert_eq!(bad_origin.0, StatusCode::FORBIDDEN);
+
+    // Wrong administrator token is rejected with 401.
+    let bad_token = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/installation/setup",
+        None,
+        Some("https://niu.example.test"),
+        json!({
+            "administrator_token": "wrong-admin-token",
+            "name": "Founder",
+            "email": "founder@example.test",
+            "password": "initial admin passphrase 123"
+        }),
+    )
+    .await;
+    assert_eq!(bad_token.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(bad_token.2["error"]["type"], "invalid_installation_token");
+
+    // Short password is rejected with 400.
+    let short_pw = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/installation/setup",
+        None,
+        Some("https://niu.example.test"),
+        json!({
+            "administrator_token": ADMIN,
+            "name": "Founder",
+            "email": "founder@example.test",
+            "password": "too-short"
+        }),
+    )
+    .await;
+    assert_eq!(short_pw.0, StatusCode::BAD_REQUEST);
+
+    // Valid setup succeeds with 201, sets HttpOnly cookie, and activates platform admin mode.
+    let created = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/installation/setup",
+        None,
+        Some("https://niu.example.test"),
+        json!({
+            "administrator_token": format!("  {ADMIN}  "),
+            "name": "Founder Admin",
+            "email": "Founder@Example.test",
+            "password": "initial admin passphrase 123"
+        }),
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::CREATED);
+    assert_eq!(created.1["cache-control"], "no-store");
+    let cookie = created.1["set-cookie"].to_str().unwrap();
+    assert!(cookie.starts_with("__Host-niu_member_session="));
+    assert!(cookie.contains("HttpOnly"));
+    assert!(created.2["session"]["operator_id"].as_str().is_some());
+
+    // Config now reports setup_required = false.
+    let after_cfg = request(
+        &app,
+        Method::GET,
+        "/api/v1/auth/config",
+        None,
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(after_cfg.0, StatusCode::OK);
+    assert_eq!(after_cfg.2["setup_required"], false);
+
+    // Subsequent setup calls are rejected with 409 Conflict.
+    let repeat = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/installation/setup",
+        None,
+        Some("https://niu.example.test"),
+        json!({
+            "administrator_token": ADMIN,
+            "name": "Second Admin",
+            "email": "second@example.test",
+            "password": "another admin passphrase 456"
+        }),
+    )
+    .await;
+    assert_eq!(repeat.0, StatusCode::CONFLICT);
+    assert_eq!(
+        repeat.2["error"]["type"],
+        "installation_already_initialized"
+    );
+
+    // Verify the newly issued browser cookie grants active platform_admin immediately.
+    let cookie_pair = cookie.split(';').next().unwrap();
+    let session_req = Request::builder()
+        .method(Method::GET)
+        .uri("/api/v1/session")
+        .header("origin", "https://niu.example.test")
+        .header("cookie", cookie_pair)
+        .body(Body::empty())
+        .unwrap();
+    let session_res = app.clone().oneshot(session_req).await.unwrap();
+    assert_eq!(session_res.status(), StatusCode::OK);
+    let session_bytes = to_bytes(session_res.into_body(), 16384).await.unwrap();
+    let session_body: Value = serde_json::from_slice(&session_bytes).unwrap();
+    assert_eq!(session_body["data"]["kind"], "operator");
+    assert_eq!(session_body["data"]["permissions"]["platform_admin"], true);
+    assert_eq!(session_body["data"]["admin_mode"]["available"], true);
+    assert_eq!(session_body["data"]["admin_mode"]["enabled"], true);
+    assert_eq!(session_body["data"]["profile"]["name"], "Founder Admin");
+    assert_eq!(
+        session_body["data"]["profile"]["email"],
+        "founder@example.test"
+    );
+
+    // Verify ordinary email+password sign-in works for the new admin account.
+    let login_res = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/browser/login",
+        None,
+        Some("https://niu.example.test"),
+        json!({
+            "email": "founder@example.test",
+            "password": "initial admin passphrase 123"
+        }),
+    )
+    .await;
+    assert_eq!(login_res.0, StatusCode::OK);
+}

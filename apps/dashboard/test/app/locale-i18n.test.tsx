@@ -235,7 +235,7 @@ describe('i18n and Simplified Chinese (zh-CN) localization', () => {
     expect(await screen.findByText('已连接')).toBeTruthy();
     expect(await screen.findByLabelText('邮箱')).toBeTruthy();
     expect(await screen.findByLabelText('密码')).toBeTruthy();
-    expect(await screen.findByRole('button', { name: '使用访问令牌' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '使用访问令牌' })).toBeNull();
 
     await user.click(screen.getByRole('button', { name: '界面语言' }));
     await user.click(screen.getByRole('menuitemradio', { name: 'English' }));

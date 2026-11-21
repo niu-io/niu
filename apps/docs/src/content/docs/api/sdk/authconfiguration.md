@@ -12,6 +12,7 @@ export type AuthConfiguration = {
     password_login: boolean;
     browser_token_login?: boolean;
     demo_login?: boolean;
+    setup_required?: boolean;
     registration_mode?: RegistrationMode;
 };
 ```

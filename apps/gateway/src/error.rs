@@ -382,6 +382,24 @@ impl ApiError {
         }
     }
 
+    pub(crate) fn invalid_installation_token() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::UNAUTHORIZED,
+            kind: "invalid_installation_token",
+            message: "That administrator token is invalid. Verify NIU_ADMIN_TOKENS and try again.",
+        }
+    }
+
+    pub(crate) fn installation_already_initialized() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::CONFLICT,
+            kind: "installation_already_initialized",
+            message: "Initial administrator setup has already been completed. Sign in with your email and password.",
+        }
+    }
+
     /// Preparation policy refusal; detailed rules remain in authorized diagnostics.
     pub(crate) fn guardrail_denied() -> Self {
         Self {

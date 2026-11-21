@@ -19,8 +19,8 @@ The dashboard restores a server session and checks its permissions before render
 ## Bootstrap and member sign-in
 
 1. Keep the configured `NIU_ADMIN_TOKENS` credential in your deployment secret store.
-2. Open `/installation` for initial administrator access. Do not distribute the bootstrap credential to application developers or place it in browser storage or a public setup file.
-3. Provision scoped member access through the supported management interfaces. Use `/login` for ordinary configured password sign-in.
+2. On a brand-new deployment with password sign-in enabled, visiting `/login` automatically redirects to `/installation` to create the first platform administrator email-and-password account using `NIU_ADMIN_TOKENS`. Do not distribute the bootstrap credential to application developers or place it in browser storage or a public setup file.
+3. After initial setup completes, `/installation` redirects to `/login`. Administrators and members sign in at `/login` with their email and password, and authorized platform administrators can switch between workspaces and **Admin** directly from the sidebar. When password sign-in is not configured, `/installation` remains available for direct `NIU_ADMIN_TOKENS` access.
 4. Confirm the effective scope and permissions with the [session endpoint](/docs/api/rest/getadminsessionidentity/) before running management automation.
 
 Read the [security overview](/docs/security/overview/) for password sessions, expiry, revocation, cookies and deployment requirements. Self-registration and a complete OIDC/SAML login flow are not implemented; there is no current dashboard OAuth configuration workflow to follow.
@@ -47,8 +47,8 @@ Grant the smallest necessary authority. A workspace owner must not be able to gr
 ## 引导设置与成员登录
 
 1. 将已配置的 `NIU_ADMIN_TOKENS` 凭证保存在部署环境的机密存储中。
-2. 打开 `/installation` 进行初始管理员访问。请勿将引导凭证分发给应用开发人员，也不要将其放入浏览器存储或公开的设置文件中。
-3. 通过受支持的管理界面配置限定范围的成员访问权限。普通已配置密码的登录请使用 `/login`。
+2. 在启用密码登录的全新部署中，访问 `/login` 会自动跳转到 `/installation`，使用 `NIU_ADMIN_TOKENS` 创建首个平台管理员邮箱密码账号。请勿将引导凭证分发给应用开发人员，也不要将其放入浏览器存储或公开的设置文件中。
+3. 初始化完成后，`/installation` 会自动重定向到 `/login`。管理员与成员统一在 `/login` 使用邮箱和密码登录，获得授权的平台管理员可直接在侧边栏中于工作空间与**管理后台**之间切换。若部署未启用密码登录，`/installation` 仍保留用于直接凭 `NIU_ADMIN_TOKENS` 登录。
 4. 在运行管理自动化脚本之前，请先通过[会话端点](/docs/api/rest/getadminsessionidentity/)确认当前生效的作用域和权限。
 
 有关密码会话、过期、吊销、Cookie 及部署要求，请阅读[安全概览](/docs/security/overview/)。目前尚未实现自助注册及完整的 OIDC/SAML 登录流程；控制台中也没有可遵循的 OAuth 配置工作流。

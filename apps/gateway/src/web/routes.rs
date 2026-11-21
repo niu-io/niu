@@ -753,6 +753,12 @@ fn auth_and_operator_routes(app: Router<AppState>) -> Router<AppState> {
         get(crate::admin::passwords::configuration)
             .layer(middleware::from_fn(password_response_headers)),
     )
+    .dual_route(
+        "/auth/installation/setup",
+        axum::routing::post(crate::admin::passwords::complete_installation_setup)
+            .layer(DefaultBodyLimit::max(4096))
+            .layer(middleware::from_fn(password_response_headers)),
+    )
     .route(
         "/api/v1/auth/browser/demo",
         axum::routing::post(crate::admin::passwords::browser_demo_login)

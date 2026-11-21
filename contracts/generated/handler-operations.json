@@ -5463,6 +5463,10 @@
                     "demo_login": {
                       "type": "boolean"
                     },
+                    "setup_required": {
+                      "type": "boolean",
+                      "description": "True when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /installation is required."
+                    },
                     "registration_mode": {
                       "type": "string",
                       "enum": [
@@ -5475,6 +5479,91 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/installation/setup": {
+      "post": {
+        "operationId": "completeInitialInstallationSetup",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Create the first platform administrator account during initial setup",
+        "description": "One-time first-run bootstrap for a blank deployment where browser password authentication is enabled and no active password-enabled platform administrator exists yet. Requires the configured browser Origin and a valid administrator token from NIU_ADMIN_TOKENS. Creates the first owner account with platform administration enabled in the default workspace, issues an eight-hour HttpOnly browser session cookie with platform administrator mode active, and rejects subsequent calls with 409 Conflict. Responses are not cached.",
+        "security": [],
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "administrator_token",
+                  "email",
+                  "password"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "administrator_token": {
+                    "type": "string",
+                    "description": "Bootstrap administrator credential configured in NIU_ADMIN_TOKENS."
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Optional display name for the initial platform administrator (max 100 characters)."
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 15,
+                    "description": "Account password (at least 15 characters and at most 1024 bytes)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Initial platform administrator created and browser session established.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "session"
+                  ],
+                  "properties": {
+                    "session": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email, display name, or password policy violation."
+          },
+          "401": {
+            "description": "Configured NIU_ADMIN_TOKENS credential did not match."
+          },
+          "403": {
+            "description": "Browser origin rejected."
+          },
+          "409": {
+            "description": "Initial administrator setup has already been completed or the email is already in use."
+          },
+          "429": {
+            "description": "Setup admission limit reached."
+          },
+          "501": {
+            "description": "Browser password authentication is not configured."
           }
         }
       }
