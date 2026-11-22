@@ -48,19 +48,42 @@
 .generations-session .playground-composer { grid-area:2 / 1; }
 .generations-layout { --generation-reading-width:880px; }
 .generations-layout .playground-comparison-thread, .generations-layout .playground-composer-surface { width:100%; max-width:var(--generation-reading-width); margin-inline:auto; }
-.playground-composer-surface { position:relative; overflow:hidden; }
-.composer-key-banner { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; margin:-13px -15px 6px; padding:10px 15px; border-bottom:1px solid var(--border); background:color-mix(in srgb, var(--muted) 72%, var(--popover)); font-size:13px; line-height:1.45; color:var(--foreground); }
+/* Unified GenerationComposer shared by Chat, New Video, and Video Session. */
+.generations-layout .generation-composer { grid-area:2 / 1; align-self:end; flex-shrink:0; width:100%; padding:12px clamp(14px, 3vw, 36px) 16px; border:0; background:transparent; pointer-events:none; }
+.generations-layout .generation-composer-surface { position:relative; display:flex; flex-direction:column; gap:8px; width:100%; max-width:var(--generation-reading-width); margin-inline:auto; padding:14px 16px 10px; border:0; border-radius:20px; background:var(--popover); box-shadow:var(--shadow-composer); overflow:hidden; pointer-events:auto; transition:box-shadow 160ms ease; }
+.generations-layout .generation-composer-surface:focus-within { box-shadow:var(--shadow-composer), 0 0 0 2px color-mix(in oklab, var(--ring) 28%, transparent); }
+.generations-layout .generation-composer-textarea { width:100%; min-height:54px; max-height:200px; padding:2px 2px 4px; border:0; border-radius:0; background:transparent; box-shadow:none; resize:none; font-size:var(--generation-body-size); line-height:var(--generation-body-leading); }
+.generations-layout .generation-composer-textarea:hover,
+.generations-layout .generation-composer-textarea:focus-visible { border-color:transparent; box-shadow:none; outline:none; }
+.generations-layout .generation-composer-attachments:empty,
+.generations-layout .generation-composer-status:empty { display:none; }
+.generations-layout .generation-composer-attachments:has(> .video-references.is-empty) { position:absolute; width:0; height:0; overflow:hidden; pointer-events:none; }
+.generations-layout .generation-composer-attachments,
+.generations-layout .generation-composer-status { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.generations-layout .generation-composer-status .video-error { margin:0; padding:0; }
+.generations-layout .generation-composer-bar { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:36px; min-width:0; }
+.generations-layout .generation-composer-leading { display:flex; flex:1 1 auto; align-items:center; flex-wrap:wrap; gap:4px; min-width:0; }
+.generations-layout .generation-composer-trailing { display:flex; flex:0 0 auto; align-items:center; gap:6px; }
+.generations-layout .generation-composer-trailing button[type="submit"],
+.generations-layout .generation-composer-trailing .generation-composer-submit { width:36px; height:36px; padding:0; flex:0 0 36px; border-radius:999px; }
+.composer-key-banner { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; margin:-14px -16px 2px; padding:10px 16px; border-bottom:1px solid var(--border); background:color-mix(in srgb, var(--muted) 72%, var(--popover)); font-size:13px; line-height:1.45; color:var(--foreground); }
 .composer-key-banner-copy { display:flex; align-items:center; gap:8px; min-width:0; flex:1 1 220px; }
-.playground-composer-surface.is-blocked { display:flex; align-items:center; gap:0; min-height:0; padding:0; }
+.playground-composer-surface.is-blocked { display:flex; flex-direction:row; align-items:center; gap:0; min-height:0; padding:0; }
 .playground-composer-surface.is-blocked > :not(.composer-cover) { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; pointer-events:none; opacity:0; }
 .composer-cover { position:relative; z-index:2; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px 16px; width:100%; padding:16px 20px; border-radius:inherit; background:transparent; pointer-events:auto; }
 .composer-cover-body { display:flex; align-items:center; gap:12px; min-width:0; flex:1 1 260px; }
 .composer-cover-icon { display:grid; place-items:center; width:34px; height:34px; flex:0 0 34px; border-radius:10px; background:var(--muted); color:var(--muted-foreground); }
 .composer-cover-copy { display:grid; gap:3px; min-width:0; }
 .composer-cover-copy p { margin:0; font-size:14px; font-weight:500; line-height:1.45; color:var(--foreground); }
-.composer-cover-copy .video-muted { font-size:13px; font-weight:400; color:var(--muted-foreground); }
+.composer-cover-copy .video-muted,
+.composer-cover-copy .composer-cover-detail { font-size:13px; font-weight:400; color:var(--muted-foreground); }
 .composer-cover :where(p) { margin:0; }
 .composer-cover-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; flex-shrink:0; }
+@media (max-width: 680px) {
+  .generations-layout .generation-composer { padding:8px 10px 10px; }
+  .generations-layout .generation-composer-surface:not(.is-blocked) { padding:12px 12px 8px; border-radius:18px; }
+  .composer-key-banner { margin:-12px -12px 2px; padding:10px 12px; }
+}
 @media(max-width:640px) { .generations-toolbar { gap:8px; padding:8px 16px; } .generations-toolbar-actions { gap:4px; } .generations-toolbar .playground-key-trigger, .generations-toolbar .video-key-choice, .generations-toolbar .generations-context-trigger { flex:0 0 36px; width:36px; min-width:36px; max-width:none; height:36px; padding:0; justify-content:center; } .generations-toolbar .playground-key-trigger span, .generations-toolbar .video-key-choice span, .generations-toolbar .generations-context-trigger span:not(.generations-context-trigger-count) { display:none; } }
 
 .generations-toolbar :where([data-slot="button"]) { font-size:14px; font-weight:500; line-height:20px; }
