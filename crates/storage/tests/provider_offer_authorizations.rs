@@ -651,13 +651,12 @@ async fn atomic_publish_and_activate_enforces_route_readiness_and_activates(pool
         )
         .await
         .unwrap();
-    let (active, current_auth): (bool, Option<Uuid>) = sqlx::query_as(
-        "SELECT active, current_authorization FROM provider_offers WHERE id=$1",
-    )
-    .bind(offer_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let (active, current_auth): (bool, Option<Uuid>) =
+        sqlx::query_as("SELECT active, current_authorization FROM provider_offers WHERE id=$1")
+            .bind(offer_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert!(active);
     assert_eq!(current_auth, Some(auth1));
 
@@ -680,14 +679,12 @@ async fn atomic_publish_and_activate_enforces_route_readiness_and_activates(pool
     assert_eq!(offer_id2, offer_id);
     assert_ne!(rev2, rev1);
     assert_ne!(auth2, auth1);
-    let qualified: bool = sqlx::query_scalar(
-        "SELECT niu_offer_qualification_current($1,$2,$3)",
-    )
-    .bind(provider)
-    .bind(offer_id)
-    .bind(rev2)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let qualified: bool = sqlx::query_scalar("SELECT niu_offer_qualification_current($1,$2,$3)")
+        .bind(provider)
+        .bind(offer_id)
+        .bind(rev2)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert!(qualified);
 }

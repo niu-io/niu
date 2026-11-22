@@ -182,6 +182,11 @@ Location: **path**. **Required.**
       ],
       "pattern": "^[0-9]+$",
       "description": "Currency nanounits per million tokens; maximum 1000000000000000."
+    },
+    "activate": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, atomically authorizes and activates this offer revision in the same transaction. Requires an enabled commercial route with a stored credential owned by the Provider."
     }
   }
 }
@@ -208,7 +213,18 @@ Content type: `application/json`.
         "revision"
       ],
       "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
         "revision": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "authorization_id": {
           "type": "string",
           "format": "uuid"
         }
@@ -228,7 +244,7 @@ Installation administration required
 
 ### HTTP 409
 
-Ownership, expected revision, or omitted current schedule conflict
+Ownership, expected revision, route readiness, or omitted current schedule conflict
 
 ### HTTP 422
 
