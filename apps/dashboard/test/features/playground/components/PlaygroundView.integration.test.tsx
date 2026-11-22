@@ -1561,3 +1561,76 @@ it('restores the latest or selected conversation without flickering the sidebar 
   await waitFor(()=>expect(serverDrafts.get(`${base}/chats/draft`)?.payload).toMatchObject({sessionId:'older'}));
   expect(screen.getByRole('link',{name:'Earlier conversation'}).getAttribute('data-active')).toBe('true');
 });
+
+it('keeps the API key dialog frame stable while loading keys in the dropdown trigger', async () => {
+  const resolvers: Array<(response: Response) => void> = [];
+  stubFetch(vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith('/keys')) return new Promise<Response>(resolve => { resolvers.push(resolve); });
+    return Promise.resolve(jsonResponse({ data: [] }));
+  }));
+  const user = userEvent.setup();
+  renderPlayground(['fast']);
+  await user.click(await screen.findByRole('button', { name: /API key: Choose API key/i }));
+  const dialog = await screen.findByRole('dialog', { name: 'API key' });
+  const trigger = within(dialog).getByRole('button', { name: 'API key', exact: true }) as HTMLButtonElement;
+  expect(trigger.disabled).toBe(true);
+  expect(trigger.getAttribute('aria-busy')).toBe('true');
+  expect(trigger.textContent).toContain('Loading API keys…');
+  expect(within(dialog).getByText('Key')).toBeTruthy();
+  expect(within(dialog).getByRole('link', { name: 'Manage keys' })).toBeTruthy();
+
+  await act(async () => {
+    while (resolvers.length > 0) {
+      resolvers.shift()!(jsonResponse({ data: [{ id: 'key-a', slug: 'default', name: 'Default', allowed_models: ['*'], revoked: false, expired: false }] }));
+    }
+  });
+
+  await waitFor(() => expect(trigger.disabled).toBe(false));
+  expect(trigger.isConnected).toBe(true);
+  expect(trigger.textContent).toContain('Default');
+  expect((within(dialog).getByRole('button', { name: 'Done' }) as HTMLButtonElement).disabled).toBe(false);
+});
+
+it('offers Choose API key directly inside the blocked composer cover when another active key exists', async () => {
+  stubFetch(vi.fn(async (input: RequestInfo | URL) => String(input).endsWith('/keys')
+    ? jsonResponse({ data: [{ id: 'key-a', slug: 'default', name: 'Default', allowed_models: ['*'], revoked: false, expired: false }] })
+    : jsonResponse({ data: [] })));
+  const user = userEvent.setup();
+  render(<SidebarProvider><MemoryRouter initialEntries={['/generations?key=unavailable-reference&new=1']}><PlaygroundView token="admin-session" models={['fast']} initialScope={scope} /></MemoryRouter></SidebarProvider>);
+  const coverMessage = await screen.findByText('This API key is invalid. Choose another or create a new one to continue.');
+  const cover = coverMessage.closest('.composer-cover') as HTMLElement;
+  expect(cover).toBeTruthy();
+  await user.click(within(cover).getByRole('button', { name: 'Choose API key' }));
+  expect(await screen.findByRole('dialog', { name: 'API key' })).toBeTruthy();
+});
+
+it('switches between saved Chat sessions immediately without showing a saving-draft notice', async () => {
+  const base = '/api/v1/workspaces/workspace-a';
+  serverChats.set(`${base}/chats/latest`, { id: 'latest', reference: 'chat-1002', prompt: 'Latest conversation', createdAt: 200, results: [{ model: 'fast', content: 'Latest answer', phase: 'complete', elapsedMs: 10, error: null }] });
+  serverChats.set(`${base}/chats/older`, { id: 'older', reference: 'chat-1001', prompt: 'Earlier conversation', createdAt: 100, results: [{ model: 'fast', content: 'Earlier answer', phase: 'complete', elapsedMs: 10, error: null }] });
+  let resolvePut: ((response: Response) => void) | null = null;
+  vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith('/chats/draft')) {
+      if (init?.method === 'PUT') return new Promise<Response>(resolve => { resolvePut = resolve; });
+      return Promise.resolve(jsonResponse({ data: { payload: null, revision: 0 } }));
+    }
+    if (url.includes('/chats')) {
+      if (!url.endsWith('/chats')) {
+        const saved = serverChats.get(url);
+        return Promise.resolve(saved ? jsonResponse({ data: saved }) : new Response(null, { status: 404 }));
+      }
+      return Promise.resolve(jsonResponse({ data: [...serverChats.entries()].filter(([k]) => k.startsWith(url + '/')).map(([, v]) => v) }));
+    }
+    return Promise.resolve(jsonResponse({ data: [] }));
+  }));
+  const user = userEvent.setup();
+  renderPlayground(['fast']);
+  await screen.findByRole('heading', { name: 'Latest conversation', level: 1 });
+  await user.click(screen.getByRole('link', { name: 'Earlier conversation' }));
+  expect(screen.getByRole('heading', { name: 'Earlier conversation', level: 1 })).toBeTruthy();
+  expect(screen.queryByText('Saving draft before leaving…')).toBeNull();
+  expect(screen.queryByText('Loading saved draft…')).toBeNull();
+  if (resolvePut) resolvePut(jsonResponse({ data: { payload: null, revision: 1 } }));
+});

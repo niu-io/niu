@@ -21,15 +21,16 @@ import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from '
 import { useNewChatAction } from '../useNewChatAction';
 import { useDraftNavigation } from '../useDraftNavigation';
 import { useChatDraft, prefetchChatDraft, clearPrefetchedChatDraft, type ChatDraft, type ChatDraftSnapshot } from '../useChatDraft';
-import { IconX as X, IconDots as MoreHorizontal, IconPencil as Pencil, IconTrash as Trash, IconArchive as Archive, IconDownload as Download, IconPaperclip as Paperclip, IconFlask as FlaskConical, IconArrowRight as ArrowRight, IconArrowUp as ArrowUp, IconChevronDown as ChevronDown, IconCoin as CircleDollarSign, IconCopy as ClipboardCopy, IconClock as Clock3, IconHash as Hash, IconKey as KeyRound, IconPlus as Plus, IconAdjustmentsHorizontal as Settings2, IconSquare as Square, IconStopwatch as Timer, IconMessageChatbot, IconVideo as Video } from "@tabler/icons-react";
+import { IconX as X, IconDots as MoreHorizontal, IconPencil as Pencil, IconTrash as Trash, IconArchive as Archive, IconDownload as Download, IconPaperclip as Paperclip, IconFlask as FlaskConical, IconArrowRight as ArrowRight, IconArrowUp as ArrowUp, IconCoin as CircleDollarSign, IconCopy as ClipboardCopy, IconClock as Clock3, IconHash as Hash, IconKey as KeyRound, IconPlus as Plus, IconAdjustmentsHorizontal as Settings2, IconSquare as Square, IconStopwatch as Timer, IconMessageChatbot, IconVideo as Video } from "@tabler/icons-react";
 import PlaygroundModelPickerDialog from './PlaygroundModelPickerDialog';
+import PlaygroundApiKeyDialog from './PlaygroundApiKeyDialog';
 import ChatTurnAttachments, { type ChatAttachment } from './ChatTurnAttachments';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { money } from '@/lib/money';
 import { useWorkspaceVideo } from '@/features/provider-modules/useWorkspaceVideo';
@@ -772,17 +773,20 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const [workspaceKeys, setWorkspaceKeys] = useState<Array<{id: string; slug?: string; name: string; allowed_models?: string[]; revoked: boolean; expired: boolean}>>([]);
   const [keyLoadError, setKeyLoadError] = useState('');
   const [workspaceKeysReady, setWorkspaceKeysReady] = useState(false);
+  const [workspaceKeysLoading, setWorkspaceKeysLoading] = useState(false);
   useEffect(() => {
-    setWorkspaceKeys([]); setWorkspaceKeysReady(false);
+    setWorkspaceKeys([]); setWorkspaceKeysReady(false); setWorkspaceKeysLoading(false); setKeyLoadError('');
   }, [token, organization, workspaceId]);
   useEffect(() => {
     if (!token || !organization || !workspaceId) return;
+    if (workspaceKeysReady && !apiSettingsOpen) return;
     const controller = new AbortController();
-    setKeyLoadError(''); setWorkspaceKeysReady(false);
+    setKeyLoadError(''); setWorkspaceKeysLoading(true);
     fetch(keysPath, { headers: { authorization: `Bearer ${token}` }, signal: controller.signal })
       .then(async response => { if (!response.ok) throw new Error('Could not load API keys. Reopen this menu to retry.'); return response.json(); })
       .then(value => { if (!controller.signal.aborted) { setWorkspaceKeys(value.data.filter((key: {revoked: boolean; expired: boolean}) => !key.revoked && !key.expired)); setWorkspaceKeysReady(true); } })
-      .catch(error => { if (!controller.signal.aborted) setKeyLoadError(error.message); });
+      .catch(error => { if (!controller.signal.aborted) setKeyLoadError(error.message); })
+      .finally(() => { if (!controller.signal.aborted) setWorkspaceKeysLoading(false); });
     return () => controller.abort();
   }, [apiSettingsOpen, token, organization, workspaceId, keysPath]);
   // Saved metadata owns slugs and availability; issued secrets are loading hints.
@@ -825,7 +829,12 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     } else if (!preferredKey && draft.ready && !selectedKeyId) setSelectedKeyId(keyChoices[0]?.id ?? '');
   }, [preferredKey, keyIds, draft.ready, selectedKeyId]);
 
-  const draftNavigation = useDraftNavigation(draft);
+  const draftNavigation = useDraftNavigation({
+    hasUnsavedChanges: () => Boolean((prompt.trim() || attachments.length > 0) && draft.hasUnsavedChanges()),
+    flush: () => draft.flush(),
+    shouldBlock: ({ currentLocation, nextLocation }) => (currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search)
+      && !((currentLocation.pathname === '/generations' || currentLocation.pathname.startsWith('/generations/chat-')) && (nextLocation.pathname === '/generations' || nextLocation.pathname.startsWith('/generations/chat-')) && !new URLSearchParams(nextLocation.search).has('video-session') && new URLSearchParams(nextLocation.search).get('new') !== 'video'),
+  });
   useNewChatAction(startWithNewChat, draft, workspaceKeys, startNewComparison);
 
 
@@ -1113,7 +1122,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   return <div className="playground-view">
     <div className="playground-chat-layout">
       <GenerationSessionBindings trigger={historyToggleRef} title={activeComparison ? sessionTitle(activeComparison) : uiT("New generation")} contextPanel={contextPanelData} actions={<div className="playground-toolbar-actions">
-            <Button ref={apiKeyTriggerRef} type="button" variant={managedKey || selectedKey ? "outline" : "default"} className="playground-key-trigger" onClick={() => setApiSettingsOpen(true)} aria-label={uiF("API key: {0}", [selectedKeyLabel])}>
+            <Button ref={apiKeyTriggerRef} type="button" variant={managedKey || selectedKey || (!workspaceKeysReady && !keyBlocked) ? "outline" : "default"} className="playground-key-trigger" onClick={() => setApiSettingsOpen(true)} aria-label={uiF("API key: {0}", [selectedKeyLabel])}>
               <KeyRound size={16} /><span>{selectedKeyLabel}</span>
             </Button>
           </div>} onNewSession={startWithNewChat ? startNewComparison : undefined} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{uiT(historyError)}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>{uiT("Retry chat history")}</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: ((historyLoading || !draft.ready) && history.length === 0), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId ?? (requestedSession && !startWithNewChat ? requestedSession : null)), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);void draft.flush(comparisonDraft(item,selectedKeyId));navigate(`/generations/${encodeURIComponent(item.reference??id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
@@ -1197,8 +1206,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                   </section>
                 </div>)}</>}
           {notice && <p className="playground-result-notice" role="status">{uiT(notice)}</p>}
-          {!draft.ready && !draft.error && <p role="status">{uiT("Loading saved draft…")}</p>}
-          {draftNavigation.pending && <p role="status">{uiT("Saving draft before leaving…")}</p>}
+          {draftNavigation.pending && <p className="playground-result-notice" role="status">{uiT("Saving draft before leaving…")}</p>}
           {draft.error && <div role="alert" className="playground-chat-error">{uiT(draft.error)}<Button type="button" variant="ghost" onClick={draft.retry}>{draft.conflict?uiT("Load saved draft"):draft.ready?uiT("Retry saving draft"):uiT("Retry loading draft")}</Button></div>}
         </div>
 
@@ -1215,6 +1223,8 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
 
         {(keyBlocked || (initialScope && modelAliases.length >= minComparisonModels)) && <Popover open={chatSettingsOpen} onOpenChange={open => {if (open) {setSettingsSaveError('');setChatSettingsOpen(true);} else void closeChatSettings();}}><form ref={composerRef} onSubmit={compare} className="playground-composer" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void addAttachments(event.dataTransfer.files); }}>
           <PopoverAnchor asChild><div className={`playground-composer-surface${keyBlocked ? ' is-blocked' : ''}`}>
+            {!keyBlocked && noAvailableKeys && !managedKey && <div className="composer-key-banner" role="status"><div className="composer-key-banner-copy"><KeyRound size={15} className="shrink-0 text-muted-foreground" aria-hidden="true" /><span>{uiT("Create an API key to start using models in this workspace.")}</span></div>{session?.permissions.write !== false && <Button type="button" size="sm" onClick={() => void (async () => { if (!await draft.flush()) return; navigate(`${workspaceRoot}/keys`, {state:{createKey:true,returnTo:`${location.pathname}${location.search}${location.hash}`}}); })()}>{uiT("Create API key")}</Button>}</div>}
+            {!keyBlocked && workspaceKeysReady && !availableKeys.loading && !noAvailableKeys && !managedKey && !selectedKey && <div className="composer-key-banner" role="status"><div className="composer-key-banner-copy"><KeyRound size={15} className="shrink-0 text-muted-foreground" aria-hidden="true" /><span>{uiT("Select an API key to send messages in this workspace.")}</span></div><Button type="button" size="sm" variant="outline" onClick={() => setApiSettingsOpen(true)}>{uiT("Choose API key")}</Button></div>}
             <Label htmlFor="playground-user-prompt" className="sr-only">{uiT("Prompt for all selected models")}</Label>
             <Textarea id="playground-user-prompt" rows={2} maxLength={12000} required disabled={!draft.ready || running || settingsSaving || keyBlocked} value={prompt} onChange={event => { setPrompt(event.target.value); setNotice(''); setError(''); }} onKeyDown={event => {
               if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -1254,12 +1264,10 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                 ? <Button type="button" size="icon" className="rounded-full" aria-label={uiT("Stop generating")} onClick={cancelComparison}><Square size={14} /></Button>
                 : <Button type="submit" size="icon" className="rounded-full" aria-label={uiF("Send to {0} {1}", [selectedModels.length, selectedModels.length === 1 ? uiT("model") : uiT("models")])}  disabled={!canSubmit || keyBlocked}><ArrowUp size={19} /></Button>}
             </div>
-            {keyBlocked && <div className="composer-cover" role="status"><p>{uiT("This API key is invalid. Choose another or create a new one to continue.")}</p><div className="composer-cover-actions"><Button type="button" onClick={() => void (async () => { if (initialScope && !await draft.flush()) return; navigate(`${workspaceRoot}/keys`, {state:{createKey:true,returnTo:`${location.pathname}${location.search}${location.hash}`}}); })()}>{uiT("Create API key")}</Button></div></div>}
+            {keyBlocked && <div className="composer-cover" role="status"><div className="composer-cover-body"><span className="composer-cover-icon" aria-hidden="true"><KeyRound size={17} /></span><div className="composer-cover-copy"><p>{uiT("This API key is invalid. Choose another or create a new one to continue.")}</p></div></div><div className="composer-cover-actions">{!noAvailableKeys && <Button type="button" variant="outline" onClick={() => setApiSettingsOpen(true)}>{uiT("Choose API key")}</Button>}<Button type="button" onClick={() => void (async () => { if (initialScope && !await draft.flush()) return; navigate(`${workspaceRoot}/keys`, {state:{createKey:true,returnTo:`${location.pathname}${location.search}${location.hash}`}}); })()}>{uiT("Create API key")}</Button></div></div>}
           </div></PopoverAnchor>
         </form>
           <p aria-label={uiT("Usage billing")} className="sr-only">{billingSummary}</p>
-          {noAvailableKeys && !managedKey && !keyBlocked && <div className="playground-composer-notices"><p role="status">{uiT("Create an API key to start using models in this workspace.")}{" "}<Button type="button" variant="link" className="h-auto p-0" onClick={() => void (async () => { if (!await draft.flush()) return; navigate(`${workspaceRoot}/keys`, {state:{createKey:true,returnTo:`${location.pathname}${location.search}${location.hash}`}}); })()}>{uiT("Create API key")}</Button></p></div>}
-          {!noAvailableKeys && !managedKey && !selectedKey && !keyBlocked && <div className="playground-composer-notices"><p role="status">{uiT("Select an API key to send messages in this workspace.")}</p></div>}
                 <PopoverContent side="top" align="end" sideOffset={12} collisionPadding={12} aria-labelledby="chat-settings-title" className="w-[min(24rem,calc(100vw-2rem))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto space-y-4">
                   {settingsSaving && <p role="status" className="text-sm text-muted-foreground">{uiT("Saving settings…")}</p>}
                   {settingsSaveError && <div className="grid gap-2"><p role="alert" className="text-sm text-destructive">{uiT(settingsSaveError)}</p><Button type="button" variant="secondary" disabled={settingsSaving} onClick={() => void closeChatSettings()}>{uiT("Retry saving settings")}</Button></div>}
@@ -1351,23 +1359,13 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
       onToggleModel={toggleModel}
     />
 
-    <Dialog open={apiSettingsOpen} onOpenChange={setApiSettingsOpen}>
-      <DialogContent className="sm:max-w-md" onCloseAutoFocus={event => { if (apiKeyTriggerRef.current?.isConnected) { event.preventDefault(); apiKeyTriggerRef.current.focus(); } }}>
-        <DialogHeader><DialogTitle>{uiT("API key")}</DialogTitle><DialogDescription>{uiT("Select an API key for this generation. Its workspace supplies billing and limits.")}</DialogDescription></DialogHeader>
-        <div className="space-y-4">
-          {availableKeys.error && <p role="alert" className="text-sm text-destructive">{uiT(availableKeys.error)}</p>}
-          {keyLoadError && <p role="alert" className="text-sm text-destructive">{uiT(keyLoadError)}</p>}
-          {((!workspaceKeysReady && !keyLoadError) || availableKeys.loading) && !managedKey && !selectedKey ? <p role="status" className="text-sm text-muted-foreground">{uiT("Loading API keys…")}</p> : <>{!selectedKey && !managedKey && <div className="space-y-3"><p className="text-sm text-muted-foreground">{keyLoadError || availableKeys.error ? uiT("Key availability could not be confirmed. Reopen this dialog to retry, or use an existing key secret.") : noAvailableKeys ? uiT("Create an API key to start using models in this workspace.") : uiT("Choose an available key or create one for this workspace. Its limits and the workspace billing policy apply.")}</p>{session?.permissions.write !== false ? <Button type="button" onClick={() => void (async () => {if (!await draft.flush()) return; navigate(workspaceRoot + '/keys', {state:{createKey:true,returnTo:location.pathname + location.search + location.hash}});})()}>{uiT("Create API key")}</Button> : <p className="text-sm text-muted-foreground">{uiT("Ask a workspace administrator to create an API key for you.")}</p>}</div>}{!noAvailableKeys && <><div className="space-y-2"><Label htmlFor="playground-api-key">{uiT("Key")}</Label>
-            <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label={uiT("API key")} disabled={running || settingsSaving} variant="outline" className="w-full justify-between font-normal">{keyChoices.find(key => key.id === selectedKeyId)?.name ?? uiT("Select API key")}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={selectedKeyId} onValueChange={value => {const chosen=availableKeys.keys.find(key=>key.id===value);if(chosen&&chosen.workspace.id!==workspaceId){navigate(`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, workspaces))}&key=${encodeURIComponent(chosen.slug || value)}`);return;} const selected = workspaceKeys.find(key => key.id === value); const next = new URLSearchParams(location.search); next.set('key', selected?.slug || value); navigate({pathname:location.pathname,search:next.toString(),hash:location.hash},{replace:true}); setSelectedKeyId(value); setResults(null); setError(''); }}>
-              {(availableKeys.keys.length?availableKeys.keys:keyChoices.map(key=>({...key,workspace}))).map(key => <DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspaceId ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}
-            </DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
-          </div>
-          {selectedKey && usableModels.length < minComparisonModels && <p role="alert" className="text-sm text-destructive">{uiT("This key does not allow any available models.")}</p>}
-          <p className="text-xs text-muted-foreground">{billingSummary}</p>
-          </>}</>}
-        </div>
-        <div className="flex justify-between gap-3"><Button asChild variant="ghost"><Link to={workspaceRoot + '/keys'}>{uiT("Manage keys")}</Link></Button><Button disabled={!apiKey} onClick={() => setApiSettingsOpen(false)}>{uiT("Done")}</Button></div>
-    </DialogContent>
-    </Dialog>
+    <PlaygroundApiKeyDialog open={apiSettingsOpen} onOpenChange={setApiSettingsOpen} onCloseRestoreFocus={apiKeyTriggerRef.current?.isConnected ? () => apiKeyTriggerRef.current?.focus() : undefined} workspaceId={workspaceId} workspaceRoot={workspaceRoot} selectedKeyId={selectedKeyId} selectedKeyName={keyChoices.find(key => key.id === selectedKeyId)?.name} keyOptions={availableKeys.keys.length ? availableKeys.keys : keyChoices.map(key => ({ ...key, workspace }))} keysLoading={workspaceKeysLoading || (!workspaceKeysReady && !keyLoadError) || availableKeys.loading} noAvailableKeys={noAvailableKeys} hasApiKey={Boolean(apiKey)} canWrite={session?.permissions.write !== false} disabled={running || settingsSaving} availableKeysError={availableKeys.error} keyLoadError={keyLoadError} selectedKeyAllowsNoModels={Boolean(selectedKey && usableModels.length < minComparisonModels)} billingSummary={billingSummary} onSelectKey={value => {
+      const chosen = availableKeys.keys.find(key => key.id === value);
+      if (chosen && chosen.workspace.id !== workspaceId) { navigate(`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, workspaces))}&key=${encodeURIComponent(chosen.slug || value)}`); return; }
+      const selected = workspaceKeys.find(key => key.id === value);
+      const next = new URLSearchParams(location.search); next.set('key', selected?.slug || value);
+      navigate({ pathname: location.pathname, search: next.toString(), hash: location.hash }, { replace: true });
+      setSelectedKeyId(value); setResults(null); setError('');
+    }} onCreateKey={() => void (async () => { if (!await draft.flush()) return; navigate(`${workspaceRoot}/keys`, { state: { createKey: true, returnTo: location.pathname + location.search + location.hash } }); })()} />
   </div>;
 }

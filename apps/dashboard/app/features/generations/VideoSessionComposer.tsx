@@ -1,7 +1,7 @@
 import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { IconArrowUp as ArrowUp, IconChevronDown as ChevronDown, IconAdjustmentsHorizontal as Settings } from '@tabler/icons-react';
+import { IconArchive as Archive, IconArrowUp as ArrowUp, IconChevronDown as ChevronDown, IconKey as KeyIcon, IconLock as LockIcon, IconAdjustmentsHorizontal as Settings } from '@tabler/icons-react';
 import { NiuAPIError, type VideoModel, type VideoModelList } from '@niu-io/sdk';
 import { NiuAdminClient, type VideoIntentRequest, type VideoComposerDraftPayload } from '@niu-io/sdk/admin';
 import { Button } from '@/components/ui/button';
@@ -301,8 +301,7 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       <div className="video-composer-fields">
         {draft.error&&<div role="alert" className="video-error">{uiT(draft.error)}<Button type="button" variant="ghost" onClick={()=>{setEdited(false);draft.reload();}}>{uiT("Load saved draft")}</Button></div>}
         {pendingReference && <div role="status" className="video-muted"><p>{uiT("The outcome is unresolved. Do not resubmit this generation.")}</p><Button type="button" variant="outline" disabled={busy || loading || restoringDraft || !draft.ready} onClick={() => void recoverSubmission()}>{uiT("Check status")}</Button><Button asChild variant="link"><Link to={`/generations?intent=${encodeURIComponent(pendingReference)}&workspace=${encodeURIComponent(workspace ? workspacePathSegment(workspace,context.workspaces??[workspace]):'default')}`}>{uiT("Open saved request")}</Link></Button></div>}
-        {restoringDraft&&<p role="status" className="video-muted">{uiT("Loading saved draft…")}</p>}
-        {(draft.saving||navigation.pending)&&<p role="status" className="video-muted">{uiT("Saving draft…")}</p>}
+        {edited&&(draft.saving||navigation.pending)&&<p role="status" className="video-muted">{uiT("Saving draft…")}</p>}
         <Label htmlFor="session-video-prompt" className="sr-only">{uiT("Prompt")}</Label>
         <Textarea ref={promptRef} id="session-video-prompt" placeholder={uiT("Describe your video…")} rows={2} value={prompt} onChange={event => {setEdited(true);setPrompt(event.target.value);}} disabled={busy || loading || restoringDraft || Boolean(cover)} />
         {references.length>0&&<p className="video-muted">{uiT("This draft includes saved reference materials. Open the full composer to review them.")}{" "}<Button asChild variant="link"><Link to={`/generations?new=video&workspace=${encodeURIComponent(workspace ? workspacePathSegment(workspace,context.workspaces??[workspace]):'default')}`}>{uiT("Open saved draft")}</Link></Button></p>}
@@ -324,10 +323,10 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
         </div>
         {model?.requires_image && !references.length && <p className="video-muted">{uiT("This model requires a reference image.")}</p>}
       </div>
-      {cover === 'archived' && <div className="composer-cover" role="status"><p>{uiT("Archived")}</p><p className="video-muted">{uiT("Restore this session from Archived sessions to return it to history.")}</p></div>}
-      {cover === 'readonly' && <div className="composer-cover" role="status"><p>{uiT("Generation needs write access.")}</p><p className="video-muted">{uiT("A member with write access can describe the next video here.")}</p></div>}
-      {cover === 'keys' && <div className="composer-cover" role="status"><p>{uiT("API keys unavailable")}</p><div className="composer-cover-actions"><Button type="button" onClick={available.reload}>{uiT("Retry")}</Button></div></div>}
-      {cover === 'nokey' && <div className="composer-cover" role="status"><p>{uiT("Select or create an active API key to continue.")}</p><div className="composer-cover-actions"><Button asChild><Link to={`${workspacePath}/keys`} state={{createKey: true, returnTo: window.location.pathname + window.location.search}}>{uiT("Create API key")}</Link></Button></div></div>}
+      {cover === 'archived' && <div className="composer-cover" role="status"><div className="composer-cover-body"><span className="composer-cover-icon" aria-hidden="true"><Archive size={17} /></span><div className="composer-cover-copy"><p>{uiT("Archived")}</p><p className="video-muted">{uiT("Restore this session from Archived sessions to return it to history.")}</p></div></div></div>}
+      {cover === 'readonly' && <div className="composer-cover" role="status"><div className="composer-cover-body"><span className="composer-cover-icon" aria-hidden="true"><LockIcon size={17} /></span><div className="composer-cover-copy"><p>{uiT("Generation needs write access.")}</p><p className="video-muted">{uiT("A member with write access can describe the next video here.")}</p></div></div></div>}
+      {cover === 'keys' && <div className="composer-cover" role="status"><div className="composer-cover-body"><span className="composer-cover-icon" aria-hidden="true"><KeyIcon size={17} /></span><div className="composer-cover-copy"><p>{uiT("API keys unavailable")}</p></div></div><div className="composer-cover-actions"><Button type="button" onClick={available.reload}>{uiT("Retry")}</Button></div></div>}
+      {cover === 'nokey' && <div className="composer-cover" role="status"><div className="composer-cover-body"><span className="composer-cover-icon" aria-hidden="true"><KeyIcon size={17} /></span><div className="composer-cover-copy"><p>{uiT("Select or create an active API key to continue.")}</p></div></div><div className="composer-cover-actions"><Button asChild><Link to={`${workspacePath}/keys`} state={{createKey: true, returnTo: window.location.pathname + window.location.search}}>{uiT("Create API key")}</Link></Button></div></div>}
     </div>
   </form></>;
 }
