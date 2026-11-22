@@ -62,7 +62,6 @@ export function isAdminNavItemActive(item: AdminNavItem, pathname: string): bool
   }
   if (item.to === '/admin/providers') {
     return (
-      clean === '/admin' ||
       clean === '/admin/providers' ||
       clean.startsWith('/admin/providers/') ||
       clean === '/admin/suppliers' ||

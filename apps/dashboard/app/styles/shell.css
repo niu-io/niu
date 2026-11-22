@@ -123,9 +123,9 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 .cost-connect .connect-panel { padding: 0; }
 .cost-connect .empty-icon { display: none; }
 .cost-workbench .gateway-activity-summary { margin-top: 0; }
-.gateway-feed-actions { display: flex; align-items: center; gap: 12px; }
-.gateway-feed-actions > a, .gateway-task-empty > a { display: inline-flex; align-items: center; gap: 6px; color: var(--foreground); font-size: 13px; font-weight: 600; text-decoration: none; }
-.gateway-feed-actions > a:hover, .gateway-task-empty > a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.gateway-feed-actions { display: flex; align-items: center; gap: 4px; }
+.gateway-feed-actions > a:not([data-slot="button"]), .gateway-task-empty > a:not([data-slot="button"]) { display: inline-flex; align-items: center; gap: 6px; color: var(--foreground); font-size: 13px; font-weight: 600; text-decoration: none; }
+.gateway-feed-actions > a:not([data-slot="button"]):hover, .gateway-task-empty > a:not([data-slot="button"]):hover { text-decoration: underline; text-underline-offset: 3px; }
 .gateway-task-feed.is-compact { margin-top: 0; }
 .gateway-task-feed.is-compact .gateway-task-feed-heading { align-items: center; padding-block: 14px; }
 .gateway-task-empty > a { margin-top: 12px; }

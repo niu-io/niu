@@ -255,7 +255,7 @@ export default function WorkspaceSettings() {
       <section aria-labelledby="workspace-general-title" className="space-y-4 py-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 id="workspace-general-title" className="text-base font-semibold">
-            {t('General', '常规设置')}
+            {t('Workspace profile', '基本信息')}
           </h2>
           {canEdit && (
             <Button

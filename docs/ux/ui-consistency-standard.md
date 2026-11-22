@@ -20,9 +20,16 @@ This document defines the mandatory, product-wide UI and interaction standards f
   - Every page-level create, edit, rename, limit-setting, and destructive confirmation action opens an installed shadcn `Dialog` with bounded scroll (`max-h-[90dvh] overflow-y-auto` or `max-h-[85dvh]`) and restores focus via `onCloseAutoFocus`.
   - Never nest a `Dialog` inside an already-open modal; keep secondary confirmations inside modals inline.
 
-## 3. Uniform Choice & Toolbar Controls
+## 3. Uniform Choice, Header & Toolbar Controls
 
 - **DropdownMenu only**: Never use native `<select>` / `<option>`, shadcn `Select`, or custom dropdown abstractions. Compose shadcn `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, and `DropdownMenuRadioGroup` / `DropdownMenuRadioItem` (or `DropdownMenuCheckboxItem`) directly, keeping the selection check on the right aligned with standard items.
+- **PageHeader vs. Toolbar division**:
+  - Place page-level primary creation/publish actions and the page refresh button in `PageHeader`'s right action slot — never drop primary page actions into a disconnected mid-page row beneath an alert banner.
+  - Standardize every page-level refresh control in `PageHeader` as an icon button: `variant="ghost" size="icon-sm"` with `aria-label`, `title`, and `animate-spin` while loading.
+  - Never duplicate a sibling `Tabs` destination as a button in `PageHeader` (e.g., when `[Usage | Billing and rates]` tabs are present, do not repeat a `Billing and rates` button in the header).
+  - Match the `PageHeader` route title to its active sidebar section name, and avoid repeating the active tab's label verbatim as the first inner card heading.
+- **Spatial mapping for panel toggles**: Controls that open or close a **left** drawer/sidebar (such as Generations `Sessions` history) sit on the **left** side of the toolbar adjacent to the title; controls that open **right** panels (`Assets`, `Context`) sit on the **right**.
+- **Single primary CTA per view or checklist**: Within a toolbar or setup checklist, at most ONE button carries primary (`variant="default"`) emphasis (the primary creation action or the next blocking step); all remaining steps use `variant="outline"`.
 - **Identical toolbar actions share one component**: Sibling modes MUST use the exact same component and interaction pattern for equivalent toolbar controls.
   - Across Generations (`Chat`, `New Video`, and `Video Session`), the top-right API key selector MUST use [`GenerationKeyPicker`](../../apps/dashboard/app/features/generations/GenerationKeyPicker.tsx) (`DropdownMenu`-based, immediate single-click switching, in-place loading indicator, cross-workspace switching, and `Manage keys` / `Create API key` actions).
 - **No premature primary CTA flashing**: Toolbar selectors and recovery buttons MUST stay neutral (`variant="outline"`) while initial data is loading. Only apply primary emphasis (`variant="default"`) after a missing or invalid state is confirmed (`!loading`).
@@ -41,6 +48,7 @@ This document defines the mandatory, product-wide UI and interaction standards f
 ## 5. Structured Loading, Empty, and Error Surfaces
 
 - **No raw unstyled loading paragraphs**: Never render bare `<p role="status">Loading…</p>` in pages or dialogs. Use `TableSkeleton`, `FormSectionSkeleton`, or `ListRowsSkeleton` (from [`PageSkeletons.tsx`](../../apps/dashboard/app/components/PageSkeletons.tsx)) for initial region loading, or an in-control spinner for inline refreshes.
+- **Full-width empty & setting panels**: On full-width management pages, empty-state containers and sibling configuration sections span `100%` of the content width (centering only the inner icon/copy inside empty states) — never shrink an empty card to a narrow centered island beneath full-width cards or leave one setting section unboxed between sibling `bg-card` sections.
 - **Sibling first-run parity**: Sibling creation surfaces in Generations (`Chat` and `Video`) share the same centered mode switcher (`Chat` / `Video`), heading scale (`.playground-first-run-heading`), and `.playground-starters` / `.playground-starter` card grid (`<strong>` title, `<span>` summary, trailing arrow icon).
 - **Never leak internal IDs**: Never render UUIDs/GUIDs in UI labels, tooltips, badges, dialogs, or error notices.
 

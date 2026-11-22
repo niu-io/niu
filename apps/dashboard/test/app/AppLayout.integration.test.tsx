@@ -150,7 +150,7 @@ describe('dashboard route layout', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/settings'));
     await waitFor(() => expect(screen.queryByRole('tablist', { name: 'Provider sections' })).toBeNull());
     expect(within(screen.getByLabelText('Breadcrumb')).queryByText('Admin')).toBeNull();
-    expect(within(screen.getByLabelText('Breadcrumb')).getByRole('heading', {name:'General & billing'})).toBeTruthy();
+    expect(within(screen.getByLabelText('Breadcrumb')).getByRole('heading', {name:'Settings'})).toBeTruthy();
   });
   it('uses the shared loading page while checking the browser session and redirecting to sign in', async () => {
     mockHealth(); const originalFetch = globalThis.fetch;

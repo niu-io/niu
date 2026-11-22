@@ -156,7 +156,7 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
                         usage: t('Usage', '调用量'),
                         settlements: t('Settlements', '结算账单'),
                         members: t('Members', '成员'),
-                        settings: normalizedPath === '/admin/settings' ? t('General & billing', '基础与计费') : t('Settings', '设置'),
+                        settings: t('Settings', '平台设置'),
                       }[normalizedPath.split('/').pop() ?? ''] ??
                       (normalizedPath.startsWith('/admin/customers/')
                         ? t('Customer', '客户详情')

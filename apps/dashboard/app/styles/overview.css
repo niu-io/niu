@@ -75,7 +75,7 @@
 .gateway-attempt-details summary:focus-visible { border-radius: 3px; outline: 2px solid var(--ring); outline-offset: 2px; }
 .gateway-attempt-details>div { display: flex; flex-wrap: wrap; gap: 5px 18px; padding-top: 8px; }
 .gateway-attempt-details code { color: var(--foreground); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
-.gateway-task-empty { max-width: 740px; margin: 0 auto; }
+.gateway-task-empty { width: 100%; }
 .page-content:has(.cost-workbench) { display: flex; flex-direction: column; }
 .page-content .cost-workbench { display: flex; flex: 1; flex-direction: column; min-width: 0; max-width: 100%; }
 .page-content .cost-workbench > * { min-width: 0; max-width: 100%; }

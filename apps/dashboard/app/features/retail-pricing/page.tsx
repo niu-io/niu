@@ -7,7 +7,7 @@ import LegacyMediaContracts from './legacy-media';
 import { PricingHealthNotice, type PricingHealth } from './pricing-health';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { IconCurrencyDollar, IconSearch, IconDots } from '@tabler/icons-react';
+import { IconCurrencyDollar, IconSearch, IconDots, IconRefresh } from '@tabler/icons-react';
 import { ListRowsSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { useDashboardContext } from '@/shell/dashboard-context';
@@ -102,7 +102,26 @@ function Standards({ token }: { token: string }) {
     setSearch(next, { replace: true });
   }, [requestedModel, requestedPublish, mode, currency, loading, error, editor, rows, search, setSearch]);
   const visible = rows.filter(row => row.model_alias.toLowerCase().includes(filter.trim().toLowerCase()));
-  return <div className="empty-region space-y-6"><PageHeader title={uiT("Standard pricing", "标准售价")} /><p className="text-sm text-muted-foreground">{uiT("Default list prices charged across workspaces. To set a discount for a specific customer, open", "面向所有工作空间的默认公开售价。如需为单个客户设置专属折扣，请前往")} <Link to="/admin/customers" className="underline underline-offset-4">{uiT("Customers")}</Link>. <Link to="/admin/settings" className="underline underline-offset-4">{uiT("Manage the platform billing mode", "管理平台计费模式")}</Link></p>
+  const currencyHeaderActions = mode === 'currency' ? (
+    <>
+      <Button variant="ghost" size="icon-sm" disabled={loading} aria-label={uiT("Refresh prices")} title={uiT("Refresh prices")} onClick={reloadFresh}>
+        <IconRefresh size={16} className={loading ? 'animate-spin' : undefined} aria-hidden="true" />
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button ref={legacyOpener} type="button" variant="outline" size="icon-sm" aria-label={uiT("More actions")} disabled={loading && !rows.length}>
+            <IconDots size={16} aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem disabled={!currency || (loading && !rows.length) || !!error || !!editor} onSelect={() => { setEditor({ kind: 'media', previous: null }); setEditorOpen(true); }}>{uiT("Publish media price")}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setLegacyOpen(true)}>{uiT("Existing media contracts")}</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Button size="sm" disabled={!currency || (loading && !rows.length) || !!error || !!editor} onClick={() => { setEditor({ kind: 'text', previous: null }); setEditorOpen(true); }}>{uiT("Publish text price")}</Button>
+    </>
+  ) : undefined;
+  return <div className="empty-region space-y-6"><PageHeader title={uiT("Standard pricing", "标准售价")} action={currencyHeaderActions} /><p className="text-sm text-muted-foreground">{uiT("Default list prices charged across workspaces. To set a discount for a specific customer, open", "面向所有工作空间的默认公开售价。如需为单个客户设置专属折扣，请前往")} <Link to="/admin/customers" className="underline underline-offset-4">{uiT("Customers")}</Link>. <Link to="/admin/settings" className="underline underline-offset-4">{uiT("Manage the platform billing mode", "管理平台计费模式")}</Link></p>
     {editor && !editorOpen && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("A price publication is awaiting confirmation. Reopen it to check or retry before leaving this page.")}</span><Button type="button" variant="outline" onClick={() => setEditorOpen(true)}>{uiT("Return to publication")}</Button></AlertDescription></Alert>}
     <Tabs value={mode} onValueChange={value => {
       const nextMode = value as BillingMode;
@@ -122,26 +141,9 @@ function Standards({ token }: { token: string }) {
       )}
       <TabsContent value="currency" className="space-y-4">
         {!currency && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("Configure the platform currency in Admin Settings before publishing currency prices. If it is already configured, refresh this page.")}</span><Button asChild variant="link" className="h-auto p-0"><Link to="/admin/settings">{uiT("Open Settings")}</Link></Button></AlertDescription></Alert>}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {!showModeTabs && (
-            <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
-          )}
-          <div className="flex flex-wrap items-center gap-2">
-            <Button disabled={!currency || (loading && !rows.length) || !!error || !!editor} onClick={() => { setEditor({ kind: 'text', previous: null }); setEditorOpen(true); }}>{uiT("Publish text price")}</Button>
-            <Button variant="outline" disabled={loading} onClick={reloadFresh}>{uiT("Refresh prices")}</Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button ref={legacyOpener} type="button" variant="outline" size="icon" aria-label={uiT("More actions")} disabled={loading && !rows.length}>
-                  <IconDots size={16} aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem disabled={!currency || (loading && !rows.length) || !!error || !!editor} onSelect={() => { setEditor({ kind: 'media', previous: null }); setEditorOpen(true); }}>{uiT("Publish media price")}</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setLegacyOpen(true)}>{uiT("Existing media contracts")}</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
+        {!showModeTabs && (
+          <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
+        )}
         {notice && <p role="status">{uiT(notice)}</p>}
         {error && <Alert variant="destructive"><AlertDescription>{uiT(error)} <Button variant="outline" disabled={loading} onClick={() => void load(failed, true)}>{uiT("Retry prices")}</Button></AlertDescription></Alert>}
         {loading && !rows.length && <TableSkeleton columns={4} rows={5} label={uiT("Loading standard prices…")} />}

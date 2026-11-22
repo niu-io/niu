@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import {
-  IconArrowRight,
   IconCheck,
   IconCircleDashed,
   IconRefresh,
@@ -421,22 +420,25 @@ export default function AdminOverviewPage() {
     });
   }
 
+  const firstActionStepId = steps.find(item => item.status === 'action')?.id;
+
   return (
     <div className="w-full min-w-0 space-y-6">
       <PageHeader
         title={t('Admin overview', '管理总览')}
         action={
           <Button
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            size="icon-sm"
             disabled={loading}
+            aria-label={t('Refresh', '刷新')}
+            title={t('Refresh', '刷新')}
             onClick={() => {
               reloadCurrency();
               setRevision(value => value + 1);
             }}
           >
-            <IconRefresh size={16} aria-hidden="true" />
-            <span>{t('Refresh', '刷新')}</span>
+            <IconRefresh size={16} className={loading ? 'animate-spin' : undefined} aria-hidden="true" />
           </Button>
         }
       />
@@ -461,12 +463,6 @@ export default function AdminOverviewPage() {
                 )}
           </p>
         </div>
-        <Button asChild variant="outline" size="sm" className="shrink-0 self-start sm:self-center">
-          <Link to="/admin/providers">
-            <span>{t('Providers', '模型供应商')}</span>
-            <IconArrowRight size={15} aria-hidden="true" />
-          </Link>
-        </Button>
       </div>
 
       {!isInternal && (snapshot?.pendingRegistrations ?? 0) > 0 && (
@@ -526,7 +522,7 @@ export default function AdminOverviewPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="block p-0 align-top whitespace-nowrap sm:table-cell sm:px-5 sm:py-4 sm:text-right">
-                      <Button asChild variant={item.status === 'action' ? 'default' : 'outline'} size="sm">
+                      <Button asChild variant={item.id === firstActionStepId ? 'default' : 'outline'} size="sm">
                         <Link to={item.to}>{item.actionLabel}</Link>
                       </Button>
                     </TableCell>
