@@ -123,12 +123,35 @@ describe('provider API key administration workflow', () => {
     const api = stubVendorApi({ existing: [openRouter] });
     renderView(<MemoryRouter initialEntries={['/providers?supplier=openrouter-primary']}><ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} providerSlug="openrouter-primary" /></MemoryRouter>);
     await screen.findByRole('heading', { name: openRouter.name });
-    expect(screen.getByRole('heading', { name: 'Keys' })).toBeTruthy();
-    expect(screen.getByText(/Manage upstream API keys, request limits and cooldowns/)).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Models' }).getAttribute('href')).toBe('/admin/providers/openrouter-primary/models');
+    expect(screen.getByRole('heading', { name: 'API keys' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Select models' }).getAttribute('href')).toBe('/admin/providers/openrouter-primary');
     expect(screen.queryByRole('button', { name: 'Import models' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Model routes/ })).toBeNull();
     expect(api.calls.some(call => call.path.endsWith('/models') || call.path.endsWith('/check') || call.path.endsWith('/catalog'))).toBe(false);
+  });
+
+  it('enables a disabled API key in one click and prompts for a new key when credential was erased', async () => {
+    const disabledWithKey = { ...openRouter, id: 'vendor-disabled', name: 'BabelArk key', enabled: false, has_credential: true };
+    const erasedKey = { ...openRouter, id: 'vendor-erased', name: 'Disconnected key', enabled: false, has_credential: false };
+    const api = stubVendorApi({ existing: [disabledWithKey, erasedKey] });
+    const user = userEvent.setup();
+    renderView(<MemoryRouter initialEntries={['/providers?supplier=babelark']}><ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} providerSlug="babelark" /></MemoryRouter>);
+
+    await screen.findByRole('heading', { name: 'BabelArk key' });
+    await user.click(screen.getByRole('button', { name: 'Enable API key' }));
+    await waitFor(() => {
+      const enableCall = api.calls.find(c => c.path === '/api/v1/admin/providers/connections/vendor-disabled' && c.method === 'PUT');
+      expect(enableCall?.body).toMatchObject({ enabled: true, expected_revision: 1 });
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Enter API key & enable' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Provider API key'), 'fresh-secret-key');
+    await user.click(within(dialog).getByRole('button', { name: 'Save & enable' }));
+    await waitFor(() => {
+      const reconnectCall = api.calls.find(c => c.path === '/api/v1/admin/providers/connections/vendor-erased' && c.method === 'PUT');
+      expect(reconnectCall?.body).toMatchObject({ enabled: true, api_key: 'fresh-secret-key', expected_revision: 1 });
+    });
   });
 
   it('denies scoped owners before requesting any installation vendor data', async () => {
@@ -212,7 +235,6 @@ describe('provider API key administration workflow', () => {
     await user.type(screen.getByLabelText('Provider API key'), 'independent-secret');
     await user.click(screen.getByRole('button', { name: 'Add API key' }));
     expect(await screen.findByRole('heading', { name: 'Specialized models' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Select Provider API key' }).textContent).toContain('Specialized models');
     const creation = api.calls.find(call => call.method === 'POST' && call.path === '/api/v1/admin/providers/connections');
     expect(creation?.body).toMatchObject({ supplier_id: 'supplier-one', name: 'Specialized models', api_key: 'independent-secret' });
     expect(creation?.body).not.toHaveProperty('create_supplier');
@@ -239,7 +261,7 @@ describe('provider API key administration workflow', () => {
     await user.type(screen.getByLabelText('Provider name'), 'Saved Provider');
     await user.type(screen.getByLabelText('Provider API key'), 'saved-secret');
     await user.click(screen.getByRole('button', { name: 'Create provider' }));
-    expect(await screen.findByRole('alert')).toHaveProperty('textContent', expect.stringContaining('API key saved'));
+    expect(await screen.findByText(/API key saved/)).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     expect(api.calls.filter(call => call.method === 'POST' && call.path === '/api/v1/admin/providers/connections')).toHaveLength(1);
@@ -268,26 +290,19 @@ describe('provider API key administration workflow', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.queryByLabelText('Provider API key')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
-    await user.click(await screen.findByRole('button', { name: 'Select Provider API key' }));
-    expect(await screen.findByRole('menuitemradio', { name: /Possibly saved Provider/ })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Possibly saved Provider' })).toBeTruthy();
     expect(api.calls.filter(call => call.method === 'POST' && call.path === '/api/v1/admin/providers/connections')).toHaveLength(1);
     expect(localStorage.length).toBe(0);
   });
 
-  it('switches between API keys grouped under one Provider', async () => {
+  it('lists all API keys directly under one Provider with individual status and actions', async () => {
     const first = { ...openRouter, name: 'General key', supplier: { id: 'business-one', name: 'Shared business' } };
     const second = { ...first, id: 'restricted-key', name: 'Restricted key', enabled: false };
     stubVendorApi({ existing: [first, second] });
-    const user = userEvent.setup();
     render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
     expect(await screen.findByRole('heading', { name: 'General key' })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Select Provider API key' }));
-    expect(screen.getByRole('menuitemradio', { name: 'General key' }).getAttribute('aria-checked')).toBe('true');
-    await user.click(screen.getByRole('menuitemradio', { name: 'Restricted key · Disabled' }));
-    expect(await screen.findByRole('heading', { name: 'Restricted key' })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Select Provider API key' }));
-    expect(screen.getByRole('menuitemradio', { name: 'Restricted key · Disabled' }).getAttribute('aria-checked')).toBe('true');
-    await user.keyboard('{Escape}');
+    expect(screen.getByRole('heading', { name: 'Restricted key' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Enable API key' })).toBeTruthy();
     expect(screen.queryByText('business-one')).toBeNull();
   });
 
@@ -367,7 +382,7 @@ describe('provider API key administration workflow', () => {
     await screen.findByRole('heading', { name: openRouter.name });
     expect(calls).toContain('/api/v1/admin/providers/connections?supplier=business-fixture');
     expect(calls).not.toContain('/api/v1/admin/providers/connections');
-    expect(screen.getByRole('heading', { name: 'Keys' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'API keys' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Add provider' })).toBeNull();
   });
 

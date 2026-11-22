@@ -3,13 +3,14 @@ import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescript
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Link, type LoaderFunctionArgs } from 'react-router';
+import { Link, useSearchParams, type LoaderFunctionArgs } from 'react-router';
 import { IconBuilding, IconDots, IconPlus, IconRefresh } from '@tabler/icons-react';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { canManagePlatform, useDashboardContext } from '@/shell/dashboard-context';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import PageHeader from '@/components/PageHeader';
 import { TableSkeleton } from '@/components/PageSkeletons';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +18,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RegistrationRequestsQueue } from '@/features/platform-settings/registration-review';
 import { cachedGet, markCachedStale, peekCachedGet, request, writeMayHaveCommitted } from '@/features/providers/api';
 import { listOperators, type Operator } from '@/features/operators/api';
 import { invalidateQueries } from '@/lib/query-cache';
@@ -72,6 +75,14 @@ export default function CustomersRoute() {
  */
 export function Customers({ token, canSetup, onWorkspaceCreated }: { token: string; canSetup: boolean; onWorkspaceCreated: () => void }) {
   const { t: uiT, format: uiF } = useUILocale();
+  const [search, setSearch] = useSearchParams();
+  const activeTab = search.get('tab') === 'registrations' ? 'registrations' : 'customers';
+  function selectTab(nextTab: 'customers' | 'registrations') {
+    const next = new URLSearchParams(search);
+    if (nextTab === 'registrations') next.set('tab', 'registrations');
+    else next.delete('tab');
+    setSearch(next, { replace: true });
+  }
   const { currency: platformCurrency } = usePlatformCurrency();
   const client = useMemo(() => new NiuAdminClient({ fetch, adminToken: token, baseURL: new URL('/api/v1', location.origin).href }), [token]);
   const initialPage = token ? peekCachedGet<AccountPage>(token, CUSTOMER_ACCOUNTS_PATH) : undefined;
@@ -203,7 +214,18 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
   }
 
   return <section className="empty-region min-w-0 space-y-5" aria-label={uiT("Customers")}>
-    <PageHeader title={uiT("Customers")} action={<><Button variant="outline" disabled={loading} aria-label={uiT("Refresh customers")} title={uiT("Refresh customers")} onClick={refresh}><IconRefresh size={16} /><span className="hidden sm:inline">{uiT("Refresh")}</span></Button>{canSetup && <Button aria-label={uiT("New customer")} onClick={event => { opener.current = event.currentTarget; setCreate(true); }}><IconPlus size={16} /><span className="hidden sm:inline">{uiT("New customer")}</span></Button>}</>} />
+    <PageHeader title={uiT("Customers")} action={activeTab === 'customers' ? <><Button variant="outline" disabled={loading} aria-label={uiT("Refresh customers")} title={uiT("Refresh customers")} onClick={refresh}><IconRefresh size={16} /><span className="hidden sm:inline">{uiT("Refresh")}</span></Button>{canSetup && <Button aria-label={uiT("New customer")} onClick={event => { opener.current = event.currentTarget; setCreate(true); }}><IconPlus size={16} /><span className="hidden sm:inline">{uiT("New customer")}</span></Button>}</> : undefined} />
+    <Tabs value={activeTab} onValueChange={value => selectTab(value === 'registrations' ? 'registrations' : 'customers')}>
+      <div className="max-w-full overflow-x-auto overflow-y-hidden">
+        <TabsList variant="line" aria-label={uiT("Customer sections", "客户管理分区")}>
+          <TabsTrigger value="customers">{uiT("Customers", "客户列表")}</TabsTrigger>
+          <TabsTrigger value="registrations" className="gap-1.5">
+            <span>{uiT("Registrations", "注册审批")}</span>
+            {pendingRegistrations > 0 && <Badge variant="default" className="px-1.5 py-0 text-[11px]">{pendingRegistrations}</Badge>}
+          </TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent value="customers" className="space-y-5 pt-2">
     {pendingRegistrations > 0 && (
       <Alert>
         <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
@@ -211,8 +233,8 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
             {uiT("Pending Limited Preview account registrations:", "待审批的有限预览账号申请：")}{" "}
             <strong>{pendingRegistrations}</strong>
           </span>
-          <Button asChild variant="outline" size="sm">
-            <Link to="/admin/registrations">{uiT("Review requests", "前往审批")}</Link>
+          <Button type="button" variant="outline" size="sm" onClick={() => selectTab('registrations')}>
+            {uiT("Review requests", "前往审批")}
           </Button>
         </AlertDescription>
       </Alert>
@@ -234,6 +256,18 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
       </TableRow>])}</TableBody>
     </Table>}
     {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{loading ? uiT("Loading…") : uiT("More companies")}</Button>}
+      </TabsContent>
+      <TabsContent value="registrations" className="pt-2">
+        <RegistrationRequestsQueue
+          token={token}
+          showPolicySection={false}
+          onApproved={() => {
+            onWorkspaceCreated();
+            refresh();
+          }}
+        />
+      </TabsContent>
+    </Tabs>
     <CreateCompany onRestoreFocus={() => opener.current?.focus()} open={create} onOpenChange={setCreate} client={client} onCreated={company => { invalidateQueries(CUSTOMER_ACCOUNTS_PATH); setCompanies(old => [{ organization_id: company.id, organization_name: company.name, accounts: [], credits: null }, ...old.filter(row => row.organization_id !== company.id)]); setCreate(false); setSelected(company); void load(); }} />
     {selected && <CustomerSetup onRestoreFocus={() => opener.current?.focus()} key={selected.id} company={selected} token={token} client={client} onClose={() => { setSelected(null); setSetupRevision(value => value + 1); void load(); }} onWorkspaceCreated={() => { onWorkspaceCreated(); setSetupRevision(value => value + 1); }} />}
     {editor?.kind === 'units' && <CompanyBrandedUnitsDialog token={token} organizationId={editor.company.organization_id} organizationName={companyLabel(editor.company)} returnFocusTo={opener.current} onClose={() => { setEditor(null); void load(); }} onChanged={msg => { setNotice(msg); void load(); }} />}

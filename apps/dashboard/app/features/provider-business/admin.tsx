@@ -4,7 +4,7 @@ import ProviderModels from './ProviderModels';
 import MediaConsumption, { type MediaConsumptionRecord } from './MediaConsumption';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useProviderParams, providerPathSegment } from '@/shell/provider-route';
-import { IconBuildings as Building2, IconChevronDown as ChevronDown, IconDots as Dots, IconPlus as Plus, IconReceipt, IconSearch, IconShieldCheck as ShieldCheck, IconUsers, IconX as X } from "@tabler/icons-react";
+import { IconBuildings as Building2, IconChevronDown as ChevronDown, IconPlus as Plus, IconReceipt, IconShieldCheck as ShieldCheck, IconUsers, IconX as X } from "@tabler/icons-react";
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
@@ -16,11 +16,10 @@ import { ListRowsSkeleton, TableSkeleton, WorkspaceShellSkeleton } from "@/compo
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cachedGet, peekCachedGet, request, writeMayHaveCommitted, ProviderRequestError, type ProviderConnection, type ProviderModel } from "@/features/providers/api";
 import { money } from "@/lib/money";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MediaRateHistory from "./MediaRateHistory";
 import MediaRatePublisher from "./MediaRatePublisher";
 import type { ProviderOffer } from "@niu-io/sdk/admin";
@@ -101,7 +100,8 @@ function Administration({ token }: { token: string }) {
   const { t: uiT, format: uiF } = useUILocale();
   const { session, organization } = useDashboardContext();
   const internal = session?.operating_mode === 'internal';
-  const { section = "overview", providerId, supplierId } = useProviderParams();
+  const { section: rawSection, providerId, supplierId } = useProviderParams();
+  const section = !rawSection || rawSection === "overview" ? "models" : rawSection;
   const routeProviderId = providerId ?? supplierId;
   const initialBusinesses = token ? peekCachedGet<{ data: Business[] }>(token, "/api/v1/admin/providers")?.data ?? null : null;
   const [loading, setLoading] = useState(() => Boolean(token && !initialBusinesses));
@@ -122,16 +122,12 @@ function Administration({ token }: { token: string }) {
   const moreOffersRequest = useRef<AbortController | null>(null);
   const [members, setMembers] = useState<ProviderMember[]>(() => initialMembers ?? []);
   const [membersLoading, setMembersLoading] = useState(false);
-  const [offerQuery, setOfferQuery] = useState("");
-  const offerSearch = useRef<HTMLInputElement>(null);
   const pricingTab = !internal && ['text', 'media'].includes(search.get('view') ?? '') ? search.get('view')! : 'models';
   const setPricingTab = (value: string) => setSearch(current => { if (value === 'models') current.delete('view'); else current.set('view', value); return current; });
-  useEffect(() => { setOfferQuery(""); }, [selected, section]);
   const [mediaRateModel, setMediaRateModel] = useState<string | null>(null);
   const [mediaRateVersion, setMediaRateVersion] = useState(0);
   const textOffers = (data?.offers ?? []).filter(offer => offer.rate_kind !== "media");
   const mediaOffers = (data?.offers ?? []).filter(offer => offer.rate_kind === "media");
-  const visibleOffers = textOffers.filter(offer => section !== "models" || offer.model_alias.toLowerCase().includes(offerQuery.trim().toLowerCase()));
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -435,15 +431,13 @@ function Administration({ token }: { token: string }) {
   }
 
   const selectedBusiness = businesses.find(item => item.id === selected);
-  const sectionTitle = uiT({ overview: "Overview", usage: "Usage", members: "Members", models: "Models", settlements: "Settlements" }[section] ?? "Providers");
+  const sectionTitle = uiT({ overview: "Models & discounts", usage: "Usage", members: "Members", models: internal ? "Models" : "Models & discounts", settlements: "Settlements" }[section] ?? "Providers");
   const sectionAction =
     section === "members" ? (
       <Button variant="outline" className="header-icon-action" aria-label={uiT("Manage portal access")} title={uiT("Manage portal access")} disabled={!data} onClick={() => open("membership")}>
         <Plus size={16} />
         <span>{uiT("Manage portal access")}</span>
       </Button>
-    ) : !internal && section === "models" && pricingTab === "text" && textOffers.length > 0 ? (
-      <Button variant="outline" className="header-icon-action" aria-label={uiT("Set agreed rates")} title={uiT("Set agreed rates")} disabled={!data} onClick={() => open("offer")}><Plus size={16} /><span>{uiT("Set agreed rates")}</span></Button>
     ) : !internal && section === "settlements" ? (
       <Button variant="outline" className="header-icon-action" aria-label={uiT("Record payment")} title={uiT("Record payment")} disabled={!data} onClick={() => open("settlement")}><Plus size={16} /><span>{uiT("Record payment")}</span></Button>
     ) : null;
@@ -590,8 +584,8 @@ function Administration({ token }: { token: string }) {
     }
   }
   const sectionDescription = {
-    overview: internal ? 'Connect an API key and discover models for internal use.' : 'Connect API access and model routes, then manage commercial rates and payments.',
-    models: internal ? 'Manage model connections and availability.' : 'Model connections, availability and commercial offers.',
+    overview: internal ? 'Choose which imported models are enabled.' : 'Choose which models are available on this platform and optionally set a discount off upstream standard prices (default: no discount).',
+    models: internal ? 'Choose which imported models are enabled.' : 'Choose which models are available on this platform and optionally set a discount off upstream standard prices (default: no discount).',
     usage: internal ? 'Provider usage over the last 90 days.' : 'Provider usage and accrued purchase charges over the last 90 days.',
     settlements: 'Outstanding balances and confirmed payments to this provider.',
     members: 'Grant provider representatives access to their own offers, usage, earnings, and payments.',
@@ -674,64 +668,36 @@ function Administration({ token }: { token: string }) {
           </div>}
           {(section === "overview" || section === "models") && <>
           {section === "models" && <div className="provider-admin-block">
-            <Tabs value={pricingTab} onValueChange={setPricingTab}>
-            {!internal && <div className="mb-4 max-w-full overflow-x-auto overflow-y-hidden"><TabsList variant="line" aria-label={uiT("Provider model section")}><TabsTrigger value="models">{uiT("Models")}</TabsTrigger><TabsTrigger value="text">{uiT("Text rates")}</TabsTrigger><TabsTrigger value="media">{uiT("Media rates")}</TabsTrigger></TabsList></div>}
-            <TabsContent value="models"><ProviderModels token={token} providerId={selected} providerSlug={providerPathSegment(selectedBusiness ?? {id:selected})} canManage={session?.kind === "installation" || !!session?.permissions?.platform_admin} offers={internal ? [] : data?.offers ?? []} offersComplete={!!data && !data.offers_has_more} commercialEnabled={!internal} onEnableOffer={id => open("offer-enable", id)} onOffer={(modelAlias, media) => { if (media) { setPricingTab("media"); setMediaRateModel(modelAlias); } else open("offer", data?.offers.find(offer => offer.model_alias === modelAlias)?.id ?? "", modelAlias); }} onSaved={() => setRevision(value => value + 1)} /></TabsContent>
-            <TabsContent value="text">
-            {section === "models" && Boolean(textOffers.length) && <div className="flex flex-wrap items-center gap-2 pb-4"><div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={offerSearch} type="search" className="pl-9" aria-label={uiT("Filter provider models")} placeholder={uiT("Filter by model name…")} value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
-            {textOffers.length ? (
-              visibleOffers.length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconSearch size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle></EmptyHeader><EmptyContent><Button variant="outline" onClick={() => { setOfferQuery(""); offerSearch.current?.focus(); }}>{uiT("Clear search")}</Button></EmptyContent></Empty> :
-              <div className="table-wrap">
-                <ShadcnTable className="provider-ledger supplier-text-offers">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{uiT("Model alias")}</TableHead>
-                      <TableHead className="text-right">{uiT("Input / 1M tokens")}</TableHead>
-                      <TableHead className="text-right">{uiT("Cache read / 1M tokens")}</TableHead>
-                      <TableHead className="text-right">{uiT("Output / 1M tokens")}</TableHead>
-
-                      <TableHead>{uiT("Offer status")}</TableHead>
-                      {section === "models" && <TableHead className="supplier-offer-actions text-right"><span className="sr-only">{uiT("Actions")}</span></TableHead>}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {visibleOffers.map((offer) => (
-                      <TableRow key={offer.id}>
-                        <TableCell>{offer.model_alias}<dl className="mt-3 grid gap-2 text-sm sm:hidden">
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Input / 1M tokens")}</dt><dd className="tabular-nums">{money(offer.prompt_rate, offer.currency)}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Cache read / 1M tokens")}</dt><dd className="tabular-nums">{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Output / 1M tokens")}</dt><dd className="tabular-nums">{money(offer.completion_rate, offer.currency)}</dd></div>
-
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Offer status")}</dt><dd>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</dd></div>
-                        </dl></TableCell>
-                        <TableCell className="text-right tabular-nums">{money(offer.prompt_rate, offer.currency)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</TableCell>
-                        <TableCell className="text-right tabular-nums">{money(offer.completion_rate, offer.currency)}</TableCell>
-
-                        <TableCell>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</TableCell>
-                        {section === "models" && <TableCell className="supplier-offer-actions"><DropdownMenu>
-                          <DropdownMenuTrigger asChild><Button ref={element => { if (element) offerActionButtons.current.set(offer.id, element); else offerActionButtons.current.delete(offer.id); }} variant="ghost" size="icon" aria-label={uiF("Actions for {0}", [offer.model_alias])}><Dots size={18} /></Button></DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => open("offer", offer.id)}>{uiT("Edit rates")}</DropdownMenuItem>
-                          {offer.active ? <DropdownMenuItem onSelect={() => open("offer-pause", offer.id)}>{uiT("Pause offer")}</DropdownMenuItem> : <DropdownMenuItem onSelect={() => open("offer-enable", offer.id)}>{uiT("Enable offer")}</DropdownMenuItem>}
-                          </DropdownMenuContent>
-                        </DropdownMenu></TableCell>}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </ShadcnTable>
+            {pricingTab === "media" && !internal ? (
+              <div className="space-y-4">
+                <div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setPricingTab("models")}>
+                    {uiT("Back to models", "返回模型列表")}
+                  </Button>
+                </div>
+                <MediaRateHistory key={selected} token={token} supplier={selected} showConfiguredModels refreshSignal={mediaRateVersion} />
               </div>
             ) : (
-              <div className="provider-empty-state space-y-3">
-                <strong>{uiT("No agreed model rates")}</strong>
-                {!internal && <div><Button variant="outline" size="sm" disabled={!data} onClick={() => open("offer")}><Plus size={16} /><span>{uiT("Set agreed rates")}</span></Button></div>}
-              </div>
+              <ProviderModels
+                token={token}
+                providerId={selected}
+                providerSlug={providerPathSegment(selectedBusiness ?? { id: selected })}
+                canManage={session?.kind === "installation" || !!session?.permissions?.platform_admin}
+                offers={internal ? [] : data?.offers ?? []}
+                offersComplete={!!data && !data.offers_has_more}
+                commercialEnabled={!internal}
+                onEnableOffer={id => open("offer-enable", id)}
+                onOffer={(modelAlias, media) => {
+                  if (media) {
+                    setPricingTab("media");
+                    setMediaRateModel(modelAlias);
+                  } else {
+                    open("offer", data?.offers.find(offer => offer.model_alias === modelAlias)?.id ?? "", modelAlias);
+                  }
+                }}
+                onSaved={() => setRevision(value => value + 1)}
+              />
             )}
-            </TabsContent>
-            {section === "models" && <TabsContent value="media">
-              <div><MediaRateHistory key={selected} token={token} supplier={selected} showConfiguredModels refreshSignal={mediaRateVersion} /></div>
-            </TabsContent>}
-            </Tabs>
             {!internal && data?.offers_has_more && <div className="py-4 space-y-2"><p className="text-sm text-muted-foreground">{data.offers.length}{" "}{uiT("offers loaded. Counts and filters cover loaded offers only.")}</p>{moreOffersError && <div role="alert"><p>{moreOffersError}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Refresh offers")}</Button></div>}<Button variant="outline" disabled={loadingMoreOffers} onClick={() => void loadMoreOffers()}>{loadingMoreOffers ? uiT("Loading offers…") : moreOffersError ? uiT("Retry loading offers") : uiT("Load more offers")}</Button></div>}
           </div>}
           </>}

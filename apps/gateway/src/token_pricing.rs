@@ -18,6 +18,8 @@ pub struct TokenRateInput {
     pub reasoning_completion_rate: Option<Option<String>>,
     #[serde(default, deserialize_with = "cache_rate_field")]
     pub cache_write_prompt_rate: Option<Option<String>>,
+    #[serde(default)]
+    pub activate: bool,
 }
 fn cache_rate_field<'de, D: serde::Deserializer<'de>>(
     deserializer: D,

@@ -1038,6 +1038,11 @@ pub async fn set_member(
 ///                 ],
 ///                 "pattern": "^[0-9]+$",
 ///                 "description": "Currency nanounits per million tokens; maximum 1000000000000000."
+///               },
+///               "activate": {
+///                 "type": "boolean",
+///                 "default": false,
+///                 "description": "When true, atomically authorizes and activates this offer revision in the same transaction. Requires an enabled commercial route with a stored credential owned by the Provider."
 ///               }
 ///             }
 ///           }
@@ -1061,7 +1066,18 @@ pub async fn set_member(
 ///                     "revision"
 ///                   ],
 ///                   "properties": {
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
 ///                     "revision": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "active": {
+///                       "type": "boolean"
+///                     },
+///                     "authorization_id": {
 ///                       "type": "string",
 ///                       "format": "uuid"
 ///                     }
@@ -1079,7 +1095,7 @@ pub async fn set_member(
 ///         "description": "Installation administration required"
 ///       },
 ///       "409": {
-///         "description": "Ownership, expected revision, or omitted current schedule conflict"
+///         "description": "Ownership, expected revision, route readiness, or omitted current schedule conflict"
 ///       },
 ///       "422": {
 ///         "description": "JSON schema mismatch; context_tiers must be an array, never null"
@@ -1094,7 +1110,10 @@ pub async fn publish_offer(
     Path(provider): Path<Uuid>,
     Json(input): Json<crate::token_pricing::TokenRateInput>,
 ) -> Result<Json<Value>, ApiError> {
-    installation(&state, &headers).await?;
+    let authorization = auth(&state, &headers).await?;
+    if !authorization.can_manage_platform() {
+        return Err(ApiError::forbidden());
+    }
     let cached = input
         .cached_prompt_rate
         .as_ref()
@@ -1106,24 +1125,41 @@ pub async fn publish_offer(
         completion_rate: input.completion_rate,
         expected_revision: input.expected_revision,
     };
+    let schedule = niu_storage::ProviderOfferSchedule {
+        cached_prompt_rate: cached,
+        reasoning_completion_rate: input
+            .reasoning_completion_rate
+            .as_ref()
+            .map(|rate| rate.as_deref()),
+        cache_write_prompt_rate: input
+            .cache_write_prompt_rate
+            .as_ref()
+            .map(|rate| rate.as_deref()),
+        context_tiers: input.context_tiers.as_deref(),
+    };
+    if input.activate {
+        let (offer_id, revision, authorization_id) = state
+            .store
+            .publish_and_activate_provider_offer_schedule(
+                provider,
+                &rates,
+                schedule,
+                supplier_audit_actor(authorization),
+            )
+            .await
+            .map_err(ApiError::from_store)?;
+        return Ok(Json(json!({
+            "data": {
+                "id": offer_id,
+                "revision": revision,
+                "active": true,
+                "authorization_id": authorization_id
+            }
+        })));
+    }
     let revision = state
         .store
-        .publish_provider_offer_schedule(
-            provider,
-            &rates,
-            niu_storage::ProviderOfferSchedule {
-                cached_prompt_rate: cached,
-                reasoning_completion_rate: input
-                    .reasoning_completion_rate
-                    .as_ref()
-                    .map(|rate| rate.as_deref()),
-                cache_write_prompt_rate: input
-                    .cache_write_prompt_rate
-                    .as_ref()
-                    .map(|rate| rate.as_deref()),
-                context_tiers: input.context_tiers.as_deref(),
-            },
-        )
+        .publish_provider_offer_schedule(provider, &rates, schedule)
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"revision":revision}})))

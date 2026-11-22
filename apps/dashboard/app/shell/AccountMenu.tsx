@@ -61,7 +61,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
               <DropdownMenuItem asChild><Link onClick={dismissMobileSidebar} to="/activity"><IconChartLine />{t('Activity', '活动')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link onClick={dismissMobileSidebar} to={modelsHref}><Boxes />{t('Models', '模型')}</Link></DropdownMenuItem>
             </>}
-            {platformAdmin && <DropdownMenuItem asChild><Link onClick={dismissMobileSidebar} to="/admin"><IconShieldLock />{t('Admin', '管理后台')}</Link></DropdownMenuItem>}
+            {platformAdmin && <DropdownMenuItem asChild><Link onClick={dismissMobileSidebar} to="/admin/providers"><IconShieldLock />{t('Admin', '管理后台')}</Link></DropdownMenuItem>}
             <DropdownMenuItem asChild><a href={`${import.meta.env.BASE_URL}docs/`} target="_blank" rel="noopener" aria-label={t('Docs (opens in a new tab)', '文档（在新标签页打开）')}><CircleHelp />{t('Docs', '文档')}<IconExternalLink className="ml-auto" aria-hidden="true" /></a></DropdownMenuItem>
             <DropdownMenuSeparator />
           </>}
@@ -83,7 +83,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
                 <span>{role === 'admin' ? t('Platform administrator', '平台管理员') : t('User', '普通用户')}</span>
               </DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup>
-            {roles.active === 'admin' && !location.pathname.startsWith('/admin') && <DropdownMenuItem asChild><Link onClick={() => { setAccountMenuOpen(false); dismissMobileSidebar(); }} to="/admin"><IconShieldLock />{t('Open Admin console', '打开管理后台')}</Link></DropdownMenuItem>}
+            {roles.active === 'admin' && !location.pathname.startsWith('/admin') && <DropdownMenuItem asChild><Link onClick={() => { setAccountMenuOpen(false); dismissMobileSidebar(); }} to="/admin/providers"><IconShieldLock />{t('Open Admin console', '打开管理后台')}</Link></DropdownMenuItem>}
           </>}
           {roles?.error && <DropdownMenuLabel role="alert" className="text-destructive whitespace-normal">{uiT(roles.error)}</DropdownMenuLabel>}
           {!supplierOnly && token && organizations.length > 0 && <>

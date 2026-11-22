@@ -706,6 +706,221 @@ impl Store {
         Ok(revision)
     }
 
+    /// Publish a new offer rate revision and atomically authorize and activate it
+    /// in a single serialized transaction. Requires an enabled commercial route
+    /// with a stored credential owned by the Provider.
+    pub async fn publish_and_activate_provider_offer_schedule(
+        &self,
+        provider: Uuid,
+        input: &ProviderOfferInput,
+        schedule: ProviderOfferSchedule<'_>,
+        actor: OperatorAuditActor,
+    ) -> Result<(Uuid, Uuid, Uuid), StoreError> {
+        let ProviderOfferSchedule {
+            cached_prompt_rate,
+            reasoning_completion_rate,
+            cache_write_prompt_rate,
+            context_tiers,
+        } = schedule;
+        let mut tiers = context_tiers.unwrap_or_default().to_vec();
+        crate::normalize_context_tiers(&mut tiers)?;
+        let written = cache_write_prompt_rate
+            .flatten()
+            .map(crate::pricing::parse_token_rate)
+            .transpose()?;
+        let reasoning = reasoning_completion_rate
+            .flatten()
+            .map(crate::pricing::parse_token_rate)
+            .transpose()?;
+        let cached = cached_prompt_rate
+            .flatten()
+            .map(crate::pricing::parse_token_rate)
+            .transpose()?;
+        let prompt = crate::pricing::parse_token_rate(&input.prompt_rate)?;
+        let completion = crate::pricing::parse_token_rate(&input.completion_rate)?;
+        if input.currency.len() != 3 || !input.currency.bytes().all(|b| b.is_ascii_uppercase()) {
+            return Err(StoreError::InvalidPrice);
+        }
+        let mut tx = self.begin_route_write().await?;
+        let (actor_kind, operator) = actor.kind_and_id();
+        if let Some(operator) = operator {
+            let authorized = sqlx::query_scalar::<_, bool>(
+                "SELECT EXISTS(SELECT 1 FROM admin_operators WHERE id=$1 AND platform_admin AND revoked_at IS NULL FOR SHARE)",
+            )
+            .bind(operator)
+            .fetch_one(&mut *tx)
+            .await?;
+            if !authorized {
+                return Err(StoreError::Unauthorized);
+            }
+        }
+        sqlx::query(
+            "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
+        )
+        .bind(provider)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(StoreError::Conflict)?;
+        let vendor: Uuid = sqlx::query_scalar(
+            "SELECT m.vendor_id \
+             FROM vendor_models m \
+             JOIN vendors v ON v.id=m.vendor_id \
+             JOIN vendor_supplier_ownership own ON own.vendor_id=v.id AND own.provider_id=$1 \
+             WHERE m.alias=$2 \
+               AND m.enabled \
+               AND v.enabled \
+               AND v.credential_ciphertext IS NOT NULL \
+               AND octet_length(v.credential_ciphertext) > 0 \
+               AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership personal WHERE personal.vendor_id=v.id) \
+             FOR SHARE OF m, v",
+        )
+        .bind(provider)
+        .bind(&input.model_alias)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(StoreError::Conflict)?;
+        #[derive(sqlx::FromRow)]
+        struct CurrentOffer {
+            id: Uuid,
+            provider_id: Uuid,
+            current_revision: Uuid,
+            vendor_id: Uuid,
+            cached_prompt_rate: Option<i64>,
+            reasoning_completion_rate: Option<i64>,
+            cache_write_prompt_rate: Option<i64>,
+            context_tiers: Value,
+        }
+        let existing: Option<CurrentOffer> = sqlx::query_as(
+            "SELECT o.id,o.provider_id,o.current_revision,o.vendor_id,r.cached_prompt_rate,r.reasoning_completion_rate,r.cache_write_prompt_rate,r.context_tiers \
+             FROM provider_offers o \
+             JOIN provider_offer_revisions r ON r.id=o.current_revision \
+             WHERE o.model_alias=$1 FOR UPDATE OF o",
+        )
+        .bind(&input.model_alias)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let offer = match existing {
+            Some(CurrentOffer {
+                id,
+                provider_id: owner,
+                current_revision: revision,
+                vendor_id: bound_vendor,
+                cached_prompt_rate: prior_cached,
+                reasoning_completion_rate: prior_reasoning,
+                cache_write_prompt_rate: prior_written,
+                context_tiers: prior_tiers,
+            }) => {
+                if (context_tiers.is_none()
+                    && prior_tiers
+                        .as_array()
+                        .is_some_and(|tiers| !tiers.is_empty()))
+                    || (prior_written.is_some() && cache_write_prompt_rate.is_none())
+                    || (prior_reasoning.is_some() && reasoning_completion_rate.is_none())
+                    || (prior_cached.is_some() && cached_prompt_rate.is_none())
+                    || owner != provider
+                    || input.expected_revision != Some(revision)
+                    || bound_vendor != vendor
+                {
+                    return Err(StoreError::Conflict);
+                }
+                id
+            }
+            None => {
+                if input.expected_revision.is_some() {
+                    return Err(StoreError::Conflict);
+                }
+                let id = Uuid::new_v4();
+                sqlx::query(
+                    "INSERT INTO provider_offers(id,provider_id,model_alias,vendor_id,active) VALUES($1,$2,$3,$4,FALSE)",
+                )
+                .bind(id)
+                .bind(provider)
+                .bind(&input.model_alias)
+                .bind(vendor)
+                .execute(&mut *tx)
+                .await?;
+                id
+            }
+        };
+        let revision = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO provider_offer_revisions(id,offer_id,currency,prompt_rate,completion_rate,cached_prompt_rate,reasoning_completion_rate,cache_write_prompt_rate,context_tiers) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+        )
+        .bind(revision)
+        .bind(offer)
+        .bind(&input.currency)
+        .bind(prompt)
+        .bind(completion)
+        .bind(cached)
+        .bind(reasoning)
+        .bind(written)
+        .bind(sqlx::types::Json(&tiers))
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "UPDATE provider_offers SET current_revision=$2,active=FALSE,current_qualification_review=NULL,current_authorization=NULL WHERE id=$1",
+        )
+        .bind(offer)
+        .bind(revision)
+        .execute(&mut *tx)
+        .await?;
+        let media_binding_ok: bool =
+            sqlx::query_scalar("SELECT niu_media_offer_binding_current($1,$2,$3)")
+                .bind(provider)
+                .bind(offer)
+                .bind(revision)
+                .fetch_one(&mut *tx)
+                .await?;
+        if !media_binding_ok {
+            return Err(StoreError::Conflict);
+        }
+        let authorization = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO provider_offer_authorizations(id,provider_id,offer_id,rate_revision,actor_kind,actor_operator_id) VALUES($1,$2,$3,$4,$5,$6)",
+        )
+        .bind(authorization)
+        .bind(provider)
+        .bind(offer)
+        .bind(revision)
+        .bind(actor_kind)
+        .bind(operator)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "INSERT INTO provider_audit_events(provider_id,actor_kind,actor_operator_id,action,resource_id) VALUES($1,$2,$3,'offer_priced',$4)",
+        )
+        .bind(provider)
+        .bind(actor_kind)
+        .bind(operator)
+        .bind(revision)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "INSERT INTO provider_audit_events(provider_id,actor_kind,actor_operator_id,action,resource_id) VALUES($1,$2,$3,'offer_authorized',$4)",
+        )
+        .bind(provider)
+        .bind(actor_kind)
+        .bind(operator)
+        .bind(authorization)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "UPDATE provider_offers SET current_qualification_review=NULL,current_authorization=$3 WHERE provider_id=$1 AND id=$2",
+        )
+        .bind(provider)
+        .bind(offer)
+        .bind(authorization)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query("UPDATE provider_offers SET active=TRUE WHERE provider_id=$1 AND id=$2")
+            .bind(provider)
+            .bind(offer)
+            .execute(&mut *tx)
+            .await?;
+        self.commit_route_write(tx).await?;
+        Ok((offer, revision, authorization))
+    }
+
     /// Record an authorization without activating it; retained for migration
     /// tests. Product enablement must use the atomic method below.
     pub async fn record_provider_offer_authorization(

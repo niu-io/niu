@@ -13,19 +13,11 @@ it('keeps Admin sections independent of the Provider directory', () => {
   render(<MemoryRouter initialEntries={['/admin/providers']}><SidebarProvider><ProviderNav context={context}/></SidebarProvider></MemoryRouter>);
   expect(screen.queryByRole('button', {name:'Switch provider'})).toBeNull();
   for (const [name, href] of [
-    ['Overview', '/admin'],
     ['Providers', '/admin/providers'],
-    ['Custom models', '/admin/routing'],
     ['Pricing', '/admin/pricing'],
     ['Customers', '/admin/customers'],
-    ['Registrations', '/admin/registrations'],
-    ['Payments', '/admin/payments'],
-    ['Financial reports', '/admin/reports'],
-    ['Incidents', '/admin/incidents'],
-    ['Audit logs', '/admin/audit'],
-    ['Branding', '/admin/branding'],
-    ['Registration policy', '/admin/settings/registration'],
-    ['General & billing', '/admin/settings'],
+    ['Reports', '/admin/reports'],
+    ['Settings', '/admin/settings'],
   ]) {
     expect(screen.getByRole('link', {name}).getAttribute('href')).toBe(href);
   }
@@ -41,8 +33,8 @@ it('keeps Admin navigation available on Provider detail routes', () => {
   expect(screen.queryByText('Example provider')).toBeNull();
   expect(screen.getByRole('link', {name:'Providers'}).getAttribute('href')).toBe('/admin/providers');
   expect(screen.getByRole('link', {name:'Providers'}).getAttribute('aria-current')).toBe('page');
-  expect(screen.getByRole('link', {name:'Payments'}).getAttribute('href')).toBe('/admin/payments');
-  expect(screen.getByRole('link', {name:'Payments'}).hasAttribute('aria-current')).toBe(false);
+  expect(screen.getByRole('link', {name:'Pricing'}).getAttribute('href')).toBe('/admin/pricing');
+  expect(screen.getByRole('link', {name:'Pricing'}).hasAttribute('aria-current')).toBe(false);
   const adminLinks=screen.getByRole('navigation',{name:'Admin navigation'}).querySelectorAll('a');
   expect(adminLinks[adminLinks.length-1].getAttribute('href')).toBe('/admin/settings');
   for (const name of ['All providers','Connections','Keys','Models','Usage','Settlements','Members']) {
@@ -67,50 +59,18 @@ it('lets Provider members switch provider without losing the section or carrying
   expect(screen.queryByRole('menu')).toBeNull();
 });
 
-it('expands and collapses two-level Admin sidebar groups and auto-expands active groups', async () => {
-  window.localStorage.removeItem('niu.admin.nav.collapsed');
+it('keeps Settings as the final Admin navigation link in both resale and internal modes', () => {
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({data:[]})));
-  const context = {token:'test',session:{kind:'installation',operator:null}} as unknown as DashboardContext;
-  const user = userEvent.setup();
+  const internalContext = {token:'test',session:{kind:'installation',operating_mode:'internal',operator:null}} as unknown as DashboardContext;
   render(
     <MemoryRouter initialEntries={['/admin/providers']}>
       <SidebarProvider>
-        <ProviderNav context={context}/>
+        <ProviderNav context={internalContext}/>
       </SidebarProvider>
     </MemoryRouter>
   );
-
-  const commerceButton = screen.getByRole('button', { name: 'Commerce' });
-  expect(commerceButton.getAttribute('aria-expanded')).toBe('true');
-  expect(screen.getByRole('link', { name: 'Pricing' })).toBeTruthy();
-
-  await user.click(commerceButton);
-  expect(commerceButton.getAttribute('aria-expanded')).toBe('false');
-  expect(screen.queryByRole('link', { name: 'Pricing' })).toBeNull();
-
-  await user.click(commerceButton);
-  expect(commerceButton.getAttribute('aria-expanded')).toBe('true');
-  expect(screen.getByRole('link', { name: 'Pricing' })).toBeTruthy();
-});
-
-it('opens a two-level flyout menu for Admin groups when the sidebar is collapsed to icon mode', async () => {
-  window.localStorage.removeItem('niu.admin.nav.collapsed');
-  vi.stubGlobal('fetch', vi.fn(async () => Response.json({data:[]})));
-  const context = {token:'test',session:{kind:'installation',operator:null}} as unknown as DashboardContext;
-  const user = userEvent.setup();
-  render(
-    <MemoryRouter initialEntries={['/admin/providers']}>
-      <SidebarProvider defaultOpen={false}>
-        <ProviderNav context={context}/>
-      </SidebarProvider>
-    </MemoryRouter>
-  );
-
-  const commerceTrigger = screen.getByRole('button', { name: 'Commerce' });
-  expect(screen.queryByRole('link', { name: 'Payments' })).toBeNull();
-  await user.click(commerceTrigger);
-  const paymentsItem = await screen.findByRole('menuitem', { name: 'Payments' });
-  expect(paymentsItem.getAttribute('href')).toBe('/admin/payments');
+  const links = screen.getByRole('navigation', { name: 'Admin navigation' }).querySelectorAll('a');
+  expect([...links].map(a => a.getAttribute('href'))).toEqual(['/admin/providers', '/admin/settings']);
 });
 
 function PathEcho() {

@@ -59,15 +59,17 @@ it('shows a clean purchase rate and one billing-mode switch without atom or scal
   await waitFor(() => expect(document.activeElement).toBe(editDefBtn));
 });
 
-it('separates General and Branded Credits & billing mode into tabs on Admin Settings', async () => {
+it('organizes Admin Settings tabs and lazily reveals Branded Credits & billing mode in Advanced', async () => {
   saveLocale('en');
   const user = userEvent.setup();
   render(<MemoryRouter><PlatformSettingsRoute /></MemoryRouter>);
   expect(screen.getByRole('tab', { name: 'General & currency' }).getAttribute('aria-selected')).toBe('true');
-  expect(screen.getByRole('tab', { name: 'Branded Credits & billing mode' }).getAttribute('aria-selected')).toBe('false');
+  expect(screen.getByRole('tab', { name: 'Registration policy' }).getAttribute('aria-selected')).toBe('false');
+  expect(screen.getByRole('tab', { name: 'Branding' }).getAttribute('aria-selected')).toBe('false');
+  expect(screen.getByRole('tab', { name: 'Payments' }).getAttribute('aria-selected')).toBe('false');
   expect(screen.getByRole('region', { name: 'Platform currency' })).toBeTruthy();
+  expect(screen.queryByRole('region', { name: 'Branded Credits and billing mode' })).toBeNull();
 
-  await user.click(screen.getByRole('tab', { name: 'Branded Credits & billing mode' }));
-  expect(screen.getByRole('tab', { name: 'Branded Credits & billing mode' }).getAttribute('aria-selected')).toBe('true');
-  expect(screen.getByRole('region', { name: 'Branded Credits and billing mode' })).toBeTruthy();
+  await user.click(screen.getByText('Advanced: Branded Credits & billing mode'));
+  expect(await screen.findByRole('region', { name: 'Branded Credits and billing mode' })).toBeTruthy();
 });

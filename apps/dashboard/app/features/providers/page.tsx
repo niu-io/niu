@@ -34,8 +34,10 @@ export default function ProvidersRoute() {
   const [search] = useSearchParams();
   const location = useLocation();
   if (!activeProviderId) return <ProviderList />;
-  if (context.providerDirectory && !resolveProvider(activeProviderId, context.providerDirectory)) {
-    if (context.providerDirectoryLoading) {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeProviderId);
+  const resolvedProvider = context.providerDirectory ? resolveProvider(activeProviderId, context.providerDirectory) : undefined;
+  if (context.providerDirectory ? !resolvedProvider : (!isUuid && context.providerDirectoryLoading)) {
+    if (context.providerDirectoryLoading || (!context.providerDirectory && !isUuid)) {
       return <WorkspaceShellSkeleton label={uiT("Loading Provider…")} />;
     }
     if (context.providerDirectoryError) {

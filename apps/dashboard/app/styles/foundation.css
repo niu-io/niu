@@ -156,26 +156,9 @@ button:disabled { cursor: not-allowed; }
 .key-confirm-copy { margin: 0; color: var(--muted-foreground); font-size: 15px; line-height: 1.6; }
 .key-dialog { width: min(650px, calc(100vw - 32px)); }
 .model-no-results { margin: 0; padding: 28px 20px; color: var(--muted-foreground); font-size: 14px; }
-.supplier-detail-layout { display: grid; gap: 20px; margin-bottom: 20px; }
 .supplier-key-picker { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .supplier-key-trigger { max-width: min(420px, calc(100% - 40px)); }
 .supplier-key-trigger > span { overflow: hidden; text-overflow: ellipsis; }
-.supplier-detail-header { display: grid; gap: 16px; padding-bottom: 8px; border-bottom: 0; }
-.supplier-detail-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.supplier-detail-identity > div { min-width: 0; }
-.supplier-detail-identity h2 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; }
-.supplier-detail-identity p { margin: 3px 0 0; color: var(--muted-foreground); font-size: 14px; }
-.supplier-detail-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.supplier-endpoint { margin: 0; min-width: 0; color: var(--muted-foreground); font-size: 13px; overflow-wrap: anywhere; }
-@media (max-width: 640px) {
-  .supplier-detail-identity { flex-wrap: wrap; }
-  .supplier-detail-identity h2 { font-size: 15px; }
-  .supplier-detail-identity .vendor-status-badge { margin-left: auto; }
-  .supplier-detail-bottom { align-items: flex-start; flex-direction: column; }}
-.vendor-detail-panel { display: grid; align-content: start; gap: 20px; padding: 22px; }
-.vendor-detail-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
-.vendor-detail-actions > a { display: inline-flex; align-items: center; gap: 5px; color: var(--muted-foreground); font-size: 14px; text-decoration: none; }
-.vendor-detail-actions > a:hover { color: var(--foreground); }
 .vendor-dialog { width: min(760px, calc(100vw - 32px)); }
 .niu-modal .vendor-editor { overflow: visible; margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .niu-modal .vendor-editor-heading { display: none; }

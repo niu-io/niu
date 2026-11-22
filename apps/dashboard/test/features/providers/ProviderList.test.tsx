@@ -223,8 +223,10 @@ it('shows saved logos and default fallbacks without a redundant configuration st
 it('derives commercial supply readiness only from explicitly authorized active offers', async () => {
   const { supplierAvailability } = await import('@/features/providers/provider-setup');
   const configured = { api_keys: 1, enabled_api_keys: 1, models: 2, enabled_model_routes: 2, offers: 1, ready_offers: 0 };
-  expect(supplierAvailability({ ...configured }).label).toBe('Not ready');
-  expect(supplierAvailability({ ...configured, ready_offers: 1 }).label).toBe('Ready to supply');
+  expect(supplierAvailability({ ...configured }).label).toBe('No models active');
+  expect(supplierAvailability({ ...configured }).action).toBe('Select models');
+  expect(supplierAvailability({ ...configured, ready_offers: 1 }).label).toBe('Ready');
+  expect(supplierAvailability({ ...configured, ready_offers: 1 }).action).toBe('Manage models');
   expect(supplierAvailability({ ...configured, ready_offers: undefined }).label).toBe('Status unavailable');
 });
 
@@ -235,14 +237,14 @@ it('refreshes missing readiness data instead of sending users to edit offers', a
   await screen.findByText('Status unavailable');
   vi.mocked(request).mockResolvedValue({ data: [{ id: 'supplier', name: 'Provider', api_keys: 1, models: 2, enabled_api_keys: 1, enabled_model_routes: 2, offers: 2, ready_offers: 0 }] });
   await userEvent.setup().click(screen.getAllByRole('button', { name: 'Refresh status' })[0]);
-  await screen.findByText('Not ready');
+  await screen.findByText('No models active');
   expect(screen.queryByText('Status unavailable')).toBeNull();
 });
 
 it('does not require commercial authorization for administrator-managed internal models', async () => {
   const { providerAvailability } = await import('@/features/providers/provider-setup');
   expect(providerAvailability({api_keys:1,internal_api_keys:1,internal_model_routes:2})).toMatchObject({label:'Models configured',section:'models',usable:false});
-  expect(providerAvailability({api_keys:1,internal_api_keys:1,internal_model_routes:0})).toMatchObject({label:'API key saved',action:'Import models',section:'models'});
+  expect(providerAvailability({api_keys:1,internal_api_keys:1,internal_model_routes:0})).toMatchObject({label:'API key saved',action:'Select models',section:'models'});
 });
 
 it('uses backend connection instructions rather than a bundled endpoint list', async () => {

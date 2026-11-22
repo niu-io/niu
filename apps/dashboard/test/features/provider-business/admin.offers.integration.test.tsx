@@ -105,11 +105,10 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
 }
 
 describe("installation Provider commercial offer lifecycle", () => {
-  it("does not present commercial setup as required for internal Provider overview", async () => {
+  it("opens Models directly in internal mode without commercial pricing clutter", async () => {
     setup("1000000000", false, false, "overview", null, undefined, false, 'internal');
-    await screen.findByText('Connect an API key and discover models for internal use.');
-    await screen.findByText('1. Connect upstream API key');
-    expect(screen.queryByText('3. Set customer selling prices')).toBeNull();
+    await screen.findByText('Choose which imported models are enabled.');
+    expect(screen.queryByText('3. Approve commercial purchase offers')).toBeNull();
     expect(screen.queryByText('Model offers')).toBeNull();
     expect(screen.queryByText('Provider qualification')).toBeNull();
     expect(screen.queryByText('Provider payables')).toBeNull();
@@ -117,7 +116,7 @@ describe("installation Provider commercial offer lifecycle", () => {
 
   it("ignores a commercial rates deep link in internal mode", async () => {
     setup("1000000000", false, false, "models", null, undefined, false, 'internal');
-    await screen.findByText('Manage model connections and availability.');
+    await screen.findByText('Choose which imported models are enabled.');
     await screen.findByText('No models configured yet.');
     expect(screen.queryByRole('tab', {name: 'Text rates'})).toBeNull();
     expect(screen.queryByRole('tab', {name: 'Media rates'})).toBeNull();
@@ -174,87 +173,30 @@ describe("installation Provider commercial offer lifecycle", () => {
     await user.click(screen.getByRole("button", { name: "Save", exact: true }));
     await waitFor(() => expect(requests.some(item => item.path === `/api/v1/admin/providers/${supplierId}/members/account-demo` && item.method === "PUT")).toBe(true));
   });
-  it("summarizes media offers on Overview and links to dedicated pricing without repeating rates", async () => {
-    setup("1000000000", false, true, "overview");
-    const link=await screen.findByRole("link",{name:"Models"});
-    expect(link.getAttribute("href")).toBe(`/admin/providers/${supplierId}/models`);
-    expect(screen.getByText("Media offers").parentElement?.textContent).toBe("Media offers1");
-    expect(screen.getByText("Text offers").parentElement?.textContent).toBe("Text offers0");
-    expect(screen.getByText("Active offers").parentElement?.textContent).toBe("Active offers0");
-    expect(screen.queryByRole("columnheader", { name: "Purchase rate" })).toBeNull();
-    expect(screen.queryByText("Configuration saved")).toBeNull();
-    await userEvent.setup().click(link);
-    expect(await screen.findByRole("tab",{name:"Media rates"})).toBeTruthy();
-    expect(screen.getByRole("tab",{name:"Models",exact:true}).getAttribute("aria-selected")).toBe("true");
-  });
-
-  it("lists every configured video model in Media rates and opens one rate action without a pinning step", async () => {
+  it("opens media rates publisher directly from video model row actions", async () => {
     const { requests } = setup("1000000000", false, true);
-    const user=userEvent.setup();
-    await screen.findByText("No agreed model rates");
-    await user.click(screen.getByRole("tab",{name:"Media rates"}));
-    expect(await screen.findByRole("heading",{name:"Configured video models"})).toBeTruthy();
-    expect(await screen.findByText("example/model")).toBeTruthy();
-    expect(screen.getByText("Offer paused")).toBeTruthy();
-    expect(screen.queryByText("$1.00")).toBeNull();
+    const user = userEvent.setup();
+    await screen.findByText("example/model");
+    await user.click(screen.getByRole("button", { name: "More actions for example/model" }));
+    await user.click(screen.getByRole("menuitem", { name: "Media rates" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toContain("example/model");
     expect(screen.queryByText("Set up media offer")).toBeNull();
     expect(requests.some(item => item.method === "POST" && item.path.endsWith("/media-offers"))).toBe(false);
-    await user.click(screen.getByRole("button",{name:"Set rate for example/model"}));
-    await waitFor(()=>expect(screen.getByLabelText("Model").textContent).toContain("example/model · Video credential"));
-    expect(screen.getByText(/creates the offer binding/)).toBeTruthy();
     expect(document.body.textContent).not.toContain(offerId);
     expect(document.body.textContent).not.toContain(rateRevision);
     expect(document.body.textContent).not.toContain("private-schema");
   });
-
-  it("enables the confirmed offer revision without requesting evidence hashes and can pause it", async () => {
-    const {requests}=setup(); const user=userEvent.setup();
-    await user.click(await screen.findByRole("button",{name:"Actions for example/model"}));
-    await user.click(screen.getByRole("menuitem",{name:"Enable offer"}));
-    expect(screen.queryByText(/SHA-256/)).toBeNull();
-    expect(screen.getByText(/Provider connection, customer selling price/)).toBeTruthy();
-    await user.click(screen.getByRole("button",{name:"Enable offer",exact:true}));
-    await waitFor(()=>expect(requests.find(item=>item.path.endsWith("/authorization") && item.method==="PUT")?.body).toEqual({rate_revision:rateRevision}));
-    await screen.findByText("Offer enabled. Provider access and customer selling prices remain separate.");
-    await user.click(await screen.findByRole("button",{name:"Actions for example/model"}));
-    await user.click(await screen.findByRole("menuitem",{name:"Pause offer"}));
-    await user.click(screen.getByRole("button",{name:"Pause offer",exact:true}));
-    await waitFor(()=>expect(requests.find(item=>item.path===`/api/v1/admin/providers/${supplierId}/offers/${offerId}` && item.method==="PATCH")?.body).toEqual({active:false}));
-    expect(document.body.textContent).not.toContain(offerId);
-    expect(document.body.textContent).not.toContain(rateRevision);
-  });
-
-});
-
-it('edits current agreed rates with exact decimal values and the saved revision', async () => {
-  const { requests } = setup('1234567891');
-  const user = userEvent.setup();
-  await user.click(await screen.findByRole('button', { name: 'Actions for example/model' }));
-  await user.click(screen.getByRole('menuitem', { name: 'Edit rates', exact: true }));
-  const alias = screen.getByLabelText('Existing upstream model alias') as HTMLInputElement;
-  expect(alias.value).toBe('example/model');
-  expect(alias.readOnly).toBe(true);
-  expect((screen.getByLabelText('Input payout per million tokens') as HTMLInputElement).value).toBe('1.234567891');
-  expect((screen.getByLabelText('Output payout per million tokens') as HTMLInputElement).value).toBe('2');
-  await user.clear(screen.getByLabelText('Output payout per million tokens'));
-  await user.click(screen.getByLabelText('Output payout per million tokens'));
-  await user.paste('2.000000001');
-  await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
-  await waitFor(() => expect(requests.find(item => item.method === 'POST' && item.path.endsWith('/offers'))?.body).toEqual({
-    model_alias: 'example/model', currency: 'USD', prompt_rate: '1234567891',
-    completion_rate: '2000000001', cached_prompt_rate: null, expected_revision: rateRevision,
-  }));
 });
 
 it('does not replace a failed Provider read with a false empty pricing state', async () => {
   setup('1000000000', true);
   const user = userEvent.setup();
   expect(await screen.findByRole('alert')).toBeTruthy();
-  expect(screen.queryByText('No agreed model rates')).toBeNull();
+  expect(screen.queryByText('No models configured yet.')).toBeNull();
   await user.click(screen.getByRole('button', { name: 'Retry', exact: true }));
-  await user.click(await screen.findByRole('button', { name: 'Actions for example/model' }));
-  expect(screen.getByRole('menuitem', { name: 'Edit rates', exact: true })).toBeTruthy();
-  expect(screen.queryByRole('alert')).toBeNull();
+  await screen.findByText('example/model');
+  expect(screen.queryByText(/Provider data temporarily unavailable/)).toBeNull();
 });
 
 it.each([false, true])('creates atomic Provider setup and handles discovery failure=%s after commit', async (discoveryFails) => {
@@ -288,39 +230,6 @@ it.each([false, true])('creates atomic Provider setup and handles discovery fail
     await waitFor(() => expect(reads).toContain(`/api/v1/admin/providers/${supplierId}/administration?days=90`));
   }
   expect(document.body.textContent).not.toContain('fixture-credential');
-});
-
-
-describe('Provider cached-input rates', () => {
-  it.each([
-    ['preserve', '0.123456789', '123456789'],
-    ['clear', '', null],
-    ['zero', '0', '0'],
-  ])('%s an existing cached rate explicitly when replacing an offer', async (_action, value, expected) => {
-    const { requests } = setup('1000000000', false, false, 'models', '123456789');
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Actions for example/model' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Edit rates' }));
-    const cached = screen.getByLabelText('Cache read payout per million tokens') as HTMLInputElement;
-    expect(cached.value).toBe('0.123456789');
-    await user.clear(cached);
-    if (value) await user.type(cached, value);
-    await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
-    await waitFor(() => expect(requests.find(item => item.method === 'POST' && item.path.endsWith('/offers'))?.body).toEqual({
-      model_alias: 'example/model', currency: 'USD', prompt_rate: '1000000000',
-      completion_rate: '2000000000', cached_prompt_rate: expected, expected_revision: rateRevision,
-    }));
-  });
-  it('rejects an invalid cache rate before publishing a new revision', async () => {
-    const { requests } = setup();
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Actions for example/model' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Edit rates' }));
-    await user.type(screen.getByLabelText('Cache read payout per million tokens'), '0.0000000001');
-    await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
-    expect(await screen.findByText('Rates require a nonnegative amount with at most 9 decimal places.')).toBeTruthy();
-    expect(requests.some(item => item.method === 'POST' && item.path.endsWith('/offers'))).toBe(false);
-  });
 });
 
 it('records every unpaid earning through a cutoff without request checkboxes', async () => {
@@ -504,16 +413,13 @@ it('shows media-only administrator consumption with exact fractional usage and r
   expect(screen.queryByText('hidden-revision')).toBeNull();
 });
 
-it('continues the admin offer collection and reloads current terms beyond its summary cap', async () => {
-  const {requests}=setup('1000000000',false,false,'models',null,[],true);
-  const user=userEvent.setup();
-  await user.click(await screen.findByRole('button',{name:'Load more offers'}));
+it('continues the admin offer collection beyond its summary cap', async () => {
+  const { requests } = setup('1000000000', false, false, 'models', null, [], true);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Load more offers' }));
   await screen.findByText('later/model');
-  expect(screen.queryByRole('button',{name:'Load more offers'})).toBeNull();
-  await user.click(screen.getByRole('button',{name:'Actions for later/model'}));
-  await user.click(screen.getByRole('menuitem',{name:'Edit rates'}));
-  await waitFor(()=>expect(screen.getByLabelText('Input payout per million tokens')).toHaveProperty('value','3'));
-  expect(requests.filter(row=>row.path.includes('/offers?limit=100&after='))).toHaveLength(2);
+  expect(screen.queryByRole('button', { name: 'Load more offers' })).toBeNull();
+  expect(requests.filter(row => row.path.includes('/offers?limit=100&after='))).toHaveLength(1);
 });
 
 it('keeps loaded admin offers when continuation fails and retries the same cursor',async()=>{

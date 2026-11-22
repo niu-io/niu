@@ -136,21 +136,21 @@ describe('dashboard route layout', () => {
     const router = renderAt('/admin/providers/example-supplier');
     const user = userEvent.setup();
     const navigation = await screen.findByRole('navigation', { name: 'Admin navigation' }, { timeout: 10000 });
-    expect(within(navigation).getByRole('link', { name: 'Payments' })).toBeTruthy();
+    expect(within(navigation).getByRole('link', { name: 'Settings' })).toBeTruthy();
     expect(screen.queryByRole('tablist', { name: 'Admin sections' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Switch provider' })).toBeNull();
     const breadcrumb = within(await screen.findByLabelText('Breadcrumb'));
     expect(breadcrumb.queryByText('Admin')).toBeNull();
     expect(breadcrumb.getByRole('link', {name:'Providers'}).getAttribute('href')).toBe('/admin/providers');
     const tabs = await screen.findByRole('tablist', { name: 'Provider sections' });
-    await user.click(within(tabs).getByRole('tab', { name: 'Connections' }));
+    await user.click(within(tabs).getByRole('tab', { name: 'API keys' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-supplier/keys'));
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'Connections' }).getAttribute('aria-selected')).toBe('true'));
-    await user.click(within(navigation).getByRole('link', { name: 'Payments' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/payments'));
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'API keys' }).getAttribute('aria-selected')).toBe('true'));
+    await user.click(within(navigation).getByRole('link', { name: 'Settings' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/settings'));
     await waitFor(() => expect(screen.queryByRole('tablist', { name: 'Provider sections' })).toBeNull());
     expect(within(screen.getByLabelText('Breadcrumb')).queryByText('Admin')).toBeNull();
-    expect(within(screen.getByLabelText('Breadcrumb')).getByRole('heading', {name:'Payments'})).toBeTruthy();
+    expect(within(screen.getByLabelText('Breadcrumb')).getByRole('heading', {name:'General & billing'})).toBeTruthy();
   });
   it('uses the shared loading page while checking the browser session and redirecting to sign in', async () => {
     mockHealth(); const originalFetch = globalThis.fetch;
@@ -982,7 +982,7 @@ describe('dashboard route layout', () => {
     const router = renderAt('/admin/providers');
     const adminNav = await screen.findByRole('navigation', { name: 'Admin navigation' });
     expect(within(adminNav).getByRole('link', { name: 'Providers', exact: true }).getAttribute('data-active')).toBe('true');
-    expect(within(adminNav).getByRole('link', { name: 'General & billing', exact: true }).getAttribute('href')).toBe('/admin/settings');
+    expect(within(adminNav).getByRole('link', { name: 'Settings', exact: true }).getAttribute('href')).toBe('/admin/settings');
     expect(screen.queryByRole('tablist', { name: 'Admin sections' })).toBeNull();
     expect(screen.queryByText('Administrator access required')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Connect your agent', exact: true })).toBeNull();
