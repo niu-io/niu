@@ -41,12 +41,14 @@ export function CustomerPricingPanel({
   organizationId,
   showRefresh = true,
   onBusyChange,
+  onChanged,
   onNavigateAway,
 }: {
   token: string;
   organizationId: string;
   showRefresh?: boolean;
   onBusyChange?: (busy: boolean) => void;
+  onChanged?: () => void;
   onNavigateAway?: () => void;
 }) {
   const { locale, t: uiT, format: uiF } = useUILocale();
@@ -190,6 +192,7 @@ export function CustomerPricingPanel({
       setSelectedIds(new Set());
       setNotice(uiF('Applied {0} to {1} models.', [formatDiscountBadge(percent, isZh), batchTargets.length]));
       await load();
+      onChanged?.();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : uiT('Could not save customer pricing.'));
     } finally {
@@ -220,6 +223,7 @@ export function CustomerPricingPanel({
       setSelectedIds(new Set());
       setNotice(uiF('Reset {0} models to platform standard pricing.', [targets.length]));
       await load();
+      onChanged?.();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : uiT('Could not reset customer pricing.'));
     } finally {
@@ -284,6 +288,7 @@ export function CustomerPricingPanel({
       setEditingPriceId(null);
       setNotice(uiF('Saved customer pricing for {0}.', [row.model_alias]));
       await load();
+      onChanged?.();
     } catch (failure) {
       setRowError(failure instanceof Error ? failure.message : uiT('Could not save customer pricing.'));
     } finally {
@@ -300,6 +305,7 @@ export function CustomerPricingPanel({
       if (editingPriceId === row.price_id) setEditingPriceId(null);
       setNotice(uiF('Reset {0} to platform standard pricing.', [row.model_alias]));
       await load();
+      onChanged?.();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : uiT('Could not reset customer pricing.'));
     } finally {

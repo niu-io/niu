@@ -5124,4 +5124,12 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Media": "媒体",
   "Could not load customer details.": "无法加载客户详情。",
   "More actions": "更多操作",
+  "Pending settlement: {0}": "待结算：{0}",
+  "Available to spend: {0}": "可用额度：{0}",
+  "{0} custom prices": "{0} 个专属价",
+  "+{0} more": "另有 {0} 个",
+  "{0} members": "{0} 位成员",
+  "Credit {0}": "信用额度 {0}",
+  "+{0} currencies": "+{0} 种币种",
+  "Showing {0} of {1} customers matching \"{2}\"": "已筛选出 {0} / {1} 位匹配 \"{2}\" 的客户",
 };

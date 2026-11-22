@@ -13325,11 +13325,11 @@ HTTP 403: Platform administration required
 
 HTTP 409: Missing company cursor
 
-## Read one customer company's balance accounts and Credits summary
+## Read one customer company's overview, balances, workspaces, members, and recent billing activity
 
 `GET /api/v1/admin/customers/{customer}`
 
-Explicit platform administration required. Returns one named customer company with its currency accounts and Credits summary in a single bounded read snapshot. Returns 404 when the organization does not exist.
+Explicit platform administration required. Returns one named customer company with its currency accounts, Credits summary, owner/members, workspaces, active custom price count, and recent customer-facing balance entries in a single bounded read snapshot. Returns 404 when the organization does not exist.
 
 Implementation: `implemented`. Operation: `getPlatformCustomer`.
 

@@ -1,10 +1,9 @@
 import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import type { ReactNode } from 'react';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Link, useSearchParams, type LoaderFunctionArgs } from 'react-router';
-import { IconBuilding, IconDots, IconPlus, IconRefresh } from '@tabler/icons-react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { Link, useNavigate, useSearchParams, type LoaderFunctionArgs } from 'react-router';
+import { IconBuilding, IconDots, IconPlus, IconRefresh, IconSearch } from '@tabler/icons-react';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { canManagePlatform, useDashboardContext } from '@/shell/dashboard-context';
 import { usePlatformCurrency } from '@/shell/platform-currency';
@@ -13,42 +12,37 @@ import { TableSkeleton } from '@/components/PageSkeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RegistrationRequestsQueue } from '@/features/platform-settings/registration-review';
-import { cachedGet, markCachedStale, peekCachedGet, request, writeMayHaveCommitted } from '@/features/providers/api';
-import { listOperators, type Operator } from '@/features/operators/api';
+import { cachedGet, markCachedStale, peekCachedGet, request } from '@/features/providers/api';
 import { invalidateQueries } from '@/lib/query-cache';
-import { amountFromNanos, amountToNanos, formatUnitAmountText, money } from '@/lib/money';
-import { NiuAdminClient, type CompanyMetadata, type CustomerBalance, type IssuedCustomerBalanceGrant, type PlatformCustomerCreditSummary, type PlatformRegistrationQueuePage, type PreparedCustomerBalanceGrant, type Workspace } from '@niu-io/sdk/admin';
+import { formatRateMoney } from '@/lib/money';
+import { NiuAdminClient, type CompanyMetadata, type CustomerBalance, type PlatformRegistrationQueuePage } from '@niu-io/sdk/admin';
 import CustomerSetup from './setup';
 import { GrantEditor, GrantHistory } from './grants';
 import { GiftCorrectionEditor } from './gift-corrections';
 import { TopupEditor } from './topups';
 import { CustomerPricingDialog } from './customer-pricing';
 import { CompanyBrandedUnitsDialog } from './unit-accounts';
-import { readPending, savePending, clearPending, type PendingCreation } from './pending';
+import { CreateCompany, CreditEditor, CreditsSummaryCell, type AccountPage, type Company, type Editor } from './customer-shared';
 
-export type Company = { organization_id: string; organization_name: string; accounts: CustomerBalance[]; credits?: PlatformCustomerCreditSummary | null };
-export type AccountPage = { data: Company[]; next_after: string | null };
-export type Editor = { kind: 'topup' | 'credit' | 'grant' | 'history' | 'correction' | 'units' | 'pricing'; company: Company; account: CustomerBalance | null; prepared?: PreparedCustomerBalanceGrant; gift?: IssuedCustomerBalanceGrant };
+export {
+  CreditEditor,
+  CreditsSummaryCell,
+  type AccountPage,
+  type Company,
+  type CompanyMemberSummary,
+  type CompanyOwnerSummary,
+  type CompanyTransactionSummary,
+  type CompanyWorkspaceSummary,
+  type Editor,
+} from './customer-shared';
 
 const CUSTOMER_ACCOUNTS_PATH = '/api/v1/admin/customers?limit=50';
-const COLUMN_WIDTHS = ['w-[22%]', 'w-[12%]', 'w-[8%]', 'w-[12%]', 'w-[12%]', 'w-[12%]', 'w-[12%]', 'w-[10%]'];
-
-/** Company-level Credits summary; repeated on each currency row so it stays visible. */
-export function CreditsSummaryCell({ credits }: { credits: PlatformCustomerCreditSummary | null }) {
-  const { t: uiT, format: uiF } = useUILocale();
-  if (!credits) return <span className="text-muted-foreground" aria-label={uiT("No Credits balance")}>—</span>;
-  return <div className="space-y-0.5">
-    <p className="whitespace-nowrap tabular-nums">{formatUnitAmountText(credits.available, credits.name)}</p>
-    {credits.additional_units > 0 && <p className="text-xs text-muted-foreground">{credits.additional_units === 1 ? uiF("+{0} other unit", [credits.additional_units]) : uiF("+{0} other units", [credits.additional_units])}</p>}
-  </div>;
-}
 
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ snapshot }) => ({
@@ -64,32 +58,69 @@ export default function CustomersRoute() {
   const { t: uiT } = useUILocale();
   const context = useDashboardContext();
   if (!canManagePlatform(context.session)) {
-    return <Alert><AlertTitle>{uiT("Platform administrator access required")}</AlertTitle><AlertDescription><p>{uiT("Your account does not have Platform administrator access. Ask an installation administrator to grant it.")}</p></AlertDescription></Alert>;
+    return (
+      <Alert>
+        <AlertTitle>{uiT("Platform administrator access required")}</AlertTitle>
+        <AlertDescription>
+          <p>{uiT("Your account does not have Platform administrator access. Ask an installation administrator to grant it.")}</p>
+        </AlertDescription>
+      </Alert>
+    );
   }
-  return <Customers key={context.token} token={context.token} canSetup={canManagePlatform(context.session)} onWorkspaceCreated={context.reloadWorkspaces} />;
+  return (
+    <Customers
+      key={context.token}
+      token={context.token}
+      canSetup={canManagePlatform(context.session)}
+      onWorkspaceCreated={context.reloadWorkspaces}
+    />
+  );
+}
+
+function primaryCustomerAccount(company: Company, platformCurrency: string): CustomerBalance | null {
+  return company.accounts.find(acc => acc.currency === platformCurrency) ?? company.accounts[0] ?? null;
+}
+
+function shouldIgnoreRowNavigation(event: MouseEvent<HTMLTableRowElement>): boolean {
+  if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return true;
+  if (typeof window !== 'undefined' && window.getSelection()?.toString()) return true;
+  const target = event.target as HTMLElement | null;
+  return Boolean(target?.closest('a, button, input, [role="menuitem"], [role="menu"], [data-slot="dropdown-menu-trigger"]'));
 }
 
 /**
- * One Customers directory for onboarding and financial administration. The
- * platform account endpoint is the single company list so setup status, Credits
- * summaries and currency balances can never disagree about which companies exist.
+ * Customer directory for onboarding, pricing, and balance administration.
+ * All directory columns come from the single platform customer snapshot endpoint.
  */
-export function Customers({ token, canSetup, onWorkspaceCreated }: { token: string; canSetup: boolean; onWorkspaceCreated: () => void }) {
+export function Customers({
+  token,
+  canSetup,
+  onWorkspaceCreated,
+}: {
+  token: string;
+  canSetup: boolean;
+  onWorkspaceCreated: () => void;
+}) {
   const { t: uiT, format: uiF } = useUILocale();
-  const [search, setSearch] = useSearchParams();
-  const activeTab = search.get('tab') === 'registrations' ? 'registrations' : 'customers';
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === 'registrations' ? 'registrations' : 'customers';
+
   function selectTab(nextTab: 'customers' | 'registrations') {
-    const next = new URLSearchParams(search);
+    const next = new URLSearchParams(searchParams);
     if (nextTab === 'registrations') next.set('tab', 'registrations');
     else next.delete('tab');
-    setSearch(next, { replace: true });
+    setSearchParams(next, { replace: true });
   }
-  const { currency: platformCurrency, billingMode } = usePlatformCurrency();
-  const client = useMemo(() => new NiuAdminClient({ fetch, adminToken: token, baseURL: new URL('/api/v1', location.origin).href }), [token]);
+
+  const { currency: platformCurrency } = usePlatformCurrency();
+  const client = useMemo(
+    () => new NiuAdminClient({ fetch, adminToken: token, baseURL: new URL('/api/v1', location.origin).href }),
+    [token],
+  );
   const initialPage = token ? peekCachedGet<AccountPage>(token, CUSTOMER_ACCOUNTS_PATH) : undefined;
   const initialValid = initialPage && Array.isArray(initialPage.data) ? initialPage : undefined;
   const [companies, setCompanies] = useState<Company[]>(() => initialValid?.data ?? []);
-  const showCreditsColumn = billingMode === 'credits' || companies.some(c => Boolean(c.credits));
   const [cursor, setCursor] = useState<string | null>(() => initialValid?.next_after ?? null);
   const [loading, setLoading] = useState(() => Boolean(token && !initialValid));
   const [error, setError] = useState('');
@@ -98,81 +129,83 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
   const [create, setCreate] = useState(false);
   const [selected, setSelected] = useState<CompanyMetadata | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
-  const [workspacesByCompany, setWorkspacesByCompany] = useState<Map<string, Workspace[]>>(() => new Map());
-  const [ownersByCompany, setOwnersByCompany] = useState<Map<string, Operator[]>>(() => new Map());
-  const [setupLoading, setSetupLoading] = useState(canSetup);
-  const [setupError, setSetupError] = useState('');
-  const [setupRevision, setSetupRevision] = useState(0);
+  const [query, setQuery] = useState('');
   const [pendingRegistrations, setPendingRegistrations] = useState(0);
+  const [refreshTick, setRefreshTick] = useState(0);
   const active = useRef<AbortController | null>(null);
   const opener = useRef<HTMLElement | null>(null);
+  const searchTriggerRef = useRef<HTMLButtonElement>(null);
 
   async function load(after?: string, force = true) {
-    active.current?.abort(); const controller = new AbortController(); active.current = controller;
+    active.current?.abort();
+    const controller = new AbortController();
+    active.current = controller;
     if (after || force || !initialValid) setLoading(true);
-    setError(''); setFailedCursor(undefined);
-    const path = CUSTOMER_ACCOUNTS_PATH + (after ? '&after=' + encodeURIComponent(after) : '');
+    setError('');
+    setFailedCursor(undefined);
+    const path = after ? `${CUSTOMER_ACCOUNTS_PATH}&after=${encodeURIComponent(after)}` : CUSTOMER_ACCOUNTS_PATH;
     try {
       const page = after
         ? await request<AccountPage>(token, path, 'GET', undefined, controller.signal)
         : await cachedGet<AccountPage>(token, path, { signal: controller.signal, force });
       if (controller.signal.aborted) return;
-      if (!Array.isArray(page.data) || page.next_after === after) throw new Error('Account page did not advance. Refresh accounts.');
-      setCompanies(current => after ? [...current, ...page.data.filter(row => !current.some(saved => saved.organization_id === row.organization_id))] : page.data);
+      if (!Array.isArray(page.data) || page.next_after === after) {
+        throw new Error('Account page did not advance. Refresh accounts.');
+      }
+      setCompanies(current =>
+        after
+          ? [...current, ...page.data.filter(row => !current.some(saved => saved.organization_id === row.organization_id))]
+          : page.data,
+      );
       setCursor(page.next_after);
     } catch (reason) {
       if (!after) markCachedStale(token, CUSTOMER_ACCOUNTS_PATH);
-      if (!controller.signal.aborted) { setError(reason instanceof Error ? reason.message : 'Customer balances unavailable.'); setFailedCursor(after); }
-    } finally { if (!controller.signal.aborted) setLoading(false); }
+      if (!controller.signal.aborted) {
+        setError(reason instanceof Error ? reason.message : 'Customer balances unavailable.');
+        setFailedCursor(after);
+      }
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
+    }
   }
 
-  // Workspaces and company owners are secondary setup status, not financial
-  // authority. A failed read leaves the directory usable and shows the gap.
   useEffect(() => {
-    if (!canSetup) {
-      setWorkspacesByCompany(new Map()); setOwnersByCompany(new Map()); setSetupLoading(false); setSetupError('');
-      return;
-    }
-    const controller = new AbortController();
-    setSetupLoading(true); setSetupError('');
-    Promise.all([client.listWorkspaces({ signal: controller.signal }), listOperators(token, undefined, controller.signal)])
-      .then(([workspaceResult, userResult]) => {
-        if (controller.signal.aborted) return;
-        const workspaces = new Map<string, Workspace[]>();
-        for (const workspace of workspaceResult.data) {
-          const rows = workspaces.get(workspace.organization_id) ?? [];
-          rows.push(workspace); workspaces.set(workspace.organization_id, rows);
-        }
-        const owners = new Map<string, Operator[]>();
-        for (const user of userResult.data) {
-          if (user.revoked || user.role !== 'owner' || user.project_id !== null || !user.organization_id) continue;
-          const rows = owners.get(user.organization_id) ?? [];
-          rows.push(user); owners.set(user.organization_id, rows);
-        }
-        setWorkspacesByCompany(workspaces); setOwnersByCompany(owners);
-      })
-      .catch(reason => { if (!controller.signal.aborted) setSetupError(reason instanceof Error ? reason.message : 'Could not read customer setup.'); })
-      .finally(() => { if (!controller.signal.aborted) setSetupLoading(false); });
-    return () => controller.abort();
-  }, [client, token, canSetup, setupRevision]);
-
-  useEffect(() => { void load(undefined, false); return () => active.current?.abort(); }, [token]);
+    void load(undefined, false);
+    return () => active.current?.abort();
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
-    void request<PlatformRegistrationQueuePage>(token, '/api/v1/admin/registrations?status=pending&limit=1', 'GET', undefined, controller.signal)
+    void request<PlatformRegistrationQueuePage>(
+      token,
+      '/api/v1/admin/registrations?status=pending&limit=1',
+      'GET',
+      undefined,
+      controller.signal,
+    )
       .then(page => {
         if (!controller.signal.aborted) setPendingRegistrations(page.counts.pending);
       })
       .catch(() => {
-        // Ignore badge prefetch errors; opening Registration requests surfaces failures.
+        // Ignore badge prefetch errors; opening Registrations surfaces failures.
       });
     return () => controller.abort();
-  }, [token, setupRevision]);
+  }, [token, refreshTick]);
+
+  const filteredCompanies = useMemo(() => {
+    const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+    if (!terms.length) return companies;
+    return companies.filter(company => {
+      const haystack = [company.organization_name, company.owner?.name ?? '', company.owner?.email ?? '']
+        .join(' ')
+        .toLocaleLowerCase();
+      return terms.every(term => haystack.includes(term));
+    });
+  }, [companies, query]);
 
   function refresh() {
-    setSetupRevision(value => value + 1);
+    setRefreshTick(value => value + 1);
     void load();
   }
 
@@ -186,159 +219,514 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
     setEditor(next);
   }
 
-  function setupStatus(company: Company): ReactNode {
-    if (!canSetup) return null;
-    const line = 'mt-1 text-xs font-normal text-muted-foreground [overflow-wrap:anywhere]';
-    if (setupError) return <p className={line}>{uiT("Workspace and owner status unavailable")}</p>;
-    if (setupLoading && workspacesByCompany.size === 0 && ownersByCompany.size === 0) return <p className={line}>{uiT("Checking workspace and owner status…")}</p>;
-    const workspaces = workspacesByCompany.get(company.organization_id) ?? [];
-    const owner = ownersByCompany.get(company.organization_id)?.[0];
-    const workspaceLabel = workspaces.length === 0 ? uiT("No workspaces") : workspaces.length === 1 ? uiT("1 workspace") : uiF("{0} workspaces", [workspaces.length]);
-    return <p className={line}>{workspaceLabel}{" · "}{owner ? uiF("Owner: {0}", [owner.name]) : uiT("Owner not set")}</p>;
-  }
-
   function companyLabel(company: Company) {
     return company.organization_name || uiT("Unnamed company");
   }
 
-  function accountActions(company: Company, account: CustomerBalance | null) {
-    return <DropdownMenu>
-      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={loading || !!error} onPointerDown={event => { opener.current = event.currentTarget; }} onClick={event => { opener.current = event.currentTarget; }} aria-label={account ? uiF("Account actions for {0} in {1}", [companyLabel(company), account.currency]) : uiF("Customer actions for {0}", [companyLabel(company)])}><IconDots size={16} /></Button></DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem asChild><Link to={`/admin/customers/${encodeURIComponent(company.organization_id)}`}>{uiT("Manage customer", "进入客户详情")}</Link></DropdownMenuItem>
-        <DropdownMenuItem disabled={!platformCurrency || (account !== null && account.currency !== platformCurrency)} onSelect={() => openEditor({ kind: 'topup', company, account })}>{uiT("Top up balance")}</DropdownMenuItem>
-        <DropdownMenuItem disabled={!platformCurrency || (account !== null && account.currency !== platformCurrency)} onSelect={() => openEditor({ kind: 'credit', company, account })}>{uiT("Set credit")}</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => openEditor({ kind: 'pricing', company, account })}>{uiT("Customer pricing", "专属折扣")}</DropdownMenuItem>
-        {canSetup && <DropdownMenuItem onSelect={() => openSetup(company)}>{uiT("Set up")}</DropdownMenuItem>}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={!platformCurrency || (account !== null && account.currency !== platformCurrency)} onSelect={() => openEditor({ kind: 'grant', company, account })}>{uiT("Grant noncash balance")}</DropdownMenuItem>
-        {account && <DropdownMenuItem onSelect={() => openEditor({ kind: 'history', company, account })}>{uiT("Noncash grants")}</DropdownMenuItem>}
-        <DropdownMenuItem onSelect={() => openEditor({ kind: 'units', company, account })}>{uiT("Manage Branded Credits")}</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>;
+  function renderOwnerSubtitle(company: Company) {
+    if (company.owner === undefined) return null;
+    if (!company.owner) {
+      return <p className="mt-0.5 text-xs text-muted-foreground">{uiT("Owner not set")}</p>;
+    }
+    const text = company.owner.email ? `${company.owner.name} · ${company.owner.email}` : company.owner.name;
+    return <p className="mt-0.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">{text}</p>;
   }
 
-  return <section className="empty-region min-w-0 space-y-5" aria-label={uiT("Customers")}>
-    <PageHeader title={uiT("Customers")} action={activeTab === 'customers' ? <><Button variant="outline" disabled={loading} aria-label={uiT("Refresh customers")} title={uiT("Refresh customers")} onClick={refresh}><IconRefresh size={16} /><span className="hidden sm:inline">{uiT("Refresh")}</span></Button>{canSetup && <Button aria-label={uiT("New customer")} onClick={event => { opener.current = event.currentTarget; setCreate(true); }}><IconPlus size={16} /><span className="hidden sm:inline">{uiT("New customer")}</span></Button>}</> : undefined} />
-    <Tabs value={activeTab} onValueChange={value => selectTab(value === 'registrations' ? 'registrations' : 'customers')}>
-      <div className="max-w-full overflow-x-auto overflow-y-hidden">
-        <TabsList variant="line" aria-label={uiT("Customer sections", "客户管理分区")}>
-          <TabsTrigger value="customers">{uiT("Customers", "客户列表")}</TabsTrigger>
-          <TabsTrigger value="registrations" className="gap-1.5">
-            <span>{uiT("Registrations", "注册审批")}</span>
-            {pendingRegistrations > 0 && <Badge variant="default" className="px-1.5 py-0 text-[11px]">{pendingRegistrations}</Badge>}
-          </TabsTrigger>
-        </TabsList>
+  function renderBalanceCell(company: Company, account: CustomerBalance | null) {
+    if (!account) {
+      if (company.credits) {
+        return <div className="flex justify-end"><CreditsSummaryCell credits={company.credits} /></div>;
+      }
+      return <span className="text-sm text-muted-foreground">{uiT("No balance yet", "暂无余额")}</span>;
+    }
+    const balanceNanos = BigInt(account.balance_nanos);
+    const creditNanos = BigInt(account.credit_limit_nanos);
+    const extraCurrencies = Math.max(0, company.accounts.length - 1);
+    return (
+      <div className="space-y-0.5">
+        <p className={`whitespace-nowrap font-medium tabular-nums ${balanceNanos < 0n ? 'text-destructive' : ''}`}>
+          {formatRateMoney(account.balance_nanos, account.currency)}
+        </p>
+        {creditNanos > 0n && (
+          <p className="whitespace-nowrap text-xs text-muted-foreground tabular-nums">
+            {uiF("Credit {0}", [formatRateMoney(account.credit_limit_nanos, account.currency)])}
+          </p>
+        )}
+        {extraCurrencies > 0 && (
+          <p className="whitespace-nowrap text-xs text-muted-foreground">
+            {extraCurrencies === 1 ? uiT("+1 currency", "+1 种币种") : uiF("+{0} currencies", [extraCurrencies])}
+          </p>
+        )}
+        {company.credits && (
+          <div className="flex justify-end text-xs text-muted-foreground">
+            <CreditsSummaryCell credits={company.credits} />
+          </div>
+        )}
       </div>
-      <TabsContent value="customers" className="space-y-5 pt-2">
-    {pendingRegistrations > 0 && (
-      <Alert>
-        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-          <span>
-            {uiT("Pending Limited Preview account registrations:", "待审批的有限预览账号申请：")}{" "}
-            <strong>{pendingRegistrations}</strong>
-          </span>
-          <Button type="button" variant="outline" size="sm" onClick={() => selectTab('registrations')}>
-            {uiT("Review requests", "前往审批")}
-          </Button>
-        </AlertDescription>
-      </Alert>
-    )}
-    <p className="text-sm text-muted-foreground">{uiT("Each customer company has its own funds, users, and workspaces; workspaces within a company share its funds. Set up access, review Credits and currency balances, and manage approved credit or noncash grants. Credit permits borrowing; it does not add funds or recognize revenue.")}</p>
-    {notice && <p role="status">{uiT(notice)}</p>}
-    {error && <Alert variant="destructive"><AlertDescription>{uiT(error)} <Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
-    {loading && !companies.length && <TableSkeleton columns={8} rows={5} label={uiT("Loading customer balances…")} />}
-    {!loading && !error && !companies.length && <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuilding size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No customers yet")}</EmptyTitle><EmptyDescription>{uiT("No customers yet. Create a company to start setting up independent customer access.")}</EmptyDescription></EmptyHeader>{canSetup && <EmptyContent><Button onClick={event => { opener.current = event.currentTarget; setCreate(true); }}><IconPlus size={16} aria-hidden="true" /><span>{uiT("New customer")}</span></Button></EmptyContent>}</Empty>}
-    {!!companies.length && <Table className="table-fixed min-w-[680px]" aria-label={uiT("Customer companies")}><TableHeader><TableRow>{(showCreditsColumn ? [uiT('Company'), uiT('Credits'), uiT('Currency'), uiT('Posted balance'), uiT('Approved credit'), uiT('Outstanding liability'), uiT('Available capacity'), uiT('Actions')] : [uiT('Company'), uiT('Currency'), uiT('Posted balance'), uiT('Approved credit'), uiT('Outstanding liability'), uiT('Available capacity'), uiT('Actions')]).map((name, index, list) => {
-      const isRight = showCreditsColumn ? index > 2 && index < 7 : index > 1 && index < 6;
-      const isActions = index === list.length - 1;
-      return <TableHead key={name} className={(showCreditsColumn ? COLUMN_WIDTHS[index] : COLUMN_WIDTHS[index === 0 ? 0 : index + 1]) + ' ' + (isRight ? 'text-right whitespace-normal' : 'whitespace-nowrap') + (isActions ? ' text-right' : '')}>{name}</TableHead>;
-    })}</TableRow></TableHeader>
-      <TableBody>{companies.flatMap(company => company.accounts.length ? company.accounts.map((account, accountIndex) => <TableRow key={company.organization_id + ':' + account.currency}>
-        <>{accountIndex === 0 && <><TableCell rowSpan={company.accounts.length} className="whitespace-normal min-w-48 max-w-72 align-top"><p className="[overflow-wrap:anywhere]"><Link className="font-medium hover:underline underline-offset-4" to={`/admin/customers/${encodeURIComponent(company.organization_id)}`}>{companyLabel(company)}</Link></p>{setupStatus(company)}</TableCell>{showCreditsColumn && <TableCell rowSpan={company.accounts.length} className="align-top"><CreditsSummaryCell credits={company.credits ?? null} /></TableCell>}</>}</><TableCell>{account.currency}</TableCell>
-        {[account.balance_nanos, account.credit_limit_nanos, account.outstanding_nanos ?? null, account.available_nanos].map((amount, index) => <TableCell key={index} className="text-right whitespace-nowrap tabular-nums" aria-label={amount === null ? uiT("Unavailable") : undefined}>{amount === null ? null : money(amount, account.currency)}</TableCell>)}
-        <TableCell className="text-right">{accountActions(company, account)}</TableCell>
-      </TableRow>) : [<TableRow key={company.organization_id}>
-        <TableCell className="whitespace-normal min-w-48 max-w-72"><p className="[overflow-wrap:anywhere]"><Link className="font-medium hover:underline underline-offset-4" to={`/admin/customers/${encodeURIComponent(company.organization_id)}`}>{companyLabel(company)}</Link></p>{setupStatus(company)}</TableCell>
-        {showCreditsColumn && <TableCell><CreditsSummaryCell credits={company.credits ?? null} /></TableCell>}<TableCell colSpan={5} className="text-muted-foreground">{uiT("No currency accounts")}</TableCell>
-        <TableCell className="text-right">{accountActions(company, null)}</TableCell>
-      </TableRow>])}</TableBody>
-    </Table>}
-    {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{loading ? uiT("Loading…") : uiT("More companies")}</Button>}
-      </TabsContent>
-      <TabsContent value="registrations" className="pt-2">
-        <RegistrationRequestsQueue
+    );
+  }
+
+  function renderPricingCell(company: Company) {
+    const customCount = company.custom_price_count ?? 0;
+    if (customCount > 0) {
+      return (
+        <Badge variant="secondary" className="font-normal">
+          {customCount === 1 ? uiT("1 custom price", "1 个专属价") : uiF("{0} custom prices", [customCount])}
+        </Badge>
+      );
+    }
+    return <span className="text-sm text-muted-foreground">{uiT("Standard", "标准价")}</span>;
+  }
+
+  function renderWorkspacesCell(company: Company) {
+    if (company.workspace_count === undefined) {
+      return <span className="text-sm text-muted-foreground">—</span>;
+    }
+    const wsLabel =
+      company.workspace_count === 0
+        ? uiT("No workspaces")
+        : company.workspace_count === 1
+          ? uiT("1 workspace")
+          : uiF("{0} workspaces", [company.workspace_count]);
+    const memberCount = company.member_count ?? 0;
+    if (memberCount <= 0) {
+      return <span className="text-sm text-muted-foreground">{wsLabel}</span>;
+    }
+    const memberLabel = memberCount === 1 ? uiT("1 member", "1 位成员") : uiF("{0} members", [memberCount]);
+    return (
+      <span className="text-sm text-muted-foreground">
+        {wsLabel} · {memberLabel}
+      </span>
+    );
+  }
+
+  function rowActions(company: Company, account: CustomerBalance | null) {
+    const detailHref = `/admin/customers/${encodeURIComponent(company.organization_id)}`;
+    const canTransact = Boolean(platformCurrency && (!account || account.currency === platformCurrency));
+    return (
+      <div className="inline-flex items-center justify-end gap-1">
+        <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
+          <Link to={detailHref}>{uiT("Manage", "管理")}</Link>
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={loading || !!error}
+              onPointerDown={event => { opener.current = event.currentTarget; }}
+              onClick={event => { opener.current = event.currentTarget; }}
+              aria-label={uiF("Actions for {0}", [companyLabel(company)])}
+            >
+              <IconDots size={16} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild className="sm:hidden">
+              <Link to={detailHref}>{uiT("Manage", "管理")}</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'topup', company, account })}>
+              {uiT("Top up balance")}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'credit', company, account })}>
+              {uiT("Set credit")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => openEditor({ kind: 'pricing', company, account })}>
+              {uiT("Customer pricing", "专属价格")}
+            </DropdownMenuItem>
+            {canSetup && (
+              <DropdownMenuItem onSelect={() => openSetup(company)}>
+                {uiT("Set up")}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'grant', company, account })}>
+              {uiT("Grant noncash balance")}
+            </DropdownMenuItem>
+            {account && (
+              <DropdownMenuItem onSelect={() => openEditor({ kind: 'history', company, account })}>
+                {uiT("Noncash grants")}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={() => openEditor({ kind: 'units', company, account })}>
+              {uiT("Manage Branded Credits")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  }
+
+  return (
+    <section className="empty-region min-w-0 space-y-5" aria-label={uiT("Customers")}>
+      <PageHeader
+        title={uiT("Customers")}
+        action={
+          activeTab === 'customers' ? (
+            <>
+              {companies.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      ref={searchTriggerRef}
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={uiT("Search customers", "搜索客户")}
+                      title={uiT("Search customers", "搜索客户")}
+                      className={query ? "text-primary bg-accent" : undefined}
+                    >
+                      <IconSearch size={17} />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-2">
+                    <Input
+                      autoFocus
+                      type="search"
+                      aria-label={uiT("Search customers", "搜索客户")}
+                      placeholder={uiT("Search by company, owner, or email…", "按公司名称、负责人或邮箱搜索…")}
+                      value={query}
+                      onChange={event => setQuery(event.target.value)}
+                    />
+                    {query && (
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setQuery('')}>
+                        {uiT("Reset search")}
+                      </Button>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              )}
+              <Button variant="outline" disabled={loading} aria-label={uiT("Refresh customers")} title={uiT("Refresh customers")} onClick={refresh}>
+                <IconRefresh size={16} />
+                <span className="hidden sm:inline">{uiT("Refresh")}</span>
+              </Button>
+              {canSetup && (
+                <Button aria-label={uiT("New customer")} onClick={event => { opener.current = event.currentTarget; setCreate(true); }}>
+                  <IconPlus size={16} />
+                  <span className="hidden sm:inline">{uiT("New customer")}</span>
+                </Button>
+              )}
+            </>
+          ) : undefined
+        }
+      />
+
+      <Tabs value={activeTab} onValueChange={value => selectTab(value === 'registrations' ? 'registrations' : 'customers')}>
+        <div className="max-w-full overflow-x-auto overflow-y-hidden">
+          <TabsList variant="line" aria-label={uiT("Customer sections", "客户管理分区")}>
+            <TabsTrigger value="customers">{uiT("Customers", "客户列表")}</TabsTrigger>
+            <TabsTrigger value="registrations" className="gap-1.5">
+              <span>{uiT("Registrations", "注册审批")}</span>
+              {pendingRegistrations > 0 && (
+                <Badge variant="default" className="px-1.5 py-0 text-[11px]">
+                  {pendingRegistrations}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="customers" className="space-y-4 pt-2">
+          {pendingRegistrations > 0 && (
+            <Alert>
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                <span>
+                  {uiT("Pending Limited Preview account registrations:", "待审批的有限预览账号申请：")}{" "}
+                  <strong>{pendingRegistrations}</strong>
+                </span>
+                <Button type="button" variant="outline" size="sm" onClick={() => selectTab('registrations')}>
+                  {uiT("Review requests", "前往审批")}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {notice && <p role="status" className="text-sm text-foreground">{uiT(notice)}</p>}
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+                <span>{uiT(error)}</span>
+                <Button variant="outline" size="sm" disabled={loading} onClick={() => void load(failedCursor)}>
+                  {uiT("Retry")}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {query.trim() && filteredCompanies.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+              <span>{uiF('Showing {0} of {1} customers matching "{2}"', [filteredCompanies.length, companies.length, query.trim()])}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setQuery('');
+                  searchTriggerRef.current?.focus();
+                }}
+              >
+                {uiT("Clear search")}
+              </Button>
+            </div>
+          )}
+
+          {loading && !companies.length && <TableSkeleton columns={5} rows={5} label={uiT("Loading customer balances…")} />}
+
+          {!loading && !error && !companies.length && (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconBuilding size={20} aria-hidden="true" />
+                </EmptyMedia>
+                <EmptyTitle>{uiT("No customers yet")}</EmptyTitle>
+                <EmptyDescription>
+                  {uiT("No customers yet. Create a company to start setting up independent customer access.")}
+                </EmptyDescription>
+              </EmptyHeader>
+              {canSetup && (
+                <EmptyContent>
+                  <Button onClick={event => { opener.current = event.currentTarget; setCreate(true); }}>
+                    <IconPlus size={16} aria-hidden="true" />
+                    <span>{uiT("New customer")}</span>
+                  </Button>
+                </EmptyContent>
+              )}
+            </Empty>
+          )}
+
+          {!loading && companies.length > 0 && filteredCompanies.length === 0 && (
+            <Empty role="status">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <IconSearch size={20} aria-hidden="true" />
+                </EmptyMedia>
+                <EmptyTitle>{uiT("No matching customers", "没有匹配的客户")}</EmptyTitle>
+                <EmptyDescription>
+                  {uiT("Try another company name, owner, or email address.", "请尝试其他公司名称、负责人或邮箱。")}
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setQuery('');
+                    searchTriggerRef.current?.focus();
+                  }}
+                >
+                  {uiT("Clear search")}
+                </Button>
+              </EmptyContent>
+            </Empty>
+          )}
+
+          {filteredCompanies.length > 0 && (
+            <Table aria-label={uiT("Customer companies")}>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{uiT("Customer", "客户")}</TableHead>
+                  <TableHead className="text-right">{uiT("Balance", "余额")}</TableHead>
+                  <TableHead className="hidden sm:table-cell">{uiT("Pricing", "价格方案")}</TableHead>
+                  <TableHead className="hidden md:table-cell">{uiT("Workspaces")}</TableHead>
+                  <TableHead className="text-right">{uiT("Actions")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCompanies.map(company => {
+                  const account = primaryCustomerAccount(company, platformCurrency);
+                  const detailHref = `/admin/customers/${encodeURIComponent(company.organization_id)}`;
+                  return (
+                    <TableRow
+                      key={company.organization_id}
+                      className="cursor-pointer"
+                      onClick={event => {
+                        if (shouldIgnoreRowNavigation(event)) return;
+                        void navigate(detailHref);
+                      }}
+                    >
+                      <TableCell className="whitespace-normal sm:min-w-44">
+                        <p className="[overflow-wrap:anywhere]">
+                          <Link className="font-medium text-foreground hover:underline underline-offset-4" to={detailHref}>
+                            {companyLabel(company)}
+                          </Link>
+                        </p>
+                        {renderOwnerSubtitle(company)}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap align-middle">
+                        {renderBalanceCell(company, account)}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell whitespace-nowrap align-middle">
+                        {renderPricingCell(company)}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell whitespace-nowrap align-middle">
+                        {renderWorkspacesCell(company)}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap align-middle">
+                        {rowActions(company, account)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+
+          {cursor && (
+            <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>
+              {loading ? uiT("Loading…") : uiT("More companies")}
+            </Button>
+          )}
+        </TabsContent>
+
+        <TabsContent value="registrations" className="pt-2">
+          <RegistrationRequestsQueue
+            token={token}
+            showPolicySection={false}
+            onApproved={() => {
+              onWorkspaceCreated();
+              refresh();
+            }}
+          />
+        </TabsContent>
+      </Tabs>
+
+      <CreateCompany
+        onRestoreFocus={() => opener.current?.focus()}
+        open={create}
+        onOpenChange={setCreate}
+        client={client}
+        onCreated={company => {
+          invalidateQueries(CUSTOMER_ACCOUNTS_PATH);
+          setCompanies(old => [
+            {
+              organization_id: company.id,
+              organization_name: company.name,
+              owner: null,
+              workspace_count: 0,
+              member_count: 0,
+              custom_price_count: 0,
+              accounts: [],
+              credits: null,
+            },
+            ...old.filter(row => row.organization_id !== company.id),
+          ]);
+          setCreate(false);
+          setSelected(company);
+          void load();
+        }}
+      />
+      {selected && (
+        <CustomerSetup
+          onRestoreFocus={() => opener.current?.focus()}
+          key={selected.id}
+          company={selected}
           token={token}
-          showPolicySection={false}
-          onApproved={() => {
+          client={client}
+          onClose={() => {
+            setSelected(null);
+            setRefreshTick(value => value + 1);
+            void load();
+          }}
+          onWorkspaceCreated={() => {
             onWorkspaceCreated();
-            refresh();
+            setRefreshTick(value => value + 1);
+            void load();
           }}
         />
-      </TabsContent>
-    </Tabs>
-    <CreateCompany onRestoreFocus={() => opener.current?.focus()} open={create} onOpenChange={setCreate} client={client} onCreated={company => { invalidateQueries(CUSTOMER_ACCOUNTS_PATH); setCompanies(old => [{ organization_id: company.id, organization_name: company.name, accounts: [], credits: null }, ...old.filter(row => row.organization_id !== company.id)]); setCreate(false); setSelected(company); void load(); }} />
-    {selected && <CustomerSetup onRestoreFocus={() => opener.current?.focus()} key={selected.id} company={selected} token={token} client={client} onClose={() => { setSelected(null); setSetupRevision(value => value + 1); void load(); }} onWorkspaceCreated={() => { onWorkspaceCreated(); setSetupRevision(value => value + 1); }} />}
-    {editor?.kind === 'pricing' && <CustomerPricingDialog token={token} organizationId={editor.company.organization_id} organizationName={companyLabel(editor.company)} returnFocusTo={opener.current} onClose={() => setEditor(null)} />}
-    {editor?.kind === 'units' && <CompanyBrandedUnitsDialog token={token} organizationId={editor.company.organization_id} organizationName={companyLabel(editor.company)} returnFocusTo={opener.current} onClose={() => { setEditor(null); void load(); }} onChanged={msg => { setNotice(msg); void load(); }} />}
-    {editor?.kind === 'topup' && <TopupEditor token={token} editor={editor} onClose={() => setEditor(null)} onSaved={() => { setEditor(null); setNotice('Customer balance topped up.'); void load(); }} />}
-    {editor?.kind === 'grant' && <GrantEditor token={token} editor={editor} onClose={() => { setEditor(null); void load(); }} onIssued={() => { setNotice('Noncash grant issuance confirmed. This is not a cash receipt.'); void load(); }} />}
-    {editor?.kind === 'history' && <GrantHistory token={token} editor={editor} onClose={() => { setEditor(null); void load(); }} onOpen={prepared => setEditor({ ...editor, kind: 'grant', prepared })} onCorrect={gift => setEditor({ ...editor, kind: 'correction', gift })} />}
-    {editor?.kind === 'correction' && editor.gift && <GiftCorrectionEditor token={token} editor={{ ...editor, gift: editor.gift }} onClose={() => { setEditor({ ...editor, kind: 'history' }); void load(); }} onCorrected={() => { setNotice('Noncash gift correction confirmed. No cash refund was recorded.'); void load(); }} />}
-    {editor?.kind === 'credit' && <CreditEditor token={token} editor={editor} onClose={() => setEditor(null)} onSaved={() => { setEditor(null); setNotice('Credit policy saved.'); void load(); }} />}
-  </section>;
-}
-
-function CreateCompany({ open, onOpenChange, client, onCreated, onRestoreFocus }: { onRestoreFocus: () => void; open: boolean; onOpenChange: (open: boolean) => void; client: NiuAdminClient; onCreated: (company: CompanyMetadata) => void }) {
-  const { t: uiT } = useUILocale();
-  const [, setPendingVersion] = useState(0); const { currency, ready, error: currencyError } = usePlatformCurrency(); const pending = useRef<PendingCreation | null>(readPending('company')); const [name, setName] = useState(pending.current?.name ?? ''); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
-  async function submit(event: FormEvent) { event.preventDefault(); if (busy || !currency || !name.trim() || (pending.current && name.trim() !== pending.current.name)) return;
-    pending.current ??= { name: name.trim(), key: crypto.randomUUID() }; setBusy(true); setError('');
-    try { savePending('company', pending.current); const saved = await client.createCompany({ name: pending.current.name }, { idempotencyKey: pending.current.key }); if (!saved?.id || !saved.name) throw new Error('Creation could not be confirmed.'); clearPending('company'); pending.current = null; setName(''); onCreated(saved); }
-    catch (reason) { const status = (reason as { status?: number })?.status; if (status === 400 || status === 422) { clearPending('company'); pending.current = null; setError(reason instanceof Error ? reason.message : 'Check the company name.'); } else setError('Creation could not be confirmed. Retry uses the same request and cannot create a second company. You can also close this dialog and refresh the customer list.'); }
-    finally { setBusy(false); }
-  }
-  return <Dialog open={open} onOpenChange={value => { if (!busy) onOpenChange(value); }}><DialogContent onCloseAutoFocus={event => { event.preventDefault(); onRestoreFocus(); }}><DialogHeader><DialogTitle>{uiT("New customer")}</DialogTitle><DialogDescription>{uiT("Create a separately funded company. You will set up its workspace and owner next.")}</DialogDescription></DialogHeader><form onSubmit={submit} className="space-y-4"><div className="space-y-2"><Label htmlFor="customer-name">{uiT("Company name")}</Label><Input id="customer-name" required maxLength={200} value={name} disabled={busy} onChange={event => setName(event.target.value)} /></div><p className="text-sm text-muted-foreground">{uiT("Uses the platform currency")}{currency ? ` (${currency})` : ''}{uiT(". New companies start with no funds or approved credit.")}</p>{currencyError && <Alert><AlertDescription>{uiT(currencyError)} <Link to="/admin/settings" className="underline">{uiT("Open Settings")}</Link></AlertDescription></Alert>}{error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}{pending.current && name.trim() !== pending.current.name && <Alert><AlertDescription>{uiT("The previous request may have succeeded. Check the saved list before starting a new request; otherwise you may create a duplicate.")} <Button type="button" variant="outline" onClick={() => { clearPending('company'); pending.current = null; setError(''); setPendingVersion(value => value + 1); }}>{uiT("Start a new request")}</Button></AlertDescription></Alert>}<div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>{uiT("Close")}</Button><Button disabled={busy || !ready || !currency || !name.trim() || !!(pending.current && name.trim() !== pending.current.name)}>{busy ? uiT("Creating…") : pending.current ? uiT("Retry creation") : uiT("Create company")}</Button></div></form></DialogContent></Dialog>;
-}
-
-/** Compare-and-set approval never posts funds; unknown outcomes require reread. */
-export function CreditEditor({ token, editor, onClose, onSaved }: { token: string; editor: Editor; onClose: () => void; onSaved: () => void }) {
-  const { t: uiT } = useUILocale();
-  const { company, account } = editor;
-  const openerRef = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null);
-  const { currency: platformCurrency } = usePlatformCurrency();
-  const currency = account?.currency ?? platformCurrency;
-  const [amount, setAmount] = useState(amountFromNanos(account?.credit_limit_nanos ?? '0'));
-  const [error, setError] = useState('');
-  const [pending, setPending] = useState(false);
-  const [uncertain, setUncertain] = useState(false);
-  async function submit(event: FormEvent) {
-    event.preventDefault(); if (pending || uncertain) return;
-    let nanos: string;
-    if (!/^[A-Z]{3}$/.test(currency)) { setError('Configure the platform currency in Admin → Settings before approving credit.'); return; }
-    try { nanos = amountToNanos(amount, true); }
-    catch { setError('Enter a nonnegative credit amount with at most nine decimal places, within the supported range.'); return; }
-    setPending(true); setError('');
-    try {
-      const result = await request<{ data: { revision: string } }>(token, `/api/v1/organizations/${encodeURIComponent(company.organization_id)}/billing/accounts/${currency}/policy`, 'PUT', {
-        credit_limit_nanos: nanos, warning_threshold_nanos: account?.warning_threshold_nanos ?? null, expected_revision: account?.policy_revision ?? '0',
-      });
-      if (!result?.data?.revision || BigInt(result.data.revision) !== BigInt(account?.policy_revision ?? '0') + 1n) throw new Error('Credit approval could not be confirmed.');
-      onSaved();
-    } catch (reason) {
-      if (writeMayHaveCommitted(reason)) { setUncertain(true); setError('Approval outcome is unconfirmed. Close this dialog and refresh accounts before another change.'); }
-      else setError((reason instanceof Error ? reason.message : 'Credit approval failed.') + ' Refresh accounts if another administrator changed this policy.');
-    } finally { setPending(false); }
-  }
-  let preview: string | null = null;
-  try { preview = money(amountToNanos(amount, true), currency); } catch { /* Invalid input is explained on submit. */ }
-  return <Dialog open onOpenChange={open => { if (!open && !pending) onClose(); }}><DialogContent className="max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={event => { if (openerRef.current?.isConnected) { event.preventDefault(); openerRef.current.focus(); } }}><DialogHeader><DialogTitle>{uiT("Set approved credit")}</DialogTitle><DialogDescription>{company.organization_name || uiT("Unnamed company")}{" "}{uiT("· Allows the balance to become negative up to this limit. It does not change the posted balance.")}</DialogDescription></DialogHeader>
-    <div className="grid grid-cols-2 gap-4 border-b pb-4"><div><p className="text-sm text-muted-foreground">{uiT("Current credit")}</p><p className="font-medium">{account ? money(account.credit_limit_nanos, currency) : uiT("No currency account")}</p></div><div><p className="text-sm text-muted-foreground">{uiT("New credit")}</p><p className="font-medium">{preview ?? uiT("Enter a valid amount")}</p></div></div>
-    <form className="space-y-4" onSubmit={event => void submit(event)}>
-      <p className="text-sm text-muted-foreground">{uiT("Currency:")}{" "}{currency || uiT("configure in Admin")}</p>
-      <div className="space-y-2"><Label htmlFor="approved-credit">{uiT("Approved credit limit")}</Label><Input id="approved-credit" inputMode="decimal" value={amount} disabled={pending || uncertain} onChange={event => { setAmount(event.target.value); setError(''); }} /><p className="text-sm text-muted-foreground">{uiT("Zero requires prepayment. Existing request liabilities must still settle.")}</p></div>
-      {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
-      <div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={pending} onClick={onClose}>{uiT("Cancel")}</Button><Button type="submit" disabled={pending || uncertain}>{pending ? uiT("Saving…") : uiT("Save credit policy")}</Button></div>
-    </form>
-  </DialogContent></Dialog>;
+      )}
+      {editor?.kind === 'pricing' && (
+        <CustomerPricingDialog
+          token={token}
+          organizationId={editor.company.organization_id}
+          organizationName={companyLabel(editor.company)}
+          returnFocusTo={opener.current}
+          onClose={() => {
+            setEditor(null);
+            void load();
+          }}
+        />
+      )}
+      {editor?.kind === 'units' && (
+        <CompanyBrandedUnitsDialog
+          token={token}
+          organizationId={editor.company.organization_id}
+          organizationName={companyLabel(editor.company)}
+          returnFocusTo={opener.current}
+          onClose={() => {
+            setEditor(null);
+            void load();
+          }}
+          onChanged={msg => {
+            setNotice(msg);
+            void load();
+          }}
+        />
+      )}
+      {editor?.kind === 'topup' && (
+        <TopupEditor
+          token={token}
+          editor={editor}
+          onClose={() => setEditor(null)}
+          onSaved={() => {
+            setEditor(null);
+            setNotice('Customer balance topped up.');
+            void load();
+          }}
+        />
+      )}
+      {editor?.kind === 'grant' && (
+        <GrantEditor
+          token={token}
+          editor={editor}
+          onClose={() => {
+            setEditor(null);
+            void load();
+          }}
+          onIssued={() => {
+            setNotice('Noncash grant issuance confirmed. This is not a cash receipt.');
+            void load();
+          }}
+        />
+      )}
+      {editor?.kind === 'history' && (
+        <GrantHistory
+          token={token}
+          editor={editor}
+          onClose={() => {
+            setEditor(null);
+            void load();
+          }}
+          onOpen={prepared => setEditor({ ...editor, kind: 'grant', prepared })}
+          onCorrect={gift => setEditor({ ...editor, kind: 'correction', gift })}
+        />
+      )}
+      {editor?.kind === 'correction' && editor.gift && (
+        <GiftCorrectionEditor
+          token={token}
+          editor={{ ...editor, gift: editor.gift }}
+          onClose={() => {
+            setEditor({ ...editor, kind: 'history' });
+            void load();
+          }}
+          onCorrected={() => {
+            setNotice('Noncash gift correction confirmed. No cash refund was recorded.');
+            void load();
+          }}
+        />
+      )}
+      {editor?.kind === 'credit' && (
+        <CreditEditor
+          token={token}
+          editor={editor}
+          onClose={() => setEditor(null)}
+          onSaved={() => {
+            setEditor(null);
+            setNotice('Credit policy saved.');
+            void load();
+          }}
+        />
+      )}
+    </section>
+  );
 }

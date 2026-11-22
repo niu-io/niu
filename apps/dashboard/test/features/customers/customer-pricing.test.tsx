@@ -199,18 +199,65 @@ describe('CustomerPricingDialog', () => {
 });
 
 describe('CustomerDetail', () => {
-  it('loads one customer via GET /admin/customers/:id and switches across Account, Pricing, and Workspaces tabs', async () => {
+  it('loads one enriched customer snapshot without cross-org calls and renders Overview, Pricing, and Workspaces & members', async () => {
     saveLocale('en');
     const orgId = '00000000-0000-4000-8000-000000000202';
+    const workspaceId = '20000000-0000-4000-8000-000000000202';
+    const calls: string[] = [];
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
+        calls.push(url);
         if (url === `/api/v1/admin/customers/${orgId}`) {
           return Response.json({
             data: {
               organization_id: orgId,
               organization_name: 'Orbit Labs',
+              created_at: '2026-11-15T10:00:00Z',
+              owner: { name: 'Alice Lin', email: 'alice@orbit.ai' },
+              workspace_count: 1,
+              member_count: 2,
+              custom_price_count: 0,
+              workspaces: [
+                { id: workspaceId, name: 'Production', slug: 'orbit-prod', created_at: '2026-11-15T10:05:00Z' },
+              ],
+              members: [
+                {
+                  id: '30000000-0000-4000-8000-000000000202',
+                  name: 'Alice Lin',
+                  email: 'alice@orbit.ai',
+                  role: 'owner',
+                  project_id: null,
+                  created_at: '2026-11-15T10:01:00Z',
+                },
+                {
+                  id: '30000000-0000-4000-8000-000000000203',
+                  name: 'Bob Wu',
+                  email: 'bob@orbit.ai',
+                  role: 'admin',
+                  project_id: workspaceId,
+                  created_at: '2026-11-16T09:00:00Z',
+                },
+              ],
+              recent_transactions: [
+                {
+                  id: '40000000-0000-4000-8000-000000000001',
+                  kind: 'funding',
+                  currency: 'USD',
+                  amount_nanos: '300000000000',
+                  created_at: '2026-11-20T12:00:00Z',
+                  reverses_entry_id: null,
+                },
+                {
+                  id: '40000000-0000-4000-8000-000000000002',
+                  kind: 'charge',
+                  currency: 'USD',
+                  amount_nanos: '-50000000000',
+                  created_at: '2026-11-21T14:30:00Z',
+                  reverses_entry_id: null,
+                },
+              ],
               accounts: [
                 {
                   currency: 'USD',
@@ -224,18 +271,6 @@ describe('CustomerDetail', () => {
               ],
               credits: null,
             },
-          });
-        }
-        if (url.includes('/workspaces')) {
-          return Response.json({
-            data: [{ id: '20000000-0000-4000-8000-000000000202', organization_id: orgId, organization_name: 'Orbit Labs', name: 'Production', slug: 'orbit-prod' }],
-            next_cursor: null,
-          });
-        }
-        if (url.includes('/members')) {
-          return Response.json({
-            data: [{ id: '30000000-0000-4000-8000-000000000202', organization_id: orgId, project_id: null, name: 'Alice Lin', role: 'owner', revoked: false }],
-            next_cursor: null,
           });
         }
         if (url === `/api/v1/admin/customers/${orgId}/pricing`) {
@@ -272,14 +307,26 @@ describe('CustomerDetail', () => {
 
     expect(await screen.findByRole('region', { name: 'Orbit Labs' })).toBeTruthy();
     expect(screen.getByText('$250.00')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Top up balance' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Set credit' })).toBeTruthy();
+    expect(screen.getByText('Available to spend: $300.00')).toBeTruthy();
+    expect(screen.getByText('Alice Lin')).toBeTruthy();
+    expect(screen.getByText('alice@orbit.ai')).toBeTruthy();
+    expect(screen.getByText('Top-up')).toBeTruthy();
+    expect(screen.getByText('+$300.00')).toBeTruthy();
+    expect(screen.getByText('Usage charge')).toBeTruthy();
+    expect(screen.getByText('-$50.00')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Top up' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Credit limit' })).toBeTruthy();
+    expect(screen.queryByText(orgId)).toBeNull();
+    expect(calls.some(url => url.includes('/workspaces') || url.includes('/members'))).toBe(false);
 
-    await user.click(screen.getByRole('tab', { name: 'Pricing & discounts' }));
+    await user.click(screen.getByRole('tab', { name: 'Pricing' }));
     expect(await screen.findByText('gpt-4o')).toBeTruthy();
 
-    await user.click(screen.getByRole('tab', { name: 'Workspaces & access' }));
+    await user.click(screen.getByRole('tab', { name: /Workspaces & members/ }));
     expect(await screen.findByRole('link', { name: 'Production' })).toBeTruthy();
-    expect(screen.getByText('Alice Lin')).toBeTruthy();
+    expect(screen.getByText('/orbit-prod')).toBeTruthy();
+    expect(screen.getByText('alice@orbit.ai')).toBeTruthy();
+    expect(screen.getByText('bob@orbit.ai')).toBeTruthy();
+    expect(screen.getByText('All workspaces')).toBeTruthy();
   });
 });

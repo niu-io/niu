@@ -399,6 +399,11 @@ async fn customer_account_and_pricing_endpoints_apply_replace_and_reset_atomical
         .unwrap()
         .expect("customer exists");
     assert_eq!(summary["organization_id"], json!(org_id));
+    assert!(summary["workspace_count"].as_u64().unwrap() >= 1);
+    assert!(summary["workspaces"].is_array());
+    assert!(summary["members"].is_array());
+    assert!(summary["recent_transactions"].is_array());
+    assert_eq!(summary["custom_price_count"], json!(0));
 
     // Publish a standard price of $2.00 / $2.00 per 1M tokens.
     let published = publish(&store, "USD", "0", text("2000000000")).await;

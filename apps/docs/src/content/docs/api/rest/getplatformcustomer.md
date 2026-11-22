@@ -1,5 +1,5 @@
 ---
-title: "Read one customer company's balance accounts and Credits summary"
+title: "Read one customer company's overview, balances, workspaces, members, and recent billing activity"
 description: "GET /api/v1/admin/customers/{customer}"
 ---
 
@@ -7,7 +7,7 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 `GET /api/v1/admin/customers/{customer}`
 
-Explicit platform administration required. Returns one named customer company with its currency accounts and Credits summary in a single bounded read snapshot. Returns 404 when the organization does not exist.
+Explicit platform administration required. Returns one named customer company with its currency accounts, Credits summary, owner/members, workspaces, active custom price count, and recent customer-facing balance entries in a single bounded read snapshot. Returns 404 when the organization does not exist.
 
 Operation: `getPlatformCustomer`.
 
@@ -69,6 +69,6 @@ Customer not found
 
 ## Behavior and supported scope
 
-Explicit platform administration required. Returns one named customer company with its currency accounts and Credits summary in a single bounded read snapshot. Returns 404 when the organization does not exist.
+Explicit platform administration required. Returns one named customer company with its currency accounts, Credits summary, owner/members, workspaces, active custom price count, and recent customer-facing balance entries in a single bounded read snapshot. Returns 404 when the organization does not exist.
 
 **Supported scope:** implemented

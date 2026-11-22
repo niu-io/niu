@@ -225,8 +225,8 @@ pub async fn list(
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getPlatformCustomer",
-///     "summary": "Read one customer company's balance accounts and Credits summary",
-///     "description": "Explicit platform administration required. Returns one named customer company with its currency accounts and Credits summary in a single bounded read snapshot. Returns 404 when the organization does not exist.",
+///     "summary": "Read one customer company's overview, balances, workspaces, members, and recent billing activity",
+///     "description": "Explicit platform administration required. Returns one named customer company with its currency accounts, Credits summary, owner/members, workspaces, active custom price count, and recent customer-facing balance entries in a single bounded read snapshot. Returns 404 when the organization does not exist.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [{ "bearerAuth": [] }],
 ///     "parameters": [
