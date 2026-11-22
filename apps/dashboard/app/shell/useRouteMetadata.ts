@@ -143,7 +143,7 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
                         reports: t('Financial reports', '财务报表'),
                         oauth: t('OAuth providers', 'OAuth 服务商'),
                         payments: t('Payments', '收款配置'),
-                        pricing: t('Pricing', '客户定价'),
+                        pricing: t('Standard pricing', '标准售价'),
                         branding: t('Branding', '品牌定制'),
                         audit: t('Audit logs', '审计日志'),
                         incidents: t('Incidents', '连接事故'),
@@ -158,7 +158,9 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
                         members: t('Members', '成员'),
                         settings: normalizedPath === '/admin/settings' ? t('General & billing', '基础与计费') : t('Settings', '设置'),
                       }[normalizedPath.split('/').pop() ?? ''] ??
-                      (normalizedPath === '/admin/providers' || normalizedPath === '/admin/suppliers'
+                      (normalizedPath.startsWith('/admin/customers/')
+                        ? t('Customer', '客户详情')
+                        : normalizedPath === '/admin/providers' || normalizedPath === '/admin/suppliers'
                         ? t('Providers', '模型供应商')
                         : supplierManagement
                           ? t('Overview', '概览')

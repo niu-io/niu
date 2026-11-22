@@ -40,13 +40,14 @@ export default function RetailPricingRoute() {
 }
 function Standards({ token }: { token: string }) {
   const { t: uiT, format: uiF } = useUILocale();
-  const { billingMode, currency } = usePlatformCurrency();
+  const { billingMode, currency, unit } = usePlatformCurrency();
   const [search, setSearch] = useSearchParams();
   const tabParam = search.get('tab');
   const [viewMode, setViewMode] = useState<BillingMode | null>(
     tabParam === 'credits' || tabParam === 'currency' ? tabParam : null,
   );
   const activeMode: BillingMode = billingMode ?? 'currency';
+  const showModeTabs = activeMode === 'credits' || Boolean(unit) || tabParam === 'credits';
   const mode: BillingMode = tabParam === 'credits' || tabParam === 'currency'
     ? tabParam
     : viewMode ?? activeMode;
@@ -101,7 +102,7 @@ function Standards({ token }: { token: string }) {
     setSearch(next, { replace: true });
   }, [requestedModel, requestedPublish, mode, currency, loading, error, editor, rows, search, setSearch]);
   const visible = rows.filter(row => row.model_alias.toLowerCase().includes(filter.trim().toLowerCase()));
-  return <div className="empty-region space-y-6"><PageHeader title={uiT("Pricing")} /><p className="text-sm text-muted-foreground">{uiT("Set the customer prices charged across workspaces. Settlement currency and Branded Credits use separate pricing tables; choose a tab to review or prepare either mode. Promotions apply to currency prices. Models also need available supply and permission to be used.")} <Link to="/admin/settings" className="underline underline-offset-4">{uiT("Manage the platform billing mode", "管理平台计费模式")}</Link></p>
+  return <div className="empty-region space-y-6"><PageHeader title={uiT("Standard pricing", "标准售价")} /><p className="text-sm text-muted-foreground">{uiT("Default list prices charged across workspaces. To set a discount for a specific customer, open", "面向所有工作空间的默认公开售价。如需为单个客户设置专属折扣，请前往")} <Link to="/admin/customers" className="underline underline-offset-4">{uiT("Customers")}</Link>. <Link to="/admin/settings" className="underline underline-offset-4">{uiT("Manage the platform billing mode", "管理平台计费模式")}</Link></p>
     {editor && !editorOpen && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("A price publication is awaiting confirmation. Reopen it to check or retry before leaving this page.")}</span><Button type="button" variant="outline" onClick={() => setEditorOpen(true)}>{uiT("Return to publication")}</Button></AlertDescription></Alert>}
     <Tabs value={mode} onValueChange={value => {
       const nextMode = value as BillingMode;
@@ -110,16 +111,37 @@ function Standards({ token }: { token: string }) {
       next.set('tab', nextMode);
       setSearch(next, { replace: true });
     }}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
-          <div className="max-w-full overflow-x-auto overflow-y-hidden"><TabsList variant="line" aria-label={uiT("Pricing mode")}><TabsTrigger value="currency">{uiT("Settlement Currency")}</TabsTrigger><TabsTrigger value="credits">{uiT("Branded Credits")}</TabsTrigger></TabsList></div>
-          <Badge variant={mode === activeMode ? 'secondary' : 'outline'}>{mode === activeMode ? uiF("Active billing mode: {0}", [modeLabel]) : uiF("Preparing prices for {0}", [modeLabel])}</Badge>
+      {showModeTabs && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
+            <div className="max-w-full overflow-x-auto overflow-y-hidden"><TabsList variant="line" aria-label={uiT("Pricing mode")}><TabsTrigger value="currency">{uiT("Settlement Currency")}</TabsTrigger><TabsTrigger value="credits">{uiT("Branded Credits")}</TabsTrigger></TabsList></div>
+            <Badge variant={mode === activeMode ? 'secondary' : 'outline'}>{mode === activeMode ? uiF("Active billing mode: {0}", [modeLabel]) : uiF("Preparing prices for {0}", [modeLabel])}</Badge>
+          </div>
+          <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
         </div>
-        <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
-      </div>
+      )}
       <TabsContent value="currency" className="space-y-4">
         {!currency && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("Configure the platform currency in Admin Settings before publishing currency prices. If it is already configured, refresh this page.")}</span><Button asChild variant="link" className="h-auto p-0"><Link to="/admin/settings">{uiT("Open Settings")}</Link></Button></AlertDescription></Alert>}
-        <div className="flex flex-wrap items-center gap-2"><Button variant="outline" disabled={loading} onClick={reloadFresh}>{uiT("Refresh prices")}</Button><Button disabled={!currency || (loading && !rows.length) || !!error || !!editor} onClick={() => { setEditor({ kind: 'text', previous: null }); setEditorOpen(true); }}>{uiT("Publish text price")}</Button><Button variant="outline" disabled={!currency || (loading && !rows.length) || !!error || !!editor} onClick={() => { setEditor({ kind: 'media', previous: null }); setEditorOpen(true); }}>{uiT("Publish media price")}</Button><Button ref={legacyOpener} variant="link" className="h-auto p-0" onClick={() => setLegacyOpen(true)}>{uiT("Existing media contracts")}</Button></div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {!showModeTabs && (
+            <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button disabled={!currency || (loading && !rows.length) || !!error || !!editor} onClick={() => { setEditor({ kind: 'text', previous: null }); setEditorOpen(true); }}>{uiT("Publish text price")}</Button>
+            <Button variant="outline" disabled={loading} onClick={reloadFresh}>{uiT("Refresh prices")}</Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button ref={legacyOpener} type="button" variant="outline" size="icon" aria-label={uiT("More actions")} disabled={loading && !rows.length}>
+                  <IconDots size={16} aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem disabled={!currency || (loading && !rows.length) || !!error || !!editor} onSelect={() => { setEditor({ kind: 'media', previous: null }); setEditorOpen(true); }}>{uiT("Publish media price")}</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setLegacyOpen(true)}>{uiT("Existing media contracts")}</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
         {notice && <p role="status">{uiT(notice)}</p>}
         {error && <Alert variant="destructive"><AlertDescription>{uiT(error)} <Button variant="outline" disabled={loading} onClick={() => void load(failed, true)}>{uiT("Retry prices")}</Button></AlertDescription></Alert>}
         {loading && !rows.length && <TableSkeleton columns={4} rows={5} label={uiT("Loading standard prices…")} />}

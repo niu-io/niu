@@ -40,10 +40,10 @@ const groups = [
     ['Request logs and usage', 'Generation lookups, request history, exports, diagnostics, timing and captured usage reconciliation.', '(?:^/v1/generations/|/(?:requests|metrics)(?:/|$))'],
     ['Guardrails', 'Policy configuration, previews, history, key bindings and recorded denials.', '/guardrail'],
     ['Financial reports', 'Financial summaries and Provider commercial positions. These are privileged reports, not customer account lifecycle APIs.', '^/api/v1/admin/finance/(?:summary|position)$'],
-    ['Customer balances', 'Company currency balances, limits, reservations, credit, adjustments and transaction history. Amounts are customer-facing, not Provider costs.', '(?:^/(?:api/)?v1/credits$|^/api/v1/admin/customers$|/billing/(?:accounts|balance|transactions|entries|reservations|charge-reconciliation|funding)|/spending-limit)'],
+    ['Customer balances', 'Company currency balances, limits, reservations, credit, adjustments and transaction history. Amounts are customer-facing, not Provider costs.', '(?:^/(?:api/)?v1/credits$|^/api/v1/admin/customers(?:/[^/]+)?$|/billing/(?:accounts|balance|transactions|entries|reservations|charge-reconciliation|funding)|/spending-limit)'],
     ['Customer payments', 'Top-up methods, checkout history, payment callbacks and payment gateway integrations. Checkout creation is not confirmation of funding.', '(?:/billing/(?:topups|payment-methods)|^/payments/|^/api/v1/payments/readiness$|^/api/v1/admin/payments(?:/|$))'],
     ['Branded consumption units', 'Versioned unit definitions, purchase conversion rules, unit tariffs, and unit spending limits. Publication does not activate Credits billing.', '(?:^/api/v1/admin/units(?:/|$)|/billing/units(?:/|$)|/workspaces/[^/]+/units/limit(?:/|$))'],
-    ['Customer prices and statements', 'Customer selling prices, price enrollment, invoices and statements. Prices are independent of Provider purchase rates.', '(?:^/api/v1/admin/pricing|/billing(?:/|$))'],
+    ['Customer prices and statements', 'Customer selling prices, price enrollment, invoices and statements. Prices are independent of Provider purchase rates.', '(?:^/api/v1/admin/pricing|^/api/v1/admin/customers/[^/]+/pricing(?:/|$)|/billing(?:/|$))'],
   ]],
   ['Service and compatibility', [
     ['Branding and settings', 'Public branding, theme configuration and runtime settings.', '^/api/v1/(?:public/(?:branding|currency)|admin/(?:branding|configuration|currency))$'],

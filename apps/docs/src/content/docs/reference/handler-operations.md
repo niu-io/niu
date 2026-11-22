@@ -13330,6 +13330,181 @@ HTTP 403: Platform administration required
 
 HTTP 409: Missing company cursor
 
+## Read one customer company's balance accounts and Credits summary
+
+`GET /api/v1/admin/customers/{customer}`
+
+Explicit platform administration required. Returns one named customer company with its currency accounts and Credits summary in a single bounded read snapshot. Returns 404 when the organization does not exist.
+
+Implementation: `implemented`. Operation: `getPlatformCustomer`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`customer` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Customer company summary
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 404: Customer not found
+
+## List platform standard prices paired with one customer's active customer-specific prices
+
+`GET /api/v1/admin/customers/{customer}/pricing`
+
+Explicit platform administration required. Returns every published platform standard price along with this customer's active or scheduled customer-specific selling schedule in one bounded read snapshot. Never exposes supplier procurement prices or other customers' schedules.
+
+Implementation: `implemented`. Operation: `listPlatformCustomerPricing`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`customer` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Customer pricing overview
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 404: Customer not found
+
+## Atomically set or reset customer-specific model prices
+
+`PUT /api/v1/admin/customers/{customer}/pricing`
+
+Explicit platform administration required. Atomically retires prior active/scheduled customer-specific rules on each targeted standard price and publishes the explicit replacement selling schedule (never exceeding platform standard price). Passing schedule as null resets the model to platform standard pricing.
+
+Implementation: `implemented`. Operation: `setPlatformCustomerPricing`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`customer` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Updated customer pricing summary
+
+HTTP 400: Invalid selling schedule
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 404: Customer or standard price not found
+
+## Reset one model's customer-specific price back to platform standard pricing
+
+`DELETE /api/v1/admin/customers/{customer}/pricing/{price}`
+
+Explicit platform administration required. Retires active or scheduled customer-specific selling schedules for the specified customer and standard price, returning future requests to platform standard pricing without altering historical request charges.
+
+Implementation: `implemented`. Operation: `resetPlatformCustomerModelPricing`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`customer` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`price` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Customer model pricing reset
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 404: Customer or standard price not found
+
 ## Discover named platform pricing targets
 
 `GET /api/v1/admin/pricing/targets`

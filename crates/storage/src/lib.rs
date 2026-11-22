@@ -267,7 +267,8 @@ mod retail_selection;
 mod retail_text_bindings;
 pub use retail_media_enrollment::RetailMediaEnrollmentPublication;
 pub use retail_publication::{
-    RetailPromotionPublication, RetailPromotionRetirement, RetailStandardPublication,
+    CustomerPricingItemInput, RetailPromotionPublication, RetailPromotionRetirement,
+    RetailStandardPublication,
 };
 pub use retail_selection::RetailSelection;
 pub use retail_text_bindings::RetailTextEnrollmentPublication;

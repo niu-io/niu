@@ -1,9 +1,10 @@
 //! Refs #102: published platform prices do not require workspace enrollment.
 use niu_metered_cost::{Dimensions, Quantity, Rounding};
 use niu_storage::{
-    MIGRATOR, MediaRetailSchedule, OperatorAuditActor, RetailMediaEnrollmentPublication,
-    RetailPromotionPublication, RetailSchedule, RetailStandardPublication,
-    RetailTextEnrollmentPublication, Store, StoreError, TextRetailSchedule,
+    CustomerPricingItemInput, MIGRATOR, MediaRetailSchedule, OperatorAuditActor,
+    RetailMediaEnrollmentPublication, RetailPromotionPublication, RetailSchedule,
+    RetailStandardPublication, RetailTextEnrollmentPublication, Store, StoreError,
+    TextRetailSchedule,
 };
 use serde_json::{Value, json};
 use sqlx::PgPool;
@@ -375,5 +376,131 @@ async fn retail_media_choices_validate_schema_and_hide_internal_configuration(po
             .registered_retail_models(Some("missing-cursor"), 100)
             .await
             .is_err()
+    );
+}
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL"]
+async fn customer_account_and_pricing_endpoints_apply_replace_and_reset_atomically(pool: PgPool) {
+    let store = fixture(&pool).await;
+    store.configure_platform_currency("USD").await.unwrap();
+    let scope = store.default_workspace().await.unwrap();
+    let org_id = scope.organization_id;
+
+    // Single-customer account lookup returns the organization summary; missing org returns None.
+    let missing = store
+        .platform_customer_account(Uuid::new_v4())
+        .await
+        .unwrap();
+    assert!(missing.is_none());
+    let summary = store
+        .platform_customer_account(org_id)
+        .await
+        .unwrap()
+        .expect("customer exists");
+    assert_eq!(summary["organization_id"], json!(org_id));
+
+    // Publish a standard price of $2.00 / $2.00 per 1M tokens.
+    let published = publish(&store, "USD", "0", text("2000000000")).await;
+    let price_id: Uuid = serde_json::from_value(published["price_id"].clone()).unwrap();
+
+    // Initially no customer-specific discount.
+    let initial = store
+        .platform_customer_pricing(org_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(initial["items"].as_array().unwrap().len(), 1);
+    assert!(initial["items"][0]["active_promotion"].is_null());
+
+    // Set explicit customer price ($1.70 / $1.70) atomically.
+    store
+        .set_platform_customer_pricing(
+            org_id,
+            vec![CustomerPricingItemInput {
+                price_id,
+                schedule: Some(text("1700000000")),
+                valid_seconds: Some(86_400 * 365),
+                reason: Some("VIP 85%".into()),
+            }],
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let after_first = store
+        .platform_customer_pricing(org_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let first_promo = &after_first["items"][0]["active_promotion"];
+    assert_eq!(first_promo["schedule"]["prompt_rate"], "1700000000");
+    assert_eq!(first_promo["state"], "within_period");
+
+    // Effective customer price reflects the customer schedule immediately.
+    let customer_prices = store.customer_model_prices(scope).await.unwrap();
+    assert_eq!(
+        customer_prices["default-price"]["prompt_rate"],
+        "1700000000"
+    );
+
+    // Replace with $1.50 / $1.50 atomically (retires $1.70 and publishes $1.50 in one transaction).
+    store
+        .set_platform_customer_pricing(
+            org_id,
+            vec![CustomerPricingItemInput {
+                price_id,
+                schedule: Some(text("1500000000")),
+                valid_seconds: Some(86_400 * 365),
+                reason: None,
+            }],
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let after_second = store
+        .platform_customer_pricing(org_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        after_second["items"][0]["active_promotion"]["schedule"]["prompt_rate"],
+        "1500000000"
+    );
+
+    // Reject schedules above standard price.
+    assert!(matches!(
+        store
+            .set_platform_customer_pricing(
+                org_id,
+                vec![CustomerPricingItemInput {
+                    price_id,
+                    schedule: Some(text("2500000000")),
+                    valid_seconds: None,
+                    reason: None,
+                }],
+                OperatorAuditActor::Installation,
+            )
+            .await,
+        Err(StoreError::InvalidPrice)
+    ));
+
+    // Reset back to platform standard pricing via single-model reset.
+    store
+        .reset_platform_customer_model_pricing(org_id, price_id, OperatorAuditActor::Installation)
+        .await
+        .unwrap()
+        .unwrap();
+    let after_reset = store
+        .platform_customer_pricing(org_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(after_reset["items"][0]["active_promotion"].is_null());
+    let customer_prices_after = store.customer_model_prices(scope).await.unwrap();
+    assert_eq!(
+        customer_prices_after["default-price"]["prompt_rate"],
+        "2000000000"
     );
 }

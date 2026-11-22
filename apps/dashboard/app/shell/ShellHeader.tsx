@@ -304,6 +304,22 @@ export default function ShellHeader({
             )}
           </BreadcrumbList>
         </Breadcrumb>
+      ) : location.pathname.startsWith('/admin/customers/') ? (
+        <Breadcrumb aria-label={uiT("Breadcrumb")} className="breadcrumbs">
+          <BreadcrumbList className="flex-nowrap gap-1.5 sm:gap-2.5">
+            <BreadcrumbItem className="hidden sm:inline-flex">
+              <BreadcrumbLink asChild>
+                <ProductRailLink to="/admin/customers">{t('Customers', '客户管理')}</ProductRailLink>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator className="hidden sm:block" />
+            <BreadcrumbItem className="min-w-0">
+              <h1 key={location.pathname} className="dashboard-route-title truncate" aria-current="page">
+                {title}
+              </h1>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
       ) : (
         <Breadcrumb aria-label={uiT("Breadcrumb")} className="breadcrumbs">
           <BreadcrumbList className="flex-nowrap gap-1.5 sm:gap-2.5">

@@ -68,6 +68,7 @@ export const routeImporters = {
   commercialPosition: memoImport('commercialPosition', () => import('@/features/commercial-position/page')),
   platformSettings: memoImport('platformSettings', () => import('@/features/platform-settings/page')),
   customers: memoImport('customers', () => import('@/features/customers/page')),
+  customerDetail: memoImport('customerDetail', () => import('@/features/customers/detail-page')),
   retailPricing: memoImport('retailPricing', () => import('@/features/retail-pricing/page')),
   auditLogs: memoImport('auditLogs', () => import('@/features/audit-logs/page')),
   incidents: memoImport('incidents', () => import('@/features/incidents/page')),

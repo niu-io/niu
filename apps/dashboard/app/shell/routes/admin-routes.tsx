@@ -135,6 +135,15 @@ export const adminRoute: RouteObject = {
       }),
     },
     {
+      id: 'admin-customer-detail',
+      path: 'customers/:customerId',
+      lazy: bindLazy(routeImporters.customerDetail, {
+        destination: 'Administration',
+        navTo: '/admin/customers',
+        title: { en: 'Customer', zh: '客户详情' },
+      }),
+    },
+    {
       id: 'legacy-admin-balances',
       path: 'balances',
       loader: legacyPathRedirectLoader('/admin/customers'),
@@ -146,7 +155,7 @@ export const adminRoute: RouteObject = {
       lazy: bindLazy(routeImporters.retailPricing, {
         destination: 'Administration',
         navTo: '/admin/pricing',
-        title: { en: 'Pricing', zh: '定价配置' },
+        title: { en: 'Standard pricing', zh: '标准售价' },
       }),
     },
     {

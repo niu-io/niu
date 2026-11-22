@@ -54,7 +54,7 @@ it('renders one directory with identity, setup status, Credits, exact balances, 
  const trigger=screen.getByRole('button',{name:'Account actions for Acme in USD'});
  await userEvent.setup().click(trigger);
  expect(await screen.findByRole('menuitem',{name:'Set up'})).toBeTruthy();
- for(const name of ['Manage Branded Credits','Top up balance','Set credit','Grant noncash balance','Noncash grants'])expect(screen.getByRole('menuitem',{name})).toBeTruthy();
+ for(const name of ['Customer pricing','Manage Branded Credits','Top up balance','Set credit','Grant noncash balance','Noncash grants'])expect(screen.getByRole('menuitem',{name})).toBeTruthy();
 });
 
 it('lets platform administrators record an idempotent customer top-up from the directory',async()=>{

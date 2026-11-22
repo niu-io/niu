@@ -14,9 +14,10 @@ it('keeps Admin sections independent of the Provider directory', () => {
   expect(screen.queryByRole('button', {name:'Switch provider'})).toBeNull();
   for (const [name, href] of [
     ['Providers', '/admin/providers'],
-    ['Pricing', '/admin/pricing'],
+    ['Standard pricing', '/admin/pricing'],
     ['Customers', '/admin/customers'],
     ['Reports', '/admin/reports'],
+    ['Audit logs', '/admin/audit'],
     ['Settings', '/admin/settings'],
   ]) {
     expect(screen.getByRole('link', {name}).getAttribute('href')).toBe(href);
@@ -33,8 +34,8 @@ it('keeps Admin navigation available on Provider detail routes', () => {
   expect(screen.queryByText('Example provider')).toBeNull();
   expect(screen.getByRole('link', {name:'Providers'}).getAttribute('href')).toBe('/admin/providers');
   expect(screen.getByRole('link', {name:'Providers'}).getAttribute('aria-current')).toBe('page');
-  expect(screen.getByRole('link', {name:'Pricing'}).getAttribute('href')).toBe('/admin/pricing');
-  expect(screen.getByRole('link', {name:'Pricing'}).hasAttribute('aria-current')).toBe(false);
+  expect(screen.getByRole('link', {name:'Standard pricing'}).getAttribute('href')).toBe('/admin/pricing');
+  expect(screen.getByRole('link', {name:'Standard pricing'}).hasAttribute('aria-current')).toBe(false);
   const adminLinks=screen.getByRole('navigation',{name:'Admin navigation'}).querySelectorAll('a');
   expect(adminLinks[adminLinks.length-1].getAttribute('href')).toBe('/admin/settings');
   for (const name of ['All providers','Connections','Keys','Models','Usage','Settlements','Members']) {
@@ -70,7 +71,7 @@ it('keeps Settings as the final Admin navigation link in both resale and interna
     </MemoryRouter>
   );
   const links = screen.getByRole('navigation', { name: 'Admin navigation' }).querySelectorAll('a');
-  expect([...links].map(a => a.getAttribute('href'))).toEqual(['/admin/providers', '/admin/settings']);
+  expect([...links].map(a => a.getAttribute('href'))).toEqual(['/admin/providers', '/admin/audit', '/admin/settings']);
 });
 
 function PathEcho() {

@@ -29,12 +29,13 @@ import CustomerSetup from './setup';
 import { GrantEditor, GrantHistory } from './grants';
 import { GiftCorrectionEditor } from './gift-corrections';
 import { TopupEditor } from './topups';
+import { CustomerPricingDialog } from './customer-pricing';
 import { CompanyBrandedUnitsDialog } from './unit-accounts';
 import { readPending, savePending, clearPending, type PendingCreation } from './pending';
 
-type Company = { organization_id: string; organization_name: string; accounts: CustomerBalance[]; credits?: PlatformCustomerCreditSummary | null };
-type AccountPage = { data: Company[]; next_after: string | null };
-export type Editor = { kind: 'topup' | 'credit' | 'grant' | 'history' | 'correction' | 'units'; company: Company; account: CustomerBalance | null; prepared?: PreparedCustomerBalanceGrant; gift?: IssuedCustomerBalanceGrant };
+export type Company = { organization_id: string; organization_name: string; accounts: CustomerBalance[]; credits?: PlatformCustomerCreditSummary | null };
+export type AccountPage = { data: Company[]; next_after: string | null };
+export type Editor = { kind: 'topup' | 'credit' | 'grant' | 'history' | 'correction' | 'units' | 'pricing'; company: Company; account: CustomerBalance | null; prepared?: PreparedCustomerBalanceGrant; gift?: IssuedCustomerBalanceGrant };
 
 const CUSTOMER_ACCOUNTS_PATH = '/api/v1/admin/customers?limit=50';
 const COLUMN_WIDTHS = ['w-[22%]', 'w-[12%]', 'w-[8%]', 'w-[12%]', 'w-[12%]', 'w-[12%]', 'w-[12%]', 'w-[10%]'];
@@ -83,11 +84,12 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
     else next.delete('tab');
     setSearch(next, { replace: true });
   }
-  const { currency: platformCurrency } = usePlatformCurrency();
+  const { currency: platformCurrency, billingMode } = usePlatformCurrency();
   const client = useMemo(() => new NiuAdminClient({ fetch, adminToken: token, baseURL: new URL('/api/v1', location.origin).href }), [token]);
   const initialPage = token ? peekCachedGet<AccountPage>(token, CUSTOMER_ACCOUNTS_PATH) : undefined;
   const initialValid = initialPage && Array.isArray(initialPage.data) ? initialPage : undefined;
   const [companies, setCompanies] = useState<Company[]>(() => initialValid?.data ?? []);
+  const showCreditsColumn = billingMode === 'credits' || companies.some(c => Boolean(c.credits));
   const [cursor, setCursor] = useState<string | null>(() => initialValid?.next_after ?? null);
   const [loading, setLoading] = useState(() => Boolean(token && !initialValid));
   const [error, setError] = useState('');
@@ -203,12 +205,15 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
     return <DropdownMenu>
       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={loading || !!error} onPointerDown={event => { opener.current = event.currentTarget; }} onClick={event => { opener.current = event.currentTarget; }} aria-label={account ? uiF("Account actions for {0} in {1}", [companyLabel(company), account.currency]) : uiF("Customer actions for {0}", [companyLabel(company)])}><IconDots size={16} /></Button></DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {canSetup && <><DropdownMenuItem onSelect={() => openSetup(company)}>{uiT("Set up")}</DropdownMenuItem><DropdownMenuSeparator /></>}
-        <DropdownMenuItem onSelect={() => openEditor({ kind: 'units', company, account })}>{uiT("Manage Branded Credits")}</DropdownMenuItem>
+        <DropdownMenuItem asChild><Link to={`/admin/customers/${encodeURIComponent(company.organization_id)}`}>{uiT("Manage customer", "进入客户详情")}</Link></DropdownMenuItem>
         <DropdownMenuItem disabled={!platformCurrency || (account !== null && account.currency !== platformCurrency)} onSelect={() => openEditor({ kind: 'topup', company, account })}>{uiT("Top up balance")}</DropdownMenuItem>
         <DropdownMenuItem disabled={!platformCurrency || (account !== null && account.currency !== platformCurrency)} onSelect={() => openEditor({ kind: 'credit', company, account })}>{uiT("Set credit")}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openEditor({ kind: 'pricing', company, account })}>{uiT("Customer pricing", "专属折扣")}</DropdownMenuItem>
+        {canSetup && <DropdownMenuItem onSelect={() => openSetup(company)}>{uiT("Set up")}</DropdownMenuItem>}
+        <DropdownMenuSeparator />
         <DropdownMenuItem disabled={!platformCurrency || (account !== null && account.currency !== platformCurrency)} onSelect={() => openEditor({ kind: 'grant', company, account })}>{uiT("Grant noncash balance")}</DropdownMenuItem>
         {account && <DropdownMenuItem onSelect={() => openEditor({ kind: 'history', company, account })}>{uiT("Noncash grants")}</DropdownMenuItem>}
+        <DropdownMenuItem onSelect={() => openEditor({ kind: 'units', company, account })}>{uiT("Manage Branded Credits")}</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>;
   }
@@ -244,14 +249,18 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
     {error && <Alert variant="destructive"><AlertDescription>{uiT(error)} <Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
     {loading && !companies.length && <TableSkeleton columns={8} rows={5} label={uiT("Loading customer balances…")} />}
     {!loading && !error && !companies.length && <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuilding size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No customers yet")}</EmptyTitle><EmptyDescription>{uiT("No customers yet. Create a company to start setting up independent customer access.")}</EmptyDescription></EmptyHeader>{canSetup && <EmptyContent><Button onClick={event => { opener.current = event.currentTarget; setCreate(true); }}><IconPlus size={16} aria-hidden="true" /><span>{uiT("New customer")}</span></Button></EmptyContent>}</Empty>}
-    {!!companies.length && <Table className="table-fixed min-w-[680px]" aria-label={uiT("Customer companies")}><TableHeader><TableRow>{[uiT('Company'), uiT('Credits'), uiT('Currency'), uiT('Posted balance'), uiT('Approved credit'), uiT('Outstanding liability'), uiT('Available capacity'), uiT('Actions')].map((name, index) => <TableHead key={name} className={COLUMN_WIDTHS[index] + ' ' + (index > 2 && index < 7 ? 'text-right whitespace-normal' : 'whitespace-nowrap') + (index === 7 ? ' text-right' : '')}>{name}</TableHead>)}</TableRow></TableHeader>
+    {!!companies.length && <Table className="table-fixed min-w-[680px]" aria-label={uiT("Customer companies")}><TableHeader><TableRow>{(showCreditsColumn ? [uiT('Company'), uiT('Credits'), uiT('Currency'), uiT('Posted balance'), uiT('Approved credit'), uiT('Outstanding liability'), uiT('Available capacity'), uiT('Actions')] : [uiT('Company'), uiT('Currency'), uiT('Posted balance'), uiT('Approved credit'), uiT('Outstanding liability'), uiT('Available capacity'), uiT('Actions')]).map((name, index, list) => {
+      const isRight = showCreditsColumn ? index > 2 && index < 7 : index > 1 && index < 6;
+      const isActions = index === list.length - 1;
+      return <TableHead key={name} className={(showCreditsColumn ? COLUMN_WIDTHS[index] : COLUMN_WIDTHS[index === 0 ? 0 : index + 1]) + ' ' + (isRight ? 'text-right whitespace-normal' : 'whitespace-nowrap') + (isActions ? ' text-right' : '')}>{name}</TableHead>;
+    })}</TableRow></TableHeader>
       <TableBody>{companies.flatMap(company => company.accounts.length ? company.accounts.map((account, accountIndex) => <TableRow key={company.organization_id + ':' + account.currency}>
-        <>{accountIndex === 0 && <><TableCell rowSpan={company.accounts.length} className="whitespace-normal min-w-48 max-w-72 align-top"><p className="[overflow-wrap:anywhere]">{companyLabel(company)}</p>{setupStatus(company)}</TableCell><TableCell rowSpan={company.accounts.length} className="align-top"><CreditsSummaryCell credits={company.credits ?? null} /></TableCell></>}</><TableCell>{account.currency}</TableCell>
+        <>{accountIndex === 0 && <><TableCell rowSpan={company.accounts.length} className="whitespace-normal min-w-48 max-w-72 align-top"><p className="[overflow-wrap:anywhere]"><Link className="font-medium hover:underline underline-offset-4" to={`/admin/customers/${encodeURIComponent(company.organization_id)}`}>{companyLabel(company)}</Link></p>{setupStatus(company)}</TableCell>{showCreditsColumn && <TableCell rowSpan={company.accounts.length} className="align-top"><CreditsSummaryCell credits={company.credits ?? null} /></TableCell>}</>}</><TableCell>{account.currency}</TableCell>
         {[account.balance_nanos, account.credit_limit_nanos, account.outstanding_nanos ?? null, account.available_nanos].map((amount, index) => <TableCell key={index} className="text-right whitespace-nowrap tabular-nums" aria-label={amount === null ? uiT("Unavailable") : undefined}>{amount === null ? null : money(amount, account.currency)}</TableCell>)}
         <TableCell className="text-right">{accountActions(company, account)}</TableCell>
       </TableRow>) : [<TableRow key={company.organization_id}>
-        <TableCell className="whitespace-normal min-w-48 max-w-72"><p className="[overflow-wrap:anywhere]">{companyLabel(company)}</p>{setupStatus(company)}</TableCell>
-        <TableCell><CreditsSummaryCell credits={company.credits ?? null} /></TableCell><TableCell colSpan={5} className="text-muted-foreground">{uiT("No currency accounts")}</TableCell>
+        <TableCell className="whitespace-normal min-w-48 max-w-72"><p className="[overflow-wrap:anywhere]"><Link className="font-medium hover:underline underline-offset-4" to={`/admin/customers/${encodeURIComponent(company.organization_id)}`}>{companyLabel(company)}</Link></p>{setupStatus(company)}</TableCell>
+        {showCreditsColumn && <TableCell><CreditsSummaryCell credits={company.credits ?? null} /></TableCell>}<TableCell colSpan={5} className="text-muted-foreground">{uiT("No currency accounts")}</TableCell>
         <TableCell className="text-right">{accountActions(company, null)}</TableCell>
       </TableRow>])}</TableBody>
     </Table>}
@@ -270,6 +279,7 @@ export function Customers({ token, canSetup, onWorkspaceCreated }: { token: stri
     </Tabs>
     <CreateCompany onRestoreFocus={() => opener.current?.focus()} open={create} onOpenChange={setCreate} client={client} onCreated={company => { invalidateQueries(CUSTOMER_ACCOUNTS_PATH); setCompanies(old => [{ organization_id: company.id, organization_name: company.name, accounts: [], credits: null }, ...old.filter(row => row.organization_id !== company.id)]); setCreate(false); setSelected(company); void load(); }} />
     {selected && <CustomerSetup onRestoreFocus={() => opener.current?.focus()} key={selected.id} company={selected} token={token} client={client} onClose={() => { setSelected(null); setSetupRevision(value => value + 1); void load(); }} onWorkspaceCreated={() => { onWorkspaceCreated(); setSetupRevision(value => value + 1); }} />}
+    {editor?.kind === 'pricing' && <CustomerPricingDialog token={token} organizationId={editor.company.organization_id} organizationName={companyLabel(editor.company)} returnFocusTo={opener.current} onClose={() => setEditor(null)} />}
     {editor?.kind === 'units' && <CompanyBrandedUnitsDialog token={token} organizationId={editor.company.organization_id} organizationName={companyLabel(editor.company)} returnFocusTo={opener.current} onClose={() => { setEditor(null); void load(); }} onChanged={msg => { setNotice(msg); void load(); }} />}
     {editor?.kind === 'topup' && <TopupEditor token={token} editor={editor} onClose={() => setEditor(null)} onSaved={() => { setEditor(null); setNotice('Customer balance topped up.'); void load(); }} />}
     {editor?.kind === 'grant' && <GrantEditor token={token} editor={editor} onClose={() => { setEditor(null); void load(); }} onIssued={() => { setNotice('Noncash grant issuance confirmed. This is not a cash receipt.'); void load(); }} />}
@@ -292,7 +302,7 @@ function CreateCompany({ open, onOpenChange, client, onCreated, onRestoreFocus }
 }
 
 /** Compare-and-set approval never posts funds; unknown outcomes require reread. */
-function CreditEditor({ token, editor, onClose, onSaved }: { token: string; editor: Editor; onClose: () => void; onSaved: () => void }) {
+export function CreditEditor({ token, editor, onClose, onSaved }: { token: string; editor: Editor; onClose: () => void; onSaved: () => void }) {
   const { t: uiT } = useUILocale();
   const { company, account } = editor;
   const openerRef = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null);

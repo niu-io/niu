@@ -419,6 +419,17 @@ fn billing_and_pricing_routes(app: Router<AppState>) -> Router<AppState> {
     .route("/api/v1/admin/customers",
         get(crate::billing::platform_accounts::list),
     )
+    .route("/api/v1/admin/customers/{customer}",
+        get(crate::billing::platform_accounts::get_customer),
+    )
+    .route("/api/v1/admin/customers/{customer}/pricing",
+        get(crate::billing::platform_accounts::get_customer_pricing)
+            .put(crate::billing::platform_accounts::set_customer_pricing)
+            .layer(axum::extract::DefaultBodyLimit::max(131072)),
+    )
+    .route("/api/v1/admin/customers/{customer}/pricing/{price}",
+        axum::routing::delete(crate::billing::platform_accounts::reset_customer_model_pricing),
+    )
     .route("/api/v1/admin/finance/summary",
         get(crate::billing::financial_summary::read),
     )

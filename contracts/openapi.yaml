@@ -271,6 +271,12 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1grants~1prepared~1{key}'
   /api/v1/admin/customers:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1customers'
+  /api/v1/admin/customers/{customer}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1customers~1{customer}'
+  /api/v1/admin/customers/{customer}/pricing:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1customers~1{customer}~1pricing'
+  /api/v1/admin/customers/{customer}/pricing/{price}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1customers~1{customer}~1pricing~1{price}'
   /api/v1/admin/finance/summary:
     $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1finance~1summary'
   /api/v1/organizations/{organization}/billing/accounts/{currency}/grants:

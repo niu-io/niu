@@ -61,6 +61,7 @@ export default [
         route('settings', 'features/platform-settings/page.tsx', { id: 'admin-settings' }),
         route('registrations', 'features/registrations/page.tsx', { id: 'admin-registrations' }),
         route('customers', 'features/customers/page.tsx', { id: 'admin-customers' }),
+        route('customers/:customerId', 'features/customers/detail-page.tsx', { id: 'admin-customer-detail' }),
         redirectRoute('legacy-admin-balances', 'balances'),
         route('pricing', 'features/retail-pricing/page.tsx', { id: 'admin-pricing' }),
         redirectRoute('legacy-admin-audit-logs', 'audit-logs'),

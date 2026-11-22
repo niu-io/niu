@@ -599,6 +599,54 @@ SELECT jsonb_build_object(
         Ok(json!({"data":data,"next_after":next}))
     }
 
+    /// Single customer summary (balances + Credits summary) in one bounded snapshot.
+    pub async fn platform_customer_account(
+        &self,
+        organization_id: Uuid,
+    ) -> Result<Option<Value>, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let name: Option<String> = sqlx::query_scalar("SELECT name FROM organizations WHERE id=$1")
+            .bind(organization_id)
+            .fetch_optional(&mut *snapshot)
+            .await?;
+        let Some(organization_name) = name else {
+            crate::commit_tx(snapshot).await?;
+            return Ok(None);
+        };
+        let ids = vec![organization_id];
+        let balances: Vec<(Uuid, Value)> =
+            sqlx::query_as(include_str!("customer_balance_projection.sql"))
+                .bind(&ids)
+                .fetch_all(&mut *snapshot)
+                .await?;
+        let accounts: Vec<Value> = balances.into_iter().map(|(_, balance)| balance).collect();
+        let credit_rows: Vec<(Uuid, String, i16, i64, bool)> =
+            sqlx::query_as(include_str!("platform_customer_unit_summaries.sql"))
+                .bind(&ids)
+                .fetch_all(&mut *snapshot)
+                .await?;
+        let credit_items: Vec<(String, i16, i64, bool)> = credit_rows
+            .into_iter()
+            .map(
+                |(_, name, display_precision, available_atoms, is_current)| {
+                    (name, display_precision, available_atoms, is_current)
+                },
+            )
+            .collect();
+        let credits = if credit_items.is_empty() {
+            Value::Null
+        } else {
+            platform_customer_credit_summary(&credit_items)
+        };
+        crate::commit_tx(snapshot).await?;
+        Ok(Some(json!({
+            "organization_id": organization_id,
+            "organization_name": organization_name,
+            "accounts": accounts,
+            "credits": credits,
+        })))
+    }
+
     /// Current platform retail text rates for one alias, used to price shared routes.
     pub async fn platform_retail_text_pricing(
         &self,

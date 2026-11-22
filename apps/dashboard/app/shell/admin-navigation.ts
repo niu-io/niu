@@ -1,5 +1,6 @@
 import {
   IconChartLine,
+  IconHistory,
   IconPlugConnected,
   IconSettings,
   IconTag,
@@ -30,7 +31,7 @@ const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     id: 'core',
     items: [
       { to: '/admin/providers', labelEn: 'Providers', labelZh: '模型供应商', icon: IconPlugConnected },
-      { to: '/admin/pricing', labelEn: 'Pricing', labelZh: '客户定价', icon: IconTag, resaleOnly: true },
+      { to: '/admin/pricing', labelEn: 'Standard pricing', labelZh: '标准售价', icon: IconTag, resaleOnly: true },
       {
         to: '/admin/customers',
         labelEn: 'Customers',
@@ -40,6 +41,7 @@ const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         badgeKey: 'pendingRegistrations',
       },
       { to: '/admin/reports', labelEn: 'Reports', labelZh: '财务与用量', icon: IconChartLine, resaleOnly: true },
+      { to: '/admin/audit', labelEn: 'Audit logs', labelZh: '审计日志', icon: IconHistory },
       { to: '/admin/settings', labelEn: 'Settings', labelZh: '平台设置', icon: IconSettings },
     ],
   },
