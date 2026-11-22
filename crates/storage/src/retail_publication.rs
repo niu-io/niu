@@ -602,7 +602,7 @@ impl Store {
                         key,
                         intent,
                         reason: &retire_reason,
-                        actor: actor.clone(),
+                        actor,
                     },
                 )
                 .await?;
@@ -649,7 +649,7 @@ impl Store {
                         key,
                         intent,
                         reason: &note,
-                        actor: actor.clone(),
+                        actor,
                     },
                 )
                 .await?;
