@@ -132,9 +132,8 @@
 /* Flat section surfaces: navigation and content are separated by tone.
    Reserve elevation for floating controls; retain table and input affordances. */
 [data-slot="card"] { border: 0; border-radius: var(--radius-panel); box-shadow: none; }
-[data-variant="outline"]:is([data-slot="button"], [data-slot="dialog-trigger"], [data-slot="dropdown-menu-trigger"], [data-slot="popover-trigger"]):not(:focus-visible) { border-color: transparent; background: var(--secondary); box-shadow: none; }
-[data-variant="outline"]:is([data-slot="button"], [data-slot="dialog-trigger"], [data-slot="dropdown-menu-trigger"], [data-slot="popover-trigger"]):hover:not(:disabled) { background: var(--accent); }
-[data-variant="outline"]:is([data-slot="button"], [data-slot="dialog-trigger"], [data-slot="dropdown-menu-trigger"], [data-slot="popover-trigger"]):disabled { background: color-mix(in srgb, var(--foreground) 8%, var(--card)); color: color-mix(in srgb, var(--foreground) 78%, var(--card)); }
+[data-slot="card"] [data-slot="alert"][data-variant="default"],
+[data-slot="dialog-content"] [data-slot="alert"][data-variant="default"] { background: var(--muted); }
 .gateway-activity-summary { gap: 0; background: var(--card); border-radius: var(--radius-panel); }
 .gateway-activity-summary article { border-radius: 0; background: transparent; box-shadow: none; }
 .gateway-task-feed, .gateway-task-feed:not(.is-compact) { border: 0; border-radius: 0; background: transparent; }

@@ -32,9 +32,9 @@ describe('deployment branding',()=>{
   });
   it('resolves preview defaults independently of the current page mode and ignores invalid drafts',()=>{
     document.documentElement.classList.add('dark');
-    expect(previewPalette(defaultBranding,'light')['--background']).toBe('oklch(0.985 0.001 255)');
-    expect(previewPalette(defaultBranding,'dark')['--background']).toBe('oklch(0.19 0.003 255)');
-    expect(previewPalette({...defaultBranding,light:{primary:'url(x)'}},'light')['--primary']).toBe('oklch(0.34 0.035 255)');
+    expect(previewPalette(defaultBranding,'light')['--background']).toBe('#EEEDEA');
+    expect(previewPalette(defaultBranding,'dark')['--background']).toBe('#141312');
+    expect(previewPalette({...defaultBranding,light:{primary:'url(x)'}},'light')['--primary']).toBe('#B3471A');
   });
   it('keeps a draft on save failure, reloads current revisions and saves via dialogs',async()=>{
     let revision='0';let fail=true;const writes:unknown[]=[];

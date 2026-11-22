@@ -39,24 +39,24 @@ const labelsZh: Record<BrandingToken, string> = {
 };
 const defaultTokenHex: Record<'light' | 'dark', Record<BrandingToken, string>> = {
   light: {
-    background: '#ececeb',
+    background: '#EEEDEA',
     foreground: '#45352F',
-    primary: '#45352F',
-    'primary-foreground': '#FAFAF9',
-    sidebar: '#FAFAF9',
+    primary: '#B3471A',
+    'primary-foreground': '#FFFBF7',
+    sidebar: '#FAF9F7',
     'sidebar-foreground': '#45352F',
-    accent: '#ececeb',
+    accent: '#E5E0D9',
     'accent-foreground': '#45352F',
   },
   dark: {
-    background: '#121314',
-    foreground: '#EFE2DA',
-    primary: '#FF914D',
-    'primary-foreground': '#45352F',
-    sidebar: '#141414',
+    background: '#141312',
+    foreground: '#F2E7E0',
+    primary: '#B84B1C',
+    'primary-foreground': '#FFFBF7',
+    sidebar: '#191716',
     'sidebar-foreground': '#EFE2DA',
-    accent: '#242424',
-    'accent-foreground': '#EFE2DA',
+    accent: '#322D29',
+    'accent-foreground': '#F2E7E0',
   },
 };
 const copy = (value: BrandingSettings): BrandingSettings => ({ ...value, light: { ...value.light }, dark: { ...value.dark } });

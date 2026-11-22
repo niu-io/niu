@@ -40,7 +40,7 @@
 
 /* Adapt the shared Niu palette to Starlight in both theme modes. */
 :root {
-  --brand-accent: #c95c24;
+  --brand-accent: #B3471A;
   --sl-nav-height: 4rem;
   --sl-color-white: var(--foreground);
   --sl-color-gray-1: var(--foreground);
@@ -75,7 +75,7 @@
 
 .dark,
 :root[data-theme='dark'] {
-  --brand-accent: #ef8650;
+  --brand-accent: #E68652;
 }
 
 /* Header search button subtle hover affordance */
@@ -891,7 +891,7 @@ dialog[data-docs-search-dialog]::backdrop {
   line-height: 1.6;
 }
 .docs-home-primary-cta[data-slot='button'] {
-  background: linear-gradient(135deg, #d9692e, #a9461a);
+  background: linear-gradient(135deg, #C45322, #963811);
   color: #fff;
   font-weight: 600;
 }

@@ -118,7 +118,7 @@
 .playground-response pre { white-space: pre; overflow: auto; margin: 12px 0; padding: 13px 15px; border-radius: 9px; background: var(--muted); font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .playground-response pre code { font: inherit; }
 .playground-response .katex-display { margin: .75em 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; padding-block: .2em; }
-.playground-response a { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+.playground-response a { color: var(--primary-ink); text-decoration: underline; text-underline-offset: 3px; }
 .playground-response table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
 .playground-response th, .playground-response td { padding: 8px 11px; border: 1px solid var(--border); white-space: nowrap; }
 .playground-response-pending { color: var(--muted-foreground); }
@@ -147,7 +147,7 @@
 .playground-composer-actions { display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 10px; }
 .playground-composer-actions > span { overflow: hidden; color: var(--muted-foreground); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .playground-composer-actions > button { gap: 8px; }
-.playground-chat-error { margin: 0; padding: 11px 13px; border-radius: 10px; color: var(--destructive); background: color-mix(in srgb, var(--destructive) 8%, var(--background)); font-size: 14px; line-height: 1.5; }
+.playground-chat-error { margin: 0; padding: 11px 13px; border-radius: 10px; color: var(--destructive-ink); background: color-mix(in srgb, var(--destructive) 8%, var(--background)); font-size: 14px; line-height: 1.5; }
 @media (max-width: 920px) {
   .playground-chat-layout { grid-template-columns: auto minmax(0, 1fr); }}
 @media (max-width: 680px) {
@@ -186,7 +186,7 @@
   height: 44px;
   place-items: center;
   border-radius: 14px;
-  color: var(--destructive);
+  color: var(--destructive-ink);
   background: color-mix(in srgb, var(--destructive) 10%, var(--background));
 }
 .workspace-recovery-icon.is-warning {
@@ -211,7 +211,7 @@
 }
 .workspace-recovery-request > span { color: var(--muted-foreground); font-size: 14px; }
 .workspace-recovery-request > code { min-width: 0; flex: 1; }
-.workspace-recovery-request > strong { color: var(--destructive); font-size: 14px; font-weight: 600; }
+.workspace-recovery-request > strong { color: var(--destructive-ink); font-size: 14px; font-weight: 600; }
 .workspace-recovery-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
 .workspace-recovery-actions > span { color: var(--muted-foreground); font-size: 14px; line-height: 1.5; }
 .workspace-recovery-actions a { display: inline-flex; align-items: center; gap: 8px; }

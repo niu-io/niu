@@ -8,16 +8,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted disabled:text-foreground/80 disabled:shadow-none",
+        default:
+          "bg-primary text-primary-foreground shadow-xs hover:bg-[color-mix(in_oklab,var(--primary)_86%,black)] dark:hover:bg-[color-mix(in_oklab,var(--primary)_92%,white)] disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none",
         destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 disabled:bg-muted disabled:text-foreground/80",
+          "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/25 dark:focus-visible:ring-destructive/40 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none",
         outline:
-          "border-0 bg-popover text-foreground shadow-[var(--shadow-subtle)] hover:bg-accent hover:text-accent-foreground disabled:bg-muted/75 disabled:text-foreground/80 disabled:shadow-none dark:bg-secondary/90 dark:hover:bg-accent dark:disabled:bg-muted/75",
+          "border border-border bg-card text-foreground shadow-[var(--shadow-subtle)] hover:bg-accent hover:text-accent-foreground disabled:bg-muted/75 disabled:text-muted-foreground disabled:shadow-none dark:bg-secondary/75 dark:hover:bg-accent dark:disabled:bg-muted/75",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:bg-muted/80 disabled:text-foreground/80",
+          "bg-secondary text-secondary-foreground hover:bg-accent disabled:bg-muted/80 disabled:text-muted-foreground",
         ghost:
-          "hover:bg-accent hover:text-accent-foreground disabled:text-foreground/80 dark:hover:bg-accent/50",
-        link: "text-foreground underline-offset-4 hover:underline disabled:text-foreground/80",
+          "hover:bg-accent hover:text-accent-foreground disabled:text-muted-foreground dark:hover:bg-accent/70",
+        link: "text-foreground underline-offset-4 hover:underline disabled:text-muted-foreground",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",
