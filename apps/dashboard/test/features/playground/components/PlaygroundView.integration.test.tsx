@@ -826,7 +826,8 @@ describe('Global Chat', () => {
     renderPlayground(['fast', 'strong']);
     await user.click(await screen.findByRole('button', { name: 'API key: Default' }));
     await waitFor(() => expect(calls).toBe(2));
-    expect(screen.getByRole('button', { name: 'API key', exact: true }).textContent).toContain('Default');
+    expect(screen.getByRole('button', { name: 'API key: Default', hidden: true }).textContent).toContain('Default');
+    expect(screen.getByRole('menuitemradio', { name: 'Default' })).toBeTruthy();
     expect(screen.queryByLabelText('Key secret')).toBeNull();
     await user.keyboard('{Escape}');
     expect(screen.getByRole('button', { name: 'API key: Default' })).toBeTruthy();
@@ -1132,15 +1133,14 @@ describe('Global Chat', () => {
     await waitFor(()=>expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).disabled).toBe(false));
     await user.type(screen.getByLabelText('Prompt for all selected models'), 'Stop this comparison.');
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
-    expect(await screen.findByRole('heading', { name: 'API key' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Manage keys' }).getAttribute('href')).toBe('/workspaces/workspace-a/keys');
+    const keyMenu = await screen.findByRole('menu', { name: /API key:/i });
+    expect(within(keyMenu).getByRole('menuitem', { name: 'Manage keys' }).getAttribute('href')).toBe('/workspaces/workspace-a/keys');
     expect(screen.queryByLabelText('Key secret')).toBeNull();
     expect(screen.queryByText('Choose a workspace API key before sending this prompt.')).toBeNull();
     expect(screen.queryByText('Select a workspace API key to send requests')).toBeNull();
     expect(screen.queryByText(/Create a key on the API keys page/)).toBeNull();
     expect(requests.filter(request => request.url === '/v1/chat/completions')).toHaveLength(0);
-    await screen.findByRole('button', { name: 'API key', exact: true });
-    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await user.click(await within(keyMenu).findByRole('menuitemradio', { name: 'Default' }));
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
     await waitFor(() => expect(requests.filter(request => request.url === '/v1/chat/completions')).toHaveLength(2));
     await user.click(screen.getByRole('button', { name: 'Stop generating' }));
@@ -1562,7 +1562,7 @@ it('restores the latest or selected conversation without flickering the sidebar 
   expect(screen.getByRole('link',{name:'Earlier conversation'}).getAttribute('data-active')).toBe('true');
 });
 
-it('keeps the API key dialog frame stable while loading keys in the dropdown trigger', async () => {
+it('keeps the unified API key picker stable while loading keys', async () => {
   const resolvers: Array<(response: Response) => void> = [];
   stubFetch(vi.fn((input: RequestInfo | URL) => {
     const url = String(input);
@@ -1571,14 +1571,13 @@ it('keeps the API key dialog frame stable while loading keys in the dropdown tri
   }));
   const user = userEvent.setup();
   renderPlayground(['fast']);
-  await user.click(await screen.findByRole('button', { name: /API key: Choose API key/i }));
-  const dialog = await screen.findByRole('dialog', { name: 'API key' });
-  const trigger = within(dialog).getByRole('button', { name: 'API key', exact: true }) as HTMLButtonElement;
-  expect(trigger.disabled).toBe(true);
+  const trigger = await screen.findByRole('button', { name: /API key: Choose API key/i }) as HTMLButtonElement;
   expect(trigger.getAttribute('aria-busy')).toBe('true');
-  expect(trigger.textContent).toContain('Loading API keys…');
-  expect(within(dialog).getByText('Key')).toBeTruthy();
-  expect(within(dialog).getByRole('link', { name: 'Manage keys' })).toBeTruthy();
+  expect(trigger.textContent).toContain('Loading keys…');
+  await user.click(trigger);
+  const menu = await screen.findByRole('menu', { name: /API key:/i });
+  expect(menu.textContent).toContain('Loading keys…');
+  expect(within(menu).getByRole('menuitem', { name: 'Manage keys' })).toBeTruthy();
 
   await act(async () => {
     while (resolvers.length > 0) {
@@ -1586,10 +1585,10 @@ it('keeps the API key dialog frame stable while loading keys in the dropdown tri
     }
   });
 
-  await waitFor(() => expect(trigger.disabled).toBe(false));
+  await waitFor(() => expect(trigger.getAttribute('aria-busy')).toBeNull());
   expect(trigger.isConnected).toBe(true);
   expect(trigger.textContent).toContain('Default');
-  expect((within(dialog).getByRole('button', { name: 'Done' }) as HTMLButtonElement).disabled).toBe(false);
+  expect(await within(menu).findByRole('menuitemradio', { name: 'Default' })).toBeTruthy();
 });
 
 it('offers Choose API key directly inside the blocked composer cover when another active key exists', async () => {
@@ -1602,7 +1601,8 @@ it('offers Choose API key directly inside the blocked composer cover when anothe
   const cover = coverMessage.closest('.composer-cover') as HTMLElement;
   expect(cover).toBeTruthy();
   await user.click(within(cover).getByRole('button', { name: 'Choose API key' }));
-  expect(await screen.findByRole('dialog', { name: 'API key' })).toBeTruthy();
+  const menu = await screen.findByRole('menu', { name: /API key:/i });
+  expect(within(menu).getByRole('menuitemradio', { name: 'Default' })).toBeTruthy();
 });
 
 it('switches between saved Chat sessions immediately without showing a saving-draft notice', async () => {

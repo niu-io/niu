@@ -338,4 +338,22 @@ describe('configured video model purchase-rate setup', () => {
     expect((screen.getByRole('button', {name:'Publish rate and enable offer'}) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/Provider connection is unavailable/)).toBeTruthy();
   });
+
+  it('keeps the form frame stably mounted while loading model choices in the Model selector', async () => {
+    let resolveModels!: (response: Response) => void;
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(resolve => { resolveModels = resolve; })));
+    const user = userEvent.setup();
+    render(<MediaRatePublisher token="fixture" supplier="supplier-a" onClose={vi.fn()} onSaved={vi.fn()} />);
+    const modelTrigger = screen.getByLabelText('Model') as HTMLButtonElement;
+    expect(modelTrigger.getAttribute('aria-busy')).toBe('true');
+    expect(modelTrigger.textContent).toContain('Loading model choices…');
+    expect(screen.getByLabelText('Price')).toBeTruthy();
+    expect((screen.getByRole('button', {name:'Publish rate'}) as HTMLButtonElement).disabled).toBe(true);
+
+    resolveModels(Response.json({data:[model], has_more:false, next_after:null}));
+    await waitFor(() => expect(modelTrigger.getAttribute('aria-busy')).toBeNull());
+    expect(modelTrigger.isConnected).toBe(true);
+    await user.click(modelTrigger);
+    expect(await screen.findByRole('menuitemradio', {name:'fixture-video · Video credential'})).toBeTruthy();
+  });
 });

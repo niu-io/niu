@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import ProvidersView from '@/features/providers/components/ProvidersView';
@@ -28,6 +29,6 @@ export default function IncidentConnection({ reference }: { reference: string })
     <Button asChild variant="outline" size="sm"><Link to="/admin/incidents">{t('Back to incidents', '返回事故')}</Link></Button>
     {error ? <Alert variant="destructive"><AlertDescription>{t('This incident or connection is unavailable. Return to incidents and refresh before taking action.', '此事故或连接不可用。请返回事故并刷新后再操作。')}</AlertDescription></Alert>
       : connection && context.session ? <ProvidersView key={`${context.token}:${connection}`} token={context.token} session={context.session} refreshWorkspace={context.refreshWorkspace} fixedConnectionId={connection} />
-        : <p role="status">{t('Loading connection…', '正在加载连接…')}</p>}
+        : <div className="rounded-xl bg-card p-6"><FormSectionSkeleton fields={3} label={t('Loading connection…', '正在加载连接…')} /></div>}
   </div>;
 }

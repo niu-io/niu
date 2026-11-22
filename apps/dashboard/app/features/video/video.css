@@ -15,17 +15,6 @@
 .video-user-message p { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; font-size:14px; line-height:1.6; }
 .video-response { position:relative; display:grid; gap:16px; min-width:0; }
 .video-response-model { font-size:13px; font-weight:500; color:var(--muted-foreground); overflow-wrap:anywhere; }
-.video-composer { flex-shrink:0; padding:8px 20px 20px; background:transparent; }
-.video-composer-surface { position:relative; max-width:880px; margin-inline:auto; background:var(--popover); border:0; border-radius:24px; padding:12px; box-shadow:var(--shadow-composer); transition:box-shadow 160ms ease; }
-.video-composer-surface.is-blocked { min-height:148px; }
-.video-composer-surface.is-blocked > :not(.video-composer-cover) { opacity:.4; }
-.video-composer-cover { position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:8px; padding:16px 18px; border-radius:inherit; background:color-mix(in srgb, var(--popover) 88%, transparent); }
-.video-composer-cover p { margin:0; }
-.video-composer-cover-actions { display:flex; flex-wrap:wrap; gap:8px; }
-.video-composer textarea { min-height:60px; max-height:200px; field-sizing:content; resize:none; border:0; box-shadow:none; background:transparent; padding:8px; font-size:14px; }
-.video-composer textarea:focus-visible { box-shadow:none; outline:none; }
-.video-composer-surface:focus-within { box-shadow:var(--shadow-composer), 0 0 0 2px color-mix(in oklab, var(--ring) 28%, transparent); }
-.video-composer-toolbar { display:flex; align-items:end; justify-content:space-between; gap:8px; margin-top:8px; }
 .video-model-choice { max-width:260px; min-width:0; font-size:12px; overflow:hidden; text-overflow:ellipsis; }
 .video-key-choice { max-width:220px; min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .video-settings-popover { width:min(360px, calc(100vw - 32px)); max-height:65dvh; overflow-y:auto; border-radius:var(--radius-overlay); }
@@ -52,7 +41,7 @@
 .video-timings h3 { font-size:14px; font-weight:600; }.video-timings p { margin-block:8px 16px; }
 .video-span { display:grid; grid-template-columns:85px minmax(0,1fr) 55px; gap:8px; align-items:center; margin-block:10px; font-size:12px; }.video-span small { text-align:right; }
 .video-span-track { background:var(--muted); height:10px; border-radius:4px; overflow:hidden; }.video-span-track i { display:block; height:100%; background:var(--primary); border-radius:4px; }
-@media(max-width:640px) { .video-shell { grid-template-columns:minmax(0,1fr); } .video-conversation { padding:16px; } .video-composer { padding:8px 12px max(12px,env(safe-area-inset-bottom)); } .video-model-choice { max-width:132px; } .video-key-choice { max-width:180px; } .video-user-message { max-width:95%; } .video-span { grid-template-columns:70px minmax(0,1fr) 50px; } }
+@media(max-width:640px) { .video-shell { grid-template-columns:minmax(0,1fr); } .video-conversation { padding:16px; } .video-model-choice { max-width:132px; } .video-key-choice { max-width:180px; } .video-user-message { max-width:95%; } .video-span { grid-template-columns:70px minmax(0,1fr) 50px; } }
 
 .video-output { display:grid; gap:12px; min-width:0; }
 .video-preview { display:block; width:100%; max-height:480px; object-fit:contain; border-radius:var(--radius); background:var(--muted); }

@@ -8,7 +8,6 @@ import { IconRefresh as RefreshCw } from "@tabler/icons-react";
 import { IconShieldCheck as ShieldCheck } from "@tabler/icons-react";
 import { Button } from '@/components/ui/button';
 import PageHeader from '@/components/PageHeader';
-import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import type { AdminSession } from '@/shell/dashboard-context';
 import {
   AdminRequestError,
@@ -532,14 +531,14 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     : uiT("This user has organization-wide access. Revoking it removes access to every workspace in the organization, not just this workspace.");
   const detailDescription = uiF("Access sessions for {0}. Revoke a session to end that connection.", [selectedOperator?.name ?? ""]);
   const cancelDescription = uiT('The one-time link will stop working immediately. The person can still be invited again later.', '一次性链接将立即失效。之后仍可重新邀请此人。');
-  const detailBody = <>{selectedOperator && canChangeRole && openedRoleContext !== roleContext && credential?.operatorId !== selectedOperator.id
-        ? (roleOpenError
-          ? <div className="space-y-3"><p role="alert">{uiT(roleOpenError)}</p><Button variant="outline" onClick={() => setRoleOpenRevision(value => value + 1)}>{uiT("Reload saved role")}</Button></div>
-          : <FormSectionSkeleton fields={2} label={uiT("Loading the saved role…")} />)
-        : selectedOperator && <OperatorDetails
+  const rolePending = Boolean(selectedOperator && canChangeRole && openedRoleContext !== roleContext && credential?.operatorId !== selectedOperator.id);
+  const detailBody = <>{selectedOperator && <OperatorDetails
         key={[session.kind, session.operator?.id ?? '', organization, project, selectedOperator.id].join(':')}
         operator={selectedOperator}
         canChangeRole={canChangeRole}
+        roleOpening={rolePending && !roleOpenError}
+        roleOpenError={rolePending ? roleOpenError : ''}
+        onRetryRoleOpen={() => setRoleOpenRevision(value => value + 1)}
         roleRefreshError={roleRefreshError}
         onSaveRole={(role, expectedRole) => roleRequest(role, expectedRole)}
         onReloadRole={() => roleRequest()}

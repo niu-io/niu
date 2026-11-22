@@ -2,10 +2,8 @@ import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { workspaceDisplayName } from '@/shell/workspace-route';
-import { useState } from 'react';
-import { IconBan as Ban } from "@tabler/icons-react";
-import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
-import { IconKey as KeyRound } from "@tabler/icons-react";
+import { useEffect, useRef, useState } from 'react';
+import { IconBan as Ban, IconChevronDown as ChevronDown, IconKey as KeyRound, IconLoader2 as Loader2 } from "@tabler/icons-react";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -73,6 +71,9 @@ type OperatorDetailsProps = {
   credential: CredentialView | null;
   confirmTarget: ConfirmTarget;
   canChangeRole: boolean;
+  roleOpening?: boolean;
+  roleOpenError?: string;
+  onRetryRoleOpen?: () => void;
   roleRefreshError: string;
   onSaveRole: (role: Operator['role'], expectedRole: Operator['role']) => Promise<Operator>;
   onReloadRole: () => Promise<Operator>;
@@ -84,16 +85,25 @@ type OperatorDetailsProps = {
   onLoadMoreEvents: () => void;
 };
 
-export default function OperatorDetails({ operator, organizations, projects, sessions, sessionsLoading, events, eventsLoading, hasMoreEvents, busy, credential, confirmTarget, canChangeRole, roleRefreshError, onSaveRole, onReloadRole, onDismissCredential, onIssueSession, onConfirm, onRevokeSession, onRevokeOperator, onLoadMoreEvents }: OperatorDetailsProps) {
+export default function OperatorDetails({ operator, organizations, projects, sessions, sessionsLoading, events, eventsLoading, hasMoreEvents, busy, credential, confirmTarget, canChangeRole, roleOpening = false, roleOpenError = '', onRetryRoleOpen, roleRefreshError, onSaveRole, onReloadRole, onDismissCredential, onIssueSession, onConfirm, onRevokeSession, onRevokeOperator, onLoadMoreEvents }: OperatorDetailsProps) {
   const { t: uiT } = useUILocale();
   const [draftRole, setDraftRole] = useState<Operator['role']>(operator?.role ?? 'viewer');
   const [expectedRole, setExpectedRole] = useState<Operator['role']>(operator?.role ?? 'viewer');
   const [roleLocked, setRoleLocked] = useState(false);
   const [roleMessage, setRoleMessage] = useState('');
   const [roleBusy, setRoleBusy] = useState(false);
-  const roleConflict = roleLocked || Boolean(operator && operator.role !== expectedRole);
+  const wasRoleOpening = useRef(roleOpening);
+  useEffect(() => {
+    if (wasRoleOpening.current && !roleOpening && !roleOpenError && operator) {
+      setExpectedRole(operator.role);
+      setDraftRole(operator.role);
+    }
+    wasRoleOpening.current = roleOpening;
+  }, [roleOpening, roleOpenError, operator?.role]);
+  const roleUnavailable = roleOpening || Boolean(roleOpenError);
+  const roleConflict = !roleUnavailable && (roleLocked || Boolean(operator && operator.role !== expectedRole));
   async function saveRole() {
-    if (busy || roleBusy || roleConflict || !canChangeRole || draftRole === expectedRole) return;
+    if (busy || roleBusy || roleUnavailable || roleConflict || !canChangeRole || draftRole === expectedRole) return;
     setRoleBusy(true);
     setRoleMessage('');
     try {
@@ -143,7 +153,7 @@ export default function OperatorDetails({ operator, organizations, projects, ses
     <p className="operator-scope-footnote px-4">{uiT({ viewer: 'Can read workspace data. Cannot change settings or manage user access.', admin: 'Can read and change workspace data. Cannot manage user access.', owner: 'Can read and change workspace data, add users, and revoke access.' }[operator.role])}{!operator.project_id && operator.role !== 'viewer' && <> {uiT("This organization-wide role can access organization billing and shared funds.", "此组织级角色可以访问组织账单及共享资金。")}</>}</p>
     {canChangeRole && <div className="space-y-3 px-4 py-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="grid gap-2"><Label htmlFor="operator-role">{uiT("Role")}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button id="operator-role" variant="outline" size="sm" className="justify-between font-normal" disabled={busy || roleBusy || roleConflict}>{roleLabel(draftRole, uiT)}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+        <div className="grid gap-2"><Label htmlFor="operator-role">{uiT("Role")}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button id="operator-role" variant="outline" size="sm" aria-busy={roleOpening || undefined} className="justify-between font-normal" disabled={busy || roleBusy || roleUnavailable || roleConflict}>{roleOpening ? <span className="inline-flex items-center gap-2 text-muted-foreground"><Loader2 size={14} className="animate-spin" aria-hidden="true" />{uiT("Loading the saved role…")}</span> : roleLabel(draftRole, uiT)}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start"><DropdownMenuRadioGroup value={draftRole} onValueChange={value => setDraftRole(value as Operator['role'])}>
               <DropdownMenuRadioItem value="viewer">{uiT("Viewer · read workspace data")}</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="admin">{uiT("Admin · change workspace data")}</DropdownMenuRadioItem>
@@ -151,9 +161,11 @@ export default function OperatorDetails({ operator, organizations, projects, ses
             </DropdownMenuRadioGroup></DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <Button size="sm" disabled={busy || roleBusy || roleConflict || draftRole === expectedRole} onClick={() => void saveRole()}>{uiT("Save role")}</Button>
-        {(roleConflict || roleMessage) && <Button size="sm" variant="outline" disabled={busy || roleBusy} onClick={() => void reloadRole()}>{uiT("Reload saved role")}</Button>}
+        <Button size="sm" disabled={busy || roleBusy || roleUnavailable || roleConflict || draftRole === expectedRole} onClick={() => void saveRole()}>{uiT("Save role")}</Button>
+        {roleOpenError && onRetryRoleOpen && <Button size="sm" variant="outline" disabled={busy || roleBusy} onClick={onRetryRoleOpen}>{uiT("Reload saved role")}</Button>}
+        {!roleOpenError && (roleConflict || roleMessage) && <Button size="sm" variant="outline" disabled={busy || roleBusy} onClick={() => void reloadRole()}>{uiT("Reload saved role")}</Button>}
       </div>
+      {roleOpenError && <p className="text-sm text-destructive" role="alert">{uiT(roleOpenError)}</p>}
       {!operator.project_id && draftRole !== 'viewer' && draftRole !== operator.role && <p className="text-sm text-muted-foreground">{uiT("This organization-wide role can access organization billing and shared funds.", "此组织级角色可以访问组织账单及共享资金。")}</p>}
       {roleRefreshError && <p className="text-sm text-muted-foreground" role="status">{uiT(roleRefreshError)}</p>}
       {(roleMessage || roleConflict) && <p className="text-sm text-muted-foreground" role={roleConflict ? 'alert' : 'status'}>{uiT(roleMessage) || uiT("The saved role changed. Reload it before saving again.")}</p>}

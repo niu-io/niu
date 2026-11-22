@@ -18,8 +18,7 @@
 .generations-layout .playground-response,
 .generations-layout .playground-composer textarea,
 .generations-layout .video-user-message p,
-.generations-layout .video-response,
-.generations-layout .video-composer textarea { font-size:var(--generation-body-size); line-height:var(--generation-body-leading); }
+.generations-layout .video-response { font-size:var(--generation-body-size); line-height:var(--generation-body-leading); }
 .generations-layout .playground-result-card-heading h3,
 .generations-layout .video-response-model { font-size:15px; font-weight:600; }
 .generations-layout .video-model-choice,
