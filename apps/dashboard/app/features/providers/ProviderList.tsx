@@ -103,7 +103,7 @@ export default function ProviderList() {
         setDialog('');
         window.dispatchEvent(new Event('niu:provider-profile-updated'));
         if (typeof result?.data?.id === 'string' && result.data.id.trim()) {
-          navigate('/admin/providers/' + encodeURIComponent(result.data.slug || result.data.id) + (session?.operating_mode === 'internal' ? '/keys' : ''));
+          navigate('/admin/providers/' + encodeURIComponent(result.data.slug || result.data.id) + '/keys');
         } else {
           setError('Provider was created, but its page could not be opened. Refresh the list to find it before adding another Provider.');
         }

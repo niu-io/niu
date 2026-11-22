@@ -37,7 +37,7 @@ it('opens the newly created Provider directly without refreshing the directory',
   vi.mocked(request).mockImplementation(async (_token, _path, method = 'GET') => method === 'POST' ? { data: { id: 'new-provider' } } : { data: [] });
   const router = createMemoryRouter([
     { path: '/admin/providers', element: <ProviderList /> },
-    { path: '/admin/providers/:providerId', element: <h1>New Provider overview</h1> },
+    { path: '/admin/providers/:providerId/keys', element: <h1>New Provider API keys</h1> },
   ], { initialEntries: ['/admin/providers'] });
   render(<RouterProvider router={router} />);
   const user = userEvent.setup();
@@ -45,8 +45,8 @@ it('opens the newly created Provider directly without refreshing the directory',
   await user.click(screen.getByRole('button', { name: 'Add Provider' }));
   await user.type(screen.getByLabelText('Provider name'), 'New Provider');
   await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add Provider' }));
-  await screen.findByRole('heading', { name: 'New Provider overview' });
-  expect(router.state.location.pathname).toBe('/admin/providers/new-provider');
+  await screen.findByRole('heading', { name: 'New Provider API keys' });
+  expect(router.state.location.pathname).toBe('/admin/providers/new-provider/keys');
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(vi.mocked(request).mock.calls.filter(([, , method]) => method === 'POST')).toHaveLength(1);
   expect(vi.mocked(request).mock.calls.filter(([, , method]) => method === 'GET')).toHaveLength(2);
@@ -58,7 +58,7 @@ it('creates the optional profile in one request and opens the returned Provider 
   vi.mocked(request).mockImplementation(async (_token, _path, method = 'GET') => method === 'POST' ? { data: { id: 'new-provider', slug: 'complete-provider' } } : { data: [] });
   const router = createMemoryRouter([
     { path: '/admin/providers', element: <ProviderList /> },
-    { path: '/admin/providers/:providerId', element: <h1>Provider profile created</h1> },
+    { path: '/admin/providers/:providerId/keys', element: <h1>Provider profile created</h1> },
   ], { initialEntries: ['/admin/providers'] });
   render(<RouterProvider router={router} />);
   const user = userEvent.setup();
@@ -73,7 +73,7 @@ it('creates the optional profile in one request and opens the returned Provider 
   await user.click(screen.getByRole('menuitemradio', { name: 'OpenRouter', exact: true }));
   await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add Provider' }));
   await screen.findByRole('heading', { name: 'Provider profile created' });
-  expect(router.state.location.pathname).toBe('/admin/providers/complete-provider');
+  expect(router.state.location.pathname).toBe('/admin/providers/complete-provider/keys');
   const writes = vi.mocked(request).mock.calls.filter(([, , method]) => method !== 'GET');
   expect(writes).toHaveLength(1);
   expect(writes[0][3]).toEqual({ name: 'Complete Provider', website_url: 'https://example.com', description: 'Model services', logo_url: providerLogoPresets[0].url });

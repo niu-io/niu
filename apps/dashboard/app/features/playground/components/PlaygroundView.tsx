@@ -799,13 +799,15 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const billingSources = selectedModels.map(alias => dashboard.models?.find(model => model.id === alias)?.billing_source);
   const billingSummary = !managedKey
     ? uiT("Usage is billed according to the workspace of your API key. Choose a saved workspace key to see how usage is billed.")
-    : billingSources.length === 0 || billingSources.some(source => !source)
-      ? uiT("Billing information is unavailable for one or more selected models. Refresh the model catalog or ask your administrator before sending.")
-      : billingSources.every(source => source === 'own_api_key')
-        ? uiT("Uses your own Provider API key. Usage is billed by your Provider, not deducted from Niu credits.")
-        : billingSources.every(source => source === 'niu_credits')
-          ? uiT("Usage is charged to your Niu credits at the applicable model prices.")
-          : uiT("This comparison uses both Niu credits and your own Provider keys. Each model is billed through its configured source.");
+    : selectedModels.length === 0
+      ? uiT("Choose a model below to start chatting.", "请在下方选择模型后开始对话。")
+      : billingSources.some(source => !source)
+        ? uiT("Billing information is unavailable for one or more selected models. Refresh the model catalog or ask your administrator before sending.")
+        : billingSources.every(source => source === 'own_api_key')
+          ? uiT("Uses your own Provider API key. Usage is billed by your Provider, not deducted from Niu credits.")
+          : billingSources.every(source => source === 'niu_credits')
+            ? uiT("Usage is charged to your Niu credits at the applicable model prices.")
+            : uiT("This comparison uses both Niu credits and your own Provider keys. Each model is billed through its configured source.");
   const allowedModels = managedKey?.allowed_models ?? selectedKey?.allowedModels;
   const usableModels = useMemo(() => allowedModels && !allowedModels.includes('*')
     ? modelAliases.filter(model => allowedModels.includes(model))
@@ -1261,7 +1263,11 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                 <HoverCardTrigger asChild>
                   <Button type="button" variant="ghost" className="h-9 min-w-0 shrink justify-start gap-2 px-2" disabled={!draft.ready || running || settingsSaving} aria-label={uiF("Edit comparison models ({0} selected)", [selectedModels.length])} onClick={openModelPicker}>
                     <span className="flex items-center -space-x-2" aria-hidden="true">{selectedModels.map(model => <span key={model} className="rounded-full border-2 border-background bg-background"><ProviderLogo provider={modelIdentity(dashboard.models?.find(item => item.id === model) ?? { id: model })} size="small" /></span>)}</span>
-                    {selectedModels.length === 1 ? <span className="min-w-0 max-w-[14rem] truncate text-xs font-medium">{catalogTitle(dashboard.models?.find(item => item.id === selectedModels[0]) ?? { id: selectedModels[0] })}</span> : <span className="text-xs tabular-nums text-muted-foreground">{selectedModels.length}</span>}
+                    {selectedModels.length === 0
+                      ? <span className="text-xs font-medium text-muted-foreground">{uiT("Choose model", "选择模型")}</span>
+                      : selectedModels.length === 1
+                        ? <span className="min-w-0 max-w-[14rem] truncate text-xs font-medium">{catalogTitle(dashboard.models?.find(item => item.id === selectedModels[0]) ?? { id: selectedModels[0] })}</span>
+                        : <span className="text-xs tabular-nums text-muted-foreground">{selectedModels.length}</span>}
                   </Button>
                 </HoverCardTrigger>
                 <HoverCardContent side="top" align="start" sideOffset={12} collisionPadding={12} className="w-[min(24rem,calc(100vw-2rem))] space-y-3">

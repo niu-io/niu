@@ -1353,3 +1353,276 @@ async fn unpriced_commercial_models_are_gated_in_resale_catalogs_and_visible_whe
         "{internal_pub}"
     );
 }
+
+/// End-to-end regression for the 3-step Provider commercial workflow:
+/// - A commercial model configured with `vendor_models.pricing = NULL`, an active
+///   qualified `provider_offers` row ($0.80 / $2.40 per 1M), and a platform standard
+///   selling price ($1.00 / $3.00 per 1M) must appear as `callable: true` across
+///   `/catalog/v1/models`, `/v1/models`, and `/api/v1/models`.
+/// - A newly onboarded prepaid customer organization + workspace (with a funded
+///   `customer_balance_accounts` row and NO legacy `project_budgets` row) must be
+///   rejected with 402 when unfunded, succeed with 200 once topped up, deduct the
+///   exact customer charge ($0.0025), and accrue the exact provider payable ($0.0020)
+///   without leaking procurement costs into customer projections.
+#[sqlx::test(migrator = "niu_storage::MIGRATOR")]
+#[ignore = "requires PostgreSQL"]
+async fn provider_offer_and_prepaid_workspace_dispatch_without_legacy_budget(pool: PgPool) {
+    let upstream = axum::Router::new().route(
+        "/v1/chat/completions",
+        axum::routing::post(|| async {
+            Json(json!({
+                "id": "chatcmpl-e2e-reg",
+                "object": "chat.completion",
+                "created": 1_700_000_000,
+                "model": "acme/fast-chat",
+                "choices": [{
+                    "index": 0,
+                    "message": { "role": "assistant", "content": "Hello from Acme" },
+                    "finish_reason": "stop"
+                }],
+                "usage": {
+                    "prompt_tokens": 1000,
+                    "completion_tokens": 500,
+                    "total_tokens": 1500
+                }
+            }))
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+
+    let mut state = test_state(None, pool.clone());
+    Arc::make_mut(&mut state.config).models.clear();
+    let cipher = Arc::new(crate::vendors::crypto::CredentialCipher::new(MASTER_A).unwrap());
+    state.vendor_cipher = Some(cipher.clone());
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let app = router(state.clone());
+
+    // 1. Create Provider business, API key connection, and model route WITHOUT legacy pricing.
+    let (status, _, provider) = json_call(
+        &app,
+        Method::POST,
+        "/api/v1/admin/providers",
+        Some(ADMIN),
+        Some(json!({ "name": "Acme Upstream" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{provider}");
+    let provider_id = provider["data"]["id"].as_str().unwrap();
+
+    let (status, _, conn) = json_call(
+        &app,
+        Method::POST,
+        "/api/v1/admin/providers/connections",
+        Some(ADMIN),
+        Some(json!({
+            "name": "Acme Primary Key",
+            "adapter": "openai",
+            "api_base": format!("http://{addr}/v1"),
+            "api_key": "sk-upstream-test",
+            "enabled": true,
+            "supplier_id": provider_id
+        })),
+    )
+    .await;
+    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {conn}");
+    let conn_id = conn["data"]["id"].as_str().unwrap();
+
+    let (status, _, route) = json_call(
+        &app,
+        Method::POST,
+        &format!("/api/v1/admin/providers/connections/{conn_id}/models"),
+        Some(ADMIN),
+        Some(json!({
+            "alias": "acme-primary/fast-chat",
+            "upstream_model": "acme/fast-chat",
+            "public_catalog": true,
+            "enabled": true,
+            "capabilities": {}
+        })),
+    )
+    .await;
+    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {route}");
+
+    // 2. Publish & activate Provider offer ($0.80 / $2.40 per 1M) + Standard selling price ($1.00 / $3.00 per 1M).
+    let (status, _, offer) = json_call(
+        &app,
+        Method::POST,
+        &format!("/api/v1/admin/providers/{provider_id}/offers"),
+        Some(ADMIN),
+        Some(json!({
+            "model_alias": "acme-primary/fast-chat",
+            "currency": "USD",
+            "prompt_rate": "800000000",
+            "completion_rate": "2400000000",
+            "activate": true
+        })),
+    )
+    .await;
+    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {offer}");
+
+    let (status, _, retail) = json_call(
+        &app,
+        Method::POST,
+        "/api/v1/admin/pricing/standard-prices",
+        Some(ADMIN),
+        Some(json!({
+            "model_alias": "acme-primary/fast-chat",
+            "currency": "USD",
+            "schedule": {
+                "kind": "text",
+                "prompt_rate": "1000000000",
+                "completion_rate": "3000000000",
+                "cached_prompt_rate": null,
+                "cache_write_prompt_rate": null,
+                "reasoning_completion_rate": null,
+                "request_fee_nanos": "0",
+                "minimum_charge_nanos": "0",
+                "context_tiers": []
+            },
+            "expected_version": "0",
+            "idempotency_key": Uuid::new_v4(),
+            "reason": "Initialized from Provider standard price"
+        })),
+    )
+    .await;
+    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {retail}");
+
+    // 3. Create prepaid customer organization + workspace + API key (NO legacy project_budgets row!).
+    let org = state.store.create_organization("Demo Corp").await.unwrap();
+    let scope = state.store.create_project(org, "Default").await.unwrap();
+    sqlx::query(
+        "INSERT INTO customer_balance_accounts(id, organization_id, currency) VALUES ($1, $2, 'USD')",
+    )
+    .bind(Uuid::new_v4())
+    .bind(org)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "E2E Prod Key", &["*".into()], 3600)
+        .await
+        .unwrap();
+
+    // Verify zero legacy project_budgets rows exist before dispatch.
+    let budget_rows: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM project_budgets WHERE organization_id=$1 AND project_id=$2",
+    )
+    .bind(scope.organization_id)
+    .bind(scope.project_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(budget_rows, 0);
+
+    // 4. Verify all three model discovery surfaces show callable=true with customer selling price only.
+    let (status, _, pub_cat) = json_call(&app, Method::GET, "/catalog/v1/models", None, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(pub_cat["data"].as_array().unwrap().len(), 1, "{pub_cat}");
+    assert_eq!(pub_cat["data"][0]["id"], "acme-primary/fast-chat");
+    assert_eq!(pub_cat["data"][0]["callable"], true);
+
+    let (status, _, api_cat) =
+        json_call(&app, Method::GET, "/v1/models", Some(&key.token), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(api_cat["data"].as_array().unwrap().len(), 1, "{api_cat}");
+    assert_eq!(api_cat["data"][0]["id"], "acme-primary/fast-chat");
+    assert_eq!(api_cat["data"][0]["callable"], true);
+    assert_eq!(
+        api_cat["data"][0]["customer_pricing"]["prompt_rate"],
+        "1000000000"
+    );
+    assert_eq!(
+        api_cat["data"][0]["customer_pricing"]["completion_rate"],
+        "3000000000"
+    );
+    assert!(!api_cat.to_string().contains("800000000"));
+    assert!(!api_cat.to_string().contains("2400000000"));
+
+    let (status, _, ws_cat) = json_call(
+        &app,
+        Method::GET,
+        &format!(
+            "/api/v1/models?organization_id={}&project_id={}",
+            scope.organization_id, scope.project_id
+        ),
+        Some(ADMIN),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(ws_cat["data"].as_array().unwrap().len(), 1, "{ws_cat}");
+    assert_eq!(ws_cat["data"][0]["callable"], true);
+    assert_eq!(ws_cat["data"][0]["readiness_issues"], json!([]));
+
+    // 5. Unfunded customer ($0.00 balance) must be rejected with 402 Payment Required.
+    let (status, _, unfunded) = json_call(
+        &app,
+        Method::POST,
+        "/v1/chat/completions",
+        Some(&key.token),
+        Some(json!({
+            "model": "acme-primary/fast-chat",
+            "messages": [{ "role": "user", "content": "hi" }]
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::PAYMENT_REQUIRED, "{unfunded}");
+
+    // 6. Top up $10.00 USD -> chat completion succeeds with HTTP 200!
+    state
+        .store
+        .record_settled_customer_funding(
+            org,
+            "USD",
+            10_000_000_000,
+            "e2e-topup",
+            &Uuid::new_v4().to_string(),
+        )
+        .await
+        .unwrap();
+
+    let (status, _, reply) = json_call(
+        &app,
+        Method::POST,
+        "/v1/chat/completions",
+        Some(&key.token),
+        Some(json!({
+            "model": "acme-primary/fast-chat",
+            "messages": [{ "role": "user", "content": "hi" }]
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reply}");
+    assert_eq!(
+        reply["choices"][0]["message"]["content"],
+        "Hello from Acme"
+    );
+
+    // 7. Verify exact customer balance deduction ($10.00 - $0.0025 = $9.9975)
+    //    and exact provider payable accrual ($0.0020).
+    let balance_nanos: i64 = sqlx::query_scalar(
+        "SELECT posted_balance_nanos::bigint FROM customer_balance_accounts WHERE organization_id=$1 AND currency='USD'",
+    )
+    .bind(org)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(balance_nanos, 10_000_000_000 - 2_500_000);
+
+    let provider_earned_nanos: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(amount_nanos), 0)::bigint FROM provider_earnings WHERE provider_id=$1::uuid AND currency='USD'",
+    )
+    .bind(provider_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(provider_earned_nanos, 2_000_000);
+}

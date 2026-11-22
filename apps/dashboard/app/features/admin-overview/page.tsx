@@ -98,6 +98,7 @@ export default function AdminOverviewPage() {
       poolsRes,
       pricesRes,
       unitsRes,
+      unitMediaRes,
       paymentCfgRes,
       bankRes,
       registrationsRes,
@@ -110,7 +111,10 @@ export default function AdminOverviewPage() {
         : request<{ data: unknown[]; next_after: string | null }>(token, '/api/v1/admin/pricing/standard-prices?limit=50', 'GET', undefined, signal),
       isInternal
         ? Promise.resolve(null)
-        : request<{ data?: { text_tariffs?: unknown[]; media_tariffs?: unknown[] } }>(token, '/api/v1/admin/units/tariffs', 'GET', undefined, signal),
+        : request<{ data?: { text_tariffs?: unknown[] } }>(token, '/api/v1/admin/units', 'GET', undefined, signal),
+      isInternal
+        ? Promise.resolve(null)
+        : request<{ data?: unknown[] }>(token, '/api/v1/admin/units/media/tariffs', 'GET', undefined, signal),
       isInternal
         ? Promise.resolve(null)
         : request<PlatformConfigResponse>(token, '/api/v1/admin/configuration', 'GET', undefined, signal),
@@ -136,9 +140,10 @@ export default function AdminOverviewPage() {
       ? pricesRes.value
       : null;
     const unitTariffsPayload = unitsRes.status === 'fulfilled' ? unitsRes.value?.data : null;
-    const unitTariffsCount = unitTariffsPayload
-      ? (Array.isArray(unitTariffsPayload.text_tariffs) ? unitTariffsPayload.text_tariffs.length : 0)
-        + (Array.isArray(unitTariffsPayload.media_tariffs) ? unitTariffsPayload.media_tariffs.length : 0)
+    const unitMediaPayload = unitMediaRes.status === 'fulfilled' ? unitMediaRes.value?.data : null;
+    const unitTariffsCount = unitTariffsPayload || unitMediaPayload
+      ? (Array.isArray(unitTariffsPayload?.text_tariffs) ? unitTariffsPayload.text_tariffs.length : 0)
+        + (Array.isArray(unitMediaPayload) ? unitMediaPayload.length : 0)
       : null;
 
     const paymentCfg = paymentCfgRes.status === 'fulfilled' ? paymentCfgRes.value?.data ?? null : null;

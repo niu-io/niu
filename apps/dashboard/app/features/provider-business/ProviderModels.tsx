@@ -8,6 +8,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { TableSkeleton } from '@/components/PageSkeletons';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { useDashboardContext } from '@/shell/dashboard-context';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { invalidateQueries } from '@/lib/query-cache';
 import {
@@ -46,6 +47,38 @@ import {
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 type RetailLookup = Map<string, RetailPriceRecord>;
+
+const SUPPORTED_ADAPTER_PRICING = new Set(['openrouter', 'fastrouter', 'babelark', 'qiniu', 'deepseek']);
+const SUPPORTED_ADAPTER_PRICING_HOSTS = ['openrouter.ai', 'fastrouter', 'babelark.ai', 'qiniu', 'deepseek.com'];
+
+function supportsAdapterPricing(connections: ProviderConnection[]): boolean {
+  return connections.some(c => {
+    const adapter = c.adapter.toLowerCase();
+    if (SUPPORTED_ADAPTER_PRICING.has(adapter)) return true;
+    const base = c.api_base.toLowerCase();
+    return SUPPORTED_ADAPTER_PRICING_HOSTS.some(host => base.includes(host));
+  });
+}
+
+async function fetchAllStandardTextPrices(token: string, signal: AbortSignal): Promise<RetailLookup> {
+  const nextRetail: RetailLookup = new Map();
+  let after: string | null = null;
+  for (let page = 0; page < 20; page += 1) {
+    if (signal.aborted) break;
+    const path: string = '/api/v1/admin/pricing/standard-prices?limit=100' + (after ? `&after=${encodeURIComponent(after)}` : '');
+    const res: { data: RetailPriceRecord[]; next_after?: string | null } = await request(token, path, 'GET', undefined, signal);
+    if (!Array.isArray(res?.data)) break;
+    for (const row of res.data) {
+      if (row?.schedule?.kind === 'text' && typeof row.model_alias === 'string') {
+        nextRetail.set(row.model_alias, row);
+      }
+    }
+    const nextCursor: string | null = res.next_after ?? null;
+    if (!nextCursor || nextCursor === after) break;
+    after = nextCursor;
+  }
+  return nextRetail;
+}
 
 function peekScopedModels(token: string, providerId: string): { connections: ProviderConnection[]; entries: ModelRowEntry[] } | null {
   if (!token || !providerId) return null;
@@ -91,6 +124,7 @@ function ScopedModels({
 }: Props) {
   const { t: uiT, format: uiF, locale } = useUILocale();
   const isZh = locale === 'zh-CN';
+  const dashboardContext = useDashboardContext();
   const { currency: platformCurrency } = usePlatformCurrency();
   const initial = peekScopedModels(token, providerId);
 
@@ -174,20 +208,16 @@ function ScopedModels({
       if (commercialEnabled && canManage) {
         void (async () => {
           const [retailRes, adapterRes] = await Promise.allSettled([
-            request<{ data: RetailPriceRecord[] }>(token, '/api/v1/admin/pricing/standard-prices?limit=200', 'GET', undefined, controller.signal),
-            request<AdapterPricingResponse>(token, `/api/v1/admin/providers/${encodeURIComponent(providerId)}/pricing`, 'GET', undefined, controller.signal),
+            fetchAllStandardTextPrices(token, controller.signal),
+            supportsAdapterPricing(scoped)
+              ? request<AdapterPricingResponse>(token, `/api/v1/admin/providers/${encodeURIComponent(providerId)}/pricing`, 'GET', undefined, controller.signal)
+              : Promise.resolve(null),
           ]);
           if (controller.signal.aborted) return;
-          if (retailRes.status === 'fulfilled' && Array.isArray(retailRes.value?.data)) {
-            const nextRetail: RetailLookup = new Map();
-            for (const row of retailRes.value.data) {
-              if (row?.schedule?.kind === 'text' && typeof row.model_alias === 'string') {
-                nextRetail.set(row.model_alias, row);
-              }
-            }
-            setRetailPrices(nextRetail);
+          if (retailRes.status === 'fulfilled') {
+            setRetailPrices(retailRes.value);
           }
-          if (adapterRes.status === 'fulfilled') {
+          if (adapterRes.status === 'fulfilled' && adapterRes.value) {
             setUpstreamPrices(extractUpstreamStandardPrices(adapterRes.value));
           }
         })();
@@ -268,6 +298,8 @@ function ScopedModels({
   function refreshAll() {
     invalidateQueries('/api/v1/admin/providers');
     invalidateQueries('/api/v1/admin/pricing/standard-prices');
+    invalidateQueries('/api/v1/models');
+    void dashboardContext?.refreshModels?.();
     setRevision(v => v + 1);
     onSaved();
   }

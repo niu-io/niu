@@ -396,9 +396,8 @@ export function Customers({
                   </PopoverContent>
                 </Popover>
               )}
-              <Button variant="outline" disabled={loading} aria-label={uiT("Refresh customers")} title={uiT("Refresh customers")} onClick={refresh}>
-                <IconRefresh size={16} />
-                <span className="hidden sm:inline">{uiT("Refresh")}</span>
+              <Button variant="ghost" size="icon-sm" disabled={loading} aria-label={uiT("Refresh customers")} title={uiT("Refresh customers")} onClick={refresh}>
+                <IconRefresh size={16} className={loading ? 'animate-spin' : undefined} aria-hidden="true" />
               </Button>
               {canSetup && (
                 <Button aria-label={uiT("New customer")} onClick={event => { opener.current = event.currentTarget; setCreate(true); }}>

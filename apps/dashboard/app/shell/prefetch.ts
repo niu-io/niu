@@ -254,7 +254,6 @@ export function prefetchRouteData(
       const q = `?organization_id=${encodeURIComponent(ws.organization_id)}&project_id=${encodeURIComponent(ws.id)}`;
       prefetchGet(token, `/api/v1/models${q}`, { persist: true });
       prefetchGet(token, `/api/v1/workspaces/${ws.id}/chats`, { persist: true });
-      prefetchGet(token, '/v1/video/models');
     }
     return;
   }

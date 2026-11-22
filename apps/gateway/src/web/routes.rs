@@ -2152,6 +2152,7 @@ struct CommercialReadinessContext<'a> {
     text_prices: &'a std::collections::BTreeMap<String, Value>,
     media_priced_models: &'a std::collections::BTreeSet<String>,
     unit_prices: &'a std::collections::BTreeMap<String, Value>,
+    provider_offer_models: &'a std::collections::BTreeSet<String>,
 }
 
 fn commercial_model_readiness(
@@ -2169,7 +2170,11 @@ fn commercial_model_readiness(
         if pool.organization_id.is_some() {
             return (true, Vec::new());
         }
-        let has_procurement_pricing = model.pricing.is_some();
+        let has_procurement_pricing = model.pricing.is_some()
+            || pool
+                .candidates
+                .iter()
+                .any(|candidate| candidate.enabled && ctx.provider_offer_models.contains(&candidate.alias));
         let alias_has_price = |alias: &str| {
             if ctx.billing_mode == "credits" {
                 ctx.unit_prices.contains_key(alias)
@@ -2193,7 +2198,8 @@ fn commercial_model_readiness(
         }
         return (issues.is_empty(), issues);
     }
-    let has_procurement_pricing = is_video || model.pricing.is_some();
+    let has_procurement_pricing =
+        is_video || model.pricing.is_some() || ctx.provider_offer_models.contains(name);
     let has_selling_price = if ctx.billing_mode == "credits" {
         ctx.unit_prices.contains_key(name)
     } else if is_video {
@@ -2240,6 +2246,11 @@ async fn public_models(
         .customer_unit_model_prices()
         .await
         .map_err(ApiError::from_store)?;
+    let provider_offer_models = state
+        .store
+        .active_text_provider_offer_aliases()
+        .await
+        .map_err(ApiError::from_store)?;
     let mut own_api_key_models = std::collections::BTreeSet::new();
     for route in state
         .store
@@ -2275,6 +2286,7 @@ async fn public_models(
                 text_prices: &prices,
                 media_priced_models: &media_priced_models,
                 unit_prices: &unit_prices,
+                provider_offer_models: &provider_offer_models,
             };
             let (callable, _) = commercial_model_readiness(
                 &readiness_ctx,
@@ -2975,6 +2987,11 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
         .customer_unit_model_prices()
         .await
         .map_err(ApiError::from_store)?;
+    let provider_offer_models = state
+        .store
+        .active_text_provider_offer_aliases()
+        .await
+        .map_err(ApiError::from_store)?;
     let sanitized_unit_prices: std::collections::BTreeMap<String, Value> = unit_prices
         .into_iter()
         .map(|(alias, value)| (alias, sanitize_public_unit_price(value)))
@@ -2999,6 +3016,7 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
                 text_prices: &prices,
                 media_priced_models: &media_priced_models,
                 unit_prices: &sanitized_unit_prices,
+                provider_offer_models: &provider_offer_models,
             };
             let (callable, _) = commercial_model_readiness(
                 &readiness_ctx,
@@ -3127,6 +3145,11 @@ async fn admin_models(
         .customer_unit_model_prices()
         .await
         .map_err(ApiError::from_store)?;
+    let provider_offer_models = state
+        .store
+        .active_text_provider_offer_aliases()
+        .await
+        .map_err(ApiError::from_store)?;
     let mut prices = std::collections::BTreeMap::new();
     let mut readiness_text_prices = std::collections::BTreeMap::new();
     let media_priced_models;
@@ -3234,6 +3257,7 @@ async fn admin_models(
                 text_prices: effective_text_prices,
                 media_priced_models: &media_priced_models,
                 unit_prices: &unit_prices,
+                provider_offer_models: &provider_offer_models,
             };
             let (callable, readiness_issues) = commercial_model_readiness(
                 &readiness_ctx,

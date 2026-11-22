@@ -35,10 +35,10 @@ const base = '/api/v1/admin/pricing/standard-prices';
 const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString(readUILocale()) : translateUI('Date unavailable');
 const seconds = (value: string) => /^\d+$/.test(value) ? date(new Date(Number(value) * 1000).toISOString()) : translateUI('Date unavailable');
 export default function RetailPricingRoute() {
-  const { token } = useDashboardContext();
-  return <Standards key={token} token={token} />;
+  const { token, refreshModels } = useDashboardContext();
+  return <Standards key={token} token={token} refreshModels={refreshModels} />;
 }
-function Standards({ token }: { token: string }) {
+function Standards({ token, refreshModels }: { token: string; refreshModels: () => Promise<void> }) {
   const { t: uiT, format: uiF } = useUILocale();
   const { billingMode, currency, unit } = usePlatformCurrency();
   const [search, setSearch] = useSearchParams();
@@ -86,7 +86,12 @@ function Standards({ token }: { token: string }) {
     } catch (failure) { if (!controller.signal.aborted) { setFailed(after); setError(failure instanceof Error ? failure.message : 'Standard prices unavailable.'); } }
     finally { if (!controller.signal.aborted) setLoading(false); }
   }
-  const reloadFresh = () => { invalidateQueries(base); void load(undefined, true); };
+  const reloadFresh = () => {
+    invalidateQueries(base);
+    invalidateQueries('/api/v1/models');
+    void refreshModels();
+    void load(undefined, true);
+  };
   useEffect(() => { void load(); return () => active.current?.abort(); }, [token]);
   const requestedModel = search.get('model')?.trim() ?? '';
   const requestedPublish = search.get('publish');
