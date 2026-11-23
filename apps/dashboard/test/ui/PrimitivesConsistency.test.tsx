@@ -237,12 +237,38 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(customerShared).toContain('aria-pressed={trimmedTrial === preset}');
     expect(customerShared).not.toContain("variant={!trialAmount.trim() ? 'secondary' : 'outline'}");
   });
-
   it('reserves Not published (未发布) for uncallable commercial models and never stamps Capabilities not published (能力未发布) on callable model cards', () => {
     const modelTable = readFileSync(join(appDir, 'features/models/components/ModelTable.tsx'), 'utf8');
     expect(modelTable).not.toContain('Capabilities not published');
     expect(modelTable).not.toContain('capabilities have not been published');
     expect(modelTable).toContain('uiT("Not published")');
+  });
+  it('prevents fixed-layout table cells from bleeding text over adjacent columns and keeps bare table rules inside @layer base', () => {
+    const foundation = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
+    expect(foundation).toContain(':where(table.table-fixed, .key-table, .billing-transactions, .billing-invoices, .gateway-request-table, .activity-charge-breakdown table, .operator-session-table table) :where(th, td)');
+    expect(foundation).toContain('text-overflow: ellipsis');
+    const shell = readFileSync(resolve(process.cwd(), 'app/styles/shell.css'), 'utf8');
+    expect(shell).not.toMatch(/^\s*(?:th|td)\s*\{/m);
+    const ops = readFileSync(resolve(process.cwd(), 'app/styles/operations.css'), 'utf8');
+    expect(ops).toContain('.key-table :is(th, td) { overflow: hidden; text-overflow: ellipsis; }');
+    const usageWidthMatch = ops.match(/\.key-table\s+:is\(th,\s*td\)\.key-table-col-usage\s*\{\s*width:\s*(\d+)px;/);
+    expect(Number(usageWidthMatch?.[1] ?? 0)).toBeGreaterThanOrEqual(190);
+    const expiresWidthMatch = ops.match(/\.key-table\s+:is\(th,\s*td\)\.key-table-col-expires\s*\{\s*width:\s*(\d+)px;/);
+    expect(Number(expiresWidthMatch?.[1] ?? 0)).toBeGreaterThanOrEqual(132);
+  });
+  it('enforces vertical rhythm on flex-column detail surfaces, CJK-safe title leading, and zero negative top margins on global intros/alerts', () => {
+    const catalog = readFileSync(resolve(process.cwd(), 'app/styles/catalog.css'), 'utf8');
+    expect(catalog).toMatch(/\.model-route-detail\s*\{[^}]*gap:\s*[1-9]\d*px;/);
+    const foundation = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
+    expect(foundation).toContain('> :where(p) + :where([data-slot="button"]) { margin-top: 0.75rem; }');
+    const card = readFileSync(join(appDir, 'components/ui/card.tsx'), 'utf8');
+    const dialog = readFileSync(join(appDir, 'components/ui/dialog.tsx'), 'utf8');
+    expect(card).not.toContain('leading-none');
+    expect(dialog).not.toContain('leading-none');
+    const surfaces = readFileSync(resolve(process.cwd(), 'app/styles/surfaces.css'), 'utf8');
+    const overview = readFileSync(resolve(process.cwd(), 'app/styles/overview.css'), 'utf8');
+    expect(surfaces).not.toMatch(/\.provider-intro\s*\{[^}]*margin:\s*-/);
+    expect(overview).not.toMatch(/\.operator-error\s*\{[^}]*margin:\s*-/);
   });
 });
 

@@ -147,7 +147,7 @@
   .model-route-facts dd { text-align: left; }}
 
 /* Provider administration surfaces: separate from customer spend. */
-.provider-intro { margin: -12px 0 24px; color: var(--muted-foreground); font-size: 14px; }
+.provider-intro { margin: 4px 0 20px; color: var(--muted-foreground); font-size: 14px; }
 .provider-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .provider-access-message { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 48px 24px; min-height: 220px; text-align: center; color: var(--muted-foreground); }
 .provider-access-message h2 { color: var(--foreground); font-size: 16px; margin: 0; }
@@ -215,9 +215,9 @@
 @media(max-width:640px) { .provider-balance-row { grid-template-columns:1fr; }}
 .page-content:has(.operator-directory-empty) { display: flex; flex-direction: column; }
 .operator-directory-region:has(.operator-directory-empty), .operator-directory:has(> .operator-directory-empty) { display: flex; flex: 0 0 auto; flex-direction: column; }
-.operator-directory-empty { display: flex; flex: 0 0 auto; min-height: 240px; flex-direction: column; align-items: center; justify-content: center; padding-inline: 20px; }
+.operator-directory-empty { display: flex; flex: 0 0 auto; min-height: 240px; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding-inline: 20px; }
 .page-content:has(.guardrails-empty), .guardrails-page:has(> .guardrails-empty) { display: flex; flex: 0 0 auto; flex-direction: column; }
-.guardrails-empty { display: flex; flex: 0 0 auto; min-height: 240px; flex-direction: column; align-items: center; justify-content: center; padding: 32px 20px; text-align: center; color: var(--muted-foreground); }
+.guardrails-empty { display: flex; flex: 0 0 auto; min-height: 240px; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 32px 20px; text-align: center; color: var(--muted-foreground); }
 .page-content:has(.billing-empty), .billing-content:has(.billing-empty), .billing-content [data-slot="tabs-content"]:has(.billing-empty), .billing-content .panel:has(> .billing-empty) { display: flex; flex: 0 0 auto; flex-direction: column; }
 .billing-empty { display: flex; flex: 0 0 auto; min-height: 240px; align-items: center; justify-content: center; text-align: center; }
 

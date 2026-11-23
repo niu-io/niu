@@ -42,7 +42,7 @@
 .operator-detail:has(> .operator-detail-empty) { display: flex; flex-direction: column; }
 
 /* Compact list and diagnostic placeholders center within their bounded regions. */
-.model-no-results, .workspace-switcher-empty, .operator-activity-empty, .provider-inline-empty, .activity-model-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.model-no-results, .workspace-switcher-empty, .operator-activity-empty, .provider-inline-empty, .activity-model-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; }
 .model-no-results, .operator-activity-empty { min-height: 96px; }
 .workspace-switcher-empty { min-height: 80px; }
 .provider-inline-empty { min-height: 160px; }

@@ -124,7 +124,7 @@
 .models-card-meta a:hover { text-decoration: underline; }
 .models-load-more { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 24px 0; color: var(--muted-foreground); font-size: 12px; }
 .models-catalog > .model-route-detail { border: 0; border-radius: 0; background: transparent; padding: 0; }
-.models-catalog .model-activity-link { margin-top: 24px; }
+.models-catalog .model-activity-link { margin-top: 8px; }
 @media (max-width: 800px) {
   .models-browse { gap: 0; }
   .models-toolbar { gap: 8px; }

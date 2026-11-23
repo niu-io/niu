@@ -88,8 +88,6 @@
 .panel-heading { padding: 20px 24px; border: 0; }
 .panel-heading h2 { font-size: 18px; }
 .panel-heading p, .connect-panel p { font-size: 14px; line-height: 1.65; }
-th { font-size: 14px; letter-spacing: 0; text-transform: none; font-weight: 500; background: transparent; padding: 16px 20px; }
-td { font-size: 14px; border-color: color-mix(in srgb, var(--border) 55%, transparent); padding: 16px 20px; }
 .connect-panel { padding: 24px; gap: 16px; }
 .connect-panel > div:last-child { min-width: 0; flex: 1; }
 .connect-panel strong { font-size: 16px; }

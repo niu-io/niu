@@ -123,7 +123,7 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
         </DropdownMenu>
       </div>
       {context.appearance?.saving && <p role="status">{t('Saving color mode…', '正在保存外观模式…')}</p>}
-      {context.appearance?.error && <div role="alert"><p>{uiT(context.appearance.error)}</p><Button variant="outline" onClick={context.appearance.reload}>{t('Reload color mode', '重新加载外观模式')}</Button></div>}
+      {context.appearance?.error && <div role="alert" className="grid justify-items-start gap-2"><p>{uiT(context.appearance.error)}</p><Button variant="outline" onClick={context.appearance.reload}>{t('Reload color mode', '重新加载外观模式')}</Button></div>}
     </section>}
     {['billing', 'payments'].includes(section) && <header className="space-y-2">
       <h2 className="sr-only">{t('Credits', '额度与充值')}</h2>

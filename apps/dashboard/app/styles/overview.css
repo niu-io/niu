@@ -42,7 +42,7 @@
 .gateway-activity-summary article { display: grid; min-width: 0; gap: 8px; padding: 16px 17px; }
 .gateway-activity-summary article>span { display: flex; align-items: center; gap: 8px; color: var(--muted-foreground); font-size: 14px; }
 .gateway-activity-summary article>span svg { color: var(--primary-ink); }
-.gateway-activity-summary article>strong { overflow-wrap: anywhere; font-size: clamp(20px, 2vw, 27px); font-weight: 600; letter-spacing: -.045em; line-height: 1.1; }
+.gateway-activity-summary article>strong { overflow-wrap: anywhere; font-size: clamp(20px, 2vw, 27px); font-weight: 600; letter-spacing: -.045em; line-height: 1.2; }
 .gateway-activity-summary article>small { color: var(--muted-foreground); font-size: 14px; line-height: 1.4; }
 .gateway-task-feed { min-width: 0; max-width: 100%; overflow: hidden; }
 .gateway-task-feed-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 19px 21px 14px; border-bottom: 0; }
@@ -117,7 +117,7 @@
 .operator-create-footer button { flex: 0 0 auto; }
 .operator-directory, .operator-detail { min-width: 0; margin: 0; border-radius: var(--radius-panel); }
 .operator-detail-avatar { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 10px; color: var(--avatar-brand-fg); background: var(--avatar-brand-bg); box-shadow: inset 0 0 0 1px var(--avatar-brand-ring); font-size: 14px; font-weight: 600; }
-.operator-role-chip { display: inline-flex; align-items: center; width: fit-content; min-height: 21px; padding: 4px 8px; border: 0; border-radius: 999px; color: var(--muted-foreground); background: var(--muted); font-size: 12.5px; font-weight: 600; line-height: 1; white-space: nowrap; }
+.operator-role-chip { display: inline-flex; align-items: center; width: fit-content; min-height: 21px; padding: 4px 8px; border: 0; border-radius: 999px; color: var(--muted-foreground); background: var(--muted); font-size: 12.5px; font-weight: 600; line-height: 1.3; white-space: nowrap; }
 .operator-role-chip.role-owner { color: var(--primary-ink); background: color-mix(in srgb, var(--primary) 10%, var(--card)); }
 .operator-role-chip.role-admin { color: var(--info); background: color-mix(in srgb, var(--info) 9%, var(--card)); }
 .operator-detail-empty { display: grid; min-height: 220px; align-content: center; justify-items: center; padding: 24px 20px; text-align: center; }
@@ -172,7 +172,7 @@
 .operator-revoke-row p { margin: 4px 0 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.4; }
 .operator-revoke-row>button { min-height: 30px; padding-inline: 9px; font-size: 14px; }
 .operator-revoked-note { color: var(--muted-foreground); font-size: 14px; }
-.operator-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -8px 0 13px; padding: 10px 12px; border: 0; border-radius: 10px; color: var(--destructive-ink); background: color-mix(in srgb, var(--destructive) 8%, var(--card)); font-size: 14px; }
+.operator-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; padding: 10px 12px; border: 0; border-radius: 10px; color: var(--destructive-ink); background: color-mix(in srgb, var(--destructive) 8%, var(--card)); font-size: 14px; }
 .operator-denied { display: flex; align-items: center; gap: 13px; padding: 17px; }
 .operator-denied-icon { display: grid; width: 35px; height: 35px; flex: 0 0 35px; place-items: center; border-radius: 10px; color: var(--warning); background: color-mix(in srgb, var(--warning) 9%, var(--card)); }
 .operator-denied>div { flex: 1; }

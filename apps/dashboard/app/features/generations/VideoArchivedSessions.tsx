@@ -62,7 +62,7 @@ export default function VideoArchivedSessions({context,open,chatsEmpty,disabled=
   if(!open)return null;
   return <section aria-label={uiT("Archived Video sessions")} className="mt-4 min-w-0">
     {(rows.length > 0 || error) && <h3 className="mb-3 text-sm font-medium">{uiT("Video sessions")}</h3>}
-    {error&&<div className="mb-3"><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="ghost" disabled={loading||busy} onClick={()=>setRevision(value=>value+1)}>{uiT("Reload Video archive")}</Button></div>}
+    {error&&<div className="mb-3 grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="ghost" disabled={loading||busy} onClick={()=>setRevision(value=>value+1)}>{uiT("Reload Video archive")}</Button></div>}
     {notice&&<p role="status" className="mb-3 text-sm">{notice}</p>}
     {chatsEmpty&&!loading&&!error&&!rows.length&&<Empty className="py-6"><EmptyHeader><EmptyMedia><IconArchive size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No archived sessions", "没有已归档的会话")}</EmptyDescription></EmptyHeader></Empty>}
     {rows.length>0&&<Table className="table-fixed"><TableHeader><TableRow><TableHead>{uiT("Session")}</TableHead><TableHead className="w-32 text-right">{uiT("Action")}</TableHead></TableRow></TableHeader><TableBody>{rows.map(row=><TableRow key={row.id}><TableCell className="whitespace-normal break-words">{row.title}</TableCell><TableCell className="text-right"><Button variant="ghost" disabled={busy||loading||disabled||!context.session?.permissions.write} onClick={()=>void restore(row)} aria-label={uiF("Restore {0}", [row.title])}>{uiT("Restore")}</Button></TableCell></TableRow>)}</TableBody></Table>}
