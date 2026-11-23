@@ -27,3 +27,63 @@ it('preserves the original request on retry and requires explicit acknowledgemen
  expect(screen.getByText(/previous request may have succeeded/)).toBeTruthy();await user.click(screen.getByRole('button',{name:'Start a new request'}));await user.click(screen.getByRole('button',{name:'Create company'}));
  await screen.findByText('Acme revised');expect(create.mock.calls[2][0]).toEqual({name:'Acme revised'});expect(create.mock.calls[2][1]?.idempotencyKey).not.toBe(create.mock.calls[0][1]?.idempotencyKey);
 });
+
+it('creates a customer, workspace, login credentials, and optional trial credit in one step', async () => {
+  const createCompany = vi.spyOn(NiuAdminClient.prototype, 'createCompany').mockResolvedValueOnce({
+    id: '20000000-0000-4000-8000-000000000002',
+    name: 'Trial Org',
+  } as never);
+  const createWorkspace = vi.spyOn(NiuAdminClient.prototype, 'createWorkspace').mockResolvedValueOnce({
+    id: 'ws-trial',
+    organization_id: '20000000-0000-4000-8000-000000000002',
+    name: 'Trial Org',
+    slug: 'trial-org',
+  } as never);
+  const createOwner = vi.spyOn(NiuAdminClient.prototype, 'createOperatorIdentity').mockResolvedValueOnce({
+    operator: {
+      id: 'op-trial',
+      organization_id: '20000000-0000-4000-8000-000000000002',
+      project_id: null,
+      name: 'Trial Org',
+      role: 'owner',
+      revoked: false,
+    },
+  } as never);
+  const setPassword = vi.spyOn(NiuAdminClient.prototype, 'setMemberPassword').mockResolvedValueOnce({ revision: 1 } as never);
+  const grantCalls: string[] = [];
+  vi.stubGlobal('fetch', vi.fn(async input => {
+    const url = String(input);
+    if (url.includes('/grants/prepare') || url.endsWith('/grants')) {
+      grantCalls.push(url);
+      return Response.json({ data: { id: 'grant-1' } });
+    }
+    if (url.includes('/admin/customers') || url.includes('/platform/customer-accounts')) return Response.json({ data: [], next_after: null });
+    if (url.includes('/admin/registrations')) return Response.json({ data: [], next_after: null });
+    return Response.json({ data: [] });
+  }));
+
+  const user = userEvent.setup();
+  render(<MemoryRouter><Customers token="one-step-token" canSetup onWorkspaceCreated={() => {}} /></MemoryRouter>);
+  await user.click((await screen.findAllByRole('button', { name: 'New customer' }))[0]);
+  await user.type(screen.getByLabelText('Company name'), 'Trial Org');
+  await user.type(screen.getByLabelText('Login email'), 'trial@acme.com');
+  await user.click(screen.getByRole('button', { name: 'Generate' }));
+  await user.click(screen.getByRole('button', { name: '$10' }));
+  await user.click(screen.getByRole('button', { name: 'Create company' }));
+
+  expect(await screen.findByText('Customer ready')).toBeTruthy();
+  expect(screen.getByText('trial@acme.com')).toBeTruthy();
+  expect(screen.getByText('$10.00')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Copy sign-in details' })).toBeTruthy();
+  expect(createCompany).toHaveBeenCalledTimes(1);
+  expect(createWorkspace).toHaveBeenCalledWith(
+    { organization_id: '20000000-0000-4000-8000-000000000002', name: 'Trial Org', slug: 'trial-org' },
+    expect.objectContaining({ idempotencyKey: expect.any(String) }),
+  );
+  expect(createOwner).toHaveBeenCalledTimes(1);
+  expect(setPassword).toHaveBeenCalledWith(
+    'op-trial',
+    expect.objectContaining({ email: 'trial@acme.com', expected_revision: 0 }),
+  );
+  expect(grantCalls).toHaveLength(2);
+});

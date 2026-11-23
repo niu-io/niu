@@ -631,7 +631,20 @@ export function CustomerDetail({
           </div>
 
           <div className="space-y-2.5">
-            <h2 className="text-sm font-medium">{uiT('Members', '成员')}</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-medium">{uiT('Members', '成员')}</h2>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={event => {
+                  openerRef.current = event.currentTarget;
+                  setSetupOpen(true);
+                }}
+              >
+                {members.length > 0 ? uiT('Manage login & password', '管理登录密码') : uiT('Create login account', '创建登录账号')}
+              </Button>
+            </div>
             {members.length > 0 ? (
               <Table aria-label={uiT('Customer members', '客户成员')}>
                 <TableHeader>

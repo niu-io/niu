@@ -5164,4 +5164,6 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Created “Playground” API key.": "已创建「Playground」API 密钥。",
   "Could not confirm the new API key. Open Keys to check before retrying.": "无法确认新 API 密钥是否已创建，请先在「密钥」页确认后再重试。",
   "Could not create an API key. Try again.": "无法创建 API 密钥，请重试。",
+  "Trial credit ({0}, optional)": "试用赠金（{0}，选填）",
+  "Customer \"{0}\" was created, but setup paused: {1} Click retry to continue without duplicating the customer.": "客户“{0}”已创建，但后续配置中断：{1} 点击重试可继续完成，不会重复创建客户。",
 };

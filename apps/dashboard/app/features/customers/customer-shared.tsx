@@ -1,5 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
+import { IconCheck, IconCopy, IconEye, IconEyeOff, IconKey, IconSparkles } from '@tabler/icons-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -9,6 +10,7 @@ import { ProviderRequestError, request, writeMayHaveCommitted } from '@/features
 import { amountFromNanos, amountToNanos, formatUnitAmountText, money } from '@/lib/money';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { workspaceSlugFromName } from '@/shell/workspace-route';
 import type {
   CompanyMetadata,
   CustomerBalance,
@@ -18,6 +20,18 @@ import type {
   PreparedCustomerBalanceGrant,
 } from '@niu-io/sdk/admin';
 import { clearPending, readPending, savePending, type PendingCreation } from './pending';
+
+const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
+
+export function generateStrongPassword(length = 18): string {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  let result = '';
+  for (let i = 0; i < length; i += 1) {
+    result += PASSWORD_ALPHABET[bytes[i] % PASSWORD_ALPHABET.length];
+  }
+  return result;
+}
 
 export type CompanyOwnerSummary = { name: string; email: string | null };
 export type CompanyWorkspaceSummary = { id: string; name: string; slug: string | null; created_at: string };
@@ -145,10 +159,21 @@ export function CreditsSummaryCell({ credits }: { credits: PlatformCustomerCredi
   );
 }
 
+const TRIAL_CREDIT_PRESETS = ['5', '10', '20'] as const;
+
+type CreatedCustomerHandoff = {
+  company: CompanyMetadata;
+  workspaceName: string;
+  email: string;
+  password: string;
+  trialCreditFormatted: string;
+};
+
 export function CreateCompany({
   open,
   onOpenChange,
   client,
+  token,
   onCreated,
   onRestoreFocus,
 }: {
@@ -156,93 +181,447 @@ export function CreateCompany({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   client: NiuAdminClient;
-  onCreated: (company: CompanyMetadata) => void;
+  token?: string;
+  onCreated: (
+    company: CompanyMetadata,
+    options?: { completedSetup?: boolean; workspaceCreated?: boolean; ownerEmail?: string },
+  ) => void;
 }) {
-  const { t: uiT } = useUILocale();
+  const { t: uiT, format: uiF } = useUILocale();
   const [, setPendingVersion] = useState(0);
   const { currency, ready, error: currencyError } = usePlatformCurrency();
   const pending = useRef<PendingCreation | null>(readPending('company'));
+  const progressRef = useRef<{
+    company?: CompanyMetadata;
+    workspaceKey?: string;
+    workspaceName?: string;
+    ownerKey?: string;
+    ownerId?: string;
+    passwordSaved?: boolean;
+    grantKey?: string;
+    grantIssued?: boolean;
+  }>({});
   const [name, setName] = useState(pending.current?.name ?? '');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [trialAmount, setTrialAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [handoff, setHandoff] = useState<CreatedCustomerHandoff | null>(null);
+  const [copiedHandoff, setCopiedHandoff] = useState(false);
+
+  const wantsLogin = Boolean(email.trim() || password);
+  const wantsTrialCredit = Boolean(trialAmount.trim());
+  const oneStepOnboard = wantsLogin || wantsTrialCredit;
+
+  function resetDialogState() {
+    progressRef.current = {};
+    setName('');
+    setEmail('');
+    setPassword('');
+    setShowPassword(false);
+    setTrialAmount('');
+    setError('');
+    setHandoff(null);
+    setCopiedHandoff(false);
+  }
+
+  function closeDialog() {
+    if (busy) return;
+    if (handoff) resetDialogState();
+    onOpenChange(false);
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (busy || !currency || !name.trim() || (pending.current && name.trim() !== pending.current.name)) return;
-    pending.current ??= { name: name.trim(), key: crypto.randomUUID() };
+    const trimmedName = name.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (wantsLogin) {
+      if (!normalizedEmail) {
+        setError(uiT('Enter a login email to create a sign-in account.', '请填写登录邮箱以创建登录账号。'));
+        return;
+      }
+      if (Array.from(password).length < 15) {
+        setError(uiT('Password must be at least 15 characters (or click Generate).', '初始密码至少 15 位（可点击右侧随机生成）。'));
+        return;
+      }
+    }
+    let grantNanos = '';
+    if (wantsTrialCredit) {
+      try {
+        grantNanos = amountToNanos(trialAmount.trim());
+        if (BigInt(grantNanos) <= 0n) throw new Error();
+      } catch {
+        setError(uiT('Enter a valid positive trial credit amount.', '请输入大于 0 的有效试用赠金金额。'));
+        return;
+      }
+    }
+
+    pending.current ??= { name: trimmedName, key: crypto.randomUUID() };
     setBusy(true);
     setError('');
     try {
-      savePending('company', pending.current);
-      const saved = await client.createCompany({ name: pending.current.name }, { idempotencyKey: pending.current.key });
-      if (!saved?.id || !saved.name) throw new Error('Creation could not be confirmed.');
-      clearPending('company');
-      pending.current = null;
-      setName('');
-      onCreated(saved);
-    } catch (reason) {
-      const status = (reason as { status?: number })?.status;
-      if (status === 400 || status === 422) {
+      // Step 1: Create company (idempotent)
+      let saved = progressRef.current.company;
+      if (!saved) {
+        savePending('company', pending.current);
+        saved = await client.createCompany({ name: pending.current.name }, { idempotencyKey: pending.current.key });
+        if (!saved?.id || !saved.name) throw new Error('Creation could not be confirmed.');
         clearPending('company');
         pending.current = null;
-        setError(reason instanceof Error ? reason.message : 'Check the company name.');
+        progressRef.current.company = saved;
+      }
+
+      if (!oneStepOnboard) {
+        resetDialogState();
+        onCreated(saved, { completedSetup: false });
+        return;
+      }
+
+      // Step 2: Auto-create default workspace
+      if (!progressRef.current.workspaceName) {
+        const baseSlug = workspaceSlugFromName(saved.name) || 'workspace';
+        progressRef.current.workspaceKey ??= crypto.randomUUID();
+        try {
+          const ws = await client.createWorkspace(
+            { organization_id: saved.id, name: saved.name, slug: baseSlug },
+            { idempotencyKey: progressRef.current.workspaceKey },
+          );
+          progressRef.current.workspaceName = ws.name;
+        } catch (wsErr) {
+          const status = (wsErr as { status?: number; responseBody?: { error?: { type?: string } } })?.status;
+          const errType = (wsErr as { responseBody?: { error?: { type?: string } } })?.responseBody?.error?.type;
+          if (status === 409 && errType === 'workspace_slug_taken') {
+            const suffix = crypto.randomUUID().replace(/-/g, '').slice(0, 6);
+            const fallbackSlug = `${baseSlug.slice(0, 41)}-${suffix}`;
+            const ws = await client.createWorkspace(
+              { organization_id: saved.id, name: saved.name, slug: fallbackSlug },
+              { idempotencyKey: crypto.randomUUID() },
+            );
+            progressRef.current.workspaceName = ws.name;
+          } else {
+            throw wsErr;
+          }
+        }
+      }
+
+      // Step 3: Create owner & set sign-in password
+      if (wantsLogin) {
+        if (!progressRef.current.ownerId) {
+          progressRef.current.ownerKey ??= crypto.randomUUID();
+          const ownerRes = await client.createOperatorIdentity(
+            { organization_id: saved.id, project_id: null, name: saved.name, role: 'owner' },
+            { idempotencyKey: progressRef.current.ownerKey },
+          );
+          if (!ownerRes.operator?.id) throw new Error('Could not create customer owner account.');
+          progressRef.current.ownerId = ownerRes.operator.id;
+        }
+        if (!progressRef.current.passwordSaved) {
+          await client.setMemberPassword(progressRef.current.ownerId, {
+            email: normalizedEmail,
+            password,
+            expected_revision: 0,
+          });
+          progressRef.current.passwordSaved = true;
+        }
+      }
+
+      // Step 4: Optional trial credit grant
+      let trialCreditFormatted = '';
+      if (wantsTrialCredit && grantNanos && token) {
+        if (!progressRef.current.grantIssued) {
+          progressRef.current.grantKey ??= crypto.randomUUID();
+          const grantInput = {
+            amount_nanos: grantNanos,
+            reason: 'Trial credit',
+            application_policy: 'future_only' as const,
+            idempotency_key: progressRef.current.grantKey,
+          };
+          const endpoint = `/api/v1/organizations/${encodeURIComponent(saved.id)}/billing/accounts/${currency}/grants`;
+          await request(token, `${endpoint}/prepare`, 'POST', grantInput);
+          await request(token, endpoint, 'POST', grantInput);
+          progressRef.current.grantIssued = true;
+        }
+        trialCreditFormatted = money(grantNanos, currency);
+      }
+
+      onCreated(saved, {
+        completedSetup: true,
+        workspaceCreated: true,
+        ownerEmail: wantsLogin ? normalizedEmail : undefined,
+      });
+
+      setHandoff({
+        company: saved,
+        workspaceName: progressRef.current.workspaceName ?? saved.name,
+        email: normalizedEmail,
+        password,
+        trialCreditFormatted,
+      });
+    } catch (reason) {
+      const status = (reason as { status?: number })?.status;
+      if (!progressRef.current.company) {
+        if (status === 400 || status === 422) {
+          clearPending('company');
+          pending.current = null;
+          setError(reason instanceof Error ? reason.message : 'Check the company name.');
+        } else {
+          setError('Creation could not be confirmed. Retry uses the same request and cannot create a second company. You can also close this dialog and refresh the customer list.');
+        }
       } else {
-        setError('Creation could not be confirmed. Retry uses the same request and cannot create a second company. You can also close this dialog and refresh the customer list.');
+        const detail = reason instanceof Error ? reason.message : uiT('Could not finish account setup.', '账号配置未完成。');
+        setError(
+          uiF(
+            'Customer "{0}" was created, but setup paused: {1} Click retry to continue without duplicating the customer.',
+            [progressRef.current.company.name, detail],
+          ),
+        );
       }
     } finally {
       setBusy(false);
     }
   }
 
+  const loginUrl = typeof window !== 'undefined' ? new URL('/login', window.location.origin).href : '/login';
+  const handoffCopyText = handoff
+    ? [
+        `${uiT('Sign-in URL', '登录地址')}: ${loginUrl}`,
+        handoff.email ? `${uiT('Email', '邮箱')}: ${handoff.email}` : '',
+        handoff.password ? `${uiT('Password', '密码')}: ${handoff.password}` : '',
+        handoff.trialCreditFormatted ? `${uiT('Trial credit', '试用赠金')}: ${handoff.trialCreditFormatted}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n')
+    : '';
+
   return (
-    <Dialog open={open} onOpenChange={value => { if (!busy) onOpenChange(value); }}>
-      <DialogContent onCloseAutoFocus={event => { event.preventDefault(); onRestoreFocus(); }}>
-        <DialogHeader>
-          <DialogTitle>{uiT("New customer")}</DialogTitle>
-          <DialogDescription>{uiT("Create a separately funded company. You will set up its workspace and owner next.")}</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="customer-name">{uiT("Company name")}</Label>
-            <Input id="customer-name" required maxLength={200} value={name} disabled={busy} onChange={event => setName(event.target.value)} />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {uiT("Uses the platform currency")}{currency ? ` (${currency})` : ''}{uiT(". New companies start with no funds or approved credit.")}
-          </p>
-          {currencyError && (
-            <Alert>
-              <AlertDescription>
-                {uiT(currencyError)} <Link to="/admin/settings" className="underline">{uiT("Open Settings")}</Link>
-              </AlertDescription>
-            </Alert>
-          )}
-          {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
-          {pending.current && name.trim() !== pending.current.name && (
-            <Alert>
-              <AlertDescription>
-                {uiT("The previous request may have succeeded. Check the saved list before starting a new request; otherwise you may create a duplicate.")}{" "}
+    <Dialog open={open} onOpenChange={value => { if (!value) closeDialog(); else onOpenChange(true); }}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg" onCloseAutoFocus={event => { event.preventDefault(); onRestoreFocus(); }}>
+        {handoff ? (
+          <>
+            <DialogHeader className="text-left">
+              <DialogTitle>{uiT('Customer ready', '客户账号已就绪')}</DialogTitle>
+              <DialogDescription>
+                {handoff.email
+                  ? uiT('Send these sign-in credentials directly to the customer.', '直接将以下登录信息发给客户即可开始试用。')
+                  : uiT('Customer organization and workspace are ready.', '客户组织与工作空间已创建完成。')}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 rounded-xl bg-muted/50 p-4 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">{uiT('Customer', '客户')}</span>
+                <span className="font-medium">{handoff.company.name}</span>
+              </div>
+              {handoff.trialCreditFormatted && (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">{uiT('Trial credit', '试用赠金')}</span>
+                  <span className="font-medium tabular-nums">{handoff.trialCreditFormatted}</span>
+                </div>
+              )}
+              {handoff.email && (
+                <>
+                  <div className="border-t border-border/60 pt-2.5 flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground shrink-0">{uiT('Sign-in URL', '登录地址')}</span>
+                    <code className="truncate font-mono text-xs select-all">{loginUrl}</code>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground shrink-0">{uiT('Email', '邮箱')}</span>
+                    <code className="truncate font-mono text-xs select-all">{handoff.email}</code>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground shrink-0">{uiT('Password', '密码')}</span>
+                    <code className="break-all font-mono text-xs select-all">{handoff.password}</code>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              {handoff.email && (
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => {
-                    clearPending('company');
-                    pending.current = null;
-                    setError('');
-                    setPendingVersion(value => value + 1);
+                    void navigator.clipboard.writeText(handoffCopyText).then(() => {
+                      setCopiedHandoff(true);
+                      window.setTimeout(() => setCopiedHandoff(false), 1800);
+                    }).catch(() => {
+                      /* Clipboard may be unavailable; text remains selectable above. */
+                    });
                   }}
                 >
-                  {uiT("Start a new request")}
+                  {copiedHandoff ? <IconCheck size={15} aria-hidden="true" /> : <IconCopy size={15} aria-hidden="true" />}
+                  <span>{copiedHandoff ? uiT('Copied', '已复制') : uiT('Copy sign-in details', '复制登录信息')}</span>
                 </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>{uiT("Close")}</Button>
-            <Button disabled={busy || !ready || !currency || !name.trim() || !!(pending.current && name.trim() !== pending.current.name)}>
-              {busy ? uiT("Creating…") : pending.current ? uiT("Retry creation") : uiT("Create company")}
-            </Button>
-          </div>
-        </form>
+              )}
+              <Button type="button" onClick={closeDialog}>
+                {uiT('Done', '完成')}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <DialogHeader className="text-left">
+              <DialogTitle>{uiT("New customer")}</DialogTitle>
+              <DialogDescription>
+                {uiT("Create a customer account. Fill in login email and optional trial credit to issue a ready-to-use trial account in one step.", "创建客户组织；填写登录邮箱与可选试用赠金即可一步开通可直接登录的试用账号。")}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={submit} className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="customer-name">{uiT("Company name")}</Label>
+                <Input
+                  id="customer-name"
+                  required
+                  maxLength={200}
+                  placeholder={uiT("e.g. Acme Corp", "例如：Acme 或 张三试用")}
+                  value={name}
+                  disabled={busy || Boolean(progressRef.current.company)}
+                  onChange={event => setName(event.target.value)}
+                />
+              </div>
+
+              <div className="space-y-3 rounded-xl bg-muted/40 p-3.5">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <IconKey size={14} aria-hidden="true" />
+                  <span>{uiT("Login account (optional)", "登录账号（选填，填写后自动建工作空间）")}</span>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="customer-login-email">{uiT("Login email", "登录邮箱")}</Label>
+                  <Input
+                    id="customer-login-email"
+                    type="email"
+                    maxLength={254}
+                    autoComplete="off"
+                    placeholder="name@company.com"
+                    value={email}
+                    disabled={busy || Boolean(progressRef.current.passwordSaved)}
+                    onChange={event => setEmail(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="customer-login-password">{uiT("Initial password", "初始密码")}</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      disabled={busy || Boolean(progressRef.current.passwordSaved)}
+                      onClick={() => {
+                        setPassword(generateStrongPassword());
+                        setShowPassword(true);
+                      }}
+                    >
+                      <IconSparkles size={13} aria-hidden="true" />
+                      <span>{uiT("Generate", "随机生成")}</span>
+                    </Button>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="customer-login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      maxLength={256}
+                      autoComplete="new-password"
+                      placeholder={uiT("At least 15 characters", "至少 15 位，可点右上角随机生成")}
+                      className="pr-9 font-mono text-sm"
+                      value={password}
+                      disabled={busy || Boolean(progressRef.current.passwordSaved)}
+                      onChange={event => setPassword(event.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground"
+                      aria-label={showPassword ? uiT("Hide password", "隐藏密码") : uiT("Show password", "显示密码")}
+                      onClick={() => setShowPassword(value => !value)}
+                    >
+                      {showPassword ? <IconEyeOff size={15} aria-hidden="true" /> : <IconEye size={15} aria-hidden="true" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {token && currency && (
+                <div className="grid gap-2">
+                  <Label htmlFor="customer-trial-credit">{uiF("Trial credit ({0}, optional)", [currency])}</Label>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={!trialAmount.trim() ? 'secondary' : 'outline'}
+                      disabled={busy || Boolean(progressRef.current.grantIssued)}
+                      onClick={() => setTrialAmount('')}
+                    >
+                      {uiT("None", "不发")}
+                    </Button>
+                    {TRIAL_CREDIT_PRESETS.map(preset => (
+                      <Button
+                        key={preset}
+                        type="button"
+                        size="sm"
+                        variant={trialAmount.trim() === preset ? 'secondary' : 'outline'}
+                        disabled={busy || Boolean(progressRef.current.grantIssued)}
+                        onClick={() => setTrialAmount(preset)}
+                      >
+                        {currency === 'USD' ? `$${preset}` : `${preset} ${currency}`}
+                      </Button>
+                    ))}
+                    <Input
+                      id="customer-trial-credit"
+                      inputMode="decimal"
+                      placeholder={uiT("Custom", "自定义")}
+                      className="h-8 w-24 text-sm tabular-nums"
+                      value={trialAmount}
+                      disabled={busy || Boolean(progressRef.current.grantIssued)}
+                      onChange={event => setTrialAmount(event.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {currencyError && (
+                <Alert>
+                  <AlertDescription>
+                    {uiT(currencyError)} <Link to="/admin/settings" className="underline">{uiT("Open Settings")}</Link>
+                  </AlertDescription>
+                </Alert>
+              )}
+              {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
+              {pending.current && name.trim() !== pending.current.name && (
+                <Alert>
+                  <AlertDescription>
+                    {uiT("The previous request may have succeeded. Check the saved list before starting a new request; otherwise you may create a duplicate.")}{" "}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        clearPending('company');
+                        pending.current = null;
+                        setError('');
+                        setPendingVersion(value => value + 1);
+                      }}
+                    >
+                      {uiT("Start a new request")}
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" disabled={busy} onClick={closeDialog}>{uiT("Close")}</Button>
+                <Button disabled={busy || !ready || !currency || !name.trim() || !!(pending.current && name.trim() !== pending.current.name)}>
+                  {busy
+                    ? uiT("Creating…")
+                    : progressRef.current.company || pending.current
+                      ? uiT("Retry creation")
+                      : uiT("Create company")}
+                </Button>
+              </div>
+            </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

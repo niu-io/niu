@@ -593,21 +593,27 @@ export function Customers({
         open={create}
         onOpenChange={setCreate}
         client={client}
-        onCreated={company => {
+        token={token}
+        onCreated={(company, options) => {
           invalidateQueries(CUSTOMER_ACCOUNTS_PATH);
           setCompanies(old => [
             {
               organization_id: company.id,
               organization_name: company.name,
-              owner: null,
-              workspace_count: 0,
-              member_count: 0,
+              owner: options?.ownerEmail ? { name: company.name, email: options.ownerEmail } : null,
+              workspace_count: options?.workspaceCreated ? 1 : 0,
+              member_count: options?.ownerEmail ? 1 : 0,
               custom_price_count: 0,
               accounts: [],
               credits: null,
             },
             ...old.filter(row => row.organization_id !== company.id),
           ]);
+          if (options?.completedSetup) {
+            if (options.workspaceCreated) onWorkspaceCreated();
+            void load();
+            return;
+          }
           setCreate(false);
           setSelected(company);
           void load();
