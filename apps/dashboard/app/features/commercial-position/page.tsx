@@ -767,6 +767,14 @@ function CommercialStatement({ token }: { token: string }) {
 
       {position && (
         <>
+          <Tabs defaultValue="operations" className="min-w-0 space-y-4">
+            <div className="max-w-full overflow-x-auto overflow-y-hidden commercial-print-hide">
+              <TabsList variant="line" aria-label={uiT("Financial statement sections")}>
+                <TabsTrigger value="operations">{uiT("Statement of operations")}</TabsTrigger>
+                <TabsTrigger value="cash">{uiT("Cash & wallet position")}</TabsTrigger>
+                <TabsTrigger value="unit-economics">{uiT("Unit economics")}</TabsTrigger>
+              </TabsList>
+            </div>
           {/* Layer 1: Executive Financial KPI Cards with Period-over-Period Comparison */}
           <div className="commercial-kpi-grid grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <article className="min-w-0 rounded-xl bg-card p-5 space-y-2.5">
@@ -856,15 +864,6 @@ function CommercialStatement({ token }: { token: string }) {
             </article>
           </div>
 
-          {/* Layer 2: Tabbed Financial Statements (all force-mounted for instant switch & full PDF print) */}
-          <Tabs defaultValue="operations" className="min-w-0 space-y-4">
-            <div className="max-w-full overflow-x-auto overflow-y-hidden commercial-print-hide">
-              <TabsList variant="line" aria-label={uiT("Financial statement sections")}>
-                <TabsTrigger value="operations">{uiT("Statement of operations")}</TabsTrigger>
-                <TabsTrigger value="cash">{uiT("Cash & wallet position")}</TabsTrigger>
-                <TabsTrigger value="unit-economics">{uiT("Unit economics")}</TabsTrigger>
-              </TabsList>
-            </div>
             <TabsContent value="operations" forceMount className="data-[state=inactive]:hidden print:data-[state=inactive]:block">
             <div className="min-w-0 rounded-xl bg-card p-5 space-y-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">

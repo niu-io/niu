@@ -1778,7 +1778,7 @@ function RoutingView({
                         </Link>
                       )}
                     </div>
-                    <div className={advancedPool ? 'space-y-1' : 'hidden'}>
+                    {advancedPool && <div className="grid gap-2">
                       <Label
                         htmlFor={`pool-candidate-priority-${index}`}
                         className="text-xs text-muted-foreground"
@@ -1797,8 +1797,8 @@ function RoutingView({
                           updateCandidate(index, { priority: event.target.value })
                         }
                       />
-                    </div>
-                    <div className={advancedPool ? 'space-y-1' : 'hidden'}>
+                    </div>}
+                    {advancedPool && <div className="grid gap-2">
                       <Label
                         htmlFor={`pool-candidate-weight-${index}`}
                         className="text-xs text-muted-foreground"
@@ -1817,7 +1817,7 @@ function RoutingView({
                           updateCandidate(index, { weight: event.target.value })
                         }
                       />
-                    </div>
+                    </div>}
                     <div className="flex items-end justify-between gap-2 pb-0.5 sm:justify-end">
                       <div className="flex items-center gap-1.5 pb-2">
                         <Checkbox
