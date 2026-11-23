@@ -54,7 +54,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
     if (!organization || !context.renameOrganization || renaming) return;
     const trimmed = nameDraft.trim();
     if (!trimmed) {
-      setRenameError(t('Enter an organization name.', '请输入组织名称。'));
+      setRenameError(t('Enter an organization name.', '请输入名称。'));
       return;
     }
     setRenaming(true);
@@ -65,7 +65,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
       setRenameSaved(true);
       closeSubview();
     } catch (error) {
-      setRenameError(error instanceof Error && error.message ? error.message : t('Could not update organization name.', '无法更新组织名称。'));
+      setRenameError(error instanceof Error && error.message ? error.message : t('Could not update organization name.', '无法更新名称。'));
     } finally {
       setRenaming(false);
     }
@@ -76,7 +76,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
     if (!context.joinOrganization || joining) return;
     const trimmed = joinToken.trim();
     if (!trimmed) {
-      setJoinError(t('Enter a member access token.', '请输入成员访问令牌。'));
+      setJoinError(t('Enter a member access token.', '请输入访问令牌。'));
       return;
     }
     setJoining(true);
@@ -86,7 +86,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
       setJoinToken('');
       closeSubview();
     } catch (error) {
-      setJoinError(error instanceof Error && error.message ? error.message : t('Could not join organization.', '无法加入该组织。'));
+      setJoinError(error instanceof Error && error.message ? error.message : t('Could not join organization.', '无法加入组织。'));
     } finally {
       setJoining(false);
     }
@@ -98,15 +98,15 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
       action={!subview && context.createOrganization ? (
         <Button ref={organizationTrigger} variant="outline" size="sm" onClick={event => { subviewTrigger.current = event.currentTarget; setSubview('organization'); }}>
           <IconBuildings size={16} />
-          {t('Create organization', '创建组织')}
+          {t('Create organization', '新建组织')}
         </Button>
       ) : undefined}
     />
     <div hidden={Boolean(subview)} className="space-y-4">
-    {!organization && context.workspaceLoading ? <FormSectionSkeleton fields={2} label={t('Loading organization…', '正在加载组织…')} /> : !organization ? <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No organization is available. Create a workspace to get started.")}</EmptyDescription></EmptyHeader></Empty> : <>
+    {!organization && context.workspaceLoading ? <FormSectionSkeleton fields={2} label={t('Loading organization…', '加载组织…')} /> : !organization ? <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No organization is available. Create a workspace to get started.")}</EmptyDescription></EmptyHeader></Empty> : <>
       <section className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5" aria-labelledby="organization-details-title">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="organization-details-title" className="text-base font-semibold">{uiT("General")}</h2>
+          <h2 id="organization-details-title" className="text-base font-semibold">{t('General', '常规')}</h2>
           {canCreate && context.renameOrganization && (
             <Button
               type="button"
@@ -126,23 +126,23 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
           )}
         </div>
         <dl className="organization-details">
-          <div><dt>{uiT("Organization name")}</dt><dd>{organizationDisplayName(organization.name)}</dd></div>
-          {organization.slug ? <div><dt>{t('URL slug', '路径标识')}</dt><dd className="text-sm">{organization.slug}</dd></div> : null}
+          <div><dt>{t('Organization name', '名称')}</dt><dd>{organizationDisplayName(organization.name)}</dd></div>
+          {organization.slug ? <div><dt>{t('URL slug', '标识')}</dt><dd className="text-sm">{organization.slug}</dd></div> : null}
         </dl>
-        {renameSaved ? <p role="status" className="text-sm text-muted-foreground">{t('Organization name saved.', '组织名称已保存。')}</p> : null}
+        {renameSaved ? <p role="status" className="text-sm text-muted-foreground">{t('Organization name saved.', '已保存。')}</p> : null}
       </section>
       <section className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5" aria-labelledby="organization-workspaces-title">
-        <div className="organization-section-heading"><div><h2 id="organization-workspaces-title" className="text-base font-semibold">{uiT("Workspaces")}</h2></div>{canCreate && entries.length > 0 && <Button variant="outline" size="sm" onClick={event => { subviewTrigger.current = event.currentTarget; setSubview('workspace'); }}><IconPlus size={16} />{uiT("Create workspace")}</Button>}</div>
-        {entries.length ? <ul className="organization-workspaces">{entries.map(item => { const seg = workspacePathSegment(item, workspaces); const overviewTo = `/workspaces/${seg}`; const settingsTo = `/workspaces/${seg}/settings`; const membersTo = `${settingsHref('members')}?workspace=${encodeURIComponent(seg)}`; return <li key={item.id} className="flex items-center gap-2"><Link className="min-w-0 flex-1" to={overviewTo} onMouseEnter={() => prefetchRouteIntent(overviewTo)} onFocus={() => prefetchRouteIntent(overviewTo)}><span>{workspaceDisplayName(item.name)}</span></Link><Button asChild variant="ghost" size="icon"><Link to={settingsTo} onMouseEnter={() => prefetchRouteIntent(settingsTo)} onFocus={() => prefetchRouteIntent(settingsTo)} aria-label={uiF("Settings for {0}", [workspaceDisplayName(item.name)])} title={uiF("Settings for {0}", [workspaceDisplayName(item.name)])}><IconSettings size={16}/></Link></Button>{canManageMembers && <Button asChild variant="ghost" size="icon"><Link replace to={membersTo} onMouseEnter={() => prefetchRouteIntent(membersTo)} onFocus={() => prefetchRouteIntent(membersTo)} aria-label={uiF("Members for {0}", [workspaceDisplayName(item.name)])} title={uiF("Members for {0}", [workspaceDisplayName(item.name)])}><IconUsers size={16} /></Link></Button>}</li>; })}</ul> : <Empty className="min-h-36 py-6"><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No workspaces yet.")}</EmptyDescription></EmptyHeader>{canCreate && <EmptyContent><Button variant="outline" onClick={event => { subviewTrigger.current = event.currentTarget; setSubview('workspace'); }}><IconPlus size={16} />{uiT("Create workspace")}</Button></EmptyContent>}</Empty>}
+        <div className="organization-section-heading"><div><h2 id="organization-workspaces-title" className="text-base font-semibold">{uiT("Workspaces")}</h2></div>{canCreate && entries.length > 0 && <Button variant="outline" size="sm" onClick={event => { subviewTrigger.current = event.currentTarget; setSubview('workspace'); }}><IconPlus size={16} />{t('Create workspace', '新建工作空间')}</Button>}</div>
+        {entries.length ? <ul className="organization-workspaces">{entries.map(item => { const seg = workspacePathSegment(item, workspaces); const overviewTo = `/workspaces/${seg}`; const settingsTo = `/workspaces/${seg}/settings`; const membersTo = `${settingsHref('members')}?workspace=${encodeURIComponent(seg)}`; return <li key={item.id} className="flex items-center gap-2"><Link className="min-w-0 flex-1" to={overviewTo} onMouseEnter={() => prefetchRouteIntent(overviewTo)} onFocus={() => prefetchRouteIntent(overviewTo)}><span>{workspaceDisplayName(item.name)}</span></Link><Button asChild variant="ghost" size="icon"><Link to={settingsTo} onMouseEnter={() => prefetchRouteIntent(settingsTo)} onFocus={() => prefetchRouteIntent(settingsTo)} aria-label={uiF("Settings for {0}", [workspaceDisplayName(item.name)])} title={uiF("Settings for {0}", [workspaceDisplayName(item.name)])}><IconSettings size={16}/></Link></Button>{canManageMembers && <Button asChild variant="ghost" size="icon"><Link replace to={membersTo} onMouseEnter={() => prefetchRouteIntent(membersTo)} onFocus={() => prefetchRouteIntent(membersTo)} aria-label={uiF("Members for {0}", [workspaceDisplayName(item.name)])} title={uiF("Members for {0}", [workspaceDisplayName(item.name)])}><IconUsers size={16} /></Link></Button>}</li>; })}</ul> : <Empty className="min-h-36 py-6"><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No workspaces yet.")}</EmptyDescription></EmptyHeader>{canCreate && <EmptyContent><Button variant="outline" onClick={event => { subviewTrigger.current = event.currentTarget; setSubview('workspace'); }}><IconPlus size={16} />{t('Create workspace', '新建工作空间')}</Button></EmptyContent>}</Empty>}
       </section>
       {session?.kind === 'operator' && context.joinOrganization && (
         <section className="flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius-panel)] bg-card p-5" aria-labelledby="organization-join-title">
           <div className="min-w-0 space-y-1">
-            <h2 id="organization-join-title" className="text-base font-semibold">{t('Join an existing organization', '加入已有组织')}</h2>
+            <h2 id="organization-join-title" className="text-base font-semibold">{t('Join an existing organization', '加入组织')}</h2>
             <p className="text-sm text-muted-foreground">
               {t(
                 'Standard invitation links open directly without a token. Use a member access token only when issued directly by an organization owner.',
-                '通过邀请链接加入时无需令牌。仅在组织所有者直接签发成员访问令牌时使用。',
+                '邀请链接无需令牌；仅在所有者签发访问令牌时使用。',
               )}
             </p>
           </div>
@@ -157,7 +157,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
               setSubview('join');
             }}
           >
-            {t('Join with token', '使用令牌加入')}
+            {t('Join with token', '令牌加入')}
           </Button>
         </section>
       )}
@@ -167,15 +167,15 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
       <section className="space-y-4" aria-labelledby="organization-rename-title">
         <Button type="button" variant="ghost" size="sm" data-settings-back disabled={renaming} onClick={() => { setRenameError(''); closeSubview(); }}>
           <IconArrowLeft size={16} aria-hidden="true" />
-          {t('Back to Organization', '返回组织设置')}
+          {t('Back to Organization', '返回组织')}
         </Button>
         <header className="space-y-1">
-          <h3 id="organization-rename-title" className="text-base font-semibold">{t('Rename organization', '重命名组织')}</h3>
-          <p className="text-sm text-muted-foreground">{t('Update the display name for this organization. Its URL slug remains unchanged.', '更新此组织的显示名称，路径标识将保持不变。')}</p>
+          <h3 id="organization-rename-title" className="text-base font-semibold">{t('Rename organization', '重命名')}</h3>
+          <p className="text-sm text-muted-foreground">{t('Update the display name for this organization. Its URL slug remains unchanged.', '名称会更新，路径标识不变。')}</p>
         </header>
         <form className="grid max-w-md gap-4" onSubmit={handleRename}>
           <div className="grid gap-1.5">
-            <Label htmlFor="organization-rename-name">{t('Organization name', '组织名称')}</Label>
+            <Label htmlFor="organization-rename-name">{t('Organization name', '名称')}</Label>
             <Input
               id="organization-rename-name"
               autoFocus
@@ -198,7 +198,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
               type="submit"
               disabled={renaming || !nameDraft.trim() || nameDraft.trim() === organization.name}
             >
-              {renaming ? t('Saving…', '保存中…') : t('Save name', '保存名称')}
+              {renaming ? t('Saving…', '保存中…') : t('Save name', '保存')}
             </Button>
           </div>
         </form>
@@ -208,20 +208,20 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
       <section className="space-y-4" aria-labelledby="organization-join-subview-title">
         <Button type="button" variant="ghost" size="sm" data-settings-back disabled={joining} onClick={() => { setJoinToken(''); setJoinError(''); closeSubview(); }}>
           <IconArrowLeft size={16} aria-hidden="true" />
-          {t('Back to Organization', '返回组织设置')}
+          {t('Back to Organization', '返回组织')}
         </Button>
         <header className="space-y-1">
-          <h3 id="organization-join-subview-title" className="text-base font-semibold">{t('Join an existing organization', '加入已有组织')}</h3>
+          <h3 id="organization-join-subview-title" className="text-base font-semibold">{t('Join an existing organization', '加入组织')}</h3>
           <p className="text-sm text-muted-foreground">
             {t(
               'Paste the member access token issued directly by an organization owner to link that organization to your account.',
-              '粘贴组织所有者直接签发的成员访问令牌，将该组织关联至您的账户。',
+              '粘贴组织所有者签发的访问令牌。',
             )}
           </p>
         </header>
         <form className="grid max-w-md gap-4" onSubmit={handleJoinOrganization}>
           <div className="grid gap-1.5">
-            <Label htmlFor="organization-join-token">{t('Member access token', '成员访问令牌')}</Label>
+            <Label htmlFor="organization-join-token">{t('Member access token', '访问令牌')}</Label>
             <Input
               id="organization-join-token"
               type="password"
@@ -229,7 +229,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
               autoComplete="off"
               value={joinToken}
               disabled={joining}
-              placeholder={t('Paste issued token', '粘贴签发的令牌')}
+              placeholder={t('Paste issued token', '粘贴令牌')}
               onChange={event => {
                 setJoinToken(event.target.value);
                 setJoinError('');

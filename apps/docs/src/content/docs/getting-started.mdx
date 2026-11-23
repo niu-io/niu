@@ -114,7 +114,7 @@ curl --fail-with-body "$NIU_ORIGIN/v1/chat/completions" \
 
 兼容客户端的基础 URL 在容器中为 `http://localhost:2555/v1`，开发环境为 `http://127.0.0.1:2566/v1`。密钥对话框会显示当前安装的基础 URL。[API 教程](/docs/guides/api-quickstart/)介绍流式响应和错误处理。
 
-打开工作空间的**请求日志**，查看状态、耗时、上报的 Token，以及保留的请求和响应内容。**活动**显示用量；**额度与充值**显示客户费用和消费限额。捕获与保留设置见[请求日志](/docs/concepts/execution-observation/)。
+打开工作空间的**请求日志**，查看状态、耗时、上报的 Token，以及保留的请求和响应内容。**活动**显示用量；**额度**显示客户费用和消费限额。捕获与保留设置见[请求日志](/docs/concepts/execution-observation/)。
 
 应用使用工作空间密钥进行认证。请把 Provider 凭证和安装管理员令牌保留在服务器端。编码 Agent 可以通过 [MCP 服务器](/docs/guides/mcp/)使用同一密钥。托管 Niu 的网关地址固定为 `https://niu.io/v1`。
 

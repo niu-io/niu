@@ -8,6 +8,7 @@ This document defines the mandatory, product-wide UI and interaction standards f
 - **Brand primary & contrast**: Primary actions use burnt orange-brown (`#B3471A` light / `#B84B1C` dark) with warm near-white foreground (`#FFFBF7`) for crisp readability. On dark surfaces, text links and inline error copy use `--primary-ink` and `--destructive-ink` rather than low-contrast button fill tones.
 - **Warm-stone surfaces & subtle separation**: Follow Manus-style surface restraint — separate navigation, canvas, and sections with subtle solid background tones and spacing (`#FAF9F7` / `#F3F1ED` light, `#191716` / `#221F1D` dark) rather than repeated bordered cards or decorative shadows. Reserve elevation (`--shadow-composer`, `--shadow-panel`) for floating composers, popovers, menus, and dialogs.
 - **Sidebar hierarchy**: Active navigation items use a clear, unmistakable fill (`#E8E3DC` light / `#2F2A26` dark) with medium-semibold ink (`--sidebar-accent-foreground`).
+- **Concise Chinese labels**: Use the shortest unambiguous Chinese noun or verb for navigation, buttons, field labels, statuses, and headings. Do not retain qualifier phrases already established by the section, icon, or entity name (`在对话中试用` → `试用`; `外观与语言` → `外观`; `成员管理` → `成员`; `额度与充值` → `额度`; `保存更改` → `保存`; `版本发布说明` → `发布说明`). Keep entity, authorization, scope, and financial terms intact, and keep the English label coherent with the Chinese action.
 
 ## 2. Stable Dialog Frames & In-Control Loading
 

@@ -51,9 +51,9 @@ export default function ShellSectionTabs({ context }: {
     const accountPath = personal ? '/settings/account' : '/settings/appearance';
     entries = [
       ...(context.organization ? [{ path: '/settings/organization', label: t('Organization', '组织') }] : []),
-      ...(context.organization && context.session?.permissions?.manage_operators ? [{ path: '/settings/members', label: t('Members', '成员管理') }] : []),
-      ...(billing ? [{ path: '/settings/billing', label: t('Credits', '额度与充值') }] : []),
-      { path: accountPath, label: personal ? t('Account', '账户') : t('Preferences', '偏好设置') },
+      ...(context.organization && context.session?.permissions?.manage_operators ? [{ path: '/settings/members', label: t('Members', '成员') }] : []),
+      ...(billing ? [{ path: '/settings/billing', label: t('Credits', '额度') }] : []),
+      { path: accountPath, label: personal ? t('Account', '账户') : t('Preferences', '偏好') },
     ];
     if (location.pathname === '/settings/about' || (personal && location.pathname === '/settings/appearance')) selected = accountPath;
   } else if (/^\/workspaces\/[^/]+\/(models|routing|evaluations)\/?$/.test(location.pathname) && routeWorkspaceBase) {
