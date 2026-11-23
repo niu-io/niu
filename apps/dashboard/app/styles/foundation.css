@@ -175,9 +175,6 @@ button:disabled { cursor: not-allowed; }
 .niu-modal .vendor-editor-heading { display: none; }
 .niu-modal .vendor-editor-form { padding: 0; }
 .niu-modal .vendor-editor-footer { border-top: 0; }
-.niu-modal .model-form-heading { display: none; }
-.niu-modal .model-mapping-form { display: grid; gap: 15px; padding: 0; border: 0; border-radius: 0; background: transparent; }
-.niu-modal .model-form-footer { margin-top: 0; }
 
 .niu-modal .operator-create-panel { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .niu-modal .operator-create-form { grid-template-columns: minmax(0, 1fr); padding: 0; }
@@ -199,7 +196,7 @@ button:disabled { cursor: not-allowed; }
   .niu-modal { width: calc(100vw - 20px); max-height: calc(100dvh - 20px); border-radius: var(--radius-dialog); }
   .niu-modal-heading { padding: 0; }
   .niu-modal-form { padding: 0; }
-  .niu-modal .vendor-editor-form, .niu-modal .model-mapping-form, .niu-modal .operator-create-form { padding: 0; }
+  .niu-modal .vendor-editor-form, .niu-modal .operator-create-form { padding: 0; }
   .key-copy-row > div { grid-template-columns: 1fr; }
   .key-copy-row > div > button { justify-content: center; }
   .niu-modal-actions { align-items: stretch; flex-direction: column-reverse; }

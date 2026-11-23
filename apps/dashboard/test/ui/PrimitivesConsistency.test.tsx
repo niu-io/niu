@@ -192,3 +192,10 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(retailPage).not.toMatch(/<\/DialogHeader>\s*<Button[^>]*>[^<]*Refresh history/);
   });
 });
+
+it('keeps model mapping actions outside the scrollable advanced settings', () => {
+  const form = readFileSync(resolve(process.cwd(), 'app/features/providers/components/ModelMappingForm.tsx'), 'utf8');
+  expect(form).not.toContain('model-form-heading');
+  expect(form).toMatch(/<details[\s\S]+<\/details>\s*<\/div>\s*<DialogFooter/);
+  expect(form).toContain('showVideoSettings &&');
+});
