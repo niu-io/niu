@@ -208,8 +208,7 @@
 .page-content:has(.operator-directory-empty) { display: flex; flex-direction: column; }
 .operator-directory-region:has(.operator-directory-empty), .operator-directory:has(> .operator-directory-empty) { display: flex; flex: 0 0 auto; flex-direction: column; }
 .operator-directory-empty { display: flex; flex: 0 0 auto; min-height: 240px; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding-inline: 20px; }
-.page-content:has(.guardrails-empty), .guardrails-page:has(> .guardrails-empty) { display: flex; flex: 0 0 auto; flex-direction: column; }
-.guardrails-empty { display: flex; flex: 0 0 auto; min-height: 240px; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 32px 20px; text-align: center; color: var(--muted-foreground); }
+.guardrails-empty { min-height: 220px; }
 .page-content:has(.billing-empty), .billing-content:has(.billing-empty), .billing-content [data-slot="tabs-content"]:has(.billing-empty), .billing-content .panel:has(> .billing-empty) { display: flex; flex: 0 0 auto; flex-direction: column; }
 .billing-empty { display: flex; flex: 0 0 auto; min-height: 240px; align-items: center; justify-content: center; text-align: center; }
 
@@ -222,10 +221,14 @@
 .page-content > .gateway-route-content:not([hidden]),
 .page-content > .gateway-route-content > div:not([hidden]):not([data-slot="tabs"]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; max-width: 100%; }
 .page-content > .gateway-route-content > [data-slot="tabs"] { min-width: 0; max-width: 100%; }
+.page-content > .gateway-route-content > div > :has(> [data-slot="empty"]),
 .empty-region:has([data-slot="empty"]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; }
+.page-content > .gateway-route-content > div > :has(> [data-slot="empty"]) > [data-slot="empty"],
 .empty-region > [data-slot="empty"],
-.empty-region > [data-slot="tabs"]:has(> [data-state="active"] > [data-slot="empty"]),
-.empty-region > [data-slot="tabs"] > [data-state="active"]:has(> [data-slot="empty"]),
+.empty-region > .empty-region:has([data-slot="empty"]),
+.empty-region > [data-slot="tabs"]:has(> [data-state="active"] [data-slot="empty"]),
+.empty-region > [data-slot="tabs"] > [data-state="active"]:has([data-slot="empty"]),
+.empty-region > [data-slot="tabs"] > [data-state="active"] > .empty-region:has([data-slot="empty"]),
 .empty-region > [data-slot="tabs"] > [data-state="active"] > [data-slot="empty"] {
   display: flex;
   flex: 1 0 auto;

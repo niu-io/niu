@@ -405,10 +405,10 @@ export function RegistrationRequestsQueue({
   }
 
   return (
-    <div className="space-y-8">
+    <div className={showPolicySection ? 'space-y-8' : 'empty-region space-y-8'}>
       {showPolicySection && <RegistrationPolicySection token={token} />}
 
-      <section className="space-y-4" aria-label={t('Registration requests', '注册审批队列')}>
+      <section className={showPolicySection ? 'space-y-4' : 'empty-region space-y-4'} aria-label={t('Registration requests', '注册审批队列')}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('Registration status', '注册状态筛选')}>
             {([

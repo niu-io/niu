@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import PageHeader, { PageHeaderTabsTargetContext } from '@/components/PageHeader';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -25,20 +25,41 @@ describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
 
-  it('keeps Empty placeholders card-free and transparent by default', () => {
+  it('keeps Empty placeholders card-free, spacious, and auto-centered on full-page routes', () => {
     const { container } = render(
       <Empty>
         <EmptyHeader>
-          <EmptyMedia />
-          <EmptyDescription>No items yet</EmptyDescription>
+          <EmptyMedia variant="icon" />
+          <EmptyTitle>尚未配置工作空间护栏策略</EmptyTitle>
+          <EmptyDescription>为当前工作空间的所有 API 密钥统一配置模型限制、内容过滤及外部检测规则。</EmptyDescription>
         </EmptyHeader>
+        <EmptyContent>Actions</EmptyContent>
       </Empty>,
     );
     const root = container.querySelector('[data-slot="empty"]') as HTMLElement;
+    const header = container.querySelector('[data-slot="empty-header"]') as HTMLElement;
+    const title = container.querySelector('[data-slot="empty-title"]') as HTMLElement;
+    const desc = container.querySelector('[data-slot="empty-description"]') as HTMLElement;
+    const content = container.querySelector('[data-slot="empty-content"]') as HTMLElement;
     expect(root).toBeTruthy();
     expect(root.className).not.toContain('bg-card');
     expect(root.className).not.toContain('radius-panel');
     expect(root.className).toContain('w-full');
+    expect(root.className).toContain('gap-5');
+    expect(header.className).toContain('max-w-xl');
+    expect(title.className).toContain('text-base');
+    expect(title.className).toContain('leading-snug');
+    expect(desc.className).toContain('max-w-[36rem]');
+    expect(desc.className).toContain('leading-relaxed');
+    expect(desc.className).toContain('text-balance');
+    expect(content.className).toContain('max-w-xl');
+    expect(content.className).not.toContain('max-w-sm');
+    const surfaces = readFileSync(resolve(process.cwd(), 'app/styles/surfaces.css'), 'utf8');
+    expect(surfaces).toContain('.page-content > .gateway-route-content > div > :has(> [data-slot="empty"])');
+    expect(surfaces).not.toContain('.guardrails-page:has(> .guardrails-empty) { display: flex; flex: 0 0 auto;');
+    const guardrails = readFileSync(join(appDir, 'features/guardrails/page.tsx'), 'utf8');
+    expect(guardrails).toContain('guardrails-page empty-region');
+    expect(guardrails).not.toContain('min-h-[min(56dvh,28rem)]');
   });
 
   it('forbids card-styled Empty overrides across the entire dashboard app', () => {

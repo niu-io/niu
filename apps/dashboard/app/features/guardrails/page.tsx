@@ -245,10 +245,10 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
         </AlertDescription>
       </Alert>
     ) : head === null ? (
-      <Empty className="min-h-[min(56dvh,28rem)]">
+      <Empty>
         <EmptyHeader>
-          <EmptyMedia>
-            <IconShieldCheck size={24} aria-hidden="true" />
+          <EmptyMedia variant="icon">
+            <IconShieldCheck aria-hidden="true" />
           </EmptyMedia>
           <EmptyTitle>{uiT("No workspace policy configured", "尚未配置工作空间护栏策略")}</EmptyTitle>
           <EmptyDescription>
@@ -393,7 +393,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
     );
 
   return (
-    <div className="guardrails-page space-y-5">
+    <div className="guardrails-page empty-region space-y-5">
       <PageHeader
         title={uiT("Guardrails")}
         action={

@@ -2,6 +2,7 @@ import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams, type LoaderFunctionArgs } from 'react-router';
 import {
+  IconChecklist,
   IconChevronDown,
   IconEdit,
   IconPlus,
@@ -425,29 +426,30 @@ function EvaluationsView({
               '查看 Agent 评估的任务标准、已记录判定、耗时与客户费用。',
             ) : '';
 
-  const manualSetup = canWrite && (
-    <Button
-              size="sm"
-              variant="outline"
-              aria-label={t('Manual setup', '手动配置')}
-              onClick={(event) => {
-                formTrigger.current = event.currentTarget;
-                setEditingDefinition(null);
-                setDialogOpen(true);
-              }}
-            >
-              <IconPlus size={16} />
-              <span>{t('Manual setup', '手动配置')}</span>
-            </Button>
-  );
+  const renderManualSetup = (size: 'sm' | 'default') =>
+    canWrite && (
+      <Button
+        size={size}
+        variant="outline"
+        aria-label={t('Manual setup', '手动配置')}
+        onClick={(event) => {
+          formTrigger.current = event.currentTarget;
+          setEditingDefinition(null);
+          setDialogOpen(true);
+        }}
+      >
+        <IconPlus size={16} />
+        <span>{t('Manual setup', '手动配置')}</span>
+      </Button>
+    );
 
   return (
     <ReviewPageShell
       title={title}
       actions={
         <>
-          {!slug && rows.length > 0 && <CopyAgentPrompt prompt={agentHandoffPrompt(routeWorkspace, 'evaluate models against my task criteria within the authorized spending limits; report conclusions, cost, and limitations')} onError={setError} />}
-          {!slug && rows.length > 0 && manualSetup}
+          {!slug && rows.length > 0 && <CopyAgentPrompt size="sm" prompt={agentHandoffPrompt(routeWorkspace, 'evaluate models against my task criteria within the authorized spending limits; report conclusions, cost, and limitations')} onError={setError} />}
+          {!slug && rows.length > 0 && renderManualSetup('sm')}
           {slug && detail.definition && !run && canWrite && (
             <Button
               variant="outline"
@@ -542,7 +544,8 @@ function EvaluationsView({
             </>
           ) : (
             <ReviewEmptyState
-            actions={manualSetup}
+              icon={<IconChecklist aria-hidden="true" />}
+              actions={renderManualSetup('default')}
               title={uiF('No {0} yet', [title.toLowerCase()])}
               description={t(
                 'Ask your coding agent to evaluate models against your task criteria within an authorized test budget. Open an evaluation here to review its criteria, sample outcomes, input evidence, and known customer charges.',
