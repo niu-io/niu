@@ -616,7 +616,7 @@ function ScopedModels({
       )}
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center min-w-0">
+        {counts.total > 0 && <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center min-w-0">
           <div className="relative w-full sm:w-64">
             <IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
@@ -650,7 +650,7 @@ function ScopedModels({
               </Button>
             ))}
           </div>
-        </div>
+        </div>}
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           {commercialEnabled && selectedAliases.size > 0 && (

@@ -98,7 +98,7 @@ export function ProviderModelsTable({
             {commercialEnabled && <TableHead className="whitespace-nowrap">{uiT('Upstream standard price', '上游标准价 (输入/输出 1M)')}</TableHead>}
             {commercialEnabled && <TableHead className="whitespace-nowrap">{uiT('Discount & cost', '折扣 / 采购成本')}</TableHead>}
             <TableHead className="whitespace-nowrap">{uiT('Status')}</TableHead>
-            <TableHead className="whitespace-nowrap text-right">{uiT('Actions')}</TableHead>
+            <TableHead className="sticky right-0 bg-background whitespace-nowrap text-right">{uiT('Actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -202,12 +202,13 @@ export function ProviderModelsTable({
                   )}
                 </TableCell>
 
-                <TableCell className="align-middle whitespace-nowrap text-right">
+                <TableCell className="sticky right-0 bg-background align-middle whitespace-nowrap text-right">
                   <div className="inline-flex items-center justify-end gap-1.5">
                     {!info.isActive ? (
                       <Button
                         type="button"
                         size="xs"
+                        variant="outline"
                         disabled={!canManage || busy || isRowBusy || !hasEnabledKey}
                         onClick={() => onEnable(alias)}
                       >
