@@ -258,7 +258,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
                 ? <Alert><AlertTitle>{t("Low balance")}</AlertTitle><AlertDescription>{t("Your account balance is below the warning threshold. Approved credit is excluded from this warning.")}</AlertDescription></Alert>
                 : BigInt(account.balance_nanos) < 0n && BigInt(account.credit_limit_nanos) > 0n && <Alert><AlertTitle>{t("Using approved credit")}</AlertTitle><AlertDescription>{t("Your posted balance is negative, and paid requests continue using your remaining approved credit limit.")}</AlertDescription></Alert>)}
           </div>)}
-          {!accountError && accounts?.length === 0 && (unitSnapshot?.balances.length ?? 0) === 0 && <Empty className="min-h-40 rounded-xl bg-muted/55 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconCoins size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{canConfigure ? t("No prepaid account configured.") : t("No prepaid account configured. Contact your billing administrator.")}</EmptyDescription></EmptyHeader></Empty>}
+          {!accountError && accounts?.length === 0 && (unitSnapshot?.balances.length ?? 0) === 0 && <Empty className="min-h-36 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconCoins size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{canConfigure ? t("No prepaid account configured.") : t("No prepaid account configured. Contact your billing administrator.")}</EmptyDescription></EmptyHeader></Empty>}
         </section>}
         {accounts && section !== 'billing' && <TopupFunding key={`funding-${accessGeneration.current.value}`} token={token} organization={organization} canCreate={canConfigure} currencies={accounts.map(account => account.currency)} unitSnapshot={unitSnapshot} onPaid={() => setRevision(value => value + 1)} />}
         {companyAccess && section !== 'payments' && ((accounts?.length ?? 0) > 0 || (transactions?.length ?? 0) > 0 || transactionError) && <section aria-label={t("Recent balance transactions")}>
@@ -271,7 +271,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
                 <TableCell>{t(transactionNames[entry.kind])}</TableCell><TableCell className="text-right tabular-nums">{money(entry.amount_nanos, entry.currency)}</TableCell>
               </TableRow>)}</TableBody>
             </Table>
-          </> : !transactionError && (transactionsLoading ? <TableSkeleton columns={3} rows={3} label={t("Loading transactions…")} /> : <Empty className="mt-2 min-h-32 rounded-xl bg-muted/55 py-6"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{t("No transactions yet.")}</EmptyDescription></EmptyHeader></Empty>)}
+          </> : !transactionError && (transactionsLoading ? <TableSkeleton columns={3} rows={3} label={t("Loading transactions…")} /> : <Empty className="mt-2 min-h-28 py-6"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{t("No transactions yet.")}</EmptyDescription></EmptyHeader></Empty>)}
         </section>}
  </div>
  {editing !== null && <section

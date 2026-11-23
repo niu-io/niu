@@ -25,7 +25,7 @@ export default function KeySpendingLimits({ projectKey }: { projectKey: ProjectK
   return <Card className="py-5">
     <CardHeader><CardTitle>{uiT("Spending limits")}</CardTitle><CardDescription>{uiT("Lifetime customer spending allowances. Account and workspace limits still apply.")}</CardDescription></CardHeader>
     <CardContent className="space-y-3">
-      {!hasAny && <Empty className="min-h-32 rounded-xl bg-muted/55"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No billing currency is available for this key yet.")}</EmptyDescription></EmptyHeader></Empty>}
+      {!hasAny && <Empty className="min-h-28 py-6"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No billing currency is available for this key yet.")}</EmptyDescription></EmptyHeader></Empty>}
       {showUnit && unit && <div className="space-y-2 rounded-xl bg-muted/55 p-3.5">
         <h3 className="font-medium">{unitName}</h3>
         <dl className="grid gap-3 text-sm sm:grid-cols-3">

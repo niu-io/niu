@@ -36,7 +36,6 @@
 @media (max-width: 30rem) {
   .dashboard-login-topbar { gap: 4px; }
   .dashboard-login-nav [data-slot="button"] { padding-inline: 5px; }}
-.generations-history [data-slot="empty"] { min-height: 160px; }
 .provider-empty-state { flex: 1; }
 
 .operator-detail:has(> .operator-detail-empty) { display: flex; flex-direction: column; }

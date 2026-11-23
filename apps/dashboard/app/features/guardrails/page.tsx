@@ -237,7 +237,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
         </AlertDescription>
       </Alert>
     ) : head === null ? (
-      <Empty className="min-h-56 rounded-[var(--radius-panel)] bg-card">
+      <Empty className="min-h-56">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <IconShieldCheck size={20} aria-hidden="true" />

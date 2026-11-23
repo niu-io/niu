@@ -564,8 +564,11 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
         </DialogHeader>
       {dialog?.kind === 'create' && <form className="niu-modal-form" onSubmit={event => void issue(event)}>
         {activePending?.action === 'create' && <Alert><AlertDescription><p>{uiT("A previous key request may still complete. Creating another key could create a duplicate.")}</p><Button type="button" variant="outline" size="sm" onClick={() => { setDialog(null); void checkRequest(activePending); }}>{uiT("Check previous request")}</Button></AlertDescription></Alert>}
-        <Label htmlFor="api-key-name">{uiT("Name")}<Input id="api-key-name" disabled={busy} autoFocus maxLength={200} autoComplete="off" placeholder={uiT("e.g. production app")} value={name} onChange={event => setName(event.target.value)} required /></Label>
-        <div className="key-expiration-field">
+        <div className="grid gap-2">
+          <Label htmlFor="api-key-name">{uiT("Name")}</Label>
+          <Input id="api-key-name" disabled={busy} autoFocus maxLength={200} autoComplete="off" placeholder={uiT("e.g. production app")} value={name} onChange={event => setName(event.target.value)} required />
+        </div>
+        <div className="grid gap-2">
           <Label htmlFor="api-key-models">{uiT("Model access")}</Label>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -590,7 +593,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="key-expiration-field">
+        <div className="grid gap-2">
           <Label htmlFor="api-key-expiry">{uiT("Expiration")}</Label>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

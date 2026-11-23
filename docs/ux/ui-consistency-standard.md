@@ -16,9 +16,10 @@ This document defines the mandatory, product-wide UI and interaction standards f
   - For dropdown/choice fields whose options are loading, keep the field and trigger mounted with `aria-busy="true"`, a spinner icon (`IconLoader2` with `animate-spin`), and a clear loading label inside the trigger and/or menu.
   - For detail dialogs whose primary record is already known (such as member details), render the record immediately and scope the loading/retry state strictly to the pending section (e.g., the Role selector), never replacing the entire dialog with a generic skeleton.
   - For data-table dialogs (such as capacity inspection or archived sessions), render `TableSkeleton` inside the table slot on initial open (`rows.length === 0`) and keep existing rows visible during refreshes while reflecting busy state on the refresh/pagination button.
-- **Modal discipline**:
+- **Modal discipline & field rhythm**:
   - Every page-level create, edit, rename, limit-setting, and destructive confirmation action opens an installed shadcn `Dialog` with bounded scroll (`max-h-[90dvh] overflow-y-auto` or `max-h-[85dvh]`) and restores focus via `onCloseAutoFocus`.
   - Never nest a `Dialog` inside an already-open modal; keep secondary confirmations inside modals inline.
+  - Every labeled form field pairs `<Label>` (which uses `leading-snug` so CJK glyphs never clip or touch controls below) and its input/trigger inside an explicit `grid gap-2` (or `space-y-2`) container. A global zero-specificity CSS safeguard in `foundation.css` also enforces `display: grid; gap: 0.5rem;` on any unspaced block container holding a visible `<Label>` inside forms, dialogs, and popovers.
 
 ## 3. Uniform Choice, Header & Toolbar Controls
 
@@ -48,7 +49,7 @@ This document defines the mandatory, product-wide UI and interaction standards f
 ## 5. Structured Loading, Empty, and Error Surfaces
 
 - **No raw unstyled loading paragraphs**: Never render bare `<p role="status">Loading…</p>` in pages or dialogs. Use `TableSkeleton`, `FormSectionSkeleton`, or `ListRowsSkeleton` (from [`PageSkeletons.tsx`](../../apps/dashboard/app/components/PageSkeletons.tsx)) for initial region loading, or an in-control spinner for inline refreshes.
-- **Full-width empty & setting panels**: On full-width management pages, empty-state containers and sibling configuration sections span `100%` of the content width (centering only the inner icon/copy inside empty states) — never shrink an empty card to a narrow centered island beneath full-width cards or leave one setting section unboxed between sibling `bg-card` sections.
+- **Quiet, card-free empty placeholders**: Never wrap empty list/table/sidebar placeholders in bulky rounded `bg-card` or `bg-muted` card slabs or decorative shadows. `<Empty>` stays transparent (`bg-transparent`, `border-0`, `w-full`) across full-width management pages, dialogs, embedded cards, and sidebars so it sits naturally on its host surface while spanning `100%` of the available width. Narrow sidebars and rails (such as Generations `Sessions`) use compact padding and an unboxed muted icon (`EmptyMedia` default variant) rather than a boxed icon tile. Keep sibling configuration sections consistent with their surrounding `bg-card` peers.
 - **Sibling first-run parity**: Sibling creation surfaces in Generations (`Chat` and `Video`) share the same centered mode switcher (`Chat` / `Video`), heading scale (`.playground-first-run-heading`), and `.playground-starters` / `.playground-starter` card grid (`<strong>` title, `<span>` summary, trailing arrow icon).
 - **Never leak internal IDs**: Never render UUIDs/GUIDs in UI labels, tooltips, badges, dialogs, or error notices.
 
