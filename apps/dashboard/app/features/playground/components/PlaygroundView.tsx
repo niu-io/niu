@@ -1,3 +1,4 @@
+import { promptCategories, promptExamples } from '../starter-prompts';
 import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { Empty, EmptyHeader, EmptyDescription, EmptyMedia, EmptyTitle, EmptyContent } from '@/components/ui/empty';
 import { cachedKeyGet } from '@/features/keys/api';
@@ -88,22 +89,6 @@ const comparisonMetrics: Array<{ key: ComparisonMetric; label: string }> = [
   { key: 'total', label: 'Total tokens' },
   { key: 'cash', label: 'Customer charge' },
 ];
-
-const promptCategories = [
-  { id: 'all', label: 'All tasks' },
-  { id: 'reasoning', label: 'Reasoning' },
-  { id: 'build', label: 'Build' },
-  { id: 'writing', label: 'Writing' },
-] as const;
-
-const promptExamples = [
-  { id: 'cost-estimate', category: 'reasoning', title: 'Cost estimate', summary: 'Estimate monthly API spend from daily traffic.', text: 'Our service handles 20,000 chat requests per day with an average of 1,500 input tokens and 400 output tokens. Walk through how to estimate monthly spend and compare two candidate pricing tiers.' },
-  { id: 'context-window', category: 'reasoning', title: 'Context budget', summary: 'How many 8K-token turns fit in 128K?', text: 'A model has a 128K-token context window. If each turn in a conversation uses 8,000 tokens, about how many turns fit? Explain the calculation and what could reduce the usable number.' },
-  { id: 'snake-game', category: 'build', title: 'Snake game', summary: 'Build an arrow-key controlled game.', text: 'Build a small snake game controlled with the arrow keys. Include food, collision detection, and a restart option.' },
-  { id: 'file-tree', category: 'build', title: 'Collapsible file tree', summary: 'Use plain HTML and CSS.', text: 'Use plain HTML and CSS to build a collapsible file tree. Make the folder and file hierarchy clear and keep the controls accessible.' },
-  { id: 'support-reply', category: 'writing', title: 'Support reply', summary: 'Respond to a frustrated customer with empathy.', text: 'Rewrite this complaint as an empathetic customer-support reply: “Your API has been down for three days, hurting our business. We’ll switch providers if this continues.” Acknowledge the impact, explain the next step, and avoid making promises you cannot verify.' },
-  { id: 'job-post', category: 'writing', title: 'Backend engineer job post', summary: 'A Java and MySQL role with clear expectations.', text: 'Write a concise job post for a backend engineer role. The person should be skilled in Java and MySQL, take ownership of their work, and be comfortable with occasional overtime when releases require it.' },
-] as const;
 
 function customerCharge(result: ComparisonResult) {
   if (result.customerChargeStatus === 'charged' && result.customerChargeNanos != null && result.customerChargeCurrency) return money(result.customerChargeNanos, result.customerChargeCurrency);
@@ -958,7 +943,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     const next = new URLSearchParams(location.search);
     next.set('key', created.slug || created.id);
     navigate({ pathname: location.pathname, search: next.toString(), hash: location.hash }, { replace: true });
-    setNotice('Created “Playground” API key. You can start chatting now.');
+    setNotice('Created “Playground” API key.');
   }
 
   async function compare(event?: FormEvent<HTMLFormElement>) {
@@ -1188,7 +1173,9 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
             submitAction={running
               ? <Button type="button" size="icon" className="generation-composer-submit rounded-full" aria-label={uiT("Stop generating")} onClick={cancelComparison}><Square size={14} /></Button>
               : <Button type="submit" size="icon" className="generation-composer-submit rounded-full" aria-label={uiF("Send to {0} {1}", [selectedModels.length, selectedModels.length === 1 ? uiT("model") : uiT("models")])} disabled={!canSubmit || keyBlocked}><ArrowUp size={19} /></Button>}
-            blockedCover={keyBlocked ? <GenerationComposerCover icon={<KeyRound size={17} />} title={uiT("This API key is invalid. Choose another or create a new one to continue.")} actions={<>{!noAvailableKeys && <Button type="button" variant="outline" onClick={() => setApiSettingsOpen(true)}>{uiT("Choose API key")}</Button>}<Button type="button" onClick={() => void (async () => { if (initialScope && !await draft.flush()) return; navigate(`${workspaceRoot}/keys`, {state:{createKey:true,returnTo:`${location.pathname}${location.search}${location.hash}`}}); })()}>{uiT("Create API key")}</Button></>} /> : null}
+            blockedCover={keyBlocked ? <GenerationComposerCover icon={<KeyRound size={17} />}
+              title={session?.permissions.write === false ? uiT("Ask a workspace administrator to replace this unavailable API key.", "此密钥已不可用，请联系工作空间管理员更换。") : uiT("This API key is invalid. Choose another or create a new one to continue.")}
+              actions={session?.permissions.write !== false && <>{keyChoices.length > 0 && <Button type="button" variant="outline" onClick={() => setApiSettingsOpen(true)}>{uiT("Choose API key")}</Button>}<Button type="button" disabled={quickKey.busy} onClick={() => { quickKey.setError(''); setQuickKeyDialogOpen(true); }}>{uiT("Auto-create key", "自动创建试用密钥")}</Button></>} /> : null}
           />
           <p role="note" aria-label={uiT("Usage billing")} className="sr-only">{billingSummary}</p>
                 <PopoverContent side="top" align="end" sideOffset={12} collisionPadding={12} aria-labelledby="chat-settings-title" className="w-[min(24rem,calc(100vw-2rem))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto space-y-4">
