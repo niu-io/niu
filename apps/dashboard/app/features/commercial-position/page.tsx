@@ -740,7 +740,7 @@ function CommercialStatement({ token }: { token: string }) {
       </div>
 
       {loading && !position && (
-        <div className="space-y-6" aria-label={uiT("Loading financial statement…")}>
+        <div role="status" className="space-y-6" aria-label={uiT("Loading financial statement…")}>
           <MetricStripSkeleton count={4} label="" />
           <TableSkeleton columns={6} rows={6} label="" />
         </div>

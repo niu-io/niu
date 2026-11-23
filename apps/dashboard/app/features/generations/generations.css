@@ -93,7 +93,7 @@
 .generations-layout .playground-first-run { margin:auto; width:min(var(--generation-reading-width), 100%); gap:20px; }
 @media (max-width: 680px) {
   .generations-session .playground-chat-main.is-first-run .playground-transcript { justify-content:flex-start; padding-top:16px; padding-bottom:24px; }
-  .generations-layout .playground-first-run { margin:0 auto; gap:16px; }
+  .generations-layout .playground-first-run { margin:auto; gap:16px; }
 }
 
 .generations-history .generations-new-generation[data-variant="outline"]:not(:focus-visible) { border-color:transparent; background:var(--popover); box-shadow:var(--shadow-subtle); }
