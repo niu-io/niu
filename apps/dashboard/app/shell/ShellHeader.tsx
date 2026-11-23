@@ -262,6 +262,42 @@ export default function ShellHeader({
                 <BreadcrumbSeparator>/</BreadcrumbSeparator>
               </>
             )}
+            {activePath.startsWith('routing/') && (
+              <>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <ProductRailLink to={`${activeWorkspacePath}/routing`}>
+                      {t('Routing', '模型路由')}
+                    </ProductRailLink>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator>/</BreadcrumbSeparator>
+              </>
+            )}
+            {activePath.startsWith('evaluations/') && (
+              <>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <ProductRailLink to={`${activeWorkspacePath}/evaluations`}>
+                      {t('Evaluations', '评估')}
+                    </ProductRailLink>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator>/</BreadcrumbSeparator>
+              </>
+            )}
+            {activePath.startsWith('events/') && (
+              <>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <ProductRailLink to={`${activeWorkspacePath}/events`}>
+                      {t('Events', '事件订阅')}
+                    </ProductRailLink>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator>/</BreadcrumbSeparator>
+              </>
+            )}
             <BreadcrumbItem className="min-w-0">
               <h1 key={location.pathname} className="dashboard-route-title">{title}</h1>
             </BreadcrumbItem>

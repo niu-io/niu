@@ -270,6 +270,18 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(surfaces).not.toMatch(/\.provider-intro\s*\{[^}]*margin:\s*-/);
     expect(overview).not.toMatch(/\.operator-error\s*\{[^}]*margin:\s*-/);
   });
+
+  it('promotes ShellSectionTabs into #dashboard-page-tabs without stacking nested tab bars inside Guardrails or detail routes', () => {
+    const shellSectionTabs = readFileSync(join(appDir, 'shell/ShellSectionTabs.tsx'), 'utf8');
+    expect(shellSectionTabs).toContain("document.getElementById('dashboard-page-tabs')");
+    expect(shellSectionTabs).toContain('createPortal(');
+    expect(shellSectionTabs).toContain('models|routing|evaluations)\\/?$');
+    expect(shellSectionTabs).toContain('settings|guardrails|events)\\/?$');
+    const guardrailsPage = readFileSync(join(appDir, 'features/guardrails/page.tsx'), 'utf8');
+    expect(guardrailsPage).not.toContain('<TabsList');
+    const shellCss = readFileSync(resolve(process.cwd(), 'app/styles/shell.css'), 'utf8');
+    expect(shellCss).toContain('.dashboard-page-header { position: sticky; top: 0; z-index: 18; display: flex; flex: 0 0 var(--dashboard-header-height); min-height: var(--dashboard-header-height); align-items: center; gap: 10px; padding: 0 32px;');
+  });
 });
 
 it('keeps model mapping actions outside the scrollable advanced settings', () => {

@@ -192,7 +192,7 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 
 /* Compact overview actions retain their full labels when space permits. */
 @media (max-width: 680px) {
-  .dashboard-page-header:has(.header-icon-action) { flex-wrap: nowrap; min-height: 56px; height: 56px; gap: 10px; }
+  .dashboard-page-header:has(.header-icon-action):not(:has(.dashboard-page-tabs:not(:empty))) { flex-wrap: nowrap; min-height: 56px; height: 56px; gap: 10px; }
   .dashboard-page-header:has(.header-icon-action) .dashboard-page-actions { flex: 0 0 auto; margin-left: auto; }
   .dashboard-page-actions .header-icon-action { flex: 0 0 36px; width: 36px; height: 36px; padding: 0; }
   .header-icon-action > span { display: none; }

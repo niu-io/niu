@@ -392,15 +392,16 @@ describe('dashboard route layout', () => {
   });
 
 
-  it('keeps Guardrails tabs on one workspace page without section breadcrumbs', async () => {
+  it('keeps Guardrails in the top-bar workspace settings tabs without nested tab bars', async () => {
     mockHealth();
     const router = renderAt('/workspaces/production/guardrails?tab=history');
-    await screen.findByRole('tab', {name: 'History', exact: true});
+    expect(await screen.findByRole('dialog', { name: 'Policy history' })).toBeTruthy();
+    expect((await screen.findByRole('tab', { name: 'Guardrails', exact: true, hidden: true })).getAttribute('aria-selected')).toBe('true');
     expect(router.state.location.pathname).toBe('/workspaces/production/guardrails');
     expect(document.title).toBe('Guardrails · Niu');
     const breadcrumb = within(screen.getByLabelText('Breadcrumb'));
-    expect((await breadcrumb.findByRole('link', {name: 'Production', exact: true})).getAttribute('href')).toBe('/workspaces/production');
-    expect(breadcrumb.queryByRole('button', {name: 'Show parent pages'})).toBeNull();
+    expect((await breadcrumb.findByRole('link', {name: 'Production', exact: true, hidden: true})).getAttribute('href')).toBe('/workspaces/production');
+    expect(breadcrumb.queryByRole('button', {name: 'Show parent pages', hidden: true})).toBeNull();
   });
 
   it('redirects legacy Guardrails section URLs to the canonical tab and anchor', async () => {
@@ -409,7 +410,7 @@ describe('dashboard route layout', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/production/guardrails'));
     expect(router.state.location.search).toBe('?tab=policy');
     expect(router.state.location.hash).toBe('#input');
-    await screen.findByRole('tab', {name: /^Policy/});
+    expect((await screen.findByRole('tab', { name: 'Guardrails', exact: true })).getAttribute('aria-selected')).toBe('true');
   });
 
   it('resolves the canonical Guardrails page and the legacy redirect route separately', () => {

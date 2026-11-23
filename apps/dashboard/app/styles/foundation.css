@@ -121,7 +121,7 @@ button:disabled { cursor: not-allowed; }
 .dashboard-page-header { background: color-mix(in srgb, var(--background) 94%, transparent); }
 .dashboard-page-header .breadcrumbs { min-height: 36px; }
 .dashboard-page-header .breadcrumbs > span:first-child { color: var(--muted-foreground); }
-.page-content { max-width: none; padding-top: 36px; }
+.page-content { max-width: none; padding-top: 24px; }
 .page-heading { align-items: flex-start; margin: 0 0 28px; }
 .page-heading h1 { margin: 0; font-size: clamp(28px, 2.4vw, 34px); font-weight: 600; letter-spacing: -.04em; line-height: 1.16; }
 
