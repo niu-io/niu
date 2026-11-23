@@ -237,6 +237,13 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(customerShared).toContain('aria-pressed={trimmedTrial === preset}');
     expect(customerShared).not.toContain("variant={!trialAmount.trim() ? 'secondary' : 'outline'}");
   });
+
+  it('reserves Not published (未发布) for uncallable commercial models and never stamps Capabilities not published (能力未发布) on callable model cards', () => {
+    const modelTable = readFileSync(join(appDir, 'features/models/components/ModelTable.tsx'), 'utf8');
+    expect(modelTable).not.toContain('Capabilities not published');
+    expect(modelTable).not.toContain('capabilities have not been published');
+    expect(modelTable).toContain('uiT("Not published")');
+  });
 });
 
 it('keeps model mapping actions outside the scrollable advanced settings', () => {
