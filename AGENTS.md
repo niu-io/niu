@@ -58,6 +58,20 @@ Consider Tabler alongside Lucide when choosing icons. Generations uses Tabler `s
 
 Use **workspace** consistently for Niu's customer-facing scope. Do not call the same Niu entity a **project** in product UI, guidance, or generated setup commands. Keep legacy `project` / `project_id` names only where required by existing API, database, or compatibility contracts; translate them to workspace terminology at the product boundary.
 
+## User-reported issues are global requirements
+
+Treat every defect or UX/engineering complaint raised by the user as a **global product requirement**, never as a one-off local patch. For every user-reported issue:
+
+1. Identify the shared root cause in the underlying UI primitive, base stylesheet, backend contract, or operational workflow.
+2. Fix the default behavior so the same class of defect is prevented structurally across the entire product, and sweep the whole repository to clean up every sibling occurrence.
+3. Codify the resulting invariant in `AGENTS.md` and [the UI consistency standard](docs/ux/ui-consistency-standard.md), and add an automated regression test (e.g. [PrimitivesConsistency.test.tsx](apps/dashboard/test/ui/PrimitivesConsistency.test.tsx) or Rust integration tests) so future changes cannot reintroduce it.
+
+Standing global invariants established from user feedback:
+
+- **Card-free empty placeholders**: `<Empty>` must stay transparent and card-free (`bg-transparent`, no `bg-card` / `bg-muted` card slabs, no `rounded-[var(--radius-panel)]`, no decorative shadows) across sidebars, drawers, dialogs, embedded sections, and full-width management pages. Narrow rails (such as Generations `Sessions`) use compact padding and an unboxed muted icon (`EmptyMedia` default variant).
+- **Default-safe form and dialog field spacing**: `<Label>` must use CJK-safe line height (`leading-snug`, never `leading-none`). Every labeled field in forms, dialogs, and popovers pairs `<Label>` and its control inside an explicit `grid gap-2` (or `space-y-2`) container with uniform label weight and control height, backed by the zero-specificity CSS field-spacing safeguard in `apps/dashboard/app/styles/foundation.css` so text and controls can never overlap by default.
+- **Staging post-test data hygiene**: Whenever tests or verification run against staging, clean up all created test customers/organizations, test workspaces, test operators/API keys, and test request/billing debris upon completion while preserving baseline staging configuration (default workspace, staging admin/demo logins, Providers, Vendors, Offers, and Standard Prices).
+
 ## UX review delivery gate
 
 For substantial new or changed user-facing workflows and actionable UX feedback, use the `ux-review` skill when available and complete its review before delivery. If the skill is unavailable, apply the requirements below directly; do not block on installation. Respect explicit review-only requests.
