@@ -6,10 +6,6 @@ prev: false
 next: false
 ---
 
-import ApiReference from '../../../components/live-api/ApiReference';
+import ApiExplorer from '../../../components/live-api/ApiExplorer';
 
-<div class="docs-api-explorer">
-  <ApiReference client:only="react">
-    <div slot="fallback" role="status">Loading API explorer… <a href="/docs/api/rest/">Browse the REST reference</a></div>
-  </ApiReference>
-</div>
+<ApiExplorer client:load />

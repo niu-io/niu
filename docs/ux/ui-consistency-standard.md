@@ -76,3 +76,5 @@ Before marking any UI change complete:
 Center a single empty result in the remaining page or pane below its controls. Keep one recovery action when several sections describe the same missing data. Keep dates and active filters reachable. Show separate sections for independently populated, loading or failed results.
 
 A new generation requires a usable workspace key before message entry, attachments, prompt examples or submission. Preserve existing draft content when the key becomes unavailable. Offer authorized key setup at the composer and enable it only after the selected key permits invocation. Creating a key and sending a message are distinct actions.
+
+Documentation interactive surfaces (including `/docs/api/rest/<operation>/` Try-it panels and `/docs/api/explorer/`) must render natively inside the unified Starlight sidebar and header shell using installed shadcn primitives and scoped CSS. Never embed unscoped third-party full-viewport API viewers (such as Scalar) or hide `.sidebar-pane` on documentation subroutes, which breaks layout continuity and bleeds global styles across client-side transitions.

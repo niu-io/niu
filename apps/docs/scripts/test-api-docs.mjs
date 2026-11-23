@@ -214,3 +214,21 @@ test('human management review requires member Read rather than delegated inferen
     assert.equal(authority.scope,'workspace');
   }
 });
+
+test('docs API explorer stays native inside the unified Starlight shell with zero Scalar CSS pollution', () => {
+  const docsRoot = fileURLToPath(new URL('..', import.meta.url));
+  const pkg = JSON.parse(readFileSync(join(docsRoot, 'package.json'), 'utf8'));
+  const allDeps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
+  for (const dep of Object.keys(allDeps)) {
+    assert.ok(!dep.startsWith('@scalar/'), `Unexpected Scalar dependency in apps/docs/package.json: ${dep}`);
+  }
+  const styles = readFileSync(join(docsRoot, 'src/styles.css'), 'utf8');
+  assert.doesNotMatch(styles, /\.sidebar-pane\s*\{\s*display:\s*none/, 'Docs CSS must never hide .sidebar-pane on subroutes');
+  assert.doesNotMatch(styles, /docs-api-explorer/, 'Legacy Scalar docs-api-explorer shell override must remain removed');
+  assert.doesNotMatch(styles, /:root\[data-has-sidebar\]\s+\.header\b/, 'Sidebar header offset must target header.header so Expressive Code figcaption.header is never shifted');
+  const explorerMdx = readFileSync(join(docsRoot, 'src/content/docs/api/explorer.mdx'), 'utf8');
+  assert.match(explorerMdx, /ApiExplorer/, 'explorer.mdx must mount native ApiExplorer');
+  assert.doesNotMatch(explorerMdx, /scalar|ApiReference/i, 'explorer.mdx must not mount Scalar ApiReference');
+  const markdownContent = readFileSync(join(docsRoot, 'src/components/MarkdownContent.astro'), 'utf8');
+  assert.match(markdownContent, /OperationTryIt/, 'REST operation pages must mount native OperationTryIt');
+});
