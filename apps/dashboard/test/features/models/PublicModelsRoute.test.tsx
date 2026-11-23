@@ -196,14 +196,14 @@ describe('PublicModelsRoute & conditional Models links', () => {
 
     expect(screen.getByText('$1.5/M input tokens')).toBeTruthy();
     expect(screen.getByText('$6.00/M output tokens')).toBeTruthy();
-    expect(screen.getByText('Upstream-funded · no Niu charge')).toBeTruthy();
+    expect(screen.getByText('No Niu charge')).toBeTruthy();
 
     await user.click(screen.getByRole('link', { name: 'GPT-5', exact: true }));
 
     await waitFor(() =>
       expect(screen.getByRole('complementary', { name: 'openai/gpt-5 route details' })).toBeTruthy(),
     );
-    expect(screen.getByRole('link', { name: 'Open Generations' }).getAttribute('href')).toBe(
+    expect(screen.getByRole('link', { name: 'Try' }).getAttribute('href')).toBe(
       '/login?returnTo=%2Fgenerations%3Fnew%3D1%26model%3Dopenai%252Fgpt-5',
     );
     expect(

@@ -461,7 +461,19 @@ impl Store {
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(StoreError::Conflict)?;
-        let dependent: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM vendor_supplier_ownership WHERE provider_id=$1) OR EXISTS(SELECT 1 FROM provider_offers WHERE provider_id=$1) OR EXISTS(SELECT 1 FROM provider_memberships WHERE provider_id=$1)").bind(provider).fetch_one(&mut *tx).await?;
+        let dependent: bool = sqlx::query_scalar(
+            "SELECT EXISTS( \
+                 SELECT 1 FROM vendor_supplier_ownership o \
+                 JOIN vendors v ON v.id = o.vendor_id \
+                 WHERE o.provider_id = $1 \
+                   AND (v.enabled OR octet_length(v.credential_ciphertext) > 0) \
+             ) \
+             OR EXISTS(SELECT 1 FROM provider_offers WHERE provider_id = $1) \
+             OR EXISTS(SELECT 1 FROM provider_memberships WHERE provider_id = $1 AND active)",
+        )
+        .bind(provider)
+        .fetch_one(&mut *tx)
+        .await?;
         if dependent {
             return Err(StoreError::Conflict);
         }

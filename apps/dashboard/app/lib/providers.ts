@@ -129,16 +129,20 @@ const catalogWords: Record<string, string> = {
   minimax: 'MiniMax', grok: 'Grok',
 };
 
+function formatCatalogModelSlug(model: string, stripTrailingDate: boolean): string {
+  const rawSlug = model.split('/').pop() || model;
+  const slug = (stripTrailingDate ? rawSlug.replace(/-(?:20\d{6}|\d{6})$/, '') : rawSlug)
+    .replace(/(?<=[a-z])-(\d+)-(\d+)(?=-|$)/gi, '-$1.$2');
+  const parts = slug.split(/[-_]/).filter(Boolean);
+  if (!model.includes('/') && !identifyProvider(model) && !parts.some(part => part.toLowerCase() in catalogWords)) return model;
+  return parts
+    .map(part => catalogWords[part.toLowerCase()] ?? part.replace(/^v(\d)/i, 'V$1').replace(/^[a-z]/, char => char.toUpperCase()))
+    .join(' ');
+}
+
 export function catalogTitle(model: { id: string; catalog?: { name?: string | null } | null } | string): string {
   if (typeof model === 'string') {
-    const slug = (model.split('/').pop() || model)
-      .replace(/-(?:20\d{6}|\d{6})$/, '')
-      .replace(/(?<=[a-z])-(\d+)-(\d+)(?=-|$)/gi, '-$1.$2');
-    const parts = slug.split(/[-_]/).filter(Boolean);
-    if (!model.includes('/') && !identifyProvider(model) && !parts.some(part => part.toLowerCase() in catalogWords)) return model;
-    return parts
-      .map(part => catalogWords[part.toLowerCase()] ?? part.replace(/^v(\d)/i, 'V$1').replace(/^[a-z]/, char => char.toUpperCase()))
-      .join(' ');
+    return formatCatalogModelSlug(model, true);
   }
   const name = model.catalog?.name?.trim();
   if (name && name !== model.id && !name.includes('/')) {
@@ -152,7 +156,7 @@ export function catalogTitle(model: { id: string; catalog?: { name?: string | nu
     }
     return name;
   }
-  return catalogTitle(model.id);
+  return formatCatalogModelSlug(model.id, true);
 }
 
 export function disambiguatedCatalogTitle(
@@ -160,7 +164,20 @@ export function disambiguatedCatalogTitle(
   allModels?: ReadonlyArray<{ id: string; catalog?: { name?: string | null } | null }>,
 ): string {
   const base = catalogTitle(model);
-  if (!allModels || allModels.filter(item => catalogTitle(item) === base).length <= 1) return base;
+  const peers = allModels?.filter(item => catalogTitle(item) === base);
+  if (!peers || peers.length <= 1) return base;
+  const versioned = formatCatalogModelSlug(model.id, false);
+  const candidate = versioned.toLowerCase().startsWith(base.toLowerCase()) && versioned.length > base.length
+    ? `${base}${versioned.slice(base.length)}`
+    : base;
+  const sameCandidatePeers = peers.filter(item => {
+    const peerVersioned = formatCatalogModelSlug(item.id, false);
+    const peerCandidate = peerVersioned.toLowerCase().startsWith(base.toLowerCase()) && peerVersioned.length > base.length
+      ? `${base}${peerVersioned.slice(base.length)}`
+      : base;
+    return peerCandidate === candidate;
+  });
+  if (sameCandidatePeers.length <= 1) return candidate;
   const prefix = model.provider?.trim() || (model.id.includes('/') ? model.id.slice(0, model.id.indexOf('/')) : modelProviderName(model));
-  return prefix ? `${base} (${prefix})` : base;
+  return prefix ? `${candidate} (${prefix})` : candidate;
 }

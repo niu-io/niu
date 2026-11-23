@@ -1522,6 +1522,16 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         .unwrap();
     let owner_path = format!("/api/v1/admin/providers/connections/{vendor_id}/personal-owner");
     let owner_input = json!({"organization_id":scope.organization_id,"expected_revision":revision});
+    // Resale mode refuses personal-owner assignment over HTTP.
+    assert_eq!(
+        call(&app, Method::PUT, &owner_path, ADMIN, owner_input.clone())
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    let mut internal_state = state.clone();
+    internal_state.operating_mode = crate::state::OperatingMode::Internal;
+    let internal_app = router(internal_state);
     let operator = store
         .create_operator(
             OperatorScope {
@@ -1537,7 +1547,7 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         .unwrap();
     assert_eq!(
         call(
-            &app,
+            &internal_app,
             Method::PUT,
             &owner_path,
             "invalid",
@@ -1549,7 +1559,7 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
     );
     assert_eq!(
         call(
-            &app,
+            &internal_app,
             Method::PUT,
             &owner_path,
             &operator.token,
@@ -1561,7 +1571,7 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
     );
     assert_eq!(
         call(
-            &app,
+            &internal_app,
             Method::PUT,
             &owner_path,
             ADMIN,
@@ -1573,13 +1583,13 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
     );
     for _ in 0..2 {
         let (status, assigned) =
-            call(&app, Method::PUT, &owner_path, ADMIN, owner_input.clone()).await;
+            call(&internal_app, Method::PUT, &owner_path, ADMIN, owner_input.clone()).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(assigned, json!({"assigned":true}));
     }
     assert_eq!(
         call(
-            &app,
+            &internal_app,
             Method::PUT,
             &owner_path,
             ADMIN,
@@ -8369,7 +8379,8 @@ async fn generation_catalog_uses_current_video_routes_not_stale_modalities(pool:
             "fixture-text",
             json!({"catalog":{"output_modalities":["text"]}}),
         ),
-        ("legacy-unknown", "fixture-unknown", json!({})),
+        ("openai-chat", "deepseek-v3", json!({})),
+        ("legacy-unknown", "grok-imagine-video", json!({})),
         (
             "declared-dual",
             "fixture-dual",
@@ -8402,6 +8413,7 @@ async fn generation_catalog_uses_current_video_routes_not_stale_modalities(pool:
     for (alias, chat, video) in [
         ("stale-video", json!(false), true),
         ("declared-text", json!(true), false),
+        ("openai-chat", json!(true), false),
         ("legacy-unknown", Value::Null, false),
         ("declared-dual", json!(true), false),
     ] {
@@ -9202,8 +9214,9 @@ async fn public_catalog_publishes_qualified_commercial_and_shared_models_without
         .await
         .unwrap();
 
-    // Personal route belonging to a customer workspace must never enter /catalog/v1/models.
-    let (status, personal_vendor) = call(
+    // Resale mode rejects creating owner-funded personal connections via HTTP,
+    // and any preexisting DB personal route still never enters /catalog/v1/models.
+    let (status, rejected_personal) = call(
         &app,
         Method::POST,
         "/api/v1/admin/providers/connections",
@@ -9217,8 +9230,29 @@ async fn public_catalog_publishes_qualified_commercial_and_shared_models_without
         }),
     )
     .await;
-    assert_eq!(status, StatusCode::CREATED, "{personal_vendor}");
-    let personal_id = personal_vendor["data"]["id"].as_str().unwrap();
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{rejected_personal}");
+    let personal_uuid = Uuid::new_v4();
+    let cipher = crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap();
+    let personal_vendor = store
+        .create_vendor_with_access_scope(
+            niu_storage::VendorInput {
+                id: personal_uuid,
+                name: "Personal Provider".into(),
+                adapter: "openai".into(),
+                api_base: "https://personal.example.invalid/v1".into(),
+                enabled: true,
+                credential_ciphertext: cipher
+                    .seal(personal_uuid, "fixture-secret-personal-key")
+                    .unwrap(),
+            },
+            false,
+            None,
+            Some(scope.organization_id),
+            niu_storage::VendorAccessScope::Personal,
+        )
+        .await
+        .unwrap();
+    let personal_id = personal_vendor.id.to_string();
     let (status, priv_added) = call(
         &app,
         Method::POST,

@@ -16,7 +16,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupContent, useSidebar } from '@/components/ui/sidebar';
 import ProviderLogo from '@/components/ProviderLogo';
-import { modelIdentity, modelDeveloper, modelProviderName, catalogTitle } from '@/lib/providers';
+import { modelIdentity, modelDeveloper, modelProviderName, catalogTitle, disambiguatedCatalogTitle } from '@/lib/providers';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -97,6 +97,13 @@ function hasGenerationOutput(model: Model) {
 function isVideoModel(model: Model) {
   const cap = generationCapability(model, 'video');
   return cap === true || (cap === null && /(?:^|\/|-)(?:seedance|wan2|kling|veo|sora|vidu|hailuo|luma|runway)(?:$|\/|-|\.)/i.test(model.id));
+}
+function modelTrialLabels(model: Model, uiT: (en: string, zh?: string) => string) {
+  const dual = (hasChatOutput(model) || canTryUnverifiedChat(model)) && isVideoModel(model);
+  return {
+    chat: dual ? uiT("Try chat") : uiT("Try"),
+    video: dual ? uiT("Try video") : uiT("Try"),
+  };
 }
 
 function requestExample(baseUrl: string, model: Model) {
@@ -495,7 +502,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
         <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString(readUILocale())} {filtered.length === 1 ? uiT("model") : uiT("models")}</span>{filtered.length > 0 && (authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <Button variant="ghost" size="sm" onClick={clearAllFilters}>{uiT("Clear filters")}</Button>}</div>
         {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle><EmptyDescription>{uiT("Try another search or remove a filter.")}</EmptyDescription></EmptyHeader>{(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <EmptyContent><Button variant="outline" onClick={clearAllFilters}>{uiT("Clear filters")}</Button></EmptyContent>}</Empty> : <div className="models-cards">
           {visible.map(model => {
-            const cardTitle = catalogTitle(model);
+            const cardTitle = disambiguatedCatalogTitle(model, models);
             const rawDesc = model.catalog?.description;
             const hasHanDesc = /\p{Script=Han}/u.test(rawDesc ?? '');
             const showDesc = Boolean(rawDesc && (isZh ? hasHanDesc : !hasHanDesc));
@@ -556,15 +563,17 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
                       <span className="models-card-id-inline" title={model.id}>{model.id}</span>
                     ) : <span />}
                     <div className="models-card-actions">
-                      {hasChatOutput(model) && (needsApiKey
-                        ? <Button type="button" variant="link" className="h-auto p-0 text-xs font-medium text-foreground" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'chat' }); }}>{uiT("Open Generations")}</Button>
-                        : <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>)}
-                      {canTryUnverifiedChat(model) && (needsApiKey
-                        ? <Button type="button" variant="link" className="h-auto p-0 text-xs font-medium text-foreground" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'chat' }); }}>{uiT("Try in Chat")}</Button>
-                        : <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Try in Chat")}</Link>)}
-                      {isVideoModel(model) && (needsApiKey
-                        ? <Button type="button" variant="link" className="h-auto p-0 text-xs font-medium text-foreground" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'video' }); }}>{uiT("Try in Video")}</Button>
-                        : <Link className="text-foreground hover:underline" to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>)}
+                      {(() => {
+                        const trial = modelTrialLabels(model, uiT);
+                        return <>
+                          {(hasChatOutput(model) || canTryUnverifiedChat(model)) && (needsApiKey
+                            ? <Button type="button" variant="link" className="h-auto p-0 text-xs font-medium text-foreground" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'chat' }); }}>{trial.chat}</Button>
+                            : <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{trial.chat}</Link>)}
+                          {isVideoModel(model) && (needsApiKey
+                            ? <Button type="button" variant="link" className="h-auto p-0 text-xs font-medium text-foreground" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'video' }); }}>{trial.video}</Button>
+                            : <Link className="text-foreground hover:underline" to={generationHref(model, 'video')}>{trial.video}</Link>)}
+                        </>;
+                      })()}
                     </div>
                   </>}
                 </div>
@@ -632,16 +641,18 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
           </p>
         )}
         <div className="model-route-cta">
-          {hasChatOutput(selected) && (needsApiKey
-            ? <Button type="button" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model: selected, kind: 'chat' }); }}>{uiT("Open Generations")}</Button>
-            : <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Open Generations")}</Link></Button>)}
-          {canTryUnverifiedChat(selected) && (needsApiKey
-            ? <Button variant="outline" type="button" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model: selected, kind: 'chat' }); }}>{uiT("Try in Chat")}</Button>
-            : <Button variant="outline" asChild><Link to={generationHref(selected, 'chat')}>{uiT("Try in Chat")}</Link></Button>)}
-          {!hasGenerationOutput(selected) && <Button asChild variant={canTryUnverifiedChat(selected) ? 'outline' : 'default'}><a href={`${import.meta.env.BASE_URL}docs/api/explorer/`}>{uiT("View API reference")}</a></Button>}
-          {isVideoModel(selected) && (needsApiKey
-            ? <Button type="button" variant={hasChatOutput(selected) ? 'outline' : 'default'} onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model: selected, kind: 'video' }); }}>{uiT("Try in Video")}</Button>
-            : <Button asChild variant={hasChatOutput(selected) ? 'outline' : 'default'}><Link to={generationHref(selected, 'video')}>{uiT("Try in Video")}</Link></Button>)}
+          {(() => {
+            const trial = modelTrialLabels(selected, uiT);
+            return <>
+              {(hasChatOutput(selected) || canTryUnverifiedChat(selected)) && (needsApiKey
+                ? <Button type="button" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model: selected, kind: 'chat' }); }}>{trial.chat}</Button>
+                : <Button asChild><Link to={generationHref(selected, 'chat')}>{trial.chat}</Link></Button>)}
+              {!hasGenerationOutput(selected) && <Button asChild variant={canTryUnverifiedChat(selected) ? 'outline' : 'default'}><a href={`${import.meta.env.BASE_URL}docs/api/explorer/`}>{uiT("View API reference")}</a></Button>}
+              {isVideoModel(selected) && (needsApiKey
+                ? <Button type="button" variant={hasChatOutput(selected) ? 'outline' : 'default'} onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model: selected, kind: 'video' }); }}>{trial.video}</Button>
+                : <Button asChild variant={hasChatOutput(selected) ? 'outline' : 'default'}><Link to={generationHref(selected, 'video')}>{trial.video}</Link></Button>)}
+            </>;
+          })()}
           {publicMode ? (
             <Button asChild variant="outline"><Link to="/login?returnTo=%2Fworkspaces%2Fdefault%2Fkeys%2Fnew">{uiT("Sign in to get an API key", "登录获取 API 密钥")}<KeyRound size={15} /></Link></Button>
           ) : (

@@ -237,11 +237,15 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(customerShared).toContain('aria-pressed={trimmedTrial === preset}');
     expect(customerShared).not.toContain("variant={!trialAmount.trim() ? 'secondary' : 'outline'}");
   });
-  it('reserves Not published (未发布) for uncallable commercial models and never stamps Capabilities not published (能力未发布) on callable model cards', () => {
+  it('reserves Not published (未发布) for uncallable commercial models, uses concise Try (试用) on model cards, and never stamps Capabilities not published (能力未发布)', () => {
     const modelTable = readFileSync(join(appDir, 'features/models/components/ModelTable.tsx'), 'utf8');
     expect(modelTable).not.toContain('Capabilities not published');
     expect(modelTable).not.toContain('capabilities have not been published');
+    expect(modelTable).not.toContain('Try in Chat');
+    expect(modelTable).not.toContain('Try in Video');
+    expect(modelTable).not.toContain('Open Generations');
     expect(modelTable).toContain('uiT("Not published")');
+    expect(modelTable).toContain('uiT("Try")');
   });
   it('prevents fixed-layout table cells from bleeding text over adjacent columns and keeps bare table rules inside @layer base', () => {
     const foundation = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
