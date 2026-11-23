@@ -6,12 +6,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { Label } from '@/components/ui/label';
 import ModelMappingForm from '@/features/providers/components/ModelMappingForm';
 import {
-  integrationLabels,
   request,
   type ModelWrite,
   type ProviderCatalogModel,
   type ProviderConnection,
-  type ProviderDiscoveryEvidence,
   type ProviderModel,
 } from '@/features/providers/api';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
@@ -46,7 +44,6 @@ export function ProviderModelEditorDialog({
   const { t: uiT, format: uiF } = useUILocale();
   const [videoSubViewOpen, setVideoSubViewOpen] = useState(false);
   const [catalog, setCatalog] = useState<ProviderCatalogModel[]>([]);
-  const [discovery, setDiscovery] = useState<ProviderDiscoveryEvidence | null>(null);
   const [catalogError, setCatalogError] = useState('');
   const [catalogLoading, setCatalogLoading] = useState(false);
   const catalogRequest = useRef<AbortController | null>(null);
@@ -54,7 +51,6 @@ export function ProviderModelEditorDialog({
   useEffect(() => {
     catalogRequest.current?.abort();
     setCatalog([]);
-    setDiscovery(null);
     setCatalogError('');
     setCatalogLoading(false);
     setVideoSubViewOpen(false);
@@ -71,7 +67,7 @@ export function ProviderModelEditorDialog({
     setCatalogLoading(true);
     setCatalogError('');
     try {
-      const result = await request<{ data: ProviderCatalogModel[]; discovery?: ProviderDiscoveryEvidence }>(
+      const result = await request<{ data: ProviderCatalogModel[] }>(
         token,
         `/api/v1/admin/providers/connections/${encodeURIComponent(editor.connectionId)}/catalog`,
         'GET',
@@ -80,12 +76,10 @@ export function ProviderModelEditorDialog({
       );
       if (!controller.signal.aborted) {
         setCatalog(result.data);
-        setDiscovery(result.discovery ?? null);
       }
     } catch {
       if (!controller.signal.aborted) {
         setCatalogError('Catalog unavailable.');
-        setDiscovery(null);
       }
     } finally {
       if (!controller.signal.aborted) setCatalogLoading(false);
@@ -100,23 +94,19 @@ export function ProviderModelEditorDialog({
           if (back) { event.preventDefault(); if (!back.disabled) back.click(); }
         }}
         onCloseAutoFocus={event => { event.preventDefault(); openerRef.current?.focus(); }}
-        className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"
+        className={`max-h-[90dvh] min-w-0 sm:max-w-xl ${videoSubViewOpen ? 'overflow-y-auto' : 'flex flex-col overflow-hidden'}`}
       >
         <DialogHeader className={videoSubViewOpen ? 'sr-only' : undefined}>
           <DialogTitle>{editor?.model ? uiF('Edit {0}', [editor.model.alias]) : uiT('Add model')}</DialogTitle>
-          <DialogDescription>{uiT('Choose a saved API key and configure the model it connects to.')}</DialogDescription>
+          <DialogDescription>{editor?.model ? uiF('API key: {0}', [selectedConnection?.name || uiT('Unnamed API key')]) : uiT('Choose a saved API key and upstream model.', '选择 API 密钥和上游模型。')}</DialogDescription>
         </DialogHeader>
         {editor && selectedConnection && (
-          <>
-            <div hidden={videoSubViewOpen} className={videoSubViewOpen ? 'hidden' : 'space-y-4'}>
-              <div className="space-y-2">
-                <Label>{uiT('Provider API key')}</Label>
-                {editor.model ? (
-                  <p className="text-sm">{selectedConnection.name}</p>
-                ) : (
+            <ModelMappingForm
+              key={`${selectedConnection.id}:${editor.model?.alias ?? 'new'}`}
+              connectionField={!editor.model && <div className="grid gap-2"><Label htmlFor="mapping-connection">{uiT('Provider API key')}</Label>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" disabled={busy}>
+                      <Button id="mapping-connection" className="justify-between" variant="outline" disabled={busy}>
                         {selectedConnection.name || uiT('Unnamed API key')}
                         <IconChevronDown size={16} />
                       </Button>
@@ -132,16 +122,7 @@ export function ProviderModelEditorDialog({
                       </DropdownMenuRadioGroup>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                )}
-              </div>
-              {discovery && !catalogLoading && !catalogError && (
-                <p className="text-xs text-muted-foreground" role="status">
-                  {integrationLabels[discovery.integration.effective_type]} · {discovery.inventory_scope === 'credential_filtered' ? uiT('Credential-filtered inventory') : uiT('Instance-reported inventory')}
-                </p>
-              )}
-            </div>
-            <ModelMappingForm
-              key={`${selectedConnection.id}:${editor.model?.alias ?? 'new'}`}
+              </div>}
               withinModal
               onSubViewChange={setVideoSubViewOpen}
               initialAlias={editor.initialAlias}
@@ -157,7 +138,6 @@ export function ProviderModelEditorDialog({
               onCancel={() => { setVideoSubViewOpen(false); onClose(); }}
               onSave={onSave}
             />
-          </>
         )}
       </DialogContent>
     </Dialog>
