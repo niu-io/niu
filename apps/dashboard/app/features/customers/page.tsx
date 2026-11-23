@@ -26,7 +26,6 @@ import CustomerSetup from './setup';
 import { GrantEditor, GrantHistory } from './grants';
 import { GiftCorrectionEditor } from './gift-corrections';
 import { TopupEditor } from './topups';
-import { CustomerPricingDialog } from './customer-pricing';
 import { CompanyBrandedUnitsDialog } from './unit-accounts';
 import { CreateCompany, CreditEditor, CreditsSummaryCell, type AccountPage, type Company, type Editor } from './customer-shared';
 
@@ -331,8 +330,8 @@ export function Customers({
             <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'credit', company, account })}>
               {uiT("Set credit")}
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => openEditor({ kind: 'pricing', company, account })}>
-              {uiT("Customer pricing", "专属价格")}
+            <DropdownMenuItem asChild>
+              <Link to={`${detailHref}?tab=pricing`}>{uiT("Customer pricing", "专属价格")}</Link>
             </DropdownMenuItem>
             {canSetup && (
               <DropdownMenuItem onSelect={() => openSetup(company)}>
@@ -630,18 +629,6 @@ export function Customers({
           onWorkspaceCreated={() => {
             onWorkspaceCreated();
             setRefreshTick(value => value + 1);
-            void load();
-          }}
-        />
-      )}
-      {editor?.kind === 'pricing' && (
-        <CustomerPricingDialog
-          token={token}
-          organizationId={editor.company.organization_id}
-          organizationName={companyLabel(editor.company)}
-          returnFocusTo={opener.current}
-          onClose={() => {
-            setEditor(null);
             void load();
           }}
         />

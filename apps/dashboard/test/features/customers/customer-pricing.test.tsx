@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import type { RetailSchedule } from '@niu-io/sdk/admin';
 import {
-  CustomerPricingDialog,
+  CustomerPricingPanel,
   discountRetailSchedule,
   inferCustomerDiscountPercent,
 } from '@/features/customers/customer-pricing';
@@ -64,8 +64,8 @@ describe('discountRetailSchedule', () => {
   });
 });
 
-describe('CustomerPricingDialog', () => {
-  it('loads customer pricing in 1 request, applies atomic batch discount via PUT, and resets via DELETE', async () => {
+describe('CustomerPricingPanel', () => {
+  it('loads customer pricing in 1 request, edits via Dialogs (never inline), applies atomic batch PUT, and resets via DELETE', async () => {
     saveLocale('en');
     const orgId = '00000000-0000-4000-8000-000000000101';
     let gptPromo: CustomerActivePromotion | null = {
@@ -163,21 +163,24 @@ describe('CustomerPricingDialog', () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter>
-        <CustomerPricingDialog token="admin-token" organizationId={orgId} organizationName="Acme AI" onClose={vi.fn()} />
+        <CustomerPricingPanel token="admin-token" organizationId={orgId} />
       </MemoryRouter>,
     );
 
     expect(await screen.findByText('gpt-4o')).toBeTruthy();
     expect(screen.getByText('claude-3-7-sonnet')).toBeTruthy();
-    expect(screen.getByText('Batch discount · 1 of 2 models discounted')).toBeTruthy();
     expect(screen.getByText('$1.80 / $7.20')).toBeTruthy();
+    // No permanent batch form sprawled on the page
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByLabelText('Batch discount percentage')).toBeNull();
 
-    // Apply 80% discount to all models in 1 atomic PUT
-    await user.click(screen.getByRole('button', { name: '80%' }));
-    await user.click(screen.getByRole('button', { name: 'Apply to all (2)' }));
+    // Open Batch pricing dialog and apply 80% to all models in 1 atomic PUT
+    await user.click(screen.getByRole('button', { name: 'Batch pricing' }));
+    const batchDialog = await screen.findByRole('dialog');
+    await user.click(within(batchDialog).getByRole('button', { name: '80%' }));
+    await user.click(within(batchDialog).getByRole('button', { name: 'Apply to all (2)' }));
 
     expect(await screen.findByText('Applied 80% to 2 models.')).toBeTruthy();
-    expect(screen.getByText('Batch discount · 2 of 2 models discounted')).toBeTruthy();
     expect(screen.getByText('$1.60 / $6.40')).toBeTruthy();
     expect(screen.getByText('$2.40 / $12.00')).toBeTruthy();
 
@@ -194,7 +197,18 @@ describe('CustomerPricingDialog', () => {
     }
     await waitFor(() => expect(screen.getByText('Reset gpt-4o to platform standard pricing.')).toBeTruthy());
     expect(calls.some(c => c.method === 'DELETE' && c.path === `/api/v1/admin/customers/${orgId}/pricing/price-gpt`)).toBe(true);
-    expect(screen.getByText('Batch discount · 1 of 2 models discounted')).toBeTruthy();
+
+    // Single-row edit opens a Dialog instead of expanding inline inside the table cell
+    const refreshedGptRow = screen.getByText('gpt-4o').closest('tr');
+    expect(refreshedGptRow).toBeTruthy();
+    if (refreshedGptRow) {
+      await user.click(within(refreshedGptRow).getByRole('button', { name: 'Set price' }));
+    }
+    const singleDialog = await screen.findByRole('dialog');
+    expect(within(singleDialog).getByRole('heading', { name: 'Set custom price' })).toBeTruthy();
+    expect(within(refreshedGptRow!).queryByLabelText(/Discount percentage/)).toBeNull();
+    await user.click(within(singleDialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 });
 

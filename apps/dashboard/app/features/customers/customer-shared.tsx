@@ -55,7 +55,7 @@ export type Company = {
 
 export type AccountPage = { data: Company[]; next_after: string | null };
 export type Editor = {
-  kind: 'topup' | 'credit' | 'grant' | 'history' | 'correction' | 'units' | 'pricing';
+  kind: 'topup' | 'credit' | 'grant' | 'history' | 'correction' | 'units';
   company: Company;
   account: CustomerBalance | null;
   prepared?: PreparedCustomerBalanceGrant;

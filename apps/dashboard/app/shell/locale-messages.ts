@@ -5136,4 +5136,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Stripe has not enabled charges for this account. Complete the account requirements in Stripe, then check again.": "Stripe 尚未为此账户启用收款功能。请在 Stripe 后台完成账户激活与合规要求，然后重新检查。",
   "Stripe rejected the configured credentials. Check your API keys in Stripe and ask your server administrator to update them, then check again.": "Stripe 拒绝了当前配置的凭证。请在 Stripe 后台核对 API 密钥并由服务器管理员更新配置，然后重新检查。",
   "The account could not be checked. Ask your server administrator to check the Stripe credentials and connection, then retry.": "无法检查该账户状态。请核对 Stripe 凭证与网络连接，或查看 Stripe 服务状态后重试。",
+  "Apply one discount off standard prices to {0} selected models.": "对已选中的 {0} 个模型统一应用标准价折扣。",
+  "Apply one discount off standard prices to all {0} models.": "对全部 {0} 个模型统一应用标准价折扣。",
+  "Set price ({0})": "批量设价 ({0})",
 };
