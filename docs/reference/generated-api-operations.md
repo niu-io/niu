@@ -9166,6 +9166,20 @@ Content type: `application/json`.
       "type": "string",
       "pattern": "^[A-Z]{3}$",
       "default": "USD"
+    },
+    "account_kind": {
+      "type": "string",
+      "enum": [
+        "personal",
+        "organization"
+      ],
+      "default": "organization",
+      "description": "Account kind. Personal accounts require platform administration."
+    },
+    "attach_creator": {
+      "type": "boolean",
+      "default": true,
+      "description": "When false (platform administrators only), creates a standalone customer account without adding the caller as a member."
     }
   }
 }
@@ -13183,6 +13197,31 @@ Each array entry is an alternative; schemes within one entry are required togeth
   "minimum": 1,
   "maximum": 100,
   "default": 50
+}
+```
+
+`q` (query, optional)
+
+Optional case-insensitive substring filter matching customer name, slug, or active member name/email (up to 120 characters).
+
+```json
+{
+  "type": "string",
+  "maxLength": 120
+}
+```
+
+`kind` (query, optional)
+
+Optional customer account kind filter: personal or organization.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "personal",
+    "organization"
+  ]
 }
 ```
 
@@ -51897,6 +51936,25 @@ Local `#/components/schemas/…` references resolve to these definitions.
   "properties": {
     "advisory": {
       "type": "boolean"
+    },
+    "supply_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "unconfigured"
+      ],
+      "description": "Current commercial Provider supply readiness for this model alias: active (enabled route, credential and qualified offer), inactive (route configured but disabled or missing credential/offer), or unconfigured (no commercial Provider route)."
+    },
+    "active_supply_routes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "active_providers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "checks": {
       "type": "array",

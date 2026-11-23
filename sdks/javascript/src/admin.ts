@@ -1681,6 +1681,9 @@ export type RetailPromotionRetirement = { effective_until: string; expected_vers
 /** Confidential platform-only advice; never a realized margin or dispatch authorization. */
 export type PlatformPricingHealth = {
   advisory: boolean;
+  supply_status?: 'active' | 'inactive' | 'unconfigured';
+  active_supply_routes?: number;
+  active_providers?: string[];
   checks: Array<{
     route?: string | null; provider?: string | null;
     status: 'below_cost' | 'missing_provider_price' | 'comparison_unavailable' | 'no_lower_unit_rates';

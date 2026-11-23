@@ -1,13 +1,13 @@
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import LegacyMediaContracts from './legacy-media';
-import { PricingHealthNotice, type PricingHealth } from './pricing-health';
+import { PricingHealthNotice, supplyStateOf, type PricingHealth } from './pricing-health';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { IconAlertTriangle, IconCurrencyDollar, IconSearch, IconDots, IconRefresh } from '@tabler/icons-react';
+import { IconAlertTriangle, IconChevronDown, IconCurrencyDollar, IconSearch, IconDots, IconRefresh } from '@tabler/icons-react';
 import { ListRowsSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { useDashboardContext } from '@/shell/dashboard-context';
@@ -58,6 +58,7 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
   const [rows, setRows] = useState<(RetailPriceRecord & { pricing_health?: PricingHealth })[]>(() => Array.isArray(initialPage?.data) ? initialPage.data : []);
   const [cursor, setCursor] = useState<string | null>(() => initialPage?.next_after ?? null);
   const [loading, setLoading] = useState(() => !initialPage), [error, setError] = useState(''), [filter, setFilter] = useState('');
+  const [supplyFilter, setSupplyFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [failed, setFailed] = useState<string>(), [selected, setSelected] = useState<RetailPriceRecord | null>(null);
   const [editor, setEditor] = useState<{ kind: 'text' | 'media'; previous: RetailPriceRecord | null; initialModel?: string } | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -115,7 +116,55 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
     next.delete('publish');
     setSearch(next, { replace: true });
   }, [requestedModel, requestedPublish, mode, currency, loading, error, editor, rows, search, setSearch]);
-  const visible = rows.filter(row => row.model_alias.toLowerCase().includes(filter.trim().toLowerCase()));
+  const hasSupplyData = rows.some(row => supplyStateOf(row.pricing_health) !== 'unknown');
+  const activeSupplyCount = rows.filter(row => supplyStateOf(row.pricing_health) === 'active').length;
+  const inactiveSupplyCount = rows.filter(row => {
+    const state = supplyStateOf(row.pricing_health);
+    return state === 'inactive' || state === 'unconfigured';
+  }).length;
+  const sortedRows = hasSupplyData
+    ? [...rows].sort((a, b) => {
+        const rank = (state: ReturnType<typeof supplyStateOf>) =>
+          state === 'active' ? 0 : state === 'unknown' ? 1 : state === 'inactive' ? 2 : 3;
+        return rank(supplyStateOf(a.pricing_health)) - rank(supplyStateOf(b.pricing_health));
+      })
+    : rows;
+  const visible = sortedRows.filter(row => {
+    if (!row.model_alias.toLowerCase().includes(filter.trim().toLowerCase())) return false;
+    if (supplyFilter === 'all' || !hasSupplyData) return true;
+    const state = supplyStateOf(row.pricing_health);
+    return supplyFilter === 'active' ? state === 'active' : state !== 'active';
+  });
+  const supplyFilterLabel =
+    supplyFilter === 'active'
+      ? uiF("Active supply ({0})", [activeSupplyCount])
+      : supplyFilter === 'inactive'
+        ? uiF("No active supply ({0})", [inactiveSupplyCount])
+        : uiF("All models ({0})", [rows.length]);
+  const supplyFilterControl = hasSupplyData ? (
+    <div className="flex flex-wrap items-center gap-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="outline" size="sm" aria-label={uiT("Filter by supply status", "按供应状态筛选")}>
+            <span>{supplyFilterLabel}</span>
+            <IconChevronDown size={14} aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuRadioGroup value={supplyFilter} onValueChange={value => setSupplyFilter(value as 'all' | 'active' | 'inactive')}>
+            <DropdownMenuRadioItem value="all">{uiF("All models ({0})", [rows.length])}</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="active">{uiF("Active supply ({0})", [activeSupplyCount])}</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="inactive">{uiF("No active supply ({0})", [inactiveSupplyCount])}</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {inactiveSupplyCount > 0 && (
+        <span className="text-xs text-muted-foreground">
+          {uiF("{0} active · {1} without active supply", [activeSupplyCount, inactiveSupplyCount])}
+        </span>
+      )}
+    </div>
+  ) : null;
   const currencyHeaderActions = mode === 'currency' ? (
     <>
       <Button variant="ghost" size="icon-sm" disabled={loading} aria-label={uiT("Refresh prices")} title={uiT("Refresh prices")} onClick={reloadFresh}>
@@ -153,24 +202,35 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
         ) : undefined}
         action={currencyHeaderActions}
       />
-      <p className="text-sm text-muted-foreground">{uiT("Default list prices charged across workspaces. To set a discount for a specific customer, open", "面向所有工作空间的默认公开售价。如需为单个客户设置专属折扣，请前往")}{" "}<Link to="/admin/customers" className="underline underline-offset-4">{uiT("Customers")}</Link>{uiT(". ", "。")}<Link to="/admin/settings" className="underline underline-offset-4">{uiT("Manage the platform billing mode", "管理平台计费模式")}</Link></p>
+      <p className="text-sm text-muted-foreground">{uiT("Default list prices charged across workspaces. Saved standard prices stay on record even when Provider supply is disabled; only models with active supply can be invoked. To set a customer discount, open", "面向所有工作空间的默认公开售价。已发布的标准价在供应商停用后仍会保留，仅「有可用供应」的模型可供客户调用。如需为单个客户设置专属折扣，请前往")}{" "}<Link to="/admin/customers" className="underline underline-offset-4">{uiT("Customers")}</Link>{uiT(". ", "。")}<Link to="/admin/settings" className="underline underline-offset-4">{uiT("Manage the platform billing mode", "管理平台计费模式")}</Link></p>
       {editor && !editorOpen && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("A price publication is awaiting confirmation. Reopen it to check or retry before leaving this page.")}</span><Button type="button" variant="outline" onClick={event => { dialogOpener.current = event.currentTarget; setEditorOpen(true); }}>{uiT("Return to publication")}</Button></AlertDescription></Alert>}
       {showModeTabs && (
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-          <Badge variant={mode === activeMode ? 'secondary' : 'outline'}>{mode === activeMode ? uiF("Active billing mode: {0}", [modeLabel]) : uiF("Preparing prices for {0}", [modeLabel])}</Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={mode === activeMode ? 'secondary' : 'outline'}>{mode === activeMode ? uiF("Active billing mode: {0}", [modeLabel]) : uiF("Preparing prices for {0}", [modeLabel])}</Badge>
+            {mode === 'currency' && supplyFilterControl}
+          </div>
           <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
         </div>
       )}
       <TabsContent value="currency" className="space-y-4">
         {!currency && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("Configure the platform currency in Admin Settings before publishing currency prices. If it is already configured, refresh this page.")}</span><Button asChild variant="link" className="h-auto p-0"><Link to="/admin/settings">{uiT("Open Settings")}</Link></Button></AlertDescription></Alert>}
         {!showModeTabs && (
-          <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
+            {supplyFilterControl}
+          </div>
         )}
         {notice && <p role="status">{uiT(notice)}</p>}
         {error && <Alert variant="destructive"><AlertDescription>{uiT(error)} <Button variant="outline" disabled={loading} onClick={() => void load(failed, true)}>{uiT("Retry prices")}</Button></AlertDescription></Alert>}
         {loading && !rows.length && <TableSkeleton columns={4} rows={5} label={uiT("Loading standard prices…")} />}
-        {!!rows.length && <Table className="standard-price-directory" aria-label={uiT("Platform standard selling prices")}><TableHeader><TableRow>{[uiT('Model'), uiT('Standard price'), uiT('Price checks'), uiT('Published'), uiT('Actions')].map((label, index) => <TableHead key={label} className={index === 4 ? 'text-right' : undefined}>{label}</TableHead>)}</TableRow></TableHeader><TableBody>{visible.map(row => <TableRow key={row.price_id}><TableCell className="max-w-64 whitespace-normal"><p className="inline-flex items-center gap-2 font-medium break-words"><ProviderLogo provider={modelIdentity({ id: row.model_alias })} size="small" /><span>{row.model_alias}</span></p><p className="mt-1 text-xs text-muted-foreground">{row.currency} · {row.schedule.kind === 'text' ? uiT("Text tokens") : row.schedule.meter === 'video_tokens' ? uiT("Video tokens") : row.schedule.meter === 'seconds' ? uiT("Seconds") : row.schedule.meter}</p></TableCell><TableCell data-label={uiT("Standard price")} className="min-w-0 sm:min-w-52 whitespace-normal tabular-nums"><SellingSchedule schedule={row.schedule} currency={row.currency} compact /></TableCell><TableCell data-label={uiT("Price checks")}><PricingHealthNotice health={row.pricing_health} /></TableCell><TableCell data-label={uiT("Published")} className="text-sm text-muted-foreground whitespace-normal">{date(row.published_at)}</TableCell><TableCell><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="sm" disabled={loading || !!error} onClick={event => { dialogOpener.current = event.currentTarget; setSelected(row); }}>{uiT("Prices & history")}</Button><DropdownMenu><DropdownMenuTrigger asChild><Button onFocus={event => { dialogOpener.current = event.currentTarget; }} variant="ghost" size="icon" aria-label={uiT("Actions")} disabled={loading || !!error}><IconDots /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={!!editor} onSelect={() => { setEditor({ kind: row.schedule.kind, previous: row }); setEditorOpen(true); }}>{uiT("Revise standard")}</DropdownMenuItem><DropdownMenuItem onSelect={() => setManaged(row)}>{uiT("Promotions")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></TableCell></TableRow>)}</TableBody></Table>}
-        {!loading && !error && !visible.length && <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{rows.length ? uiT("No matching prices") : uiT("No standard prices yet")}</EmptyTitle><EmptyDescription>{rows.length ? uiT("No loaded prices match this filter.") : uiT("No platform standard prices have been published.")}</EmptyDescription></EmptyHeader></Empty>}
+        {!!visible.length && <Table className="standard-price-directory" aria-label={uiT("Platform standard selling prices")}><TableHeader><TableRow>{[uiT('Model'), uiT('Standard price'), uiT('Price checks'), uiT('Published'), uiT('Actions')].map((label, index) => <TableHead key={label} className={index === 4 ? 'text-right' : undefined}>{label}</TableHead>)}</TableRow></TableHeader><TableBody>{visible.map(row => {
+          const supply = supplyStateOf(row.pricing_health);
+          const providers = row.pricing_health?.active_providers ?? [];
+          const unsupplied = supply === 'inactive' || supply === 'unconfigured';
+          return <TableRow key={row.price_id} className={unsupplied ? 'opacity-75 transition-opacity hover:opacity-100' : undefined}><TableCell className="max-w-64 whitespace-normal"><p className="inline-flex items-center gap-2 font-medium break-words"><ProviderLogo provider={modelIdentity({ id: row.model_alias })} size="small" /><span>{row.model_alias}</span></p><div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"><span>{row.currency} · {row.schedule.kind === 'text' ? uiT("Text tokens") : row.schedule.meter === 'video_tokens' ? uiT("Video tokens") : row.schedule.meter === 'seconds' ? uiT("Seconds") : row.schedule.meter}</span>{supply === 'active' && <Badge variant="secondary" className="h-5 px-1.5 text-[11px] font-normal">{providers.length ? uiF("Active supply · {0}", [providers.join(', ')]) : uiT("Active supply", "有可用供应")}</Badge>}{supply === 'inactive' && <Badge variant="outline" className="h-5 px-1.5 text-[11px] font-normal text-muted-foreground">{uiT("Supply inactive", "供应已停用")}</Badge>}{supply === 'unconfigured' && <Badge variant="outline" className="h-5 px-1.5 text-[11px] font-normal text-muted-foreground">{uiT("No active supply", "无可用供应")}</Badge>}</div></TableCell><TableCell data-label={uiT("Standard price")} className="min-w-0 sm:min-w-52 whitespace-normal tabular-nums"><SellingSchedule schedule={row.schedule} currency={row.currency} compact /></TableCell><TableCell data-label={uiT("Price checks")}><PricingHealthNotice health={row.pricing_health} /></TableCell><TableCell data-label={uiT("Published")} className="text-sm text-muted-foreground whitespace-normal">{date(row.published_at)}</TableCell><TableCell><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="sm" disabled={loading || !!error} onClick={event => { dialogOpener.current = event.currentTarget; setSelected(row); }}>{uiT("Prices & history")}</Button><DropdownMenu><DropdownMenuTrigger asChild><Button onFocus={event => { dialogOpener.current = event.currentTarget; }} variant="ghost" size="icon" aria-label={uiT("Actions")} disabled={loading || !!error}><IconDots /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={!!editor} onSelect={() => { setEditor({ kind: row.schedule.kind, previous: row }); setEditorOpen(true); }}>{uiT("Revise standard")}</DropdownMenuItem><DropdownMenuItem onSelect={() => setManaged(row)}>{uiT("Promotions")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></TableCell></TableRow>;
+        })}</TableBody></Table>}
+        {!loading && !error && !visible.length && <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{rows.length ? uiT("No matching prices") : uiT("No standard prices yet")}</EmptyTitle><EmptyDescription>{rows.length ? uiT("No loaded prices match the current filter.") : uiT("No platform standard prices have been published.")}</EmptyDescription></EmptyHeader></Empty>}
         {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{uiT("More prices")}</Button>}
       </TabsContent>
       <TabsContent value="credits" className="space-y-4"><BrandedUnitTariffsSection token={token} filter={filter} /></TabsContent>
