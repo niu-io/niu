@@ -232,9 +232,9 @@ pub use operators::{
     OperatorSessionView, OperatorView,
 };
 pub use vendors::{
-    RouteRegistryInputs, RouteRegistryOffer, SharedVendorRoute, VendorAccessScope,
-    VendorCatalogInputs, VendorCatalogRoute, VendorInput, VendorModelInput, VendorModelView,
-    VendorRoute, VendorUpdate, VendorView,
+    PooledRouteSelection, RouteRegistryInputs, RouteRegistryOffer, SharedVendorRoute,
+    VendorAccessScope, VendorCatalogInputs, VendorCatalogRoute, VendorInput, VendorModelInput,
+    VendorModelView, VendorPoolMember, VendorRoute, VendorUpdate, VendorView,
 };
 mod context_pricing;
 pub use context_pricing::{

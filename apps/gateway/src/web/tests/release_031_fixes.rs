@@ -1996,3 +1996,508 @@ async fn commercial_route_pool_with_provider_offers_dispatches_bills_and_fails_o
     assert_eq!(audit["data"]["totals"]["supplier_cost_nanos"], "4250000", "{audit}");
     assert_eq!(audit["data"]["totals"]["net_margin_nanos"], "1750000", "{audit}");
 }
+
+/// Same-Provider multi-API-key pooling:
+/// - Multiple enabled keys sharing (provider_id, adapter, api_base) automatically
+///   share models, load-balance via round-robin, bind the single Provider offer,
+///   and accrue Provider earnings accurately without duplicate aliases.
+/// - Importing models on a sibling key deduplicates upstream_model across the pool.
+/// - RPM saturation, cooldowns, disabling, and retiring the primary key seamlessly
+///   fail over to remaining healthy sibling keys while keeping catalog & offers live.
+/// - Strict isolation: keys with different api_base or on a different Provider are
+///   never selected.
+#[sqlx::test(migrator = "niu_storage::MIGRATOR")]
+#[ignore = "requires PostgreSQL"]
+async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgPool) {
+    use std::sync::Mutex;
+
+    let seen_pool_keys = Arc::new(Mutex::new(Vec::<String>::new()));
+    let seen_pool_keys_clone = seen_pool_keys.clone();
+    let pool_app = Router::new()
+        .route(
+            "/v1/models",
+            axum::routing::get(|| async {
+                axum::Json(json!({
+                    "object": "list",
+                    "data": [{ "id": "pool-chat-upstream", "object": "model" }]
+                }))
+            }),
+        )
+        .route(
+            "/v1/chat/completions",
+            axum::routing::post(move |headers: axum::http::HeaderMap| {
+                let log = seen_pool_keys_clone.clone();
+                async move {
+                    let secret = headers
+                        .get(axum::http::header::AUTHORIZATION)
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or("")
+                        .trim_start_matches("Bearer ")
+                        .to_owned();
+                    log.lock().unwrap().push(secret.clone());
+                    axum::Json(json!({
+                        "id": format!("chatcmpl-{}", Uuid::new_v4()),
+                        "object": "chat.completion",
+                        "created": 1700000000,
+                        "model": "pool-chat-upstream",
+                        "choices": [{
+                            "index": 0,
+                            "message": { "role": "assistant", "content": format!("served-by:{secret}") },
+                            "finish_reason": "stop"
+                        }],
+                        "usage": { "prompt_tokens": 1000, "completion_tokens": 1000, "total_tokens": 2000 }
+                    }))
+                }
+            }),
+        );
+    let pool_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let pool_base = format!("http://{}/v1", pool_listener.local_addr().unwrap());
+    tokio::spawn(async move {
+        let _ = axum::serve(pool_listener, pool_app).await;
+    });
+
+    let seen_other_endpoint = Arc::new(Mutex::new(Vec::<String>::new()));
+    let seen_other_clone = seen_other_endpoint.clone();
+    let other_app = Router::new().route(
+        "/v1/chat/completions",
+        axum::routing::post(move |headers: axum::http::HeaderMap| {
+            let log = seen_other_clone.clone();
+            async move {
+                let secret = headers
+                    .get(axum::http::header::AUTHORIZATION)
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("")
+                    .to_owned();
+                log.lock().unwrap().push(secret);
+                axum::Json(json!({
+                    "id": "wrong-endpoint",
+                    "object": "chat.completion",
+                    "created": 1700000000,
+                    "model": "pool-chat-upstream",
+                    "choices": [{
+                        "index": 0,
+                        "message": { "role": "assistant", "content": "WRONG ENDPOINT" },
+                        "finish_reason": "stop"
+                    }],
+                    "usage": { "prompt_tokens": 1000, "completion_tokens": 1000, "total_tokens": 2000 }
+                }))
+            }
+        }),
+    );
+    let other_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let other_base = format!("http://{}/v1", other_listener.local_addr().unwrap());
+    tokio::spawn(async move {
+        let _ = axum::serve(other_listener, other_app).await;
+    });
+
+    // Boot gateway with active route registry publisher.
+    let mut state = test_state(None, pool.clone());
+    Arc::make_mut(&mut state.config).models.clear();
+    let cipher = Arc::new(crate::vendors::crypto::CredentialCipher::new(MASTER_A).unwrap());
+    state.vendor_cipher = Some(cipher.clone());
+    let compiler = Arc::new(
+        crate::vendors::publication::Compiler::new(
+            state.config.models.clone(),
+            std::collections::BTreeSet::new(),
+        )
+        .unwrap(),
+    );
+    state.store = state.store.with_route_compiler(compiler);
+    state
+        .store
+        .bootstrap_route_registry(vec![], None)
+        .await
+        .unwrap();
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let app = router(state.clone());
+
+    // 1. Create Provider A with Key 1 (primary), Key 2 (same endpoint sibling), Key 3 (different api_base).
+    let (status, _, prov_a) = json_call(
+        &app,
+        Method::POST,
+        "/api/v1/admin/providers",
+        Some(ADMIN),
+        Some(json!({ "name": "MultiKey Provider A" })),
+    )
+    .await;
+    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {prov_a}");
+    let provider_a_id = prov_a["data"]["id"].as_str().unwrap().to_owned();
+
+    let (status, _, prov_b) = json_call(
+        &app,
+        Method::POST,
+        "/api/v1/admin/providers",
+        Some(ADMIN),
+        Some(json!({ "name": "Isolated Provider B" })),
+    )
+    .await;
+    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {prov_b}");
+    let provider_b_id = prov_b["data"]["id"].as_str().unwrap().to_owned();
+
+    let create_conn = |name: &str, supplier_id: &str, api_base: &str, api_key: &str| {
+        let app = app.clone();
+        let body = json!({
+            "name": name,
+            "adapter": "openai",
+            "api_base": api_base,
+            "api_key": api_key,
+            "enabled": true,
+            "supplier_id": supplier_id,
+        });
+        async move {
+            let (status, _, res) = json_call(
+                &app,
+                Method::POST,
+                "/api/v1/admin/providers/connections",
+                Some(ADMIN),
+                Some(body),
+            )
+            .await;
+            assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {res}");
+            res["data"]["id"].as_str().unwrap().to_owned()
+        }
+    };
+
+    let key1_id = create_conn("Key 1", &provider_a_id, &pool_base, "sk-pool-key-1").await;
+    let key2_id = create_conn("Key 2", &provider_a_id, &format!("{pool_base}/"), "sk-pool-key-2").await;
+    let _key3_other_base = create_conn("Key 3 Other Base", &provider_a_id, &other_base, "sk-diff-base").await;
+    let _key4_other_provider = create_conn("Key 4 Other Prov", &provider_b_id, &pool_base, "sk-other-provider").await;
+
+    // 2. Register model on Key 1, publish & activate 3-step offer + retail price.
+    let (status, _, model_res) = json_call(
+        &app,
+        Method::POST,
+        &format!("/api/v1/admin/providers/connections/{key1_id}/models"),
+        Some(ADMIN),
+        Some(json!({
+            "alias": "provider-a/pool-chat",
+            "upstream_model": "pool-chat-upstream",
+            "public_catalog": true,
+            "enabled": true,
+            "capabilities": { "catalog": { "name": "Pool Chat" } }
+        })),
+    )
+    .await;
+    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {model_res}");
+
+    let (status, _, offer_res) = json_call(
+        &app,
+        Method::POST,
+        &format!("/api/v1/admin/providers/{provider_a_id}/offers"),
+        Some(ADMIN),
+        Some(json!({
+            "model_alias": "provider-a/pool-chat",
+            "currency": "USD",
+            "prompt_rate": "1000000000",
+            "completion_rate": "1000000000",
+            "activate": true
+        })),
+    )
+    .await;
+    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {offer_res}");
+
+    let (status, _, retail_res) = json_call(
+        &app,
+        Method::POST,
+        "/api/v1/admin/pricing/standard-prices",
+        Some(ADMIN),
+        Some(json!({
+            "model_alias": "provider-a/pool-chat",
+            "currency": "USD",
+            "schedule": {
+                "kind": "text",
+                "prompt_rate": "2000000000",
+                "completion_rate": "2000000000",
+                "request_fee_nanos": "0",
+                "minimum_charge_nanos": "0",
+                "context_tiers": []
+            },
+            "expected_version": "0",
+            "idempotency_key": Uuid::new_v4().to_string(),
+            "reason": "Multi-key pool retail price"
+        })),
+    )
+    .await;
+    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {retail_res}");
+
+    // 3. Importing models on sibling Key 2 must NOT duplicate pool-chat-upstream.
+    let (status, _, import_res) = json_call(
+        &app,
+        Method::POST,
+        &format!("/api/v1/admin/providers/connections/{key2_id}/import"),
+        Some(ADMIN),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{import_res}");
+    assert_eq!(import_res["data"]["imported"], 0, "sibling import must deduplicate: {import_res}");
+    assert_eq!(import_res["data"]["discovered"], 1, "{import_res}");
+
+    // 4. Create funded prepaid customer + API key.
+    let org = state.store.create_organization("MultiKey Customer").await.unwrap();
+    let scope = state.store.create_project(org, "MultiKey Workspace").await.unwrap();
+    sqlx::query(
+        "INSERT INTO customer_balance_accounts(id, organization_id, currency) VALUES ($1, $2, 'USD')",
+    )
+    .bind(Uuid::new_v4())
+    .bind(org)
+    .execute(&pool)
+    .await
+    .unwrap();
+    state
+        .store
+        .record_settled_customer_funding(
+            org,
+            "USD",
+            10_000_000_000,
+            "pool-topup",
+            &Uuid::new_v4().to_string(),
+        )
+        .await
+        .unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "Pool Key", &["*".to_owned()], 3600)
+        .await
+        .unwrap();
+
+    // 5. Send 4 requests: verify even round-robin across Key 1 & Key 2 + strict isolation.
+    for i in 0..4 {
+        let (status, _, reply) = json_call(
+            &app,
+            Method::POST,
+            "/v1/chat/completions",
+            Some(&key.token),
+            Some(json!({
+                "model": "provider-a/pool-chat",
+                "messages": [{ "role": "user", "content": format!("ping {i}") }]
+            })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "req {i}: {reply}");
+    }
+    {
+        let log = seen_pool_keys.lock().unwrap();
+        assert_eq!(log.len(), 4, "{log:?}");
+        assert_eq!(log.iter().filter(|k| k.as_str() == "sk-pool-key-1").count(), 2, "{log:?}");
+        assert_eq!(log.iter().filter(|k| k.as_str() == "sk-pool-key-2").count(), 2, "{log:?}");
+        assert!(seen_other_endpoint.lock().unwrap().is_empty());
+    }
+    let key1_attempts: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM managed_attempt_routes WHERE vendor_id=$1::uuid",
+    )
+    .bind(&key1_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let key2_attempts: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM managed_attempt_routes WHERE vendor_id=$1::uuid",
+    )
+    .bind(&key2_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!((key1_attempts, key2_attempts), (2, 2));
+
+    let earned: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(amount_nanos), 0)::bigint FROM provider_earnings WHERE provider_id=$1::uuid AND currency='USD'",
+    )
+    .bind(&provider_a_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(earned, 4 * 2_000_000, "all 4 attempts must accrue to Provider A");
+
+    // 6. RPM spillover: cap Key 1 to 1 RPM (already has 2 admissions in last 60s) -> next 2 requests go to Key 2.
+    let (status, _, rpm_res) = json_call(
+        &app,
+        Method::PUT,
+        &format!("/api/v1/admin/providers/connections/{key1_id}/request-rate-limit"),
+        Some(ADMIN),
+        Some(json!({ "requests_per_minute": 1, "expected_revision": "0" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{rpm_res}");
+    seen_pool_keys.lock().unwrap().clear();
+    for i in 0..2 {
+        let (status, _, reply) = json_call(
+            &app,
+            Method::POST,
+            "/v1/chat/completions",
+            Some(&key.token),
+            Some(json!({
+                "model": "provider-a/pool-chat",
+                "messages": [{ "role": "user", "content": format!("rpm {i}") }]
+            })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "rpm req {i}: {reply}");
+        assert_eq!(reply["choices"][0]["message"]["content"], "served-by:sk-pool-key-2");
+    }
+
+    // 7. Cooldown failover: lift Key 1 RPM cap, put Key 2 in cooldown -> routes to Key 1.
+    let (status, _, _) = json_call(
+        &app,
+        Method::PUT,
+        &format!("/api/v1/admin/providers/connections/{key1_id}/request-rate-limit"),
+        Some(ADMIN),
+        Some(json!({ "requests_per_minute": null, "expected_revision": "1" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    sqlx::query("INSERT INTO vendor_cooldowns(vendor_id, cooldown_until) VALUES($1::uuid, now() + interval '5 minutes') ON CONFLICT(vendor_id) DO UPDATE SET cooldown_until=EXCLUDED.cooldown_until")
+        .bind(&key2_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let (status, _, reply) = json_call(
+        &app,
+        Method::POST,
+        "/v1/chat/completions",
+        Some(&key.token),
+        Some(json!({
+            "model": "provider-a/pool-chat",
+            "messages": [{ "role": "user", "content": "cooldown test" }]
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reply}");
+    assert_eq!(reply["choices"][0]["message"]["content"], "served-by:sk-pool-key-1");
+
+    // Clear Key 2 cooldown, then disable primary Key 1 -> catalog & offers stay live, traffic flows via Key 2!
+    sqlx::query("DELETE FROM vendor_cooldowns WHERE vendor_id=$1::uuid")
+        .bind(&key2_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let key1_rev: i64 = sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1::uuid")
+        .bind(&key1_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let (status, _, disable_res) = json_call(
+        &app,
+        Method::PUT,
+        &format!("/api/v1/admin/providers/connections/{key1_id}"),
+        Some(ADMIN),
+        Some(json!({
+            "name": "Key 1",
+            "api_base": pool_base,
+            "enabled": false,
+            "expected_revision": key1_rev
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{disable_res}");
+
+    let (status, _, catalog) = json_call(&app, Method::GET, "/catalog/v1/models", None, None).await;
+    assert_eq!(status, StatusCode::OK, "{catalog}");
+    assert!(
+        catalog["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|m| m["id"] == "provider-a/pool-chat"),
+        "model must stay visible in catalog while sibling Key 2 is active: {catalog}"
+    );
+
+    let (status, _, providers_summary) =
+        json_call(&app, Method::GET, "/api/v1/admin/providers", Some(ADMIN), None).await;
+    assert_eq!(status, StatusCode::OK, "{providers_summary}");
+    let prov_a_summary = providers_summary["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == provider_a_id)
+        .unwrap();
+    assert_eq!(prov_a_summary["enabled_model_routes"], 1, "{prov_a_summary}");
+    assert_eq!(prov_a_summary["ready_offers"], 1, "{prov_a_summary}");
+
+    let (status, _, reply) = json_call(
+        &app,
+        Method::POST,
+        "/v1/chat/completions",
+        Some(&key.token),
+        Some(json!({
+            "model": "provider-a/pool-chat",
+            "messages": [{ "role": "user", "content": "primary disabled" }]
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reply}");
+    assert_eq!(reply["choices"][0]["message"]["content"], "served-by:sk-pool-key-2");
+
+    // 8. Retire primary Key 1 -> model stays enabled and continues serving on sibling Key 2!
+    let (status, _, retire_res) = json_call(
+        &app,
+        Method::POST,
+        &format!("/api/v1/admin/providers/connections/{key1_id}/retire"),
+        Some(ADMIN),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{retire_res}");
+    let (status, _, reply) = json_call(
+        &app,
+        Method::POST,
+        "/v1/chat/completions",
+        Some(&key.token),
+        Some(json!({
+            "model": "provider-a/pool-chat",
+            "messages": [{ "role": "user", "content": "primary retired" }]
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reply}");
+    assert_eq!(reply["choices"][0]["message"]["content"], "served-by:sk-pool-key-2");
+
+    // 9. Disable last remaining sibling Key 2 -> catalog drops model & dispatch fails closed with 404.
+    let key2_rev: i64 = sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1::uuid")
+        .bind(&key2_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let (status, _, _) = json_call(
+        &app,
+        Method::PUT,
+        &format!("/api/v1/admin/providers/connections/{key2_id}"),
+        Some(ADMIN),
+        Some(json!({
+            "name": "Key 2",
+            "api_base": format!("{pool_base}/"),
+            "enabled": false,
+            "expected_revision": key2_rev
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, _, catalog_after) =
+        json_call(&app, Method::GET, "/catalog/v1/models", None, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        !catalog_after["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|m| m["id"] == "provider-a/pool-chat"),
+        "model must disappear once last sibling key is disabled"
+    );
+    let (status, _, err_reply) = json_call(
+        &app,
+        Method::POST,
+        "/v1/chat/completions",
+        Some(&key.token),
+        Some(json!({
+            "model": "provider-a/pool-chat",
+            "messages": [{ "role": "user", "content": "all disabled" }]
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{err_reply}");
+}

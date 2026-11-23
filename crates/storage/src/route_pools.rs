@@ -617,8 +617,8 @@ impl Store {
 
         // Check route readiness and upstream pricing for each candidate.
         let route_rows = sqlx::query(
-            "SELECT m.alias, m.enabled AS model_enabled, v.enabled AS vendor_enabled, \
-                    EXISTS(SELECT 1 FROM vendor_cooldowns c WHERE c.vendor_id = v.id AND c.cooldown_until > statement_timestamp()) AS cooling_down, \
+            "SELECT m.alias, m.enabled AS model_enabled, niu_model_has_enabled_vendor(m.alias) AS vendor_enabled, \
+                    (niu_model_has_enabled_vendor(m.alias) AND NOT EXISTS(SELECT 1 FROM vendors cand WHERE cand.enabled AND octet_length(cand.credential_ciphertext) > 0 AND niu_vendor_serves_model(cand.id, m.alias) AND NOT EXISTS(SELECT 1 FROM vendor_cooldowns c WHERE c.vendor_id = cand.id AND c.cooldown_until > statement_timestamp()))) AS cooling_down, \
                     CASE WHEN $2::uuid IS NOT NULL THEN TRUE ELSE niu_supplier_model_route_available(m.alias) END AS supplier_available, \
                     COALESCE(r.currency, m.pricing->>'currency') AS upstream_currency, \
                     COALESCE(r.prompt_rate, (m.pricing->>'cash_prompt_rate')::bigint) AS upstream_prompt_rate, \

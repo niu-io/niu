@@ -41,8 +41,10 @@ import { ProviderModelEditorDialog, type ModelEditorTarget } from './ProviderMod
 import {
   activateProviderModel,
   buildResolvedModelRow,
+  connectionPoolKey,
   disableProviderModel,
   enableInternalProviderModel,
+  hasEnabledPoolKey,
 } from './provider-model-actions';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -235,6 +237,17 @@ function ScopedModels({
 
   const keysHref = `/admin/providers/${encodeURIComponent(providerSlug)}/keys`;
   const enabledConnections = useMemo(() => connections.filter(c => c.enabled && c.has_credential), [connections]);
+  const importConnections = useMemo(() => {
+    const seen = new Set<string>();
+    const unique: ProviderConnection[] = [];
+    for (const connection of enabledConnections) {
+      const key = connectionPoolKey(connection);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(connection);
+    }
+    return unique;
+  }, [enabledConnections]);
   const hasEnabledKey = enabledConnections.length > 0;
 
   const offerByAlias = useMemo(() => {
@@ -262,6 +275,7 @@ function ScopedModels({
       upstreamPrices,
       commercialEnabled,
       platformCurrency,
+      connections,
     });
   }
 
@@ -277,6 +291,7 @@ function ScopedModels({
     upstreamPrices,
     commercialEnabled,
     platformCurrency,
+    connections,
   ]);
 
   const counts = useMemo(() => {
@@ -312,6 +327,7 @@ function ScopedModels({
       platformCurrency,
       info: resolveModelRow(alias),
       pricing,
+      connections,
     });
   }
 
@@ -325,7 +341,8 @@ function ScopedModels({
     }
     const info = resolveModelRow(alias);
     if (!commercialEnabled) {
-      const targetRoute = info.routes.find(r => r.connection.enabled && r.connection.has_credential) ?? info.primary;
+      const targetRoute =
+        info.routes.find(r => hasEnabledPoolKey(r.connection, connections)) ?? info.primary;
       if (!targetRoute) return;
       setRowBusy(alias);
       try {
@@ -414,14 +431,14 @@ function ScopedModels({
         info.stdInputNanos !== null &&
         info.stdOutputNanos !== null &&
         (BigInt(info.stdInputNanos) > 0n || BigInt(info.stdOutputNanos) > 0n);
-      if (hasPositiveStd && info.routes.some(r => r.connection.enabled && r.connection.has_credential)) {
+      if (hasPositiveStd && info.routes.some(r => hasEnabledPoolKey(r.connection, connections))) {
         eligible.push(info);
       } else {
         skipped.push(alias);
       }
     }
     return { eligible, skipped };
-  }, [selectedAliases, entriesByAlias, offerByAlias, retailPrices, upstreamPrices, platformCurrency]);
+  }, [selectedAliases, entriesByAlias, offerByAlias, retailPrices, upstreamPrices, platformCurrency, connections]);
 
   async function handleBatchDiscountSubmit(discountPercent: number) {
     if (!batchSummary.eligible.length) return;
@@ -650,19 +667,19 @@ function ScopedModels({
               <span>{uiF('Set discount ({0})', [selectedAliases.size])}</span>
             </Button>
           )}
-          {enabledConnections.length === 1 && (
+          {importConnections.length === 1 && (
             <Button
               type="button"
               size="sm"
               variant="outline"
               disabled={!canManage || loading || !!error || busy}
-              onClick={() => void importModels(enabledConnections[0])}
+              onClick={() => void importModels(importConnections[0])}
             >
               <IconDownload size={15} aria-hidden="true" />
               <span>{importing ? uiT('Importing…') : uiT('Import models')}</span>
             </Button>
           )}
-          {enabledConnections.length > 1 && (
+          {importConnections.length > 1 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button type="button" size="sm" variant="outline" disabled={!canManage || loading || !!error || busy}>
@@ -672,7 +689,7 @@ function ScopedModels({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {enabledConnections.map(connection => (
+                {importConnections.map(connection => (
                   <DropdownMenuItem key={connection.id} disabled={busy} onSelect={() => void importModels(connection)}>
                     {uiF('Import from {0}', [connection.name || uiT('Unnamed API key')])}
                   </DropdownMenuItem>

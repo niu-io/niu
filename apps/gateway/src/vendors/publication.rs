@@ -24,6 +24,8 @@ pub(crate) struct Registry {
     pub routes: BTreeMap<String, CompiledRoute>,
     pub pools: BTreeMap<String, ModelRoutePool>,
     pub offers: BTreeMap<String, RouteRegistryOffer>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pooled_vendors: Vec<niu_storage::VendorPoolMember>,
 }
 
 pub(crate) struct Compiler {
@@ -112,6 +114,7 @@ impl RouteRegistryCompiler for Compiler {
             routes,
             pools,
             offers,
+            pooled_vendors: inputs.pooled_vendors,
         })
         .map_err(|_| StoreError::InvalidVendor)
     }
@@ -246,6 +249,7 @@ pub(crate) async fn catalog_inputs(
             unavailable,
             cooling_down,
             text_offer_aliases,
+            pooled_vendors: published.registry.pooled_vendors.clone(),
         },
     ))
 }

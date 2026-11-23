@@ -11,24 +11,26 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { request, defaultApiBase, providerAdapterApiLabels, type ProviderConnection, type ProviderAdapter, type ProviderConnectionWrite } from '../api';
+import { normalizeApiBase, pooledConnectionsFor } from '@/features/provider-business/provider-model-actions';
 import IntegrationSettings from './IntegrationSettings';
 
 export type ProviderConnectionCreate = { name: string; adapter: ProviderAdapter; api_base: string; api_key: string; enabled: true; create_supplier?: true; supplier_id?: string; access_scope?: 'internal' | 'personal'; personal_organization_id?: string };
 export type VendorCreate = ProviderConnectionCreate;
 
-export default function ProviderEditor({ token, initialProviderId, initialSupplierId, connection, vendor, operatingMode, organizationId, disabled, onCreate, onSave }: {
+export default function ProviderEditor({ token, initialProviderId, initialSupplierId, connection, vendor, existingConnections = [], operatingMode, organizationId, disabled, onCreate, onSave }: {
   token: string;
   initialProviderId?: string | null;
   initialSupplierId?: string | null;
   connection?: ProviderConnection | null;
   vendor?: ProviderConnection | null;
+  existingConnections?: ProviderConnection[];
   operatingMode?: string;
   organizationId?: string;
   disabled: boolean;
   onCreate: (input: ProviderConnectionCreate) => Promise<void>;
   onSave: (input: ProviderConnectionWrite) => Promise<void>;
 }) {
-  const { t: uiT } = useUILocale();
+  const { t: uiT, format: uiF } = useUILocale();
   const activeConnection = connection ?? vendor ?? null;
   const defaultProviderId = initialProviderId ?? initialSupplierId ?? '';
   const [providers, setProviders] = useState<Array<{ id: string; name: string }>>([]);
@@ -107,6 +109,22 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
     void save().catch(() => { /* Parent onSave mutate handler records and displays the error. */ });
   }
 
+  const matchingActivePoolCount = !activeConnection && providerId
+    ? existingConnections.filter(
+        candidate =>
+          candidate.enabled &&
+          candidate.has_credential &&
+          candidate.adapter === adapter &&
+          normalizeApiBase(candidate.api_base) === normalizeApiBase(apiBase) &&
+          (candidate.provider?.id ?? candidate.supplier?.id ?? '') === providerId,
+      ).length
+    : 0;
+  const remainingActiveSiblings = activeConnection
+    ? pooledConnectionsFor(activeConnection, existingConnections).filter(
+        candidate => candidate.id !== activeConnection.id && candidate.enabled && candidate.has_credential,
+      ).length
+    : 0;
+
   const title = activeConnection ? activeConnection.name : uiT("Configure API access");
   return <section className={'panel vendor-editor' + (activeConnection && activeConnection.enabled ? ' is-enabled' : '')} aria-labelledby="vendor-editor-title">
     <div className="vendor-editor-heading">
@@ -162,6 +180,15 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
       <div className="vendor-editor-notes">
         <span><ShieldCheck size={15} />{uiT("Public HTTPS or localhost HTTP only.")}</span>
         <span><KeyRound size={15} />{uiT("Credentials are stored encrypted and never shown again.")}</span>
+        {matchingActivePoolCount > 0 && (
+          <span>
+            <Router size={15} />
+            {uiF(
+              "Matches {0} active key(s) on this endpoint — joins their shared pool automatically for load-balancing and failover without re-importing models.",
+              [matchingActivePoolCount],
+            )}
+          </span>
+        )}
       </div>
 
       {activeConnection && <label className="vendor-enabled-toggle">
@@ -170,7 +197,14 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
       </label>}
 
       {confirmDisable && <div className="vendor-confirm-disable" role="alertdialog" aria-labelledby="vendor-disable-title">
-        <div><strong id="vendor-disable-title">{uiT("Disable this API key?")}</strong><p>{uiT("Models mapped to this key will stop receiving new requests.")}</p></div>
+        <div>
+          <strong id="vendor-disable-title">{uiT("Disable this API key?")}</strong>
+          <p>
+            {remainingActiveSiblings > 0
+              ? uiF("Other enabled API keys on this endpoint ({0} remaining) will continue serving traffic automatically.", [remainingActiveSiblings])
+              : uiT("Models mapped to this key will stop receiving new requests.")}
+          </p>
+        </div>
         <div className="vendor-confirm-actions">
           <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={() => setConfirmDisable(false)}>{uiT("Keep enabled")}</Button>
           <Button type="button" variant="destructive" size="sm" disabled={disabled} onClick={() => void save(false).catch(() => { /* Parent onSave mutate handler records and displays the error. */ })}>{disabled ? uiT("Saving…") : uiT("Confirm disable")}</Button>

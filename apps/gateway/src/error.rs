@@ -500,6 +500,13 @@ impl ApiError {
         }
     }
 
+    pub(crate) fn is_vendor_rate_limited(&self) -> bool {
+        matches!(
+            self.kind,
+            "upstream_request_rate_exceeded" | "upstream_request_rate_disabled"
+        )
+    }
+
     pub(crate) fn credential_cooldown() -> Self {
         Self {
             failure: None,

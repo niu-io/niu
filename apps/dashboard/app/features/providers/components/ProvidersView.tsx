@@ -5,10 +5,12 @@ import { IconGauge, IconKey, IconPencil as Pencil, IconPlugConnected as Router, 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ProviderLogo from '@/components/ProviderLogo';
 import { connectionIdentity } from '@/lib/providers';
+import { pooledConnectionsFor } from '@/features/provider-business/provider-model-actions';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
@@ -301,6 +303,14 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   }
 
   const modelsHref = providerId ? `/admin/providers/${encodeURIComponent(providerSlug ?? providerId)}` : '';
+  const remainingActiveSiblings = (target: ProviderConnection | null) =>
+    target
+      ? pooledConnectionsFor(target, connections).filter(
+          candidate => candidate.id !== target.id && candidate.enabled && candidate.has_credential,
+        ).length
+      : 0;
+  const disableRemaining = remainingActiveSiblings(disableTarget);
+  const disconnectRemaining = remainingActiveSiblings(disconnectTarget);
 
   return <section className="empty-region min-w-0 space-y-5">
     <h2 className="sr-only">{uiT("API keys", "API 密钥")}</h2>
@@ -320,7 +330,10 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       )}
     />
     <p className="text-sm text-muted-foreground">
-      {uiT("Step 1: connect or enable an upstream API key for this Provider, then choose available models and discounts.", "第一步：连接或启用此供应商的上游 API 密钥，然后前往选择可用模型与折扣。")}
+      {uiT(
+        "Step 1: connect or enable upstream API keys for this Provider. Multiple enabled keys with the same API format and base URL automatically share models, load-balance traffic, and fail over on cooldown, rate limits, or disable.",
+        "第一步：连接或启用此供应商的上游 API 密钥。相同 API 格式与接口地址的多个已启用密钥会自动共享模型列表、轮询负载均衡，并在冷却、限流或停用时自动故障切换。",
+      )}
     </p>
     {notice && <p role="status" className="text-sm text-foreground">{uiT(notice)}</p>}
     {error && !addingConnection && !editingConnection && !reconnectingConnection && (
@@ -338,18 +351,25 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       fixedConnectionId ? (
         <Alert variant="destructive"><AlertDescription>{uiT("This connection is unavailable. Return to incidents and refresh before taking action.")}</AlertDescription></Alert>
       ) : (
-        <section className="rounded-[var(--radius-panel)] bg-card p-6 text-center space-y-3">
-          <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-muted"><Router size={18} /></div>
-          <h2 className="text-sm font-semibold">{uiT("No API keys")}</h2>
-          <p className="text-sm text-muted-foreground">{uiT("Add an API key to connect this Provider.")}</p>
-          <div><Button type="button" onClick={() => setAddingConnection(true)}>{uiT("Add API key")}</Button></div>
-        </section>
+        <Empty className="min-h-48">
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><Router size={18} aria-hidden="true" /></EmptyMedia>
+            <EmptyTitle>{uiT("No API keys")}</EmptyTitle>
+            <EmptyDescription>{uiT("Add an API key to connect this Provider.")}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button type="button" onClick={() => setAddingConnection(true)}>{uiT("Add API key")}</Button>
+          </EmptyContent>
+        </Empty>
       )
     ) : (
       <ul className="space-y-3" aria-label={uiT("Provider API keys", "供应商 API 密钥")}>
         {connections.map(connection => {
           const needsKey = !connection.has_credential;
           const isReady = connection.enabled && connection.has_credential;
+          const activePoolCount = pooledConnectionsFor(connection, connections).filter(
+            candidate => candidate.enabled && candidate.has_credential,
+          ).length;
           return (
             <li key={connection.id} className="rounded-[var(--radius-panel)] bg-card p-5 space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-4">
@@ -361,6 +381,11 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
                       <Badge variant={isReady ? 'secondary' : 'outline'}>
                         {needsKey ? uiT("No API key saved", "未保存密钥") : connection.enabled ? uiT("Enabled") : uiT("Disabled")}
                       </Badge>
+                      {isReady && activePoolCount > 1 && (
+                        <Badge variant="outline">
+                          {uiF("Pooled · {0} active keys", [activePoolCount])}
+                        </Badge>
+                      )}
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {providerAdapterApiLabels[connection.adapter]} · <span className="font-mono break-all">{connection.api_base}</span>
@@ -543,6 +568,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
             token={token}
             initialProviderId={providerId}
             connection={null}
+            existingConnections={connections}
             operatingMode={session.operating_mode}
             organizationId={organizationId}
             disabled={busy}
@@ -555,6 +581,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
             token={token}
             initialProviderId={providerId}
             connection={activeConnection}
+            existingConnections={connections}
             operatingMode={session.operating_mode}
             organizationId={organizationId}
             disabled={busy}
@@ -570,7 +597,11 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{uiT("Disable this API key?")}</DialogTitle>
-          <DialogDescription>{uiT("Models using this key will stop receiving new requests. The stored API key is kept and can be re-enabled anytime.")}</DialogDescription>
+          <DialogDescription>
+            {disableRemaining > 0
+              ? uiF("Other enabled API keys on this endpoint ({0} remaining) will continue serving traffic automatically. The stored API key is kept and can be re-enabled anytime.", [disableRemaining])
+              : uiT("This is the last enabled key for this endpoint. Models using it will stop receiving new requests until another key is enabled. The stored API key is kept and can be re-enabled anytime.", "这是此接口地址的最后一个已启用密钥。停用后相关模型将暂停接收新请求，密钥会保留并可随时重新启用。")}
+          </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button type="button" variant="outline" disabled={busy} onClick={() => setDisableTarget(null)}>{uiT("Cancel")}</Button>
@@ -584,7 +615,11 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       <DialogContent className="niu-modal max-h-[90dvh] overflow-y-auto" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>{uiT("Disconnect this Provider connection?")}</DialogTitle>
-          <DialogDescription>{uiT("New requests stop immediately, all model bindings are disabled and the stored credential is erased. In-flight requests may finish. Requests, billing, incidents and audit history are retained.")}</DialogDescription>
+          <DialogDescription>
+            {disconnectRemaining > 0
+              ? uiF("Other enabled API keys on this endpoint ({0} remaining) will continue serving traffic automatically. This key's stored credential will be erased while requests, billing, incidents, and audit history are retained.", [disconnectRemaining])
+              : uiT("New requests stop immediately, all model bindings are disabled and the stored credential is erased. In-flight requests may finish. Requests, billing, incidents and audit history are retained.")}
+          </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button type="button" variant="outline" disabled={busy} onClick={() => setDisconnectTarget(null)}>{uiT("Cancel")}</Button>

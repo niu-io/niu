@@ -8,6 +8,35 @@ import {
 import type { SingleModelPricingSubmit } from './ModelDiscountDialog';
 import type { ModelRowEntry, ResolvedModelRow } from './ProviderModelsTable';
 
+export function normalizeApiBase(apiBase: string): string {
+  return apiBase.trim().replace(/\/+$/, '');
+}
+
+export function connectionPoolKey(connection: ProviderConnection): string {
+  const providerId = connection.provider?.id ?? connection.supplier?.id ?? '';
+  const scope = connection.access_scope ?? (connection.owner_funded ? 'personal' : 'commercial');
+  return `${providerId}|${connection.adapter}|${normalizeApiBase(connection.api_base)}|${scope}`;
+}
+
+export function pooledConnectionsFor(
+  connection: ProviderConnection,
+  allConnections: ProviderConnection[],
+): ProviderConnection[] {
+  const key = connectionPoolKey(connection);
+  const matched = allConnections.filter(candidate => connectionPoolKey(candidate) === key);
+  return matched.length > 0 ? matched : [connection];
+}
+
+export function hasEnabledPoolKey(
+  connection: ProviderConnection,
+  allConnections: ProviderConnection[] = [],
+): boolean {
+  if (connection.enabled && connection.has_credential) return true;
+  return pooledConnectionsFor(connection, allConnections).some(
+    candidate => candidate.enabled && candidate.has_credential,
+  );
+}
+
 export function buildResolvedModelRow({
   alias,
   entriesByAlias,
@@ -16,6 +45,7 @@ export function buildResolvedModelRow({
   upstreamPrices,
   commercialEnabled,
   platformCurrency,
+  connections = [],
 }: {
   alias: string;
   entriesByAlias: Map<string, ModelRowEntry[]>;
@@ -24,6 +54,7 @@ export function buildResolvedModelRow({
   upstreamPrices: Map<string, UpstreamStandardPrice>;
   commercialEnabled: boolean;
   platformCurrency: string;
+  connections?: ProviderConnection[];
 }): ResolvedModelRow {
   const routes = entriesByAlias.get(alias) ?? [];
   const primary = routes[0];
@@ -54,7 +85,9 @@ export function buildResolvedModelRow({
       ? inferDiscountPercent(offer.prompt_rate, stdInputNanos)
       : null;
 
-  const routeActive = routes.some(r => r.connection.enabled && r.connection.has_credential && r.model.enabled);
+  const routeActive = routes.some(
+    r => r.model.enabled && hasEnabledPoolKey(r.connection, connections),
+  );
   const isActive = commercialEnabled
     ? Boolean(routeActive && offer?.active && offer?.route_ready && (!platformCurrency || Boolean(retail)))
     : routeActive;
@@ -91,6 +124,7 @@ export async function activateProviderModel({
   platformCurrency,
   info,
   pricing,
+  connections = [],
 }: {
   token: string;
   providerId: string;
@@ -98,10 +132,12 @@ export async function activateProviderModel({
   platformCurrency: string;
   info: ResolvedModelRow;
   pricing: SingleModelPricingSubmit;
+  connections?: ProviderConnection[];
 }) {
-  const targetRoute = info.routes.find(r => r.connection.enabled && r.connection.has_credential) ?? info.primary;
+  const targetRoute =
+    info.routes.find(r => hasEnabledPoolKey(r.connection, connections)) ?? info.primary;
   if (!targetRoute) throw new Error('Add a model route first.');
-  if (!targetRoute.connection.enabled || !targetRoute.connection.has_credential) {
+  if (!hasEnabledPoolKey(targetRoute.connection, connections)) {
     throw new Error('Enable the Provider API key first.');
   }
 

@@ -474,4 +474,57 @@ describe('provider API key administration workflow', () => {
     expect(screen.getByText('Messages streaming tools')).toBeTruthy();
     expect(screen.queryByText('Gemini API')).toBeNull();
   });
+
+  it('shows pooled status badge and pool-aware disable/disconnect warnings when sibling keys share an endpoint', async () => {
+    const providerRef = { id: 'prov-pool', name: 'DeepSeek Pool' };
+    const key1 = {
+      ...openRouter,
+      id: 'key-1',
+      name: 'DeepSeek Primary',
+      adapter: 'openai' as const,
+      api_base: 'https://api.deepseek.com/v1',
+      supplier: providerRef,
+    };
+    const key2 = {
+      ...openRouter,
+      id: 'key-2',
+      name: 'DeepSeek Backup',
+      adapter: 'openai' as const,
+      api_base: 'https://api.deepseek.com/v1/',
+      supplier: providerRef,
+    };
+    const keyOtherEndpoint = {
+      ...openRouter,
+      id: 'key-3',
+      name: 'DeepSeek Beta Endpoint',
+      adapter: 'openai' as const,
+      api_base: 'https://beta.deepseek.com/v1',
+      supplier: providerRef,
+    };
+    stubVendorApi({ existing: [key1, key2, keyOtherEndpoint] });
+    const user = userEvent.setup();
+    renderView(
+      <MemoryRouter initialEntries={['/admin/providers/prov-pool/keys?supplier=prov-pool']}>
+        <ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('heading', { name: 'DeepSeek Primary' });
+    // Two keys on https://api.deepseek.com/v1 show pooled badge; different api_base does not.
+    expect(screen.getAllByText('Pooled · 2 active keys')).toHaveLength(2);
+
+    // Disable dialog on a pooled key tells the truth: 1 remaining key keeps serving traffic.
+    const disableButtons = screen.getAllByRole('button', { name: 'Disable' });
+    await user.click(disableButtons[0]);
+    expect(
+      await screen.findByText(/Other enabled API keys on this endpoint \(1 remaining\) will continue serving traffic automatically/),
+    ).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    // Disable dialog on the isolated endpoint warns it is the last enabled key.
+    await user.click(disableButtons[2]);
+    expect(
+      await screen.findByText(/This is the last enabled key for this endpoint/),
+    ).toBeTruthy();
+  });
 });

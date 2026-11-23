@@ -1512,7 +1512,7 @@ SELECT jsonb_build_object(
         let mut prices = Self::customer_model_prices_in_tx(&mut tx, scope).await?;
         // Match model discovery: an enabled personally funded route does not
         // expose a customer selling price, even if a legacy tariff exists.
-        let personal: Vec<String> = sqlx::query_scalar("SELECT m.alias FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id JOIN personal_vendor_ownership o ON o.vendor_id=v.id WHERE (o.organization_id=$1 OR o.access_scope='internal') AND m.enabled AND v.enabled")
+        let personal: Vec<String> = sqlx::query_scalar("SELECT m.alias FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id JOIN personal_vendor_ownership o ON o.vendor_id=v.id WHERE (o.organization_id=$1 OR o.access_scope='internal') AND m.enabled AND niu_model_has_enabled_vendor(m.alias)")
             .bind(scope.organization_id).fetch_all(&mut *tx).await?;
         for alias in &personal {
             prices.remove(alias);

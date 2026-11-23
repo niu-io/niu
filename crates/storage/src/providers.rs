@@ -256,7 +256,7 @@ impl Store {
         .await?)
     }
     pub async fn provider_businesses(&self) -> Result<Vec<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name,'logo_url',p.logo_url,'api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o WHERE o.provider_id=p.id),'models',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'enabled_api_keys',(SELECT COUNT(*) FROM vendors v JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND v.enabled),'enabled_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendors v ON v.id=vm.vendor_id JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND v.enabled AND vm.enabled),'internal_api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o JOIN personal_vendor_ownership po ON po.vendor_id=o.vendor_id WHERE o.provider_id=p.id),'internal_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id JOIN personal_vendor_ownership po ON po.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'offers',(SELECT COUNT(*) FROM provider_offers f WHERE f.provider_id=p.id),'ready_offers',(SELECT COUNT(*) FROM provider_offers f JOIN vendor_models vm ON vm.alias=f.model_alias AND vm.vendor_id=f.vendor_id JOIN vendors v ON v.id=vm.vendor_id JOIN vendor_supplier_ownership own ON own.vendor_id=v.id AND own.provider_id=p.id WHERE f.provider_id=p.id AND f.active AND vm.enabled AND v.enabled AND v.credential_ciphertext IS NOT NULL AND niu_offer_qualification_current(p.id,f.id,f.current_revision)),'members',(SELECT COUNT(*) FROM provider_memberships m JOIN admin_operators a ON a.id=m.operator_id WHERE m.provider_id=p.id AND m.active AND a.revoked_at IS NULL)) FROM provider_businesses p WHERE p.deleted_at IS NULL ORDER BY p.name,p.id").fetch_all(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name,'logo_url',p.logo_url,'api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o WHERE o.provider_id=p.id),'models',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'enabled_api_keys',(SELECT COUNT(*) FROM vendors v JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND v.enabled AND octet_length(v.credential_ciphertext) > 0),'enabled_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id AND vm.enabled AND niu_model_has_enabled_vendor(vm.alias)),'internal_api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o JOIN personal_vendor_ownership po ON po.vendor_id=o.vendor_id WHERE o.provider_id=p.id),'internal_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id JOIN personal_vendor_ownership po ON po.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'offers',(SELECT COUNT(*) FROM provider_offers f WHERE f.provider_id=p.id),'ready_offers',(SELECT COUNT(*) FROM provider_offers f JOIN vendor_models vm ON vm.alias=f.model_alias AND vm.vendor_id=f.vendor_id JOIN vendor_supplier_ownership own ON own.vendor_id=vm.vendor_id AND own.provider_id=p.id WHERE f.provider_id=p.id AND f.active AND vm.enabled AND niu_model_has_enabled_vendor(vm.alias) AND niu_offer_qualification_current(p.id,f.id,f.current_revision)),'members',(SELECT COUNT(*) FROM provider_memberships m JOIN admin_operators a ON a.id=m.operator_id WHERE m.provider_id=p.id AND m.active AND a.revoked_at IS NULL)) FROM provider_businesses p WHERE p.deleted_at IS NULL ORDER BY p.name,p.id").fetch_all(&self.pool).await?)
     }
 
     pub async fn provider_memberships(
@@ -1014,7 +1014,7 @@ impl Store {
         // The same writer lock serializes this check against route changes and
         // rate publication. A matching credential is configuration, not proof
         // that the upstream accepts requests.
-        let ready = sqlx::query_scalar::<_, bool>("SELECT NOT o.active AND o.current_revision=$3 AND m.enabled AND v.enabled AND v.credential_ciphertext IS NOT NULL AND EXISTS(SELECT 1 FROM vendor_supplier_ownership own WHERE own.vendor_id=v.id AND own.provider_id=$1) AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership personal WHERE personal.vendor_id=v.id) AND niu_media_offer_binding_current($1,$2,$3) FROM provider_offers o JOIN provider_businesses p ON p.id=o.provider_id JOIN vendor_models m ON m.alias=o.model_alias AND m.vendor_id=o.vendor_id JOIN vendors v ON v.id=o.vendor_id WHERE o.provider_id=$1 AND o.id=$2 AND p.deleted_at IS NULL FOR UPDATE OF o FOR SHARE OF p,m,v")
+        let ready = sqlx::query_scalar::<_, bool>("SELECT NOT o.active AND o.current_revision=$3 AND m.enabled AND niu_model_has_enabled_vendor(m.alias) AND EXISTS(SELECT 1 FROM vendor_supplier_ownership own WHERE own.vendor_id=v.id AND own.provider_id=$1) AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership personal WHERE personal.vendor_id=v.id) AND niu_media_offer_binding_current($1,$2,$3) FROM provider_offers o JOIN provider_businesses p ON p.id=o.provider_id JOIN vendor_models m ON m.alias=o.model_alias AND m.vendor_id=o.vendor_id JOIN vendors v ON v.id=o.vendor_id WHERE o.provider_id=$1 AND o.id=$2 AND p.deleted_at IS NULL FOR UPDATE OF o FOR SHARE OF p,m,v")
             .bind(provider).bind(offer).bind(expected_revision)
             .fetch_optional(&mut *tx).await?.unwrap_or(false);
         if !ready {
@@ -1204,7 +1204,7 @@ impl Store {
         upstream: &str,
         endpoint: Option<&str>,
     ) -> Result<(), StoreError> {
-        let offer=sqlx::query("SELECT o.id,o.provider_id,o.current_revision,o.active,o.vendor_id,m.vendor_id AS route_vendor,m.upstream_model,v.api_base,m.enabled AS model_enabled,v.enabled AS vendor_enabled,niu_offer_qualification_current(o.provider_id,o.id,o.current_revision) AS qualified FROM provider_offers o JOIN vendor_models m ON m.alias=o.model_alias JOIN vendors v ON v.id=m.vendor_id WHERE o.model_alias=$1 FOR SHARE OF o,m,v")
+        let offer=sqlx::query("SELECT o.id,o.provider_id,o.current_revision,o.active,o.vendor_id,m.vendor_id AS route_vendor,m.upstream_model,v.api_base,m.enabled AS model_enabled,niu_model_has_enabled_vendor(m.alias) AS vendor_enabled,niu_offer_qualification_current(o.provider_id,o.id,o.current_revision) AS qualified FROM provider_offers o JOIN vendor_models m ON m.alias=o.model_alias JOIN vendors v ON v.id=m.vendor_id WHERE o.model_alias=$1 FOR SHARE OF o,m,v")
             .bind(alias).fetch_optional(&mut **tx).await?;
         if let Some(row) = offer {
             if !row.get::<bool, _>("model_enabled")
@@ -1213,7 +1213,8 @@ impl Store {
                 || !row.get::<bool, _>("qualified")
                 || row.get::<Uuid, _>("vendor_id") != row.get::<Uuid, _>("route_vendor")
                 || row.get::<String, _>("upstream_model") != upstream
-                || endpoint != Some(row.get::<String, _>("api_base").as_str())
+                || endpoint.map(|value| value.trim_end_matches('/'))
+                    != Some(row.get::<String, _>("api_base").trim_end_matches('/'))
             {
                 return Err(StoreError::AccountUnavailable);
             }

@@ -3,7 +3,41 @@
 //! This projection is not a published inference generation.
 use super::models::compile_model;
 use crate::{config::ModelConfig, error::ApiError};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+
+pub(super) fn route_has_enabled_vendor(
+    route: &niu_storage::VendorCatalogRoute,
+    pooled_vendors: &[niu_storage::VendorPoolMember],
+) -> bool {
+    if route.vendor.enabled && route.vendor.has_credential {
+        return true;
+    }
+    pooled_vendors
+        .iter()
+        .any(|member| member.enabled && member.has_credential && member.matches_route(route))
+}
+
+pub(super) fn route_has_active_vendor(
+    route: &niu_storage::VendorCatalogRoute,
+    pooled_vendors: &[niu_storage::VendorPoolMember],
+    cooling_down: &BTreeSet<uuid::Uuid>,
+    excluded_vendors: &[uuid::Uuid],
+) -> bool {
+    if route.vendor.enabled
+        && route.vendor.has_credential
+        && !cooling_down.contains(&route.vendor.id)
+        && !excluded_vendors.contains(&route.vendor.id)
+    {
+        return true;
+    }
+    pooled_vendors.iter().any(|member| {
+        member.enabled
+            && member.has_credential
+            && !cooling_down.contains(&member.id)
+            && !excluded_vendors.contains(&member.id)
+            && member.matches_route(route)
+    })
+}
 
 pub(super) fn compile_catalog(
     static_models: &BTreeMap<String, ModelConfig>,
@@ -18,7 +52,7 @@ pub(super) fn compile_catalog(
         // Every database alias shadows static configuration, even when disabled
         // or owned by a different account.
         models.remove(&route.model.alias);
-        if !route.vendor.enabled || !route.model.enabled {
+        if !route.model.enabled || !route_has_enabled_vendor(route, &inputs.pooled_vendors) {
             continue;
         }
         let access_scope = route.access_scope();
@@ -72,9 +106,8 @@ pub(super) fn compile_catalog(
             .filter_map(|candidate| {
                 let route = *routes.get(candidate.alias.as_str())?;
                 (candidate.enabled
-                    && route.vendor.enabled
                     && route.model.enabled
-                    && !inputs.cooling_down.contains(&route.vendor.id)
+                    && route_has_active_vendor(route, &inputs.pooled_vendors, &inputs.cooling_down, &[])
                     && route.model.capabilities.get("video_schema").is_none()
                     && (route.personal_organization_id == pool.organization_id
                         || (allow_internal_scope
@@ -123,7 +156,7 @@ pub(super) fn compile_published_catalog(
     for (alias, compiled) in &registry.routes {
         let route = &compiled.metadata;
         models.remove(alias);
-        if !route.vendor.enabled || !route.model.enabled {
+        if !route.model.enabled || !route_has_enabled_vendor(route, &registry.pooled_vendors) {
             continue;
         }
         let access_scope = route.access_scope();
@@ -169,9 +202,8 @@ pub(super) fn compile_published_catalog(
                 let compiled = registry.routes.get(candidate.alias.as_str())?;
                 let route = &compiled.metadata;
                 (candidate.enabled
-                    && route.vendor.enabled
                     && route.model.enabled
-                    && !cooling_down.contains(&route.vendor.id)
+                    && route_has_active_vendor(route, &registry.pooled_vendors, cooling_down, &[])
                     && route.model.capabilities.get("video_schema").is_none()
                     && (route.personal_organization_id == pool.organization_id
                         || (allow_internal_scope

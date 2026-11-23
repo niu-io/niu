@@ -47,6 +47,7 @@ pub(crate) struct ResolvedModel {
     pub model: ModelConfig,
     pub api_key: String,
     pub personal_route: Option<niu_storage::VendorRoute>,
+    pub pooled_key_count: usize,
 }
 
 #[derive(Default)]
@@ -156,37 +157,59 @@ pub(crate) async fn resolve_scoped_model_excluding(
         )
         .await;
     }
-    if !excluded_vendors.is_empty() {
-        return Err(ApiError::route_pool_unavailable());
-    }
     let allow_internal = state.operating_mode == crate::state::OperatingMode::Internal;
-    if let Some(route) = state
+    if let Some(selection) = state
         .store
-        .accessible_vendor_route(organization_id, alias, allow_internal)
+        .resolve_pooled_vendor_route(alias, excluded_vendors)
         .await
         .map_err(ApiError::from_store)?
     {
-        require_selectable_credential(state, route.vendor.id).await?;
-        reject_video_text_route(&route)?;
-        let cipher = state
-            .vendor_cipher
-            .as_ref()
-            .ok_or_else(ApiError::unavailable)?;
-        let api_key =
-            open_vendor_credential(cipher, route.vendor.id, &route.credential_ciphertext)?;
-        let mut model = stored_model(&route)?;
-        // Personal upstream charges are not Niu customer or Supplier prices.
-        model.pricing = None;
-        model.public_catalog = false;
-        return Ok(ResolvedModel {
-            route_generation: None,
-            managed_route: Some(niu_storage::ManagedRouteSnapshot::from(&route)),
-            model,
-            api_key,
-            personal_route: Some(route),
-        });
+        if selection.route.personal_organization_id.is_some() {
+            let route = selection.route;
+            let access_scope = route.access_scope();
+            let visible = match access_scope {
+                niu_storage::VendorAccessScope::Internal if allow_internal => true,
+                _ => route.personal_organization_id == Some(organization_id),
+            };
+            if !visible || !route.model.enabled || selection.all_disabled {
+                return Err(ApiError::not_found());
+            }
+            if selection.all_excluded {
+                return Err(ApiError::route_pool_unavailable());
+            }
+            if selection.all_cooling_down {
+                tracing::debug!(
+                    reason = "upstream_credential_cooldown",
+                    "Credential unavailable for new selection"
+                );
+                return Err(ApiError::credential_cooldown());
+            }
+            reject_video_text_route(&route)?;
+            let cipher = state
+                .vendor_cipher
+                .as_ref()
+                .ok_or_else(ApiError::unavailable)?;
+            let api_key =
+                open_vendor_credential(cipher, route.vendor.id, &route.credential_ciphertext)?;
+            let mut model = stored_model(&route)?;
+            // Personal upstream charges are not Niu customer or Supplier prices.
+            model.pricing = None;
+            model.public_catalog = false;
+            return Ok(ResolvedModel {
+                route_generation: None,
+                managed_route: Some(niu_storage::ManagedRouteSnapshot::from(&route)),
+                model,
+                api_key,
+                personal_route: Some(route),
+                pooled_key_count: selection.pool_size,
+            });
+        }
+        return finish_commercial_pooled_selection(state, alias, selection).await;
     }
-    resolve_model(state, alias).await
+    if !excluded_vendors.is_empty() {
+        return Err(ApiError::route_pool_unavailable());
+    }
+    resolve_static_model(state, alias)
 }
 
 pub(crate) fn rule_conditions_match(
@@ -317,9 +340,10 @@ async fn resolve_pool(
     let mut eligible = Vec::new();
     for route in state
         .store
-        .eligible_pool_routes_for(
+        .eligible_pool_routes_excluding(
             &pool,
             state.operating_mode == crate::state::OperatingMode::Internal,
+            excluded_vendors,
         )
         .await
         .map_err(ApiError::from_store)?
@@ -406,6 +430,7 @@ async fn resolve_pool(
         api_key,
         managed_route: Some(snapshot),
         personal_route: personal.then_some(route),
+        pooled_key_count: 1,
     })
 }
 
@@ -729,6 +754,7 @@ pub(crate) async fn generation_catalog_with_pools(
     })
 }
 
+#[cfg(test)]
 pub(crate) async fn resolve_model(
     state: &AppState,
     alias: &str,
@@ -741,74 +767,95 @@ pub(crate) async fn resolve_model(
     }
     if let Some(selection) = state
         .store
-        .shared_vendor_route(alias)
+        .resolve_pooled_vendor_route(alias, &[])
         .await
         .map_err(ApiError::from_store)?
     {
-        if selection.uses_media_offer {
-            return Err(ApiError::unsupported_message(
-                "This model uses a media offer. Use the qualified video job API.",
-            ));
-        }
-        if !selection.supplier_available {
-            return Err(ApiError::unavailable());
-        }
-        let route = selection.route;
-        // Ownership is part of the selected row, not a later registry read.
-        if route.personal_organization_id.is_some() {
-            return Err(ApiError::not_found());
-        }
-        if !route.vendor.enabled || !route.model.enabled {
-            return Err(ApiError::not_found());
-        }
-        if selection.cooling_down {
-            tracing::debug!(
-                reason = "upstream_credential_cooldown",
-                "Credential unavailable for new selection"
-            );
-            return Err(ApiError::credential_cooldown());
-        }
-        reject_video_text_route(&route)?;
-        let cipher = state
-            .vendor_cipher
-            .as_ref()
-            .ok_or_else(ApiError::unavailable)?;
-        let api_key =
-            open_vendor_credential(cipher, route.vendor.id, &route.credential_ciphertext)?;
-        let mut model = stored_model(&route)?;
-        if model.pricing.is_none() {
-            let fallback = match state
+        return finish_commercial_pooled_selection(state, alias, selection).await;
+    }
+    resolve_static_model(state, alias)
+}
+
+async fn finish_commercial_pooled_selection(
+    state: &AppState,
+    alias: &str,
+    selection: niu_storage::PooledRouteSelection,
+) -> Result<ResolvedModel, ApiError> {
+    if state.operating_mode == crate::state::OperatingMode::Internal {
+        return Err(ApiError::not_found());
+    }
+    if selection.uses_media_offer {
+        return Err(ApiError::unsupported_message(
+            "This model uses a media offer. Use the qualified video job API.",
+        ));
+    }
+    if !selection.supplier_available {
+        return Err(ApiError::unavailable());
+    }
+    let route = selection.route;
+    // Ownership is part of the selected row, not a later registry read.
+    if route.personal_organization_id.is_some() {
+        return Err(ApiError::not_found());
+    }
+    if !route.model.enabled || selection.all_disabled {
+        return Err(ApiError::not_found());
+    }
+    if selection.all_excluded {
+        return Err(ApiError::route_pool_unavailable());
+    }
+    if selection.all_cooling_down {
+        tracing::debug!(
+            reason = "upstream_credential_cooldown",
+            "Credential unavailable for new selection"
+        );
+        return Err(ApiError::credential_cooldown());
+    }
+    reject_video_text_route(&route)?;
+    let cipher = state
+        .vendor_cipher
+        .as_ref()
+        .ok_or_else(ApiError::unavailable)?;
+    let api_key = open_vendor_credential(cipher, route.vendor.id, &route.credential_ciphertext)?;
+    let mut model = stored_model(&route)?;
+    if model.pricing.is_none() {
+        let fallback = match state
+            .store
+            .active_provider_offer_text_pricing(&route.model.alias)
+            .await
+            .map_err(ApiError::from_store)?
+        {
+            Some(offer) => Some(offer),
+            None => state
                 .store
-                .active_provider_offer_text_pricing(&route.model.alias)
+                .platform_retail_text_pricing(alias)
                 .await
-                .map_err(ApiError::from_store)?
-            {
-                Some(offer) => Some(offer),
-                None => state
-                    .store
-                    .platform_retail_text_pricing(alias)
-                    .await
-                    .map_err(ApiError::from_store)?,
-            };
-            if let Some((currency, prompt, completion)) = fallback {
-                model.pricing = Some(crate::config::RoutePricing {
-                    currency,
-                    api_prompt_rate: prompt,
-                    api_completion_rate: completion,
-                    cash_prompt_rate: prompt,
-                    cash_completion_rate: completion,
-                    max_input_tokens: model.catalog.context_length.unwrap_or(128_000) as i64,
-                    max_output_tokens: 4_096,
-                });
-            }
+                .map_err(ApiError::from_store)?,
+        };
+        if let Some((currency, prompt, completion)) = fallback {
+            model.pricing = Some(crate::config::RoutePricing {
+                currency,
+                api_prompt_rate: prompt,
+                api_completion_rate: completion,
+                cash_prompt_rate: prompt,
+                cash_completion_rate: completion,
+                max_input_tokens: model.catalog.context_length.unwrap_or(128_000) as i64,
+                max_output_tokens: 4_096,
+            });
         }
-        return Ok(ResolvedModel {
-            route_generation: None,
-            managed_route: Some(niu_storage::ManagedRouteSnapshot::from(&route)),
-            model,
-            api_key,
-            personal_route: None,
-        });
+    }
+    Ok(ResolvedModel {
+        route_generation: None,
+        managed_route: Some(niu_storage::ManagedRouteSnapshot::from(&route)),
+        model,
+        api_key,
+        personal_route: None,
+        pooled_key_count: selection.pool_size,
+    })
+}
+
+fn resolve_static_model(state: &AppState, alias: &str) -> Result<ResolvedModel, ApiError> {
+    if state.operating_mode == crate::state::OperatingMode::Internal {
+        return Err(ApiError::not_found());
     }
     let model = state
         .config
@@ -826,6 +873,7 @@ pub(crate) async fn resolve_model(
         model,
         api_key,
         personal_route: None,
+        pooled_key_count: 1,
     })
 }
 
@@ -883,11 +931,13 @@ async fn resolve_published(
                 let route = registry.routes.get(&candidate.alias)?;
                 let metadata = &route.metadata;
                 (candidate.enabled
-                    && metadata.vendor.enabled
                     && metadata.model.enabled
-                    && metadata.vendor.has_credential
-                    && !excluded_vendors.contains(&metadata.vendor.id)
-                    && !cooling_down.contains(&metadata.vendor.id)
+                    && super::catalog_compiler::route_has_active_vendor(
+                        metadata,
+                        &registry.pooled_vendors,
+                        &cooling_down,
+                        excluded_vendors,
+                    )
                     && metadata.model.capabilities.get("video_schema").is_none()
                     && (metadata.personal_organization_id == pool.organization_id
                         || (allow_internal
@@ -906,12 +956,12 @@ async fn resolve_published(
             .collect();
         Some(select_candidate(eligible).ok_or_else(ApiError::route_pool_unavailable)?)
     } else {
-        if !excluded_vendors.is_empty() {
-            return Err(ApiError::route_pool_unavailable());
-        }
         registry.routes.get(alias)
     };
     let Some(selected) = selected else {
+        if !excluded_vendors.is_empty() {
+            return Err(ApiError::route_pool_unavailable());
+        }
         let model = registry
             .static_models
             .get(alias)
@@ -927,11 +977,12 @@ async fn resolve_published(
             model,
             api_key,
             personal_route: None,
+            pooled_key_count: 1,
         });
     };
     let metadata = &selected.metadata;
-    if !metadata.vendor.enabled
-        || !metadata.model.enabled
+    if !metadata.model.enabled
+        || !super::catalog_compiler::route_has_enabled_vendor(metadata, &registry.pooled_vendors)
         || !metadata.visible_to(organization, allow_internal)
     {
         return Err(ApiError::not_found());
@@ -939,13 +990,13 @@ async fn resolve_published(
     // This is an exclusion/secret read, never a source of replacement definitions.
     let live = state
         .store
-        .shared_vendor_route(&metadata.model.alias)
+        .resolve_pooled_vendor_route(&metadata.model.alias, excluded_vendors)
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(|| ApiError::from_store(niu_storage::StoreError::ManagedRouteChanged))?;
     let route = live.route;
-    if route.vendor.id != metadata.vendor.id
-        || route.vendor.revision != metadata.vendor.revision
+    if live.primary_vendor_id != metadata.vendor.id
+        || live.primary_vendor_revision != metadata.vendor.revision
         || route.model.revision != metadata.model.revision
         || route.personal_organization_id != metadata.personal_organization_id
         || route.access_scope() != metadata.access_scope()
@@ -967,19 +1018,36 @@ async fn resolve_published(
             "This model uses a media offer. Use the qualified video job API.",
         ));
     }
-    if live.cooling_down {
+    if live.all_disabled {
+        return Err(ApiError::not_found());
+    }
+    if live.all_excluded {
+        return Err(ApiError::route_pool_unavailable());
+    }
+    if live.all_cooling_down {
         tracing::debug!(
             reason = "upstream_credential_cooldown",
             "Credential unavailable for new selection"
         );
         return Err(ApiError::credential_cooldown());
     }
+    if route.vendor.id != metadata.vendor.id
+        && !registry.pooled_vendors.iter().any(|member| {
+            member.id == route.vendor.id
+                && member.revision == route.vendor.revision
+                && member.matches_route(metadata)
+        })
+    {
+        return Err(ApiError::from_store(
+            niu_storage::StoreError::ManagedRouteChanged,
+        ));
+    }
     reject_video_text_route(&route)?;
     let cipher = state
         .vendor_cipher
         .as_ref()
         .ok_or_else(ApiError::unavailable)?;
-    let api_key = open_vendor_credential(cipher, metadata.vendor.id, &route.credential_ciphertext)?;
+    let api_key = open_vendor_credential(cipher, route.vendor.id, &route.credential_ciphertext)?;
     let mut model = selected.model.clone();
     if personal {
         model.pricing = None;
@@ -1028,6 +1096,7 @@ async fn resolve_published(
         model,
         api_key,
         personal_route: personal.then_some(route),
+        pooled_key_count: live.pool_size,
     })
 }
 

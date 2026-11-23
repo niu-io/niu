@@ -49,6 +49,7 @@ pub(crate) async fn execute(
             Ok(resolved) => resolved,
             Err(error) => return previous_response.map_or_else(|| Err(error), Ok),
         };
+        let pooled_key_count = resolved.pooled_key_count;
         let qualified = allow_transport_retry
             && resolved.model.provider == "openrouter"
             && resolved
@@ -58,7 +59,7 @@ pub(crate) async fn execute(
             && resolved
                 .managed_route
                 .as_ref()
-                .is_some_and(|route| route.pool_alias.is_some());
+                .is_some_and(|route| route.pool_alias.is_some() || pooled_key_count > 1);
         let vendor = resolved.managed_route.as_ref().map(|route| route.vendor_id);
         let timeout = deadline.saturating_duration_since(std::time::Instant::now());
         if timeout.is_zero() {
@@ -97,6 +98,18 @@ pub(crate) async fn execute(
         let (dispatch, result) = match outcome {
             Ok(outcome) => outcome,
             Err(error) => {
+                // If an individual pooled key hit its RPM cap before dispatch
+                // (transaction rolled back, nothing sent upstream), spill over
+                // to another healthy sibling key within the request deadline.
+                if error.is_vendor_rate_limited()
+                    && continuation.is_none()
+                    && pooled_key_count > 1
+                    && excluded.len() + 1 < pooled_key_count.min(4)
+                    && let Some(vendor_id) = vendor
+                {
+                    excluded.push(vendor_id);
+                    continue;
+                }
                 if let Some(previous) = previous_response {
                     let mut response = error.into_response();
                     for name in ["x-niu-operation-id", "x-niu-attempt-id"] {
