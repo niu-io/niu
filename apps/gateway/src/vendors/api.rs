@@ -140,6 +140,11 @@ pub async fn assign_personal_owner(
     Json(input): Json<PersonalOwnerInput>,
 ) -> Result<Json<Value>, ApiError> {
     installation(&state, &headers).await?;
+    if state.operating_mode != crate::state::OperatingMode::Internal {
+        return Err(ApiError::invalid_request(
+            "Directly funded Provider connections require Internal use",
+        ));
+    }
     if input.expected_revision < 1 {
         return Err(ApiError::invalid_request(
             "A positive credential revision is required",
@@ -538,6 +543,14 @@ pub async fn create(
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let authorization = state.authorize_platform_headers(&headers).await?;
     let internal_mode = state.operating_mode == crate::state::OperatingMode::Internal;
+    if !internal_mode
+        && (input.personal_organization_id.is_some()
+            || input.access_scope == Some(niu_storage::VendorAccessScope::Personal))
+    {
+        return Err(ApiError::invalid_request(
+            "Resale requires a commercial Provider connection",
+        ));
+    }
     let access_scope = match input.access_scope {
         Some(niu_storage::VendorAccessScope::Internal) if !internal_mode => {
             return Err(ApiError::invalid_request(
@@ -751,18 +764,26 @@ pub async fn update(
     Json(input): Json<UpdateVendor>,
 ) -> Result<Json<Value>, ApiError> {
     installation(&state, &headers).await?;
-    if input.enabled
-        && state.operating_mode == crate::state::OperatingMode::Internal
-        && state
+    if input.enabled {
+        let directly_funded = state
             .store
             .personal_vendor_organization(id)
             .await
             .map_err(ApiError::from_store)?
-            .is_none()
-    {
-        return Err(ApiError::invalid_request(
-            "Internal use cannot enable shared commercial credentials",
-        ));
+            .is_some();
+        match state.operating_mode {
+            crate::state::OperatingMode::Internal if !directly_funded => {
+                return Err(ApiError::invalid_request(
+                    "Internal use cannot enable shared commercial credentials",
+                ));
+            }
+            crate::state::OperatingMode::Resale if directly_funded => {
+                return Err(ApiError::invalid_request(
+                    "Resale requires a commercial Provider connection",
+                ));
+            }
+            _ => {}
+        }
     }
 
     let current = state
