@@ -60,7 +60,11 @@ export default function WorkspaceSwitcher({ context, onCreateWorkspace, creation
         <ChevronsUpDown size={16} aria-hidden="true" />
       </Button></DropdownMenuTrigger>
       <DropdownMenuContent className="workspace-switcher-menu" side="bottom" align="start" sideOffset={8} collisionPadding={12}>
-        <DropdownMenuLabel className="workspace-switcher-menu-title">{organization ? `${t('Workspaces', '工作空间')} · ${organizationDisplayName(organization.name)}` : t('Workspaces', '工作空间')}</DropdownMenuLabel>
+        <DropdownMenuLabel className="workspace-switcher-menu-title">
+          {organization && (context.organizations.length > 1 || (organization.account_kind !== 'personal' && organization.name.trim() !== 'Personal workspace'))
+            ? `${t('Workspaces', '工作空间')} · ${organizationDisplayName(organization.name, organization.account_kind)}`
+            : t('Workspaces', '工作空间')}
+        </DropdownMenuLabel>
         {workspaceLoading && <div className="workspace-switcher-empty">{t('Loading workspaces…', '正在加载工作空间…')}</div>}
         {!workspaceLoading && entries.length === 0 && <div className="workspace-switcher-empty">{t('No workspaces yet.', '暂无工作空间。')}</div>}
         {!workspaceLoading && <DropdownMenuRadioGroup value={workspace?.id ?? ''} onValueChange={id => {

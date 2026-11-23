@@ -343,11 +343,24 @@ export type MemberPreferences = { color_mode: 'system' | 'light' | 'dark' };
 
 export type WorkspaceInput = { name: string; slug?: string; spending_limit?: { currency: string; limit_nanos: string }; organization_id?: string | null };
 export type WorkspaceCreateOptions = RequestOptions & { idempotencyKey?: string };
-export type CompanyMetadata = { id: string; slug?: string; name: string };
+export type CustomerAccountKind = 'personal' | 'organization';
+export type CompanyMetadata = { id: string; slug?: string; name: string; account_kind?: CustomerAccountKind };
 export type CompanyPage = { data: CompanyMetadata[]; next_cursor: string | null };
 export type CompanyPageOptions = { after?: string; limit?: number };
-export type CompanyCreationInput = { name: string; slug?: string; currency?: string };
-export type CreatedCompany = { id: string; slug?: string; name: string; currency: string };
+export type CompanyCreationInput = {
+  name: string;
+  slug?: string;
+  currency?: string;
+  account_kind?: CustomerAccountKind;
+  attach_creator?: boolean;
+};
+export type CreatedCompany = {
+  id: string;
+  slug?: string;
+  name: string;
+  currency: string;
+  account_kind?: CustomerAccountKind;
+};
 export type CompanyCreateOptions = RequestOptions & { idempotencyKey?: string };
 
 

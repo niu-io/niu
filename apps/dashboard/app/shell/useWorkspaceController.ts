@@ -533,7 +533,7 @@ export function useWorkspaceController({
         organization_name:
           body.organization_name ??
           organizations.find(item => item.id === body.organization_id)?.name ??
-          'Personal workspace',
+          '',
       };
       setWorkspaces(previous => {
         const next = [...previous, created];

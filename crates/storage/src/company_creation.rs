@@ -14,8 +14,26 @@ impl Store {
         currency: &str,
         key_sha256: Option<&[u8]>,
     ) -> Result<Uuid, StoreError> {
-        let request = serde_json::to_vec(&serde_json::json!({"name":name,"currency":currency}))
-            .map_err(|_| StoreError::Conflict)?;
+        self.create_prepaid_organization_with_key_and_kind(name, currency, "organization", key_sha256)
+            .await
+    }
+
+    pub async fn create_prepaid_organization_with_key_and_kind(
+        &self,
+        name: &str,
+        currency: &str,
+        account_kind: &str,
+        key_sha256: Option<&[u8]>,
+    ) -> Result<Uuid, StoreError> {
+        if !matches!(account_kind, "personal" | "organization") {
+            return Err(StoreError::InvalidPrice);
+        }
+        let payload = if account_kind == "organization" {
+            serde_json::json!({"name": name, "currency": currency})
+        } else {
+            serde_json::json!({"name": name, "currency": currency, "account_kind": account_kind})
+        };
+        let request = serde_json::to_vec(&payload).map_err(|_| StoreError::Conflict)?;
         let request_sha256 = Sha256::digest(request).to_vec();
         if key_sha256.is_some_and(|key| key.len() != 32) {
             return Err(StoreError::Conflict);
@@ -35,7 +53,13 @@ impl Store {
                 return Ok(organization);
             }
         }
-        let organization = Self::create_prepaid_organization_in_tx(&mut tx, name, currency).await?;
+        let organization = Self::create_prepaid_organization_in_tx_with_kind(
+            &mut tx,
+            name,
+            currency,
+            account_kind,
+        )
+        .await?;
         if let Some(key) = key_sha256 {
             sqlx::query("INSERT INTO company_creation_receipts(key_sha256,request_sha256,organization_id) VALUES($1,$2,$3)")
                 .bind(key).bind(request_sha256).bind(organization).execute(&mut *tx).await?;

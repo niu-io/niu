@@ -6,9 +6,12 @@ export function workspaceDisplayName(name: string) {
   return name === 'Default project' ? 'Default workspace' : name;
 }
 
-export function organizationDisplayName(name?: string | null) {
+export function organizationDisplayName(name?: string | null, accountKind?: 'personal' | 'organization') {
   const trimmed = name?.trim() ?? '';
-  return trimmed === 'Personal workspace' ? translateUI('Personal workspace') : trimmed;
+  if (accountKind === 'personal' || trimmed === 'Personal workspace') {
+    return translateUI('Personal');
+  }
+  return trimmed;
 }
 
 export function workspaceNameSlug(name: string) {

@@ -342,7 +342,7 @@ impl Store {
         };
 
         let rows: Vec<NamedResource> = sqlx::query_as(
-            "SELECT org.id, org.name, org.slug \
+            "SELECT org.id, org.name, org.slug, org.account_kind \
              FROM organizations org \
              WHERE (org.id = $1 OR EXISTS (
                  SELECT 1 FROM account_memberships m

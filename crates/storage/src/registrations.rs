@@ -676,8 +676,18 @@ impl Store {
                 .fetch_optional(&mut *tx)
                 .await?;
         let currency = platform_currency.as_deref().unwrap_or("USD");
-        let organization_id =
-            Self::create_prepaid_organization_in_tx(&mut tx, &organization_name, currency).await?;
+        let account_kind = if organization_name.eq_ignore_ascii_case(&applicant_name) {
+            "personal"
+        } else {
+            "organization"
+        };
+        let organization_id = Self::create_prepaid_organization_in_tx_with_kind(
+            &mut tx,
+            &organization_name,
+            currency,
+            account_kind,
+        )
+        .await?;
 
         let project_id = Uuid::new_v4();
         let base_ws_slug = crate::workspace_creation::workspace_slug_from_name(&workspace_name);

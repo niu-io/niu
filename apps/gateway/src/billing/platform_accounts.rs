@@ -8,6 +8,8 @@ use serde_json::json;
 pub struct AccountPage {
     after: Option<Uuid>,
     limit: Option<i64>,
+    q: Option<String>,
+    kind: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -56,6 +58,24 @@ async fn actor(state: &AppState, headers: &HeaderMap) -> Result<OperatorAuditAct
 ///           "minimum": 1,
 ///           "maximum": 100,
 ///           "default": 50
+///         }
+///       },
+///       {
+///         "name": "q",
+///         "in": "query",
+///         "description": "Optional case-insensitive substring filter matching customer name, slug, or active member name/email (up to 120 characters).",
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 120
+///         }
+///       },
+///       {
+///         "name": "kind",
+///         "in": "query",
+///         "description": "Optional customer account kind filter: personal or organization.",
+///         "schema": {
+///           "type": "string",
+///           "enum": ["personal", "organization"]
 ///         }
 ///       }
 ///     ],
@@ -212,9 +232,23 @@ pub async fn list(
     Query(page): Query<AccountPage>,
 ) -> Result<Json<Value>, ApiError> {
     state.authorize_platform_headers(&headers).await?;
+    let query = page.q.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    if query.is_some_and(|value| value.chars().count() > 120) {
+        return Err(ApiError::invalid_request(
+            "Search query must be at most 120 characters",
+        ));
+    }
+    let kind = page.kind.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    if let Some(value) = kind
+        && !matches!(value, "personal" | "organization")
+    {
+        return Err(ApiError::invalid_request(
+            "kind must be personal or organization",
+        ));
+    }
     let result = state
         .store
-        .platform_customer_accounts(page.after, page.limit.unwrap_or(50))
+        .platform_customer_accounts(page.after, page.limit.unwrap_or(50), query, kind)
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(result))

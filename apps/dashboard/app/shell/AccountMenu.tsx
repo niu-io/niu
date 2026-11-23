@@ -10,7 +10,7 @@ import { IconBook as CircleHelp } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { settingsHref } from '@/features/account/settings-routes';
 import { prefetchRouteIntent } from './prefetch';
-import { workspaceModelsHref } from './workspace-route';
+import { organizationDisplayName, workspaceModelsHref } from './workspace-route';
 import { IconChartLine, IconExternalLink, IconSettings, IconShieldLock, IconUser } from '@tabler/icons-react';
 import { SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
@@ -86,16 +86,19 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
             {roles.active === 'admin' && !location.pathname.startsWith('/admin') && <DropdownMenuItem asChild><Link onClick={() => { setAccountMenuOpen(false); dismissMobileSidebar(); }} to="/admin/providers"><IconShieldLock />{t('Open Admin console', '打开管理后台')}</Link></DropdownMenuItem>}
           </>}
           {roles?.error && <DropdownMenuLabel role="alert" className="text-destructive whitespace-normal">{uiT(roles.error)}</DropdownMenuLabel>}
-          {!supplierOnly && token && organizations.length > 0 && <>
+          {!supplierOnly && token && organizations.length > 1 && <>
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-xs text-muted-foreground" aria-live="polite">{organizationSwitching ? t('Switching organization…', '正在切换组织…') : t('Organizations', '组织')}</DropdownMenuLabel>
             <DropdownMenuRadioGroup className="account-organizations" aria-label={uiT("Organizations")} value={organization?.id ?? ''} onValueChange={id => {
               const next = organizations.find(item => item.id === id);
               if (next) selectOrganization(next);
             }}>
-              {organizations.map(item => <DropdownMenuRadioItem key={item.id} value={item.id} disabled={workspaceLoading || Boolean(organizationSwitching) || Boolean(workspaceError && workspaceError.kind !== 'missing')}>
-                <Building2 /><span className="min-w-0 truncate" title={item.name}>{item.name}</span>
-              </DropdownMenuRadioItem>)}
+              {organizations.map(item => {
+                const orgLabel = organizationDisplayName(item.name, item.account_kind);
+                return <DropdownMenuRadioItem key={item.id} value={item.id} disabled={workspaceLoading || Boolean(organizationSwitching) || Boolean(workspaceError && workspaceError.kind !== 'missing')}>
+                  <Building2 /><span className="min-w-0 truncate" title={orgLabel}>{orgLabel}</span>
+                </DropdownMenuRadioItem>;
+              })}
             </DropdownMenuRadioGroup>
           </>}
           {organizationSwitchError && <DropdownMenuLabel role="alert" className="text-destructive whitespace-normal">{uiT(organizationSwitchError)}</DropdownMenuLabel>}

@@ -22,6 +22,7 @@ import { GrantEditor, GrantHistory } from './grants';
 import {
   CreditEditor,
   CreditsSummaryCell,
+  customerDisplayName,
   formatCustomerDateTime,
   formatCustomerShortDate,
   loadCustomerCompany,
@@ -177,7 +178,7 @@ export function CustomerDetail({
   }
   const currentCompany: Company = company;
 
-  const companyName = currentCompany.organization_name || uiT('Unnamed company');
+  const companyName = customerDisplayName(currentCompany, uiT);
   const primaryAccount: CustomerBalance | null =
     currentCompany.accounts.find(acc => acc.currency === platformCurrency) ?? currentCompany.accounts[0] ?? null;
   const canTransactPrimary = Boolean(platformCurrency && (!primaryAccount || primaryAccount.currency === platformCurrency));

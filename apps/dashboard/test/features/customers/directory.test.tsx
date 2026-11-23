@@ -147,6 +147,51 @@ it('filters customers by company, owner, or email via the search popover', async
   expect(screen.getByText('Acme')).toBeTruthy();
 });
 
+it('distinguishes personal accounts from organizations without showing Personal workspace and forwards kind filter to backend', async () => {
+  const calls = stubApi({
+    accounts: {
+      data: [
+        {
+          organization_id: acme,
+          organization_name: 'Personal workspace',
+          account_kind: 'personal',
+          owner: { name: 'Lin Wei', email: 'lin@example.com' },
+          workspace_count: 2,
+          member_count: 1,
+          custom_price_count: 0,
+          accounts: [],
+          credits: null,
+        },
+        {
+          organization_id: beta,
+          organization_name: 'Beta Studio',
+          account_kind: 'organization',
+          owner: { name: 'Mei Lin', email: 'mei@beta.dev' },
+          workspace_count: 1,
+          member_count: 3,
+          custom_price_count: 0,
+          accounts: [],
+          credits: null,
+        },
+      ],
+      next_after: null,
+    },
+  });
+  const user = userEvent.setup();
+  show();
+  expect(await screen.findByText('Lin Wei')).toBeTruthy();
+  expect(screen.queryByText('Personal workspace')).toBeNull();
+  expect(screen.getByText('lin@example.com')).toBeTruthy();
+  expect(screen.getByText('2 workspaces')).toBeTruthy();
+  expect(screen.getByText('1 workspace · 3 members')).toBeTruthy();
+
+  await user.click(screen.getByRole('button', { name: 'Filter customer type' }));
+  await user.click(await screen.findByRole('menuitemradio', { name: 'Personal' }));
+  expect(screen.queryByText('Beta Studio')).toBeNull();
+  expect(screen.getByText('Lin Wei')).toBeTruthy();
+  await waitFor(() => expect(calls.some(url => url.includes('kind=personal'))).toBe(true));
+});
+
 it('lets platform administrators record an idempotent customer top-up from the directory', async () => {
   const posts: Array<{ url: string; body: Record<string, unknown> }> = [];
   vi.stubGlobal(

@@ -389,6 +389,9 @@ pub struct NamedResource {
     #[sqlx(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub slug: Option<String>,
+    #[sqlx(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_kind: Option<String>,
 }
 
 /// Minimal authorized organization identity for restoring a canonical route.
@@ -984,7 +987,7 @@ impl Store {
             None => {
                 let organization_id = Uuid::new_v4();
                 let project_id = Uuid::new_v4();
-                sqlx::query("INSERT INTO organizations (id,name) VALUES ($1,'Personal workspace')")
+                sqlx::query("INSERT INTO organizations (id,name,account_kind) VALUES ($1,'Personal workspace','personal')")
                     .bind(organization_id)
                     .execute(&mut *tx)
                     .await?;

@@ -3,7 +3,7 @@ import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescript
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { Link, useNavigate, useSearchParams, type LoaderFunctionArgs } from 'react-router';
-import { IconBuilding, IconDots, IconPlus, IconRefresh, IconSearch } from '@tabler/icons-react';
+import { IconBuilding, IconChevronDown, IconDots, IconPlus, IconRefresh, IconSearch } from '@tabler/icons-react';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { canManagePlatform, useDashboardContext } from '@/shell/dashboard-context';
 import { usePlatformCurrency } from '@/shell/platform-currency';
@@ -13,7 +13,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,7 +35,16 @@ import { GrantEditor, GrantHistory } from './grants';
 import { GiftCorrectionEditor } from './gift-corrections';
 import { TopupEditor } from './topups';
 import { CompanyBrandedUnitsDialog } from './unit-accounts';
-import { CreateCompany, CreditEditor, CreditsSummaryCell, type AccountPage, type Company, type Editor } from './customer-shared';
+import {
+  CreateCompany,
+  CreditEditor,
+  CreditsSummaryCell,
+  customerDisplayName,
+  isPersonalCustomer,
+  type AccountPage,
+  type Company,
+  type Editor,
+} from './customer-shared';
 
 export {
   CreditEditor,
@@ -129,22 +146,36 @@ export function Customers({
   const [selected, setSelected] = useState<CompanyMetadata | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [query, setQuery] = useState('');
+  const [kindFilter, setKindFilter] = useState<'all' | 'personal' | 'organization'>('all');
   const [pendingRegistrations, setPendingRegistrations] = useState(0);
   const [refreshTick, setRefreshTick] = useState(0);
   const active = useRef<AbortController | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const searchTriggerRef = useRef<HTMLButtonElement>(null);
+  const filterInitializedRef = useRef(false);
 
-  async function load(after?: string, force = true) {
+  async function load(
+    after?: string,
+    force = true,
+    searchQuery?: string,
+    accountKind?: 'all' | 'personal' | 'organization',
+  ) {
     active.current?.abort();
     const controller = new AbortController();
     active.current = controller;
-    if (after || force || !initialValid) setLoading(true);
+    const trimmedQuery = (searchQuery ?? query).trim();
+    const effectiveKind = accountKind ?? kindFilter;
+    const hasFilter = Boolean(trimmedQuery) || effectiveKind !== 'all';
+    if (after || force || !initialValid || hasFilter) setLoading(true);
     setError('');
     setFailedCursor(undefined);
-    const path = after ? `${CUSTOMER_ACCOUNTS_PATH}&after=${encodeURIComponent(after)}` : CUSTOMER_ACCOUNTS_PATH;
+    const params = new URLSearchParams({ limit: '50' });
+    if (after) params.set('after', after);
+    if (trimmedQuery) params.set('q', trimmedQuery);
+    if (effectiveKind !== 'all') params.set('kind', effectiveKind);
+    const path = `/api/v1/admin/customers?${params.toString()}`;
     try {
-      const page = after
+      const page = after || hasFilter
         ? await request<AccountPage>(token, path, 'GET', undefined, controller.signal)
         : await cachedGet<AccountPage>(token, path, { signal: controller.signal, force });
       if (controller.signal.aborted) return;
@@ -158,7 +189,7 @@ export function Customers({
       );
       setCursor(page.next_after);
     } catch (reason) {
-      if (!after) markCachedStale(token, CUSTOMER_ACCOUNTS_PATH);
+      if (!after && !hasFilter) markCachedStale(token, CUSTOMER_ACCOUNTS_PATH);
       if (!controller.signal.aborted) {
         setError(reason instanceof Error ? reason.message : 'Customer balances unavailable.');
         setFailedCursor(after);
@@ -169,9 +200,21 @@ export function Customers({
   }
 
   useEffect(() => {
-    void load(undefined, false);
+    void load(undefined, false, '', 'all');
     return () => active.current?.abort();
   }, [token]);
+
+  useEffect(() => {
+    if (!filterInitializedRef.current) {
+      filterInitializedRef.current = true;
+      return;
+    }
+    const delay = query.trim() ? 220 : 0;
+    const timer = window.setTimeout(() => {
+      void load(undefined, true, query, kindFilter);
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [query, kindFilter]);
 
   useEffect(() => {
     if (!token) return;
@@ -194,23 +237,30 @@ export function Customers({
 
   const filteredCompanies = useMemo(() => {
     const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-    if (!terms.length) return companies;
     return companies.filter(company => {
-      const haystack = [company.organization_name, company.owner?.name ?? '', company.owner?.email ?? '']
+      if (kindFilter === 'personal' && !isPersonalCustomer(company)) return false;
+      if (kindFilter === 'organization' && isPersonalCustomer(company)) return false;
+      if (!terms.length) return true;
+      const haystack = [
+        customerDisplayName(company, uiT),
+        company.organization_name,
+        company.owner?.name ?? '',
+        company.owner?.email ?? '',
+      ]
         .join(' ')
         .toLocaleLowerCase();
       return terms.every(term => haystack.includes(term));
     });
-  }, [companies, query]);
+  }, [companies, kindFilter, query, uiT]);
 
   function refresh() {
     setRefreshTick(value => value + 1);
-    void load();
+    void load(undefined, true, query, kindFilter);
   }
 
   function openSetup(company: Company) {
     setNotice('');
-    setSelected({ id: company.organization_id, name: company.organization_name });
+    setSelected({ id: company.organization_id, name: customerDisplayName(company, uiT) });
   }
 
   function openEditor(next: Editor) {
@@ -219,7 +269,7 @@ export function Customers({
   }
 
   function companyLabel(company: Company) {
-    return company.organization_name || uiT("Unnamed company");
+    return customerDisplayName(company, uiT);
   }
 
   function renderOwnerSubtitle(company: Company) {
@@ -227,7 +277,16 @@ export function Customers({
     if (!company.owner) {
       return <p className="mt-0.5 text-xs text-muted-foreground">{uiT("Owner not set")}</p>;
     }
-    const text = company.owner.email ? `${company.owner.name} · ${company.owner.email}` : company.owner.name;
+    const label = companyLabel(company);
+    const sameName = company.owner.name.trim().toLowerCase() === label.trim().toLowerCase();
+    const text = company.owner.email
+      ? sameName
+        ? company.owner.email
+        : `${company.owner.name} · ${company.owner.email}`
+      : sameName
+        ? ''
+        : company.owner.name;
+    if (!text) return null;
     return <p className="mt-0.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">{text}</p>;
   }
 
@@ -288,10 +347,10 @@ export function Customers({
           ? uiT("1 workspace")
           : uiF("{0} workspaces", [company.workspace_count]);
     const memberCount = company.member_count ?? 0;
-    if (memberCount <= 0) {
+    if (memberCount <= 1) {
       return <span className="text-sm text-muted-foreground">{wsLabel}</span>;
     }
-    const memberLabel = memberCount === 1 ? uiT("1 member", "1 位成员") : uiF("{0} members", [memberCount]);
+    const memberLabel = uiF("{0} members", [memberCount]);
     return (
       <span className="text-sm text-muted-foreground">
         {wsLabel} · {memberLabel}
@@ -377,37 +436,68 @@ export function Customers({
           action={
             activeTab === 'customers' ? (
               <>
-                {companies.length > 0 && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        ref={searchTriggerRef}
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label={uiT("Search customers", "搜索客户")}
-                        title={uiT("Search customers", "搜索客户")}
-                        className={query ? "text-primary bg-accent" : undefined}
-                      >
-                        <IconSearch size={17} />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-2">
-                      <Input
-                        autoFocus
-                        type="search"
-                        aria-label={uiT("Search customers", "搜索客户")}
-                        placeholder={uiT("Search by company, owner, or email…", "按公司名称、负责人或邮箱搜索…")}
-                        value={query}
-                        onChange={event => setQuery(event.target.value)}
-                      />
-                      {query && (
-                        <Button type="button" variant="ghost" size="sm" onClick={() => setQuery('')}>
-                          {uiT("Reset search")}
+                {(companies.length > 0 || query.trim().length > 0 || kindFilter !== 'all') && (
+                  <>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          aria-label={uiT("Filter customer type", "筛选客户类型")}
+                        >
+                          <span>
+                            {kindFilter === 'personal'
+                              ? uiT("Personal", "个人")
+                              : kindFilter === 'organization'
+                                ? uiT("Organization", "组织")
+                                : uiT("All", "全部")}
+                          </span>
+                          <IconChevronDown size={15} className="text-muted-foreground" aria-hidden="true" />
                         </Button>
-                      )}
-                    </PopoverContent>
-                  </Popover>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuRadioGroup
+                          value={kindFilter}
+                          onValueChange={value => setKindFilter(value as 'all' | 'personal' | 'organization')}
+                        >
+                          <DropdownMenuRadioItem value="all">{uiT("All", "全部")}</DropdownMenuRadioItem>
+                          <DropdownMenuRadioItem value="personal">{uiT("Personal", "个人")}</DropdownMenuRadioItem>
+                          <DropdownMenuRadioItem value="organization">{uiT("Organization", "组织")}</DropdownMenuRadioItem>
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          ref={searchTriggerRef}
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={uiT("Search customers", "搜索客户")}
+                          title={uiT("Search customers", "搜索客户")}
+                          className={query ? "text-primary bg-accent" : undefined}
+                        >
+                          <IconSearch size={17} />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-2">
+                        <Input
+                          autoFocus
+                          type="search"
+                          aria-label={uiT("Search customers", "搜索客户")}
+                          placeholder={uiT("Search by company, owner, or email…", "按名称、负责人或邮箱搜索…")}
+                          value={query}
+                          onChange={event => setQuery(event.target.value)}
+                        />
+                        {query && (
+                          <Button type="button" variant="ghost" size="sm" onClick={() => setQuery('')}>
+                            {uiT("Reset search")}
+                          </Button>
+                        )}
+                      </PopoverContent>
+                    </Popover>
+                  </>
                 )}
                 <Button variant="ghost" size="icon-sm" disabled={loading} aria-label={uiT("Refresh customers")} title={uiT("Refresh customers")} onClick={refresh}>
                   <IconRefresh size={16} className={loading ? 'animate-spin' : undefined} aria-hidden="true" />
@@ -470,7 +560,7 @@ export function Customers({
 
           {loading && !companies.length && <TableSkeleton columns={5} rows={5} label={uiT("Loading customer balances…")} />}
 
-          {!loading && !error && !companies.length && (
+          {!loading && !error && !companies.length && !query.trim() && kindFilter === 'all' && (
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -492,7 +582,7 @@ export function Customers({
             </Empty>
           )}
 
-          {!loading && companies.length > 0 && filteredCompanies.length === 0 && (
+          {!loading && (companies.length > 0 || query.trim().length > 0 || kindFilter !== 'all') && filteredCompanies.length === 0 && (
             <Empty role="status">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -500,7 +590,7 @@ export function Customers({
                 </EmptyMedia>
                 <EmptyTitle>{uiT("No matching customers", "没有匹配的客户")}</EmptyTitle>
                 <EmptyDescription>
-                  {uiT("Try another company name, owner, or email address.", "请尝试其他公司名称、负责人或邮箱。")}
+                  {uiT("Try another name, email, or customer type.", "请尝试其他名称、邮箱或客户类型。")}
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
@@ -509,6 +599,7 @@ export function Customers({
                   variant="outline"
                   onClick={() => {
                     setQuery('');
+                    setKindFilter('all');
                     searchTriggerRef.current?.focus();
                   }}
                 >
@@ -526,13 +617,14 @@ export function Customers({
                   <TableHead className="text-right">{uiT("Balance", "余额")}</TableHead>
                   <TableHead className="hidden sm:table-cell">{uiT("Pricing", "价格方案")}</TableHead>
                   <TableHead className="hidden md:table-cell">{uiT("Workspaces")}</TableHead>
-                  <TableHead className="text-right">{uiT("Actions")}</TableHead>
+                  <TableHead className="text-right"><span className="sr-only">{uiT("Actions")}</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCompanies.map(company => {
                   const account = primaryCustomerAccount(company, platformCurrency);
                   const detailHref = `/admin/customers/${encodeURIComponent(company.slug || company.organization_id)}`;
+                  const personalAccount = isPersonalCustomer(company);
                   return (
                     <TableRow
                       key={company.organization_id}
@@ -543,11 +635,14 @@ export function Customers({
                       }}
                     >
                       <TableCell className="whitespace-normal sm:min-w-44">
-                        <p className="[overflow-wrap:anywhere]">
+                        <div className="flex flex-wrap items-center gap-1.5 [overflow-wrap:anywhere]">
                           <Link className="font-medium text-foreground hover:underline underline-offset-4" to={detailHref}>
                             {companyLabel(company)}
                           </Link>
-                        </p>
+                          <Badge variant="outline" className="px-1.5 py-0 text-[11px] font-normal text-muted-foreground">
+                            {personalAccount ? uiT("Personal", "个人") : uiT("Organization", "组织")}
+                          </Badge>
+                        </div>
                         {renderOwnerSubtitle(company)}
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap align-middle">
@@ -594,12 +689,18 @@ export function Customers({
         onOpenChange={setCreate}
         client={client}
         token={token}
+        existingCompanies={companies}
         onCreated={(company, options) => {
           invalidateQueries(CUSTOMER_ACCOUNTS_PATH);
+          if (options?.joinedExisting) {
+            void load(undefined, true, query, kindFilter);
+            return;
+          }
           setCompanies(old => [
             {
               organization_id: company.id,
               organization_name: company.name,
+              account_kind: options?.accountKind ?? 'organization',
               owner: options?.ownerEmail ? { name: company.name, email: options.ownerEmail } : null,
               workspace_count: options?.workspaceCreated ? 1 : 0,
               member_count: options?.ownerEmail ? 1 : 0,
@@ -611,12 +712,12 @@ export function Customers({
           ]);
           if (options?.completedSetup) {
             if (options.workspaceCreated) onWorkspaceCreated();
-            void load();
+            void load(undefined, true, query, kindFilter);
             return;
           }
           setCreate(false);
           setSelected(company);
-          void load();
+          void load(undefined, true, query, kindFilter);
         }}
       />
       {selected && (

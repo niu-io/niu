@@ -26,6 +26,7 @@ pub(crate) struct PlatformCompanyRecord {
     pub id: Uuid,
     pub slug: String,
     pub name: String,
+    pub account_kind: String,
     pub created_at: String,
 }
 
@@ -95,7 +96,19 @@ SELECT jsonb_build_object(
         name: &str,
         currency: &str,
     ) -> Result<Uuid, StoreError> {
+        Self::create_prepaid_organization_in_tx_with_kind(tx, name, currency, "organization").await
+    }
+
+    pub(crate) async fn create_prepaid_organization_in_tx_with_kind(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        name: &str,
+        currency: &str,
+        account_kind: &str,
+    ) -> Result<Uuid, StoreError> {
         if currency.len() != 3 || !currency.bytes().all(|b| b.is_ascii_uppercase()) {
+            return Err(StoreError::InvalidPrice);
+        }
+        if !matches!(account_kind, "personal" | "organization") {
             return Err(StoreError::InvalidPrice);
         }
         let organization = Uuid::new_v4();
@@ -104,10 +117,11 @@ SELECT jsonb_build_object(
             .bind(base_slug)
             .fetch_one(&mut **tx)
             .await?;
-        sqlx::query("INSERT INTO organizations(id,name,slug) VALUES($1,$2,$3)")
+        sqlx::query("INSERT INTO organizations(id,name,slug,account_kind) VALUES($1,$2,$3,$4)")
             .bind(organization)
             .bind(name)
             .bind(slug)
+            .bind(account_kind)
             .execute(&mut **tx)
             .await?;
         sqlx::query(
@@ -510,9 +524,37 @@ SELECT jsonb_build_object(
         after: Option<Uuid>,
         limit: i64,
     ) -> Result<(Vec<PlatformCompanyRecord>, Option<Uuid>), StoreError> {
+        Self::platform_company_page_filtered_in_tx(snapshot, after, limit, None, None).await
+    }
+
+    pub(crate) async fn platform_company_page_filtered_in_tx(
+        snapshot: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        after: Option<Uuid>,
+        limit: i64,
+        query: Option<&str>,
+        account_kind: Option<&str>,
+    ) -> Result<(Vec<PlatformCompanyRecord>, Option<Uuid>), StoreError> {
         if !(1..=100).contains(&limit) {
             return Err(StoreError::InvalidPrice);
         }
+        if let Some(kind) = account_kind
+            && !matches!(kind, "personal" | "organization")
+        {
+            return Err(StoreError::InvalidPrice);
+        }
+        let search_pattern = match query.map(str::trim).filter(|value| !value.is_empty()) {
+            Some(trimmed) => {
+                if trimmed.chars().count() > 120 {
+                    return Err(StoreError::InvalidPrice);
+                }
+                let escaped = trimmed
+                    .replace('\\', "\\\\")
+                    .replace('%', "\\%")
+                    .replace('_', "\\_");
+                Some(format!("%{escaped}%"))
+            }
+            None => None,
+        };
         if let Some(cursor) = after {
             let exists: bool =
                 sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM organizations WHERE id=$1)")
@@ -523,8 +565,32 @@ SELECT jsonb_build_object(
                 return Err(StoreError::Conflict);
             }
         }
-        let mut companies: Vec<PlatformCompanyRecord> = sqlx::query_as("SELECT id,name,slug,to_jsonb(created_at) #>> '{}' AS created_at FROM organizations WHERE $1::uuid IS NULL OR id>$1 ORDER BY id LIMIT $2")
-            .bind(after).bind(limit+1).fetch_all(&mut **snapshot).await?;
+        let mut companies: Vec<PlatformCompanyRecord> = sqlx::query_as(
+            "SELECT o.id, o.name, o.slug, o.account_kind, to_jsonb(o.created_at) #>> '{}' AS created_at \
+             FROM organizations o \
+             WHERE ($1::uuid IS NULL OR o.id > $1) \
+               AND ($2::text IS NULL OR o.account_kind = $2) \
+               AND ($3::text IS NULL \
+                 OR o.name ILIKE $3 ESCAPE '\\' \
+                 OR o.slug ILIKE $3 ESCAPE '\\' \
+                 OR EXISTS ( \
+                   SELECT 1 \
+                   FROM admin_operators ao \
+                   LEFT JOIN account_memberships am ON am.operator_id = ao.id \
+                   LEFT JOIN member_password_credentials mpc ON mpc.operator_id = COALESCE(am.identity_id, ao.id) \
+                   WHERE ao.organization_id = o.id \
+                     AND ao.revoked_at IS NULL \
+                     AND (ao.name ILIKE $3 ESCAPE '\\' OR mpc.email ILIKE $3 ESCAPE '\\') \
+                 )) \
+             ORDER BY o.id \
+             LIMIT $4",
+        )
+        .bind(after)
+        .bind(account_kind)
+        .bind(search_pattern)
+        .bind(limit + 1)
+        .fetch_all(&mut **snapshot)
+        .await?;
         let more = companies.len() > limit as usize;
         companies.truncate(limit as usize);
         let next = if more {
@@ -541,13 +607,21 @@ SELECT jsonb_build_object(
         &self,
         after: Option<Uuid>,
         limit: i64,
+        query: Option<&str>,
+        account_kind: Option<&str>,
     ) -> Result<Value, StoreError> {
         if !(1..=100).contains(&limit) {
             return Err(StoreError::InvalidPrice);
         }
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let (companies, next) =
-            Self::platform_company_page_in_tx(&mut snapshot, after, limit).await?;
+        let (companies, next) = Self::platform_company_page_filtered_in_tx(
+            &mut snapshot,
+            after,
+            limit,
+            query,
+            account_kind,
+        )
+        .await?;
         let ids: Vec<Uuid> = companies.iter().map(|company| company.id).collect();
         let balances: Vec<(Uuid, Value)> =
             sqlx::query_as(include_str!("customer_balance_projection.sql"))
@@ -635,6 +709,7 @@ SELECT jsonb_build_object(
                 json!({
                     "organization_id": company.id,
                     "organization_name": company.name,
+                    "account_kind": company.account_kind,
                     "slug": company.slug,
                     "created_at": company.created_at,
                     "owner": owners.remove(&company.id).unwrap_or(Value::Null),
@@ -658,8 +733,8 @@ SELECT jsonb_build_object(
     ) -> Result<Option<Value>, StoreError> {
         let reference = reference.to_string();
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let org: Option<(Uuid, String, String, String)> = sqlx::query_as(
-            "SELECT o.id, o.name, o.slug, to_jsonb(o.created_at) #>> '{}' FROM organizations o
+        let org: Option<(Uuid, String, String, String, String)> = sqlx::query_as(
+            "SELECT o.id, o.name, o.slug, o.account_kind, to_jsonb(o.created_at) #>> '{}' FROM organizations o
              WHERE o.id = $1 OR o.slug = $2 OR EXISTS (
                 SELECT 1 FROM organization_slug_aliases a WHERE a.organization_id = o.id AND a.slug = $2
              ) ORDER BY (o.id = $1) DESC NULLS LAST LIMIT 1",
@@ -668,7 +743,7 @@ SELECT jsonb_build_object(
         .bind(&reference)
         .fetch_optional(&mut *snapshot)
         .await?;
-        let Some((organization_id, organization_name, slug, created_at)) = org else {
+        let Some((organization_id, organization_name, slug, account_kind, created_at)) = org else {
             crate::commit_tx(snapshot).await?;
             return Ok(None);
         };
@@ -767,6 +842,7 @@ SELECT jsonb_build_object(
         Ok(Some(json!({
             "organization_id": organization_id,
             "organization_name": organization_name,
+            "account_kind": account_kind,
             "slug": slug,
             "created_at": created_at,
             "owner": owner,

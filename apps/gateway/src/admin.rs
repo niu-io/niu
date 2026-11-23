@@ -54,6 +54,9 @@ pub struct OrganizationInput {
     slug: Option<String>,
     #[serde(default, deserialize_with = "non_null_optional_string")]
     currency: Option<String>,
+    #[serde(default, deserialize_with = "non_null_optional_string")]
+    account_kind: Option<String>,
+    attach_creator: Option<bool>,
 }
 
 fn non_null_optional_string<'de, D: serde::Deserializer<'de>>(
@@ -1222,6 +1225,17 @@ pub async fn create_workspace(
 ///                 "type": "string",
 ///                 "pattern": "^[A-Z]{3}$",
 ///                 "default": "USD"
+///               },
+///               "account_kind": {
+///                 "type": "string",
+///                 "enum": ["personal", "organization"],
+///                 "default": "organization",
+///                 "description": "Account kind. Personal accounts require platform administration."
+///               },
+///               "attach_creator": {
+///                 "type": "boolean",
+///                 "default": true,
+///                 "description": "When false (platform administrators only), creates a standalone customer account without adding the caller as a member."
 ///               }
 ///             }
 ///           }
@@ -1327,14 +1341,25 @@ pub async fn organization(
             "Currency must be a three-letter uppercase code",
         ));
     }
+    let account_kind = match input.account_kind.as_deref() {
+        None | Some("organization") => "organization",
+        Some("personal") => "personal",
+        Some(_) => {
+            return Err(ApiError::invalid_request(
+                "account_kind must be personal or organization",
+            ));
+        }
+    };
     let creation_key = creation_idempotency_key(&headers)?;
+    let platform_admin = authorization.can_manage_platform();
     match authorization {
         crate::state::AdminAuthorization::Installation => {
             let id = state
                 .store
-                .create_prepaid_organization_with_key(
+                .create_prepaid_organization_with_key_and_kind(
                     &input.name,
                     &currency,
+                    account_kind,
                     creation_key.as_deref(),
                 )
                 .await
@@ -1353,11 +1378,47 @@ pub async fn organization(
                     "id": id,
                     "slug": record.slug,
                     "name": record.name,
+                    "account_kind": record.account_kind.unwrap_or_else(|| account_kind.to_string()),
                     "currency": currency,
                 })),
             ))
         }
         crate::state::AdminAuthorization::Operator(principal) => {
+            let standalone_customer =
+                input.attach_creator == Some(false) || account_kind == "personal";
+            if standalone_customer {
+                if !platform_admin {
+                    return Err(ApiError::forbidden());
+                }
+                let id = state
+                    .store
+                    .create_prepaid_organization_with_key_and_kind(
+                        &input.name,
+                        &currency,
+                        account_kind,
+                        creation_key.as_deref(),
+                    )
+                    .await
+                    .map_err(ApiError::from_store)?;
+                let record = state
+                    .store
+                    .organization_page(Some(id), None, 1)
+                    .await
+                    .map_err(ApiError::from_store)?
+                    .into_iter()
+                    .next()
+                    .ok_or_else(ApiError::not_found)?;
+                return Ok((
+                    StatusCode::CREATED,
+                    Json(json!({
+                        "id": id,
+                        "slug": record.slug,
+                        "name": record.name,
+                        "account_kind": record.account_kind.unwrap_or_else(|| account_kind.to_string()),
+                        "currency": currency,
+                    })),
+                ));
+            }
             let created = state
                 .store
                 .create_account_organization_with_slug(
@@ -1381,6 +1442,7 @@ pub async fn organization(
                     "id": created.organization_id,
                     "slug": created.slug,
                     "name": current_name,
+                    "account_kind": "organization",
                     "currency": created.currency,
                     "operator_id": created.operator_id,
                 })),

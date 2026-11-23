@@ -5162,4 +5162,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Could not create an API key. Try again.": "无法创建 API 密钥，请重试。",
   "Trial credit ({0}, optional)": "试用赠金（{0}，选填）",
   "Customer \"{0}\" was created, but setup paused: {1} Click retry to continue without duplicating the customer.": "客户“{0}”已创建，但后续配置中断：{1} 点击重试可继续完成，不会重复创建客户。",
+  "Personal": "个人",
+  "Check the customer details.": "请检查填写的客户信息。",
+  "Creation could not be confirmed. Retry uses the same request and cannot create a second customer. You can also close this dialog and refresh the customer list.": "无法确认创建结果。重试将复用同一请求，不会重复创建客户；你也可以关闭弹窗并刷新客户列表。",
 };
