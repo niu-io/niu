@@ -63,3 +63,13 @@ The dashboard candidate was rendered against current staging workspace data at 3
 The local gateway served the revised customer detail from a fresh database. Opening its legacy bookmark preserved the selected tab and fragment when redirecting to the customer slug. Unknown browser routes returned an HTML recovery page with status 404 at both phone and desktop widths. Unknown API routes retained a JSON 404. The website comparison placed platform selection criteria before historical benchmarks at both widths.
 
 These observations cover the candidate assets and local gateway. Populated records and hosted deployment have separate acceptance requirements in Beads.
+
+## Hosted acceptance after deployment
+
+Staging served the release containing the dashboard and documentation changes on November 23. The follow-up for revoked keys deployed at core revision `c5eed7bf`. With no usable workspace key at 390px, the message field, attachment button and send button were disabled. Opening an unavailable-key bookmark and requesting a replacement kept the user in Generations and opened the confirmation dialog. On a separate local installation, confirmation created the replacement, selected it and returned to the conversation.
+
+The hosted mobile archive had one open dialog and one empty message. Escape reopened history with keyboard focus on Archived sessions. On the pricing page, both Escape and the footer Close button returned focus to Publish text pricing. The next Tab focused Customer management. These results cover the empty archive and pricing dialog.
+
+The API key, usage, events, routing and evaluation empty pages, chat, workspace models and billing, admin pricing, reports, registration settings and customer directory were captured after rendering at 390, 900 and 1280 CSS pixels. The zero-request usage view had a single empty region. The installation and inference documents each measured 390px at a 390px viewport. Long code examples scrolled within 358px containers. The SDK compatibility alias could be followed to ProviderModel with the keyboard. The mobile API Explorer exposed an operation browser with search and resource groups. Missing browser pages and unknown APIs returned their expected HTML and JSON 404 responses.
+
+Populated request and evaluation results, archived chat/video combinations, and reports containing partial traffic still require corresponding records. The live Beads entries identify the remaining acceptance cases.
