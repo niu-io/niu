@@ -182,4 +182,13 @@ describe('Shared UI primitives layout safeguards', () => {
       expect(source, `${rel} should pass primary section tabs into PageHeader`).toMatch(/<PageHeader[\s\S]*?tabs=/);
     }
   });
+
+  it('prevents direct-child dialog buttons from stretching full width and keeps pricing history notes labeled', () => {
+    const foundation = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
+    expect(foundation).toContain(':where([data-slot="dialog-content"]) > :where([data-slot="button"]:not([data-slot="dialog-close"]))');
+    expect(foundation).toContain('justify-self: start');
+    const retailPage = readFileSync(join(appDir, 'features/retail-pricing/page.tsx'), 'utf8');
+    expect(retailPage).toContain('Publication note:');
+    expect(retailPage).not.toMatch(/<\/DialogHeader>\s*<Button[^>]*>[^<]*Refresh history/);
+  });
 });

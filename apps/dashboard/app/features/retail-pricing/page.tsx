@@ -7,7 +7,7 @@ import LegacyMediaContracts from './legacy-media';
 import { PricingHealthNotice, type PricingHealth } from './pricing-health';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { IconCurrencyDollar, IconSearch, IconDots, IconRefresh } from '@tabler/icons-react';
+import { IconAlertTriangle, IconCurrencyDollar, IconSearch, IconDots, IconRefresh } from '@tabler/icons-react';
 import { ListRowsSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { useDashboardContext } from '@/shell/dashboard-context';
@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { request } from '@/features/providers/api';
@@ -198,9 +198,138 @@ function History({ token, price, onClose, onCloseAutoFocus }: { token: string; p
     finally { if (!controller.signal.aborted) setLoading(false); }
   }
   useEffect(() => { void load(); return () => active.current?.abort(); }, [token, price.price_id]);
-  return <Dialog open onOpenChange={open => { if (!open) onClose(); }}><DialogContent onCloseAutoFocus={onCloseAutoFocus} className="w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{uiT("Prices & history")}</DialogTitle><DialogDescription>{price.model_alias} · {price.currency}{uiT(". Published standard prices, promotions, and retirements for this model.")}</DialogDescription></DialogHeader><Button variant="outline" disabled={loading} onClick={() => void load()}>{uiT("Refresh history")}</Button>
-    {loading && !history && <ListRowsSkeleton rows={3} label={uiT("Loading price history…")} />}{error && <Alert variant="destructive"><AlertDescription>{uiT(error)} <Button variant="outline" disabled={loading} onClick={() => void load(failed)}>{uiT("Retry history")}</Button></AlertDescription></Alert>}
-    {history?.data.map(row => <section key={row.revision} className="space-y-2 border-b py-3"><div className="flex flex-wrap items-center gap-2"><Badge variant="outline">{row.action === 'standard_published' ? uiT("Standard published") : row.action === 'promotion_published' ? uiT("Promotion published") : uiT("Promotion retired")}</Badge><span className="text-sm text-muted-foreground">{date(row.created_at)}</span></div>{row.reason && <p className="break-words">{row.reason}</p>}{row.standard_schedule && <SellingSchedule schedule={row.standard_schedule} currency={price.currency} />}{row.promotion && <><p>{row.promotion.scope === 'global' ? uiT("All customers") : row.promotion.customer_name || uiT("Customer name unavailable")}</p><p className="text-sm">{uiT("Published period:")}{" "}{seconds(row.promotion.effective_from)} – {seconds(row.promotion.effective_until)}</p><SellingSchedule schedule={row.promotion.schedule} currency={price.currency} /></>}{row.retirement && <p>{uiT("Eligibility cutoff:")}{" "}{seconds(row.retirement.effective_until)}</p>}</section>)}
-    {history?.next_before && <Button variant="outline" disabled={loading} onClick={() => void load(history.next_before!)}>{uiT("Older events")}</Button>}<div className="flex justify-end"><Button variant="outline" onClick={onClose}>{uiT("Close")}</Button></div>
-  </DialogContent></Dialog>;
+  const belowCost = Boolean(price.pricing_health?.checks?.some(check => check.status === 'below_cost'));
+  const currentZeroTextPrice =
+    price.schedule.kind === 'text' &&
+    price.schedule.prompt_rate === '0' &&
+    price.schedule.completion_rate === '0';
+  return (
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent onCloseAutoFocus={onCloseAutoFocus} className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90dvh] overflow-y-auto">
+        <div className="flex items-start justify-between gap-3 pr-8">
+          <DialogHeader className="min-w-0 text-left">
+            <DialogTitle>{uiT("Prices & history")}</DialogTitle>
+            <DialogDescription>
+              {price.model_alias} · {price.currency}{uiT(". Published standard prices, promotions, and retirements for this model.")}
+            </DialogDescription>
+          </DialogHeader>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            disabled={loading}
+            aria-label={uiT("Refresh history")}
+            title={uiT("Refresh history")}
+            onClick={() => void load()}
+          >
+            <IconRefresh size={16} className={loading ? 'animate-spin' : undefined} aria-hidden="true" />
+          </Button>
+        </div>
+
+        {(belowCost || currentZeroTextPrice) && (
+          <Alert variant="destructive">
+            <IconAlertTriangle size={16} aria-hidden="true" />
+            <AlertDescription className="space-y-1">
+              {belowCost ? (
+                <p>
+                  {uiT(
+                    "Current selling rates are below Provider procurement cost. Requests billed at this standard price lose money unless intentionally subsidized.",
+                    "当前客户售价低于供应商采购成本。按此标准价计费会产生亏损，请核对标准售价或供应商报价。",
+                  )}
+                </p>
+              ) : (
+                <p>
+                  {uiT(
+                    "This model's active standard price is $0.00 (free) for customers. Confirm that upstream Provider supply is actually free or intentionally subsidized.",
+                    "该模型当前生效的客户标准价为 0（免费）。请确认上游供应商资源确实免费或属于有意补贴，避免误将付费资源免费开放。",
+                  )}
+                </p>
+              )}
+              <Button asChild variant="link" className="h-auto p-0 text-xs">
+                <Link to="/admin/providers">{uiT("Review Provider prices")}</Link>
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {loading && !history && <ListRowsSkeleton rows={3} label={uiT("Loading price history…")} />}
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+              <span>{uiT(error)}</span>
+              <Button type="button" variant="outline" size="sm" disabled={loading} onClick={() => void load(failed)}>
+                {uiT("Retry history")}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {history && (
+          <div className="divide-y divide-border/70">
+            {history.data.map(row => {
+              const rowIsFreeText =
+                row.standard_schedule?.kind === 'text' &&
+                row.standard_schedule.prompt_rate === '0' &&
+                row.standard_schedule.completion_rate === '0';
+              return (
+                <section key={row.revision} className="space-y-3 py-4 first:pt-1 last:pb-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">
+                      {row.action === 'standard_published'
+                        ? uiT("Standard published")
+                        : row.action === 'promotion_published'
+                          ? uiT("Promotion published")
+                          : uiT("Promotion retired")}
+                    </Badge>
+                    {rowIsFreeText && (
+                      <Badge variant="destructive" className="font-normal">
+                        {uiT("Free ($0.00)", "免费（$0.00）")}
+                      </Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground tabular-nums">{date(row.created_at)}</span>
+                  </div>
+                  {row.reason && (
+                    <p className="text-sm text-muted-foreground break-words">
+                      <span className="font-medium text-foreground">{uiT("Publication note:", "发布备注：")}</span>{" "}
+                      {row.reason}
+                    </p>
+                  )}
+                  {row.standard_schedule && <SellingSchedule schedule={row.standard_schedule} currency={price.currency} />}
+                  {row.promotion && (
+                    <>
+                      <p className="text-sm">
+                        {row.promotion.scope === 'global'
+                          ? uiT("All customers")
+                          : row.promotion.customer_name || uiT("Customer name unavailable")}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {uiT("Published period:")}{" "}{seconds(row.promotion.effective_from)} – {seconds(row.promotion.effective_until)}
+                      </p>
+                      <SellingSchedule schedule={row.promotion.schedule} currency={price.currency} />
+                    </>
+                  )}
+                  {row.retirement && (
+                    <p className="text-sm text-muted-foreground">
+                      {uiT("Eligibility cutoff:")}{" "}{seconds(row.retirement.effective_until)}
+                    </p>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        )}
+
+        <DialogFooter className="sm:justify-between">
+          <div>
+            {history?.next_before && (
+              <Button type="button" variant="outline" size="sm" disabled={loading} onClick={() => void load(history.next_before!)}>
+                {uiT("Older events")}
+              </Button>
+            )}
+          </div>
+          <Button type="button" variant="outline" onClick={onClose}>{uiT("Close")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }

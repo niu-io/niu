@@ -134,6 +134,8 @@ button:disabled { cursor: not-allowed; }
 /* Global zero-specificity safeguard: any unstyled block container holding a visible Label + control gets default vertical field spacing so labels can never collide with controls. */
 :where(form, [data-slot="dialog-content"], [data-slot="popover-content"]) :where(div:not([class*="flex"]):not([class*="grid"]):not([class*="space-y-"]), fieldset:not([class*="flex"]):not([class*="grid"]):not([class*="space-y-"]), form:not([class*="flex"]):not([class*="grid"]):not([class*="space-y-"])):has(> [data-slot="label"]:not(.sr-only)) { display: grid; gap: 0.5rem; }
 :where([data-slot="popover-content"]:not([class*="flex"]):not([class*="grid"]):not([class*="space-y-"])):has(> [data-slot="label"]:not(.sr-only)) { display: grid; gap: 0.5rem; }
+/* DialogContent uses CSS grid; prevent direct-child utility buttons (e.g. Refresh, Load more) from stretching full dialog width by default. */
+:where([data-slot="dialog-content"]) > :where([data-slot="button"]:not([data-slot="dialog-close"])) { justify-self: start; width: auto; }
 .niu-modal-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; margin-top: 8px; padding-top: 12px; border-top: 0; }
 .niu-modal-actions > a, .niu-modal-actions > button { min-height: 40px; }
 @keyframes niu-modal-fade-in { from { opacity: 0; } to { opacity: 1; } }
