@@ -1,7 +1,6 @@
 import { translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
-import { useLocation, useSearchParams } from 'react-router';
 import { IconChevronDown, IconPalette } from '@tabler/icons-react';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
@@ -12,7 +11,6 @@ import { request, VendorRequestError } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import defaultLogo from '../../../../../branding/assets/niu-mark.png';
@@ -67,11 +65,6 @@ export default function BrandingPage() {
   const { token } = useDashboardContext();
   const scope = token || 'public';
   const branding = useBranding();
-  const location = useLocation();
-  const [search, setSearch] = useSearchParams();
-  const embeddedInSettings = location.pathname.startsWith('/admin/settings');
-  const tabParam = embeddedInSettings ? 'section' : 'tab';
-  const tab = search.get(tabParam) === 'theme' ? 'theme' : 'branding';
   const initialBranding = (() => {
     const raw = peekQuery<unknown>(scope, '/api/v1/admin/branding');
     if (raw === undefined) return null;
@@ -209,123 +202,118 @@ export default function BrandingPage() {
           <FormSectionSkeleton fields={3} label={t('Loading branding settings…', '正在加载品牌与主题设置…')} />
         )
       ) : (
-        <>
-          <Tabs value={tab} onValueChange={value => { const next = new URLSearchParams(search); value === 'theme' ? next.set(tabParam, 'theme') : next.delete(tabParam); setSearch(next, { replace: true }); }}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <TabsList variant="line">
-                <TabsTrigger value="branding">{t('Branding', '品牌标识')}</TabsTrigger>
-                <TabsTrigger value="theme">{t('Theme', '主题外观')}</TabsTrigger>
-              </TabsList>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setPreview(true)}>
-                  <IconPalette />{t('Preview', '预览')}
-                </Button>
-                <Button
-                  ref={resetBtnRef}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={busy || defaultMatches}
-                  onClick={() => { setError(''); setReloadNeeded(false); setResetOpen(true); }}
-                >
-                  {t('Reset to Niu defaults', '恢复 Niu 默认设置')}
-                </Button>
-                {tab === 'branding' ? (
-                  <Button ref={editBrandingBtnRef} type="button" size="sm" onClick={() => openEditor('branding')}>
-                    {t('Edit branding', '编辑品牌标识')}
-                  </Button>
-                ) : (
-                  <Button ref={editThemeBtnRef} type="button" size="sm" onClick={() => openEditor('theme')}>
-                    {t('Edit theme', '编辑主题外观')}
-                  </Button>
-                )}
-              </div>
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              {t('Customize workspace branding, logos, default appearance, and light/dark palettes.', '自定义工作空间品牌名称、标志图片、默认外观模式与浅色/深色配色。')}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setPreview(true)}>
+                <IconPalette />{t('Preview', '预览')}
+              </Button>
+              <Button
+                ref={resetBtnRef}
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy || defaultMatches}
+                onClick={() => { setError(''); setReloadNeeded(false); setResetOpen(true); }}
+              >
+                {t('Reset to Niu defaults', '恢复 Niu 默认设置')}
+              </Button>
             </div>
+          </div>
 
-            <TabsContent value="branding" className="pt-5">
-              <div className="rounded-[var(--radius-panel)] bg-card p-5">
-                <dl className="grid gap-6 sm:grid-cols-3">
-                  <div className="min-w-0 space-y-1">
-                    <dt className="text-xs text-muted-foreground">{t('Display name', '显示名称')}</dt>
-                    <dd className="text-sm font-medium break-words">{saved.settings.display_name}</dd>
-                    <p className="text-xs text-muted-foreground">{t('Shown on sign-in screens and browser tabs.', '显示在登录界面与浏览器标签页中。')}</p>
-                  </div>
-                  {(['logo_data_url', 'favicon_data_url'] as const).map(field => (
-                    <div key={field} className="min-w-0 space-y-2">
-                      <dt className="text-xs text-muted-foreground">
-                        {field === 'logo_data_url' ? t('Logo', '品牌标志 (Logo)') : t('Favicon', '网站图标 (Favicon)')}
-                      </dt>
-                      <dd className="flex items-center gap-3">
-                        <img
-                          className={field === 'logo_data_url' ? 'h-12 w-24 object-contain' : 'h-8 w-8 object-contain'}
-                          src={saved.settings[field] ?? (field === 'favicon_data_url' ? `${import.meta.env.BASE_URL}assets/favicon-32.png` : defaultLogo)}
-                          alt={field === 'logo_data_url' ? t('Current logo', '当前标志') : t('Current favicon', '当前图标')}
-                        />
-                        <span className="text-xs text-muted-foreground">
-                          {saved.settings[field] ? t('Custom image selected', '已选择自定义图片') : t('Using default image', '当前使用默认图片')}
-                        </span>
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
+          <section aria-labelledby="branding-identity-heading" className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 id="branding-identity-heading" className="text-base font-semibold">{t('Branding', '品牌标识')}</h2>
+              <Button ref={editBrandingBtnRef} type="button" variant="outline" size="sm" onClick={() => openEditor('branding')}>
+                {t('Edit branding', '编辑品牌标识')}
+              </Button>
+            </div>
+            <dl className="grid gap-6 sm:grid-cols-3">
+              <div className="min-w-0 space-y-1">
+                <dt className="text-xs text-muted-foreground">{t('Display name', '显示名称')}</dt>
+                <dd className="text-sm font-medium break-words">{saved.settings.display_name}</dd>
+                <p className="text-xs text-muted-foreground">{t('Shown on sign-in screens and browser tabs.', '显示在登录界面与浏览器标签页中。')}</p>
               </div>
-            </TabsContent>
+              {(['logo_data_url', 'favicon_data_url'] as const).map(field => (
+                <div key={field} className="min-w-0 space-y-2">
+                  <dt className="text-xs text-muted-foreground">
+                    {field === 'logo_data_url' ? t('Logo', '品牌标志 (Logo)') : t('Favicon', '网站图标 (Favicon)')}
+                  </dt>
+                  <dd className="flex items-center gap-3">
+                    <img
+                      className={field === 'logo_data_url' ? 'h-12 w-24 object-contain' : 'h-8 w-8 object-contain'}
+                      src={saved.settings[field] ?? (field === 'favicon_data_url' ? `${import.meta.env.BASE_URL}assets/favicon-32.png` : defaultLogo)}
+                      alt={field === 'logo_data_url' ? t('Current logo', '当前标志') : t('Current favicon', '当前图标')}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {saved.settings[field] ? t('Custom image selected', '已选择自定义图片') : t('Using default image', '当前使用默认图片')}
+                    </span>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
 
-            <TabsContent value="theme" className="pt-5">
-              <div className="space-y-6 rounded-[var(--radius-panel)] bg-card p-5">
-                <div>
-                  <div className="text-xs text-muted-foreground">{t('Default appearance', '默认外观模式')}</div>
-                  <div className="mt-1 text-sm font-medium">{savedAppearanceLabel}</div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('Applies before sign-in and to members without a saved preference.', '适用于未登录界面以及尚未保存个人外观偏好的成员。')}
-                  </p>
+          <section aria-labelledby="branding-theme-heading" className="space-y-6 rounded-[var(--radius-panel)] bg-card p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 id="branding-theme-heading" className="text-base font-semibold">{t('Theme', '主题外观')}</h2>
+              <Button ref={editThemeBtnRef} type="button" variant="outline" size="sm" onClick={() => openEditor('theme')}>
+                {t('Edit theme', '编辑主题外观')}
+              </Button>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">{t('Default appearance', '默认外观模式')}</div>
+              <div className="mt-1 text-sm font-medium">{savedAppearanceLabel}</div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t('Applies before sign-in and to members without a saved preference.', '适用于未登录界面以及尚未保存个人外观偏好的成员。')}
+              </p>
+            </div>
+            <div className="grid gap-6 lg:grid-cols-2">
+              {(['light', 'dark'] as const).map(mode => (
+                <div key={mode} className="space-y-3">
+                  <h3 className="text-sm font-semibold">
+                    {mode === 'light' ? t('Light palette', '浅色配色') : t('Dark palette', '深色配色')}
+                  </h3>
+                  <dl className="grid gap-2.5 sm:grid-cols-2">
+                    {brandingTokens.map(key => {
+                      const override = saved.settings[mode][key];
+                      const displayHex = override ?? defaultTokenHex[mode][key];
+                      return (
+                        <div key={key} className="flex items-center gap-2.5 rounded-md bg-muted/40 px-3 py-2">
+                          <span
+                            aria-hidden="true"
+                            className="size-4 shrink-0 rounded border border-border/60"
+                            style={{ backgroundColor: displayHex }}
+                          />
+                          <div className="min-w-0">
+                            <dt className="truncate text-xs text-muted-foreground">
+                              {isZh ? labelsZh[key] : translateUI(labelsEn[key])}
+                            </dt>
+                            <dd className="font-mono text-xs text-foreground">
+                              {override ?? `${defaultTokenHex[mode][key]} (${t('Default', '默认')})`}
+                            </dd>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </dl>
                 </div>
-                <div className="grid gap-6 lg:grid-cols-2">
-                  {(['light', 'dark'] as const).map(mode => (
-                    <div key={mode} className="space-y-3">
-                      <h2 className="text-sm font-semibold">
-                        {mode === 'light' ? t('Light palette', '浅色配色') : t('Dark palette', '深色配色')}
-                      </h2>
-                      <dl className="grid gap-2.5 sm:grid-cols-2">
-                        {brandingTokens.map(key => {
-                          const override = saved.settings[mode][key];
-                          const displayHex = override ?? defaultTokenHex[mode][key];
-                          return (
-                            <div key={key} className="flex items-center gap-2.5 rounded-md bg-muted/40 px-3 py-2">
-                              <span
-                                aria-hidden="true"
-                                className="size-4 shrink-0 rounded border border-border/60"
-                                style={{ backgroundColor: displayHex }}
-                              />
-                              <div className="min-w-0">
-                                <dt className="truncate text-xs text-muted-foreground">
-                                  {isZh ? labelsZh[key] : translateUI(labelsEn[key])}
-                                </dt>
-                                <dd className="font-mono text-xs text-foreground">
-                                  {override ?? `${defaultTokenHex[mode][key]} (${t('Default', '默认')})`}
-                                </dd>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </dl>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
+              ))}
+            </div>
+          </section>
 
           {notice && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}
-        </>
+        </div>
       )}
 
       <Dialog
         open={editorSection === 'branding' && Boolean(saved)}
         onOpenChange={open => { if (!open) closeEditor(); }}
       >
-        <DialogContent
-          className="sm:max-w-xl"
+        <DialogContent className="sm:max-w-xl"
           onCloseAutoFocus={event => {
             if (editBrandingBtnRef.current?.isConnected) {
               event.preventDefault();
@@ -424,8 +412,7 @@ export default function BrandingPage() {
         open={editorSection === 'theme' && Boolean(saved)}
         onOpenChange={open => { if (!open) closeEditor(); }}
       >
-        <DialogContent
-          className="sm:max-w-2xl"
+        <DialogContent className="sm:max-w-2xl"
           onCloseAutoFocus={event => {
             if (editThemeBtnRef.current?.isConnected) {
               event.preventDefault();
@@ -545,8 +532,7 @@ export default function BrandingPage() {
         open={resetOpen && Boolean(saved)}
         onOpenChange={open => { if (!busy) { setResetOpen(open); if (!open) { setError(''); setReloadNeeded(false); } } }}
       >
-        <DialogContent
-          onCloseAutoFocus={event => {
+        <DialogContent onCloseAutoFocus={event => {
             if (resetBtnRef.current?.isConnected && !defaultMatches) {
               event.preventDefault();
               resetBtnRef.current.focus();

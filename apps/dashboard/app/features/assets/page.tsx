@@ -82,45 +82,54 @@ export default function WorkspaceAssetsRoute() {
     />
   );
 
+  const headerAction = videoKey ? (
+    <Button asChild variant="outline">
+      <Link to={`/generations?new=video&workspace=${encodeURIComponent(workspaceSlug)}&key=${encodeURIComponent(videoKey)}`}>
+        <IconSparkles size={16} aria-hidden="true" />
+        <span>{t('Create video', '生成视频')}</span>
+      </Link>
+    </Button>
+  ) : undefined;
+
+  if (extensionSections.length === 0) {
+    return (
+      <div className="space-y-5">
+        <PageHeader title={t('Assets', '素材库')} action={headerAction} />
+        {libraryElement}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
-      <PageHeader
-        title={t('Assets', '素材库')}
-        action={videoKey &&
-          <Button asChild variant="outline">
-            <Link to={`/generations?new=video&workspace=${encodeURIComponent(workspaceSlug)}&key=${encodeURIComponent(videoKey)}`}>
-              <IconSparkles size={16} aria-hidden="true" />
-              <span>{t('Create video', '生成视频')}</span>
-            </Link>
-          </Button>
-        }
-      />
-      {extensionSections.length === 0 ? (
-        libraryElement
-      ) : (
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="workspace">{t('Workspace media', '工作空间素材')}</TabsTrigger>
-            {extensionSections.map(ext => (
-              <TabsTrigger key={ext.id} value={ext.id}>
-                {t(ext.labelEn, ext.labelZh)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <TabsContent value="workspace">{libraryElement}</TabsContent>
-          {extensionSections.map(ext => (
-            <TabsContent key={ext.id} value={ext.id}>
-              {ext.render({
-                workspaceId: workspace.id,
-                workspaceName: workspaceDisplayName(workspace.name),
-                workspaceSlug,
-                selection,
-                onContextChange: selectContext,
-              })}
-            </TabsContent>
-          ))}
-        </Tabs>
-      )}
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
+        <PageHeader
+          title={t('Assets', '素材库')}
+          tabs={
+            <TabsList variant="line" aria-label={t('Asset sections', '素材库分区')}>
+              <TabsTrigger value="workspace">{t('Workspace media', '工作空间素材')}</TabsTrigger>
+              {extensionSections.map(ext => (
+                <TabsTrigger key={ext.id} value={ext.id}>
+                  {t(ext.labelEn, ext.labelZh)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          }
+          action={headerAction}
+        />
+        <TabsContent value="workspace">{libraryElement}</TabsContent>
+        {extensionSections.map(ext => (
+          <TabsContent key={ext.id} value={ext.id}>
+            {ext.render({
+              workspaceId: workspace.id,
+              workspaceName: workspaceDisplayName(workspace.name),
+              workspaceSlug,
+              selection,
+              onContextChange: selectContext,
+            })}
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
   );
 }

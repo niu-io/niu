@@ -14,16 +14,22 @@ const renderConfiguration = () => render(<MemoryRouter><PlatformConfiguration />
 
 describe('Payment configuration loading', () => {
   it('ends loading after an error and retries both configuration reads', async () => {
-    api.request.mockRejectedValueOnce(new Error('Configuration unavailable')).mockRejectedValueOnce(new Error('Configuration unavailable')).mockResolvedValueOnce({data:{available:false,enabled:false}});
+    let gatewayAttempt = 0;
+    api.request.mockImplementation(async (_token, path) => {
+      if (String(path).includes('bank')) return { data: { revision: '0', bank_transfer: null } };
+      if (String(path).endsWith('/mock')) return { data: { available: false, enabled: false } };
+      gatewayAttempt += 1;
+      if (gatewayAttempt <= 2) throw new Error('Configuration unavailable');
+      if (String(path).endsWith('/configuration')) return { data: { payment_gateways: [{ name: 'EPay', configured: false }] } };
+      return { data: { revision: '0', enabled: false, merchant_id: '', has_key: false, endpoint: '', notify_url: '', return_url: '', methods: [] } };
+    });
     renderConfiguration();
     expect((await screen.findByRole('alert')).textContent).toContain('Configuration unavailable');
     await waitFor(() => expect(screen.queryByText('Loading payment gateways…')).toBeNull());
-    api.request.mockResolvedValueOnce({data:{payment_gateways:[{name:'EPay',configured:false}]}})
-      .mockResolvedValueOnce({data:{revision:'0',enabled:false,merchant_id:'',has_key:false,endpoint:'',notify_url:'',return_url:'',methods:[]}}).mockResolvedValueOnce({data:{available:false,enabled:false}});
     await userEvent.click(screen.getByRole('button',{name:'Retry'}));
     expect((await screen.findAllByText('Not configured')).length).toBeGreaterThan(0);
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(api.request).toHaveBeenCalledTimes(6);
+    expect(api.request.mock.calls.filter(call => !String(call[1]).includes('bank'))).toHaveLength(6);
     expect(api.request.mock.calls.every(call => call[2] === 'GET')).toBe(true);
   });
 });

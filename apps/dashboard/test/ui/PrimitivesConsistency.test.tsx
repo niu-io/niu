@@ -286,6 +286,9 @@ describe('Shared UI primitives layout safeguards', () => {
       const source = readFileSync(join(appDir, rel), 'utf8');
       expect(source, `${rel} must not render a second stacked <TabsList>`).not.toContain('<TabsList');
     }
+    const assetsPage = readFileSync(join(appDir, 'features/assets/page.tsx'), 'utf8');
+    expect(assetsPage).toContain('tabs={');
+    expect(assetsPage).toContain('<TabsList variant="line"');
     const shellCss = readFileSync(resolve(process.cwd(), 'app/styles/shell.css'), 'utf8');
     expect(shellCss).toContain('.dashboard-page-header { position: sticky; top: 0; z-index: 18; display: flex; flex: 0 0 var(--dashboard-header-height); min-height: var(--dashboard-header-height); align-items: center; gap: 10px; padding-block: 0;');
   });

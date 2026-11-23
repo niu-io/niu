@@ -6,9 +6,8 @@ import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { TriangleAlert, FlaskConical, CheckCircle2, CircleDashed, PauseCircle, Settings2 } from 'lucide-react';
 import { IconBrandStripe, IconBrandAlipay, IconBrandWechat, IconExternalLink } from '@tabler/icons-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { NavLink, useLocation, useSearchParams } from 'react-router';
+import { NavLink } from 'react-router';
 import PageHeader from '@/components/PageHeader';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { request } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
@@ -76,11 +75,6 @@ export default function PlatformConfiguration() {
 
 function PaymentConfiguration({ token }: { token: string }) {
   const { t: uiT, format: uiF } = useUILocale();
-  const location = useLocation();
-  const [search, setSearch] = useSearchParams();
-  const isEmbeddedInSettings = location.pathname.startsWith('/admin/settings');
-  const subTabParam = isEmbeddedInSettings ? 'section' : 'tab';
-  const activeTab = search.get(subTabParam) === 'bank' ? 'bank' : 'gateways';
   const scope = token || 'public';
   const mutation = useRef<AbortController | null>(null);
   useEffect(() => () => mutation.current?.abort(), []);
@@ -363,36 +357,22 @@ function PaymentConfiguration({ token }: { token: string }) {
   }
 
   return (
-    <section className="@container space-y-5">
-      <Tabs
-        value={activeTab}
-        onValueChange={value => {
-          const next = new URLSearchParams(search);
-          if (value === 'bank') next.set(subTabParam, 'bank');
-          else next.delete(subTabParam);
-          setSearch(next, { replace: true });
-        }}
-      >
-        <PageHeader
-          title={uiT("Payments", "收款配置")}
-          tabs={
-            <TabsList variant="line" aria-label={uiT("Payment sections", "收款配置分区")}>
-              <TabsTrigger value="gateways">{uiT("Payment gateways", "支付网关")}</TabsTrigger>
-              <TabsTrigger value="bank">{uiT("Bank transfer", "对公转账")}</TabsTrigger>
-            </TabsList>
-          }
-        />
+    <section className="@container space-y-6">
+      <PageHeader title={uiT("Payments", "收款配置")} />
 
-        <TabsContent value="gateways" className="space-y-5">
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold">{uiT("Payment gateways", "支付网关")}</h2>
+            <p className="text-sm text-muted-foreground">{uiT("Verify payment setup before offering a gateway to customers.")}</p>
+          </div>
           {configuration && (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">{uiT("Verify payment setup before offering a gateway to customers.")}</p>
-              <Button variant="outline" size="sm" disabled={verificationBusy} onClick={() => void refreshVerification()}>
-                {verificationBusy ? uiT("Refreshing status…") : uiT("Refresh verification")}
-              </Button>
-            </div>
+            <Button variant="outline" size="sm" disabled={verificationBusy} onClick={() => void refreshVerification()}>
+              {verificationBusy ? uiT("Refreshing status…") : uiT("Refresh verification")}
+            </Button>
           )}
-          {verificationError && <p role="alert" className="text-sm text-destructive">{uiT(verificationError)}</p>}
+        </div>
+        {verificationError && <p role="alert" className="text-sm text-destructive">{uiT(verificationError)}</p>}
 
           {mockError && !mockOpen && (
             <p role="alert">
@@ -608,14 +588,11 @@ function PaymentConfiguration({ token }: { token: string }) {
               )}
             </div>
           ) : null}
-        </TabsContent>
+      </div>
 
-        <TabsContent value="bank" className="pt-2">
-          <div className="rounded-[var(--radius-panel)] bg-card p-5">
-            <BankConfiguration token={token} />
-          </div>
-        </TabsContent>
-      </Tabs>
+      <div id="bank-transfer" className="rounded-[var(--radius-panel)] bg-card p-5">
+        <BankConfiguration token={token} />
+      </div>
 
       <Dialog open={mockOpen} onOpenChange={value => { if (!mockBusy) setMockOpen(value); }}>
         <DialogContent>

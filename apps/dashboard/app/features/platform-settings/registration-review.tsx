@@ -27,7 +27,6 @@ import {
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TableSkeleton } from '@/components/PageSkeletons';
 import { formatDateTime } from '@/features/operators/api';
 import { ApiRequestError, cachedGet, peekCachedGet, request } from '@/lib/api-client';
@@ -221,8 +220,7 @@ export function RegistrationPolicySection({
           }
         }}
       >
-        <DialogContent
-          onCloseAutoFocus={event => {
+        <DialogContent onCloseAutoFocus={event => {
             if (editButtonRef.current?.isConnected) {
               event.preventDefault();
               editButtonRef.current.focus();
@@ -412,28 +410,31 @@ export function RegistrationRequestsQueue({
 
       <section className="space-y-4" aria-label={t('Registration requests', '注册审批队列')}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Tabs
-            value={statusFilter}
-            onValueChange={value => {
-              setNoticeKind('');
-              setStatusFilter(value as RegistrationStatus);
-            }}
-          >
-            <TabsList variant="line" aria-label={t('Registration status', '注册状态筛选')}>
-              <TabsTrigger value="pending" className="gap-2">
-                <span>{t('Pending', '待审批')}</span>
-                <Badge variant={counts.pending > 0 ? 'default' : 'secondary'}>{counts.pending}</Badge>
-              </TabsTrigger>
-              <TabsTrigger value="approved" className="gap-2">
-                <span>{t('Approved', '已批准')}</span>
-                <Badge variant="secondary">{counts.approved}</Badge>
-              </TabsTrigger>
-              <TabsTrigger value="rejected" className="gap-2">
-                <span>{t('Rejected', '已拒绝')}</span>
-                <Badge variant="secondary">{counts.rejected}</Badge>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('Registration status', '注册状态筛选')}>
+            {([
+              ['pending', 'Pending', '待审批', counts.pending],
+              ['approved', 'Approved', '已批准', counts.approved],
+              ['rejected', 'Rejected', '已拒绝', counts.rejected],
+            ] as const).map(([status, labelEn, labelZh, count]) => (
+              <Button
+                key={status}
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-pressed={statusFilter === status}
+                className="gap-1.5"
+                onClick={() => {
+                  setNoticeKind('');
+                  setStatusFilter(status);
+                }}
+              >
+                <span>{t(labelEn, labelZh)}</span>
+                <Badge variant={status === 'pending' && count > 0 ? 'default' : 'secondary'} className="h-5 px-1.5 text-[11px]">
+                  {count}
+                </Badge>
+              </Button>
+            ))}
+          </div>
 
           <Button
             type="button"

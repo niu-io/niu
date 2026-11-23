@@ -57,7 +57,7 @@ describe('deployment branding',()=>{
     await user.click(screen.getByRole('button',{name:'Save changes'}));
     await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
     await screen.findByText('Changes saved.');
-    await user.click(screen.getByRole('tab',{name:'Theme',exact:true}));
+    expect(screen.queryByRole('tablist')).toBeNull();
     await user.click(screen.getByRole('button',{name:'Edit theme'}));
     await user.click(screen.getByRole('button',{name:'Default appearance',exact:true}));await user.click(screen.getByRole('menuitemradio',{name:'Dark',exact:true}));
     await user.click(screen.getByRole('button',{name:'Save changes'}));
@@ -73,17 +73,14 @@ describe('deployment branding',()=>{
     await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
     expect(writes.at(-1)).toEqual({expected_revision:'3',settings:{...defaultBranding}});
   });
-  it('preserves tab=branding via section=theme when embedded inside /admin/settings',async()=>{
+  it('shows both Branding and Theme sections on one scannable page without nested tabs when embedded inside /admin/settings',async()=>{
     vi.stubGlobal('fetch',vi.fn(async()=>Response.json(configuration('0'))));
     const router=createMemoryRouter([{element:<Outlet context={{token:'member'}}/>,children:[{path:'/admin/settings',element:<BrandingPage/>}]}],{initialEntries:['/admin/settings?tab=branding']});
     render(<RouterProvider router={router}/>);
-    const user=userEvent.setup();
     await screen.findByText('Niu');
-    await user.click(screen.getByRole('tab',{name:'Theme',exact:true}));
-    expect(router.state.location.search).toBe('?tab=branding&section=theme');
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.getByRole('button',{name:'Edit branding'})).toBeTruthy();
     expect(screen.getByRole('button',{name:'Edit theme'})).toBeTruthy();
-    await user.click(screen.getByRole('tab',{name:'Branding',exact:true}));
-    expect(router.state.location.search).toBe('?tab=branding');
   });
   it('does not overwrite a cached member appearance when public branding loads',async()=>{
     localStorage.setItem('niu-dashboard-theme-owner','member');localStorage.setItem('niu-dashboard-theme','light');
