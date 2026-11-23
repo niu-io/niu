@@ -29,6 +29,8 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
   const [profileState, setProfileState] = useState({identity, value:context.session?.profile ?? null});
   const profile = profileState.identity === identity ? profileState.value : context.session?.profile ?? null;
   const [theme, setTheme] = useState<Theme>(readTheme);
+  const [passwordEditingState, setPasswordEditingState] = useState({ identity, editing: false });
+  const passwordEditing = passwordEditingState.identity === identity && passwordEditingState.editing;
   useEffect(() => subscribeTheme(() => setTheme(readTheme())), []);
   useEffect(() => setProfileState({identity,value:context.session?.profile ?? null}), [identity,context.session?.profile]);
   if (!section || !['organization', 'account', 'appearance', 'billing', 'payments', 'members', 'about'].includes(section)) return <Navigate state={location.state} to={context.session?.kind === 'operator' ? '/settings/account' : '/settings/appearance'} replace />;
@@ -42,8 +44,10 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
   return <div className="settings-page w-full min-w-0 space-y-8">
     {section === 'organization' && <OrganizationSettings key={context.organization?.id} context={context} />}
     {personal ? <div hidden={section !== 'account'}>
-      <AccountProfile key={'profile-' + identity} token={context.token} initialProfile={profile} onSaved={value => {setProfileState({identity,value});context.updateProfile?.(value);}}/>
-      <PasswordSettings key={'password-' + identity} token={context.token} hasPassword={Boolean(profile?.email)} onChanged={async () => { await context.signOut(); navigate('/login', {replace:true,state:{passwordChanged:true}}); }}/>
+      <div hidden={passwordEditing}>
+        <AccountProfile key={'profile-' + identity} token={context.token} initialProfile={profile} onSaved={value => {setProfileState({identity,value});context.updateProfile?.(value);}}/>
+      </div>
+      <PasswordSettings key={`password-${identity}`} token={context.token} hasPassword={Boolean(profile?.email)} onEditingChange={editing => setPasswordEditingState({ identity, editing })} onChanged={async () => { await context.signOut(); navigate('/login', {replace:true,state:{passwordChanged:true}}); }}/>
     </div> : null}
     {section === 'members' && <section aria-label={scopedWorkspace ? t('Workspace members', '工作空间成员') : t('Organization members', '组织成员管理')} className="space-y-6">
       <header className="space-y-2">

@@ -2,8 +2,10 @@ import { lazy, Suspense, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useDashboardContext } from '@/shell/dashboard-context';
+import { usePlatformCurrency } from '@/shell/platform-currency';
 import PageHeader from '@/components/PageHeader';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlatformCurrencySetting } from './platform-currency';
 import { PlatformUnitsSetting } from './platform-units';
@@ -23,16 +25,17 @@ function parseTab(value: string | null, isInternal: boolean): SettingsTab {
 export default function PlatformSettingsRoute() {
   const { t: uiT } = useUILocale();
   const { token, session } = useDashboardContext();
+  const { billingMode, unit } = usePlatformCurrency();
   const [search, setSearch] = useSearchParams();
   const isInternal = session?.operating_mode === 'internal';
   const requestedTab = search.get('tab');
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => parseTab(requestedTab, isInternal));
-  const [advancedUnitsOpen, setAdvancedUnitsOpen] = useState(false);
   const currentTab: SettingsTab = requestedTab ? parseTab(requestedTab, isInternal) : activeTab;
 
   function selectTab(nextTab: SettingsTab) {
     setActiveTab(nextTab);
     const next = new URLSearchParams(search);
+    next.delete('section');
     if (nextTab === 'general') next.delete('tab');
     else next.set('tab', nextTab);
     setSearch(next, { replace: true });
@@ -48,6 +51,7 @@ export default function PlatformSettingsRoute() {
             <TabsTrigger value="registration">{uiT('Registration policy', '注册策略')}</TabsTrigger>
             <TabsTrigger value="branding">{uiT('Branding', '品牌定制')}</TabsTrigger>
             {!isInternal && <TabsTrigger value="payments">{uiT('Payments', '收款配置')}</TabsTrigger>}
+            {!isInternal && <TabsTrigger value="units">{uiT('Billing mode', '计费模式')}</TabsTrigger>}
           </TabsList>
         </div>
 
@@ -63,19 +67,27 @@ export default function PlatformSettingsRoute() {
           </div>
           {!isInternal && <PlatformCurrencySetting token={token} />}
           {!isInternal && (
-            <details
-              className="rounded-[var(--radius-panel)] bg-card p-5"
-              onToggle={event => setAdvancedUnitsOpen((event.currentTarget as HTMLDetailsElement).open)}
-            >
-              <summary className="cursor-pointer text-sm font-medium">
-                {uiT('Advanced: Branded Credits & billing mode', '高级：积分与计费模式')}
-              </summary>
-              {advancedUnitsOpen && (
-                <div className="pt-4">
-                  <PlatformUnitsSetting token={token} />
-                </div>
-              )}
-            </details>
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius-panel)] bg-card p-5">
+              <div className="min-w-0 space-y-1">
+                <p className="text-sm">
+                  <span className="text-muted-foreground">{uiT('Billing mode', '计费模式')}: </span>
+                  <strong>
+                    {billingMode === 'credits'
+                      ? (unit?.name ?? uiT('Branded Credits', '自定义积分'))
+                      : uiT('Currency', '货币计费')}
+                  </strong>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {uiT(
+                    'Configure Branded Credits definitions, purchase rates, and platform billing mode.',
+                    '配置自定义积分定义、购买兑换率与平台计费模式。',
+                  )}
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => selectTab('units')}>
+                {uiT('Manage billing mode', '管理计费模式')}
+              </Button>
+            </div>
           )}
         </TabsContent>
 

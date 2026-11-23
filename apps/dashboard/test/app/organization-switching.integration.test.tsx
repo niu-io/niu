@@ -46,7 +46,7 @@ describe('organization switching', () => {
     let settingsDialog = await screen.findByRole('dialog', { name: 'Settings' });
     await user.click(within(within(settingsDialog).getByRole('navigation', { name: 'Settings navigation' })).getByRole('link', { name: 'Organization' }));
     await within(settingsDialog).findByRole('heading', { name: 'Organization', exact: true });
-    expect(await within(settingsDialog).findByDisplayValue('Research')).toBeTruthy();
+    expect(await within(settingsDialog).findByText('Research', { exact: true })).toBeTruthy();
     expect(screen.queryByText('Acme', { exact: true })).toBeNull();
     expect(within(settingsDialog).getByRole('link', { name: 'Members for Shared name' }).getAttribute('href')).toBe('/settings/members?workspace=shared-name-project2');
     await user.click(within(settingsDialog).getByRole('link', { name: 'Shared name', exact: true }));
@@ -228,20 +228,26 @@ describe('organization switching', () => {
     });
     await within(settingsDialog).findByRole('heading', { name: 'Organization', exact: true });
     expect(router.state.location.search).toContain('organization=studio-alpha');
-    expect(await within(settingsDialog).findByDisplayValue('Studio Alpha')).toBeTruthy();
+    expect(await within(settingsDialog).findByText('Studio Alpha', { exact: true })).toBeTruthy();
     expect(await within(settingsDialog).findByText('studio-alpha', { exact: true })).toBeTruthy();
+    expect(within(settingsDialog).queryByLabelText('Organization name')).toBeNull();
+    expect(within(settingsDialog).queryByLabelText('Member access token')).toBeNull();
 
-    // Rename the organization in Organization settings
-    const renameInput = screen.getByLabelText('Update organization name');
+    // Rename the organization via its focused in-dialog subview (no nested dialog)
+    await user.click(within(settingsDialog).getByRole('button', { name: 'Rename' }));
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    const renameInput = within(settingsDialog).getByLabelText('Organization name');
     await user.clear(renameInput);
     await user.type(renameInput, 'Studio Alpha Prime');
-    await user.click(screen.getByRole('button', { name: 'Save name' }));
+    await user.click(within(settingsDialog).getByRole('button', { name: 'Save name' }));
     await screen.findByText('Organization name saved.');
-    expect(screen.getByDisplayValue('Studio Alpha Prime')).toBeTruthy();
+    expect(within(settingsDialog).getByText('Studio Alpha Prime', { exact: true })).toBeTruthy();
 
-    // Claim membership in another organization using an issued access token
-    await user.type(screen.getByLabelText('Member access token'), 'niu-invite-partner-token');
-    await user.click(screen.getByRole('button', { name: 'Join organization' }));
+    // Claim membership in another organization via its focused in-dialog subview
+    await user.click(within(settingsDialog).getByRole('button', { name: 'Join with token' }));
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    await user.type(within(settingsDialog).getByLabelText('Member access token'), 'niu-invite-partner-token');
+    await user.click(within(settingsDialog).getByRole('button', { name: 'Join organization' }));
     await waitFor(() =>
       expect(requests.some(req => req.path === '/api/v1/session/memberships' && req.method === 'POST' && JSON.stringify(req.body) === JSON.stringify({ token: 'niu-invite-partner-token' }))).toBe(true),
     );

@@ -119,15 +119,32 @@ describe('provider API key administration workflow', () => {
     expect(input.capabilities.catalog).toBeUndefined();
   });
 
-  it('keeps the keys surface focused on credentials and links to the canonical Models view', async () => {
+  it('keeps the keys surface focused on credentials and opens rate limit & cooldown in a dedicated dialog without inline details', async () => {
     const api = stubVendorApi({ existing: [openRouter] });
-    renderView(<MemoryRouter initialEntries={['/providers?supplier=openrouter-primary']}><ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} providerSlug="openrouter-primary" /></MemoryRouter>);
+    const origImpl = api.fetchMock.getMockImplementation()!;
+    api.fetchMock.mockImplementation(async (input, init) => {
+      const path = String(input);
+      if (path.endsWith('/request-rate-limit')) return jsonResponse({ data: { requests_per_minute: null, revision: '0' } });
+      if (path.endsWith('/cooldown')) return jsonResponse({ data: { policy_revision: 'openrouter-auth-cooldown-v1', failure_threshold: 3, window_seconds: 60, cooldown_seconds: 60, active: false, qualifying_failures: 0, cooldown_until: null } });
+      return origImpl(input, init);
+    });
+    const user = userEvent.setup();
+    const { container } = renderView(<MemoryRouter initialEntries={['/providers?supplier=openrouter-primary']}><ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} providerSlug="openrouter-primary" /></MemoryRouter>);
     await screen.findByRole('heading', { name: openRouter.name });
     expect(screen.getByRole('heading', { name: 'API keys' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Select models' }).getAttribute('href')).toBe('/admin/providers/openrouter-primary');
+    expect(container.querySelector('details')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Import models' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Model routes/ })).toBeNull();
     expect(api.calls.some(call => call.path.endsWith('/models') || call.path.endsWith('/check') || call.path.endsWith('/catalog'))).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: 'Rate limit & cooldown' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('Unlimited')).toBeTruthy();
+    expect(await within(dialog).findByText('No active cooldown')).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'Edit limit' }));
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(within(dialog).getByLabelText('Limit')).toBeTruthy();
   });
 
   it('enables a disabled API key in one click and prompts for a new key when credential was erased', async () => {

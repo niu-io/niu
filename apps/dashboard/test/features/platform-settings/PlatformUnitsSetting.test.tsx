@@ -59,17 +59,20 @@ it('shows a clean purchase rate and one billing-mode switch without atom or scal
   await waitFor(() => expect(document.activeElement).toBe(editDefBtn));
 });
 
-it('organizes Admin Settings tabs and lazily reveals Branded Credits & billing mode in Advanced', async () => {
+it('organizes Admin Settings tabs cleanly and navigates to the dedicated Billing mode tab instead of inline details sprawl', async () => {
   saveLocale('en');
   const user = userEvent.setup();
-  render(<MemoryRouter><PlatformSettingsRoute /></MemoryRouter>);
+  const { container } = render(<MemoryRouter><PlatformSettingsRoute /></MemoryRouter>);
   expect(screen.getByRole('tab', { name: 'General & currency' }).getAttribute('aria-selected')).toBe('true');
   expect(screen.getByRole('tab', { name: 'Registration policy' }).getAttribute('aria-selected')).toBe('false');
   expect(screen.getByRole('tab', { name: 'Branding' }).getAttribute('aria-selected')).toBe('false');
   expect(screen.getByRole('tab', { name: 'Payments' }).getAttribute('aria-selected')).toBe('false');
+  expect(screen.getByRole('tab', { name: 'Billing mode' }).getAttribute('aria-selected')).toBe('false');
+  expect(container.querySelector('details')).toBeNull();
   expect(screen.getByRole('region', { name: 'Platform currency' })).toBeTruthy();
   expect(screen.queryByRole('region', { name: 'Branded Credits and billing mode' })).toBeNull();
 
-  await user.click(screen.getByText('Advanced: Branded Credits & billing mode'));
+  await user.click(screen.getByRole('button', { name: 'Manage billing mode' }));
+  expect(screen.getByRole('tab', { name: 'Billing mode' }).getAttribute('aria-selected')).toBe('true');
   expect(await screen.findByRole('region', { name: 'Branded Credits and billing mode' })).toBeTruthy();
 });

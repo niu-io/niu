@@ -257,7 +257,9 @@ describe('operator administration workflow', () => {
     render(<OperatorsView token="owner-token" session={ownerSession} initialOrganization={organization.id} initialWorkspace={project.id} />);
 
     await user.click(await screen.findByRole('button', { name: 'Avery', exact: true }));
+    expect(screen.queryByLabelText('Expires in')).toBeNull();
     await user.click(await screen.findByRole('button', { name: 'Create access token' }));
+    await user.click(await screen.findByRole('button', { name: 'Issue access token' }));
     expect((await screen.findByLabelText('Access token') as HTMLInputElement).value).toBe('niu_once_session_operator-a');
     expect(api.calls.some(call => call.path === '/api/v1/members/operator-a/sessions' && call.method === 'POST')).toBe(true);
 
@@ -268,6 +270,7 @@ describe('operator administration workflow', () => {
     expect(api.calls.some(call => call.path === '/api/v1/members/operator-b/sessions' && call.method === 'POST')).toBe(false);
 
     await user.click(screen.getByRole('button', { name: 'Create access token' }));
+    await user.click(await screen.findByRole('button', { name: 'Issue access token' }));
     expect((await screen.findByLabelText('Access token') as HTMLInputElement).value).toBe('niu_once_session_operator-b');
     expect(api.calls.some(call => call.path === '/api/v1/members/operator-b/sessions' && call.method === 'POST')).toBe(true);
     expect(api.calls.some(call => call.path === '/api/v1/members/sessions' && call.method === 'POST')).toBe(false);

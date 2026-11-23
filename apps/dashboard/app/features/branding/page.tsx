@@ -1,7 +1,7 @@
 import { translateUI } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
-import { useSearchParams } from 'react-router';
+import { useLocation, useSearchParams } from 'react-router';
 import { IconChevronDown, IconPalette } from '@tabler/icons-react';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
@@ -67,8 +67,11 @@ export default function BrandingPage() {
   const { token } = useDashboardContext();
   const scope = token || 'public';
   const branding = useBranding();
+  const location = useLocation();
   const [search, setSearch] = useSearchParams();
-  const tab = search.get('tab') === 'theme' ? 'theme' : 'branding';
+  const embeddedInSettings = location.pathname.startsWith('/admin/settings');
+  const tabParam = embeddedInSettings ? 'section' : 'tab';
+  const tab = search.get(tabParam) === 'theme' ? 'theme' : 'branding';
   const initialBranding = (() => {
     const raw = peekQuery<unknown>(scope, '/api/v1/admin/branding');
     if (raw === undefined) return null;
@@ -207,7 +210,7 @@ export default function BrandingPage() {
         )
       ) : (
         <>
-          <Tabs value={tab} onValueChange={value => { const next = new URLSearchParams(search); value === 'theme' ? next.set('tab', 'theme') : next.delete('tab'); setSearch(next, { replace: true }); }}>
+          <Tabs value={tab} onValueChange={value => { const next = new URLSearchParams(search); value === 'theme' ? next.set(tabParam, 'theme') : next.delete(tabParam); setSearch(next, { replace: true }); }}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <TabsList variant="line">
                 <TabsTrigger value="branding">{t('Branding', '品牌标识')}</TabsTrigger>

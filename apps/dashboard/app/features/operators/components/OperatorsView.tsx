@@ -531,6 +531,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     : uiT("This user has organization-wide access. Revoking it removes access to every workspace in the organization, not just this workspace.");
   const detailDescription = uiF("Access sessions for {0}. Revoke a session to end that connection.", [selectedOperator?.name ?? ""]);
   const cancelDescription = uiT('The one-time link will stop working immediately. The person can still be invited again later.', '一次性链接将立即失效。之后仍可重新邀请此人。');
+  const [detailInnerSubview, setDetailInnerSubview] = useState(false);
   const rolePending = Boolean(selectedOperator && canChangeRole && openedRoleContext !== roleContext && credential?.operatorId !== selectedOperator.id);
   const detailBody = <>{selectedOperator && <OperatorDetails
         key={[session.kind, session.operator?.id ?? '', organization, project, selectedOperator.id].join(':')}
@@ -567,6 +568,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
             void loadAudit(selectedOperator.id, auditCursor, true, controller.signal, auditRevision.current);
           }
         }}
+        onSubviewChange={setDetailInnerSubview}
       />}</>;
   const revokeBody = <>{revokeTarget && (revokeTarget.role === 'owner' || (session.kind === 'operator' && revokeTarget.id === session.operator?.id)) && <p role="status" className="text-sm text-muted-foreground">
           {session.kind === 'operator' && revokeTarget.id === session.operator?.id ? uiT("This is your current account. Revoking your own access ends all your sessions immediately.") : null}
@@ -624,11 +626,15 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     )}
     </div>
     {subview && <section className="space-y-5" aria-labelledby="member-subview-title">
-      <Button type="button" variant="ghost" size="sm" data-settings-member-back disabled={busy} onClick={closeMemberView}><ArrowLeft size={16} />{uiT('Back to members', '返回成员列表')}</Button>
-      <header className="space-y-2">
-        <h3 id="member-subview-title" ref={subviewHeading} tabIndex={-1} className="text-base font-semibold outline-none">{createOpen ? invitationTitle : revokeTarget ? revokeTitle : cancelInvitation ? `${uiT('Cancel invitation for', '取消此邀请：')} ${cancelInvitation.recipient_email}?` : uiT('Member access', '成员访问权限')}</h3>
-        <p className="text-sm text-muted-foreground">{createOpen ? invitationDescription : revokeTarget ? revokeDescription : cancelInvitation ? cancelDescription : detailDescription}</p>
-      </header>
+      {!(subview === 'detail' && detailInnerSubview) && (
+        <>
+          <Button type="button" variant="ghost" size="sm" data-settings-member-back disabled={busy} onClick={closeMemberView}><ArrowLeft size={16} />{uiT('Back to members', '返回成员列表')}</Button>
+          <header className="space-y-2">
+            <h3 id="member-subview-title" ref={subviewHeading} tabIndex={-1} className="text-base font-semibold outline-none">{createOpen ? invitationTitle : revokeTarget ? revokeTitle : cancelInvitation ? `${uiT('Cancel invitation for', '取消此邀请：')} ${cancelInvitation.recipient_email}?` : uiT('Member access', '成员访问权限')}</h3>
+            <p className="text-sm text-muted-foreground">{createOpen ? invitationDescription : revokeTarget ? revokeDescription : cancelInvitation ? cancelDescription : detailDescription}</p>
+          </header>
+        </>
+      )}
       {createOpen ? invitationBody : revokeTarget ? revokeBody : cancelInvitation ? <>
         <DialogFooter><Button variant="outline" disabled={busy} onClick={closeMemberView}>{uiT('Keep invitation', '保留邀请')}</Button><Button variant="destructive" disabled={busy} onClick={() => onCancelInvitation(cancelInvitation)}>{uiT('Cancel invitation', '取消邀请')}</Button></DialogFooter>
         {error && <p role="alert" className="text-sm text-destructive">{uiT(error)}</p>}

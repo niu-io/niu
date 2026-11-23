@@ -1,7 +1,7 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useProviderParams } from '@/shell/provider-route';
 import { Link, useSearchParams } from 'react-router';
-import { IconKey, IconPencil as Pencil, IconPlugConnected as Router, IconPlus, IconPower, IconRefresh, IconShieldExclamation as ShieldAlert, IconX as X } from '@tabler/icons-react';
+import { IconGauge, IconKey, IconPencil as Pencil, IconPlugConnected as Router, IconPlus, IconPower, IconRefresh, IconShieldExclamation as ShieldAlert, IconX as X } from '@tabler/icons-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -48,6 +48,8 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   const [reconnectApiKey, setReconnectApiKey] = useState('');
   const [disableTarget, setDisableTarget] = useState<ProviderConnection | null>(null);
   const [disconnectTarget, setDisconnectTarget] = useState<ProviderConnection | null>(null);
+  const [rateLimitTarget, setRateLimitTarget] = useState<ProviderConnection | null>(null);
+  const rateLimitTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const authController = useRef<AbortController | null>(null);
@@ -414,6 +416,19 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
                     size="sm"
                     variant="outline"
                     disabled={busy}
+                    onClick={event => {
+                      rateLimitTriggerRef.current = event.currentTarget;
+                      setRateLimitTarget(connection);
+                    }}
+                  >
+                    <IconGauge size={14} aria-hidden="true" />
+                    <span>{uiT("Rate limit & cooldown", "限流与冷却")}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
                     onClick={() => {
                       setError('');
                       setActiveConnectionId(connection.id);
@@ -443,21 +458,40 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
                   {uiT("This connection has no stored API key (it was previously disconnected). Enter a new API key to enable it.", "此连接未保存 API 密钥（之前已被断开清除）。请重新填写 API 密钥以启用。")}
                 </p>
               )}
-
-              <details className="border-t pt-3">
-                <summary className="cursor-pointer text-xs text-muted-foreground">
-                  {uiT("Advanced: rate limits & cooldown", "高级：限流与冷却状态")}
-                </summary>
-                <div className="mt-2 space-y-2">
-                  <CredentialRequestLimit key={`${token}:${connection.id}`} token={token} vendorId={connection.id} />
-                  <CredentialCooldown key={`${token}:${connection.id}:cooldown`} token={token} vendorId={connection.id} />
-                </div>
-              </details>
             </li>
           );
         })}
       </ul>
     )}
+
+    {/* Rate limit & cooldown modal */}
+    <Dialog open={Boolean(rateLimitTarget)} onOpenChange={open => { if (!open) setRateLimitTarget(null); }}>
+      <DialogContent
+        className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"
+        onCloseAutoFocus={event => {
+          if (rateLimitTriggerRef.current?.isConnected) {
+            event.preventDefault();
+            rateLimitTriggerRef.current.focus();
+          }
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>{uiT("Rate limit & cooldown", "限流与冷却")}</DialogTitle>
+          <DialogDescription>
+            {rateLimitTarget?.name} · <span className="font-mono">{rateLimitTarget?.api_base}</span>
+          </DialogDescription>
+        </DialogHeader>
+        {rateLimitTarget && (
+          <div className="space-y-3">
+            <CredentialRequestLimit withinDialog key={`${token}:${rateLimitTarget.id}`} token={token} vendorId={rateLimitTarget.id} />
+            <CredentialCooldown key={`${token}:${rateLimitTarget.id}:cooldown`} token={token} vendorId={rateLimitTarget.id} />
+          </div>
+        )}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setRateLimitTarget(null)}>{uiT("Close")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     {/* Quick reconnect modal for disconnected keys */}
     <Dialog open={Boolean(reconnectingConnection)} onOpenChange={open => { if (!open && !busy) { setReconnectingConnection(null); setReconnectApiKey(''); } }}>

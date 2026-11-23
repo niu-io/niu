@@ -48,9 +48,10 @@ describe('canonical organization settings', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Settings' });
     expect(await within(dialog).findByRole('heading', { name: 'Organization', exact: true })).toBeTruthy();
     expect(await within(dialog).findByRole('heading', { name: 'General' })).toBeTruthy();
-    expect(within(dialog).getByDisplayValue('Acme')).toBeTruthy();
+    expect(within(dialog).getByText('Acme', { exact: true })).toBeTruthy();
     expect(within(dialog).getByText('acme', { exact: true })).toBeTruthy();
-    expect(within(dialog).getByLabelText('Update organization name')).toBeTruthy();
+    expect(within(dialog).queryByLabelText('Organization name')).toBeNull();
+    expect(within(dialog).getByRole('button', { name: 'Rename' })).toBeTruthy();
     const settingsNav = within(dialog).getByRole('navigation', { name: 'Settings navigation' });
     expect(within(settingsNav).getByRole('link', { name: 'Members' }).getAttribute('href')).toBe('/settings/members');
     expect(within(settingsNav).getByRole('link', { name: 'Credits' }).getAttribute('href')).toBe('/settings/billing');
