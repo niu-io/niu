@@ -23,3 +23,5 @@ Screen captures of loading (frame 24), authenticated redirects to Overview (44�
 On a 390px anonymous viewport, the installation contract measured 941px across the body and the inference contract measured 931px. The REST index, SDK index and first-request guide measured 390px under the same conditions (frames 900–904, `niu-t4gb`). The workspace rename dialog restored focus on a repeat check after the workspace finished loading.
 
 At 1100 × 850 with administrator navigation expanded, the Provider model table occupied 994px inside an 812px table container. Availability changes appeared at the clipped edge of the viewport. Enabling and disabling used the same prominent filled treatment across the list (frame medium-3-0, `niu-ypbl`).
+
+The blocked-request empty view instructs administrators to choose a saved policy even when no policy exists (tab-0-2-390, `niu-vr1v`). The empty media library repeats Add image in the toolbar and placeholder while the accompanying instruction describes saving generation results (18-390, `niu-a92e`). Resizing Platform Settings after opening Billing mode leaves its active fifth tab clipped at the right edge (tab-6-3-390, `niu-p8dy.4`).
