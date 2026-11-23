@@ -13,5 +13,6 @@ export type CreatedCompany = {
     slug?: string;
     name: string;
     currency: string;
+    account_kind?: CustomerAccountKind;
 };
 ```

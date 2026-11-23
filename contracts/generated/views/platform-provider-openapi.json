@@ -8984,6 +8984,27 @@
               "maximum": 100,
               "default": 50
             }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Optional case-insensitive substring filter matching customer name, slug, or active member name/email (up to 120 characters).",
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "description": "Optional customer account kind filter: personal or organization.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "personal",
+                "organization"
+              ]
+            }
           }
         ],
         "responses": {

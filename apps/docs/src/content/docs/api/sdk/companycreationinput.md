@@ -12,5 +12,7 @@ export type CompanyCreationInput = {
     name: string;
     slug?: string;
     currency?: string;
+    account_kind?: CustomerAccountKind;
+    attach_creator?: boolean;
 };
 ```

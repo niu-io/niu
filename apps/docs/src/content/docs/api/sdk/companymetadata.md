@@ -12,5 +12,6 @@ export type CompanyMetadata = {
     id: string;
     slug?: string;
     name: string;
+    account_kind?: CustomerAccountKind;
 };
 ```

@@ -58,6 +58,31 @@ Location: **query**. Optional.
 }
 ```
 
+### q
+
+Location: **query**. Optional. Optional case-insensitive substring filter matching customer name, slug, or active member name/email (up to 120 characters).
+
+```json
+{
+  "type": "string",
+  "maxLength": 120
+}
+```
+
+### kind
+
+Location: **query**. Optional. Optional customer account kind filter: personal or organization.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "personal",
+    "organization"
+  ]
+}
+```
+
 ## Request body
 
 No request body is declared.

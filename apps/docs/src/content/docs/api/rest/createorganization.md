@@ -82,6 +82,20 @@ Location: **header**. Optional. Exactly one visible-ASCII identity; preserve it 
       "type": "string",
       "pattern": "^[A-Z]{3}$",
       "default": "USD"
+    },
+    "account_kind": {
+      "type": "string",
+      "enum": [
+        "personal",
+        "organization"
+      ],
+      "default": "organization",
+      "description": "Account kind. Personal accounts require platform administration."
+    },
+    "attach_creator": {
+      "type": "boolean",
+      "default": true,
+      "description": "When false (platform administrators only), creates a standalone customer account without adding the caller as a member."
     }
   }
 }
