@@ -209,7 +209,7 @@ export function AdminProviderTabs({
   }, [location.pathname, gatewayStatus]);
 
   const rawSection = location.pathname.split('/')[4] || 'models';
-  const activeTab = ['keys', 'members', 'settings'].includes(rawSection) ? rawSection : 'models';
+  const activeTab = rawSection === 'keys' || rawSection === 'settings' ? rawSection : 'models';
 
   return (
     <Tabs
@@ -228,7 +228,6 @@ export function AdminProviderTabs({
           {[
             ['models', operatingMode === 'internal' ? t('Models', '模型') : t('Models & discounts', '模型与折扣')],
             ['keys', t('API keys', 'API 密钥')],
-            ['members', t('Members', '成员')],
             ['settings', t('Settings', '基本资料')],
           ].map(([value, label]) => {
             const tabPath = `/admin/providers/${encodeURIComponent(adminSupplierId)}${
