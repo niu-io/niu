@@ -55,3 +55,11 @@ WCAG reflow guidance distinguishes page-level horizontal scrolling from an indiv
 The customer detail scope tab showed one workspace and two members but labeled their combined tab with a single unexplained count of one (custtab-2-390, `niu-p8dy.7`). The review inspected overview, special prices and workspace/member tabs through the actual customer list.
 
 The signed-in workspace had zero keys even after selecting All keys, zero requests, no saved route or evaluation, and no session in the visible history. Populated key details, execution details, saved generation runs, route inspection and evaluation results require records in an authorized staging workspace. No funds, grants or model requests were issued to simulate these business records. The open review epic retains this verification gap.
+
+## Remediation verification on November 23
+
+The dashboard candidate was rendered against current staging workspace data at 390, 900 and 1280 CSS pixels. With no usable key, the new chat disabled message entry and submission. The mobile key-list placeholder filled 738px below its header and offered one creation action. Opening the archive from mobile history displayed one dialog. Escape restored the history view and returned focus to the archive button. Closing the pricing dialog also returned focus to its trigger.
+
+The local gateway served the revised customer detail from a fresh database. Opening its legacy bookmark preserved the selected tab and fragment when redirecting to the customer slug. Unknown browser routes returned an HTML recovery page with status 404 at both phone and desktop widths. Unknown API routes retained a JSON 404. The website comparison placed platform selection criteria before historical benchmarks at both widths.
+
+These observations cover the candidate assets and local gateway. Populated records and hosted deployment have separate acceptance requirements in Beads.
