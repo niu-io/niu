@@ -107,7 +107,12 @@ pub(super) fn compile_catalog(
                 let route = *routes.get(candidate.alias.as_str())?;
                 (candidate.enabled
                     && route.model.enabled
-                    && route_has_active_vendor(route, &inputs.pooled_vendors, &inputs.cooling_down, &[])
+                    && route_has_active_vendor(
+                        route,
+                        &inputs.pooled_vendors,
+                        &inputs.cooling_down,
+                        &[],
+                    )
                     && route.model.capabilities.get("video_schema").is_none()
                     && (route.personal_organization_id == pool.organization_id
                         || (allow_internal_scope
@@ -211,9 +216,12 @@ pub(super) fn compile_published_catalog(
                             && route.is_internal_shared()))
                     && (pool.organization_id.is_some()
                         || ((route.model.pricing.is_some()
-                            || registry.offers.get(&route.model.alias).is_some_and(|offer| {
-                                offer.active && offer.rate_kind.as_deref() != Some("media")
-                            }))
+                            || registry
+                                .offers
+                                .get(&route.model.alias)
+                                .is_some_and(|offer| {
+                                    offer.active && offer.rate_kind.as_deref() != Some("media")
+                                }))
                             && !unavailable.contains(&route.model.alias))))
                 .then_some((candidate, compiled))
             })

@@ -1409,12 +1409,9 @@ impl Store {
 
         let mut routes = Vec::with_capacity(candidate_aliases.len());
         for candidate_alias in candidate_aliases {
-            if let Some(selection) = Self::resolve_pooled_vendor_route_in_tx(
-                &mut tx,
-                &candidate_alias,
-                excluded_vendors,
-            )
-            .await?
+            if let Some(selection) =
+                Self::resolve_pooled_vendor_route_in_tx(&mut tx, &candidate_alias, excluded_vendors)
+                    .await?
                 && !selection.all_disabled
                 && !selection.all_excluded
                 && !selection.all_cooling_down

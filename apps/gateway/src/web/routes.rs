@@ -2171,10 +2171,9 @@ fn commercial_model_readiness(
             return (true, Vec::new());
         }
         let has_procurement_pricing = model.pricing.is_some()
-            || pool
-                .candidates
-                .iter()
-                .any(|candidate| candidate.enabled && ctx.provider_offer_models.contains(&candidate.alias));
+            || pool.candidates.iter().any(|candidate| {
+                candidate.enabled && ctx.provider_offer_models.contains(&candidate.alias)
+            });
         let alias_has_price = |alias: &str| {
             if ctx.billing_mode == "credits" {
                 ctx.unit_prices.contains_key(alias)

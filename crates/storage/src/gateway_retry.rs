@@ -96,8 +96,12 @@ impl Store {
                 let has_retry_alternative = match route {
                     Some(route) if route.pool_alias.is_some() => true,
                     Some(route) => {
-                        Self::has_pooled_sibling_vendor_in_tx(tx, &route.model_alias, route.vendor_id)
-                            .await?
+                        Self::has_pooled_sibling_vendor_in_tx(
+                            tx,
+                            &route.model_alias,
+                            route.vendor_id,
+                        )
+                        .await?
                     }
                     None => false,
                 };
