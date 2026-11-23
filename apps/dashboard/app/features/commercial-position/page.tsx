@@ -1107,14 +1107,16 @@ function CommercialStatement({ token }: { token: string }) {
               <div className="commercial-print-hide flex flex-wrap items-center gap-1.5">
                 <Button
                   size="sm"
-                  variant={modelFilter === 'active' ? 'secondary' : 'ghost'}
+                  variant="ghost"
+                  aria-pressed={modelFilter === 'active'}
                   onClick={() => setModelFilter('active')}
                 >
                   {uiT("Active in period (")}{activeRows.length})
                 </Button>
                 <Button
                   size="sm"
-                  variant={modelFilter === 'all' ? 'secondary' : 'ghost'}
+                  variant="ghost"
+                  aria-pressed={modelFilter === 'all'}
                   onClick={() => setModelFilter('all')}
                 >
                   {uiT("All configured (")}{sortedRows.length})

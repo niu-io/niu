@@ -822,14 +822,18 @@ export function CreateCompany({
                 </div>
               </div>
 
-              {mode !== 'existing' && token && currency && (
+              {mode !== 'existing' && token && currency && (() => {
+                const trimmedTrial = trialAmount.trim();
+                const isCustomTrial = Boolean(trimmedTrial) && !(TRIAL_CREDIT_PRESETS as readonly string[]).includes(trimmedTrial);
+                return (
                 <div className="grid gap-2">
                   <Label htmlFor="customer-trial-credit">{uiF("Trial credit ({0}, optional)", [currency])}</Label>
-                  <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={uiF("Trial credit ({0}, optional)", [currency])}>
                     <Button
                       type="button"
                       size="sm"
-                      variant={!trialAmount.trim() ? 'secondary' : 'outline'}
+                      variant="outline"
+                      aria-pressed={!trimmedTrial}
                       disabled={busy || Boolean(progressRef.current.grantIssued)}
                       onClick={() => setTrialAmount('')}
                     >
@@ -840,7 +844,8 @@ export function CreateCompany({
                         key={preset}
                         type="button"
                         size="sm"
-                        variant={trialAmount.trim() === preset ? 'secondary' : 'outline'}
+                        variant="outline"
+                        aria-pressed={trimmedTrial === preset}
                         disabled={busy || Boolean(progressRef.current.grantIssued)}
                         onClick={() => setTrialAmount(preset)}
                       >
@@ -851,14 +856,15 @@ export function CreateCompany({
                       id="customer-trial-credit"
                       inputMode="decimal"
                       placeholder={uiT("Custom", "自定义")}
-                      className="h-8 w-24 text-sm tabular-nums"
+                      className={`h-8 w-24 text-sm tabular-nums ${isCustomTrial ? 'border-[var(--choice-active-border)] bg-[var(--choice-active-bg)] dark:bg-[var(--choice-active-bg)] text-[var(--choice-active-fg)] font-semibold' : ''}`}
                       value={trialAmount}
                       disabled={busy || Boolean(progressRef.current.grantIssued)}
                       onChange={event => setTrialAmount(event.target.value)}
                     />
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               <div className="grid gap-2 border-t border-border/60 pt-3">
                 <Label>{uiT("Organization (optional)", "归属组织（可选）")}</Label>

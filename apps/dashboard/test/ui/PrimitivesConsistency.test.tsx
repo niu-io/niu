@@ -223,6 +223,20 @@ describe('Shared UI primitives layout safeguards', () => {
     const policySection = readFileSync(join(appDir, 'features/provider-business/ProviderModelPolicySection.tsx'), 'utf8');
     expect(policySection).toContain('connection.has_credential');
   });
+  it('enforces unmistakable brand-tinted aria-pressed active state on shared Button choice/toggle controls', () => {
+    const foundation = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
+    expect(foundation).toContain('--choice-active-bg:');
+    expect(foundation).toContain('--choice-active-fg:');
+    expect(foundation).toContain('--choice-active-border:');
+    const button = readFileSync(join(appDir, 'components/ui/button.tsx'), 'utf8');
+    expect(button).toContain('aria-[pressed=true]:border-[var(--choice-active-border)]');
+    expect(button).toContain('aria-[pressed=true]:bg-[var(--choice-active-bg)]');
+    expect(button).toContain('aria-[pressed=true]:text-[var(--choice-active-fg)]');
+    const customerShared = readFileSync(join(appDir, 'features/customers/customer-shared.tsx'), 'utf8');
+    expect(customerShared).toContain('aria-pressed={!trimmedTrial}');
+    expect(customerShared).toContain('aria-pressed={trimmedTrial === preset}');
+    expect(customerShared).not.toContain("variant={!trialAmount.trim() ? 'secondary' : 'outline'}");
+  });
 });
 
 it('keeps model mapping actions outside the scrollable advanced settings', () => {

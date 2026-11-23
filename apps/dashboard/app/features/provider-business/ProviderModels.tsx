@@ -638,7 +638,7 @@ function ScopedModels({
               ['active', uiF('Active ({0})', [counts.active])],
               ['inactive', uiF('Inactive ({0})', [counts.inactive])],
             ] as const).map(([key, label]) => (
-            <Button key={key} type="button" size="sm" variant={statusFilter === key ? 'secondary' : 'ghost'} onClick={() => { setStatusFilter(key); setLimit(40); }}>{label}</Button>
+            <Button key={key} type="button" size="sm" variant="ghost" aria-pressed={statusFilter === key} onClick={() => { setStatusFilter(key); setLimit(40); }}>{label}</Button>
           ))}
         </div>
       </div>}

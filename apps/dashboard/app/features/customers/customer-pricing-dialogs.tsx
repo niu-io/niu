@@ -191,7 +191,8 @@ export function CustomerModelPriceDialog({
             <Button
               type="button"
               size="sm"
-              variant={mode === 'percent' ? 'secondary' : 'ghost'}
+              variant="ghost"
+              aria-pressed={mode === 'percent'}
               disabled={busy}
               onClick={() => { setMode('percent'); setValidationError(''); }}
             >
@@ -200,7 +201,8 @@ export function CustomerModelPriceDialog({
             <Button
               type="button"
               size="sm"
-              variant={mode === 'exact' ? 'secondary' : 'ghost'}
+              variant="ghost"
+              aria-pressed={mode === 'exact'}
               disabled={busy}
               onClick={() => { setMode('exact'); setValidationError(''); }}
             >

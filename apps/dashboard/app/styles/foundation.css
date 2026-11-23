@@ -13,6 +13,9 @@
   --avatar-brand-bg: color-mix(in srgb, var(--primary) 18%, var(--card));
   --avatar-brand-fg: color-mix(in srgb, var(--primary) 82%, var(--foreground));
   --avatar-brand-ring: color-mix(in srgb, var(--primary) 24%, transparent);
+  --choice-active-bg: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --choice-active-fg: var(--primary-ink);
+  --choice-active-border: color-mix(in srgb, var(--primary) 58%, var(--border));
 }
 .dark,
 :root[data-theme='dark'] {
@@ -22,6 +25,9 @@
   --avatar-brand-bg: color-mix(in srgb, var(--primary) 32%, var(--card));
   --avatar-brand-fg: color-mix(in srgb, var(--primary-ink) 65%, var(--foreground));
   --avatar-brand-ring: color-mix(in srgb, var(--primary-ink) 32%, transparent);
+  --choice-active-bg: color-mix(in srgb, var(--primary) 26%, var(--card));
+  --choice-active-fg: color-mix(in srgb, var(--primary-ink) 74%, var(--foreground));
+  --choice-active-border: color-mix(in srgb, var(--primary-ink) 72%, var(--border));
 }
 :is(.dark, :root[data-theme='dark']):not([style*="--primary:"]) {
   --primary-ink: var(--brand-accent);
