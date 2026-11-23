@@ -49,3 +49,9 @@ The financial filter and zero-key composer were assessed against visibility of s
 For keyboard dismissal, the WAI authoring pattern recommends returning focus to the opening control when it remains available. The pricing dialog returned focus to the document body, while the tested Provider and key creation dialogs returned it to their trigger. [WAI modal dialog keyboard pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)
 
 WCAG reflow guidance distinguishes page-level horizontal scrolling from an individual table that requires two-dimensional layout. The recorded 390px documentation measurements establish mobile overflow. A formal conformance check also requires the criterion's specified viewport and applicable exceptions. [W3C explanation of reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html)
+
+## Evidence limits for record details
+
+The customer detail scope tab showed one workspace and two members but labeled their combined tab with a single unexplained count of one (custtab-2-390, `niu-p8dy.7`). The review inspected overview, special prices and workspace/member tabs through the actual customer list.
+
+The signed-in workspace had zero keys even after selecting All keys, zero requests, no saved route or evaluation, and no session in the visible history. Populated key details, execution details, saved generation runs, route inspection and evaluation results require records in an authorized staging workspace. No funds, grants or model requests were issued to simulate these business records. The open review epic retains this verification gap.
