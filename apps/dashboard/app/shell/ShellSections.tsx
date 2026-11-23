@@ -209,7 +209,7 @@ export function AdminProviderTabs({
   }, [location.pathname, gatewayStatus]);
 
   const rawSection = location.pathname.split('/')[4] || 'models';
-  const activeTab = rawSection === 'keys' || rawSection === 'settings' ? rawSection : 'models';
+  const activeTab = rawSection === 'members' ? 'settings' : rawSection === 'keys' || rawSection === 'settings' ? rawSection : 'models';
 
   return (
     <Tabs
