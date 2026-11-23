@@ -333,6 +333,7 @@ export function RegistrationRequestsQueue({
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadedFilter, setLoadedFilter] = useState<RegistrationStatus | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [noticeKind, setNoticeKind] = useState<'approved' | 'rejected' | ''>('');
   const [dialog, setDialog] = useState<ReviewDialogState>(null);
@@ -363,6 +364,7 @@ export function RegistrationRequestsQueue({
           controller.signal,
         );
         if (controller.signal.aborted) return;
+        setLoadedFilter(filter);
         setRecords(current =>
           cursor
             ? [...current, ...page.data.filter(item => !current.some(existing => existing.id === item.id))]
@@ -474,9 +476,9 @@ export function RegistrationRequestsQueue({
           </Alert>
         )}
 
-        {loading && !records.length ? (
+        {loadedFilter !== statusFilter && !loadFailed ? (
           <TableSkeleton columns={6} rows={4} label={t('Loading registration requests…', '正在加载注册申请…')} />
-        ) : !loading && !loadFailed && !records.length ? (
+        ) : loadedFilter === statusFilter && !loadFailed && !records.length ? (
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
@@ -502,7 +504,7 @@ export function RegistrationRequestsQueue({
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
-        ) : records.length > 0 ? (
+        ) : loadedFilter === statusFilter && records.length > 0 ? (
           <Table className="min-w-[820px]" aria-label={t('Registration requests table', '注册申请列表')}>
             <TableHeader>
               <TableRow>
@@ -605,7 +607,7 @@ export function RegistrationRequestsQueue({
           </Table>
         ) : null}
 
-        {nextCursor && (
+        {loadedFilter === statusFilter && nextCursor && (
           <Button
             type="button"
             variant="outline"
