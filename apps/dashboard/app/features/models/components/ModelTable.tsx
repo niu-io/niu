@@ -584,14 +584,14 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
 
                 <div className="models-card-meta">
                   {uncallable ? <>
-                    <span className="text-muted-foreground">{uiT("Not ready for requests")}</span>
+                    <span className="text-muted-foreground">{uiT("Not published")}</span>
                     <div className="models-card-actions">
                       {isPlatformAdmin && missingProcurement && <Link className="text-foreground underline underline-offset-2" to="/admin/providers">{uiT("Complete Provider rate")}</Link>}
                       {isPlatformAdmin && (missingSelling || !missingProcurement) && <Link className="text-foreground underline underline-offset-2" to={pricingSetupHref(model)}>{uiT("Publish selling price")}</Link>}
                     </div>
                   </> : <>
-                    {!hasGenerationOutput(model) ? (
-                      <span className="text-muted-foreground">{model.catalog?.output_modalities?.length ? uiT(canTryUnverifiedChat(model) ? "Support unverified" : "Preview not supported") : uiT("Capabilities not published")}</span>
+                    {!hasGenerationOutput(model) && !canTryUnverifiedChat(model) ? (
+                      <span className="text-muted-foreground">{uiT("Preview not supported")}</span>
                     ) : showDesc && cardTitle !== model.id ? (
                       <span className="models-card-id-inline" title={model.id}>{model.id}</span>
                     ) : <span />}
@@ -663,7 +663,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
         </div> : null
       ) : <>
         {canTryUnverifiedChat(selected) && Boolean(selected.catalog?.output_modalities?.length) && <p className="text-sm text-muted-foreground">{uiT("Support unverified")}</p>}
-        {!hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{selected.catalog?.output_modalities?.length ? uiT("This model is not configured for a supported generation preview.") : uiT("This model’s capabilities have not been published. Ask the platform administrator to confirm the supported input and output before sending a request.")}</p>}
+        {!hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{selected.catalog?.output_modalities?.length ? uiT("This model is not configured for a supported generation preview.") : uiT("Upstream did not declare input or output modalities for this model.", "上游未提供此模型的输入/输出模态说明。")}</p>}
         {needsApiKey && (
           <p className="text-sm text-muted-foreground" role="status">
             {canWrite

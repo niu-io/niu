@@ -268,15 +268,16 @@ it.each([
   else expect(document.querySelector('pre')).toBeNull();
 });
 
-it('links an unknown-capability model to Chat while stating that support is unverified', () => {
+it('links an unknown-capability model to Chat without stamping misleading unpublished labels on callable cards', () => {
   const model = {id:'babelark/example',public_catalog:false,catalog:{output_modalities:[]}};
   const browse = render(<MemoryRouter><SidebarProvider><ModelTable models={[model]}/></SidebarProvider></MemoryRouter>);
   expect(screen.getByRole('link', {name:'Try in Chat'}).getAttribute('href')).toContain('model=babelark%2Fexample');
-  expect(screen.getByText('Capabilities not published')).toBeTruthy();
+  expect(screen.queryByText('Capabilities not published')).toBeNull();
+  expect(screen.queryByText('Not published')).toBeNull();
   browse.unmount();
   render(<MemoryRouter initialEntries={['/models/babelark/example']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
   expect(screen.getByRole('link', {name:'Try in Chat'}).getAttribute('href')).toContain('model=babelark%2Fexample');
-  expect(screen.getByText(/capabilities have not been published/)).toBeTruthy();
+  expect(screen.getByText('Upstream did not declare input or output modalities for this model.')).toBeTruthy();
   expect(screen.queryByRole('link', {name:'Open Generations'})).toBeNull();
 });
 
@@ -395,7 +396,7 @@ it('hides active generation and curl CTAs for uncallable commercial models and l
   const uncallableCard = screen.getByRole('link', { name: 'Unpriced Commercial' }).closest('article');
   if (!uncallableCard) throw new Error('Expected uncallable model card');
   expect(within(uncallableCard).getByText('Purchase rate & selling price missing')).toBeTruthy();
-  expect(within(uncallableCard).getByText('Not ready for requests')).toBeTruthy();
+  expect(within(uncallableCard).getByText('Not published')).toBeTruthy();
   expect(within(uncallableCard).queryByRole('link', { name: 'Open Generations' })).toBeNull();
   expect(within(uncallableCard).queryByRole('link', { name: 'Try in Chat' })).toBeNull();
   expect(within(uncallableCard).queryByRole('link', { name: 'Publish selling price' })).toBeNull();

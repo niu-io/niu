@@ -3139,7 +3139,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Save name": "保存名称",
   "Show all developers": "显示全部开发者",
   "Preview not supported": "不支持预览",
-  "Capabilities not published": "能力未发布",
+  "Upstream did not declare input or output modalities for this model.": "上游未提供此模型的输入/输出模态说明。",
   "Show less": "收起",
   "Show more": "显示更多",
   "Uses your own Provider API key. Your Provider bills this usage directly; it does not spend Niu credits. Access still depends on your key and Provider account.": "使用自有 Provider API 密钥，用量由 Provider 直接计费，不消耗 Niu 额度。访问仍取决于密钥与 Provider 账户。",
