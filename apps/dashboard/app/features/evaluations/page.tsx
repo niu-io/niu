@@ -425,16 +425,10 @@ function EvaluationsView({
               '查看 Agent 评估的任务标准、已记录判定、耗时与客户费用。',
             ) : '';
 
-  return (
-    <ReviewPageShell
-      title={title}
-      actions={
-        <>
-          {!slug && rows.length > 0 && <CopyAgentPrompt prompt={agentHandoffPrompt(routeWorkspace, 'evaluate models against my task criteria within the authorized spending limits; report conclusions, cost, and limitations')} onError={setError} />}
-          {!slug && canWrite && (
-            <Button
+  const manualSetup = canWrite && (
+    <Button
               size="sm"
-              variant="ghost"
+              variant="outline"
               aria-label={t('Manual setup', '手动配置')}
               onClick={(event) => {
                 formTrigger.current = event.currentTarget;
@@ -443,9 +437,17 @@ function EvaluationsView({
               }}
             >
               <IconPlus size={16} />
-              <span className="hidden sm:inline">{t('Manual setup', '手动配置')}</span>
+              <span>{t('Manual setup', '手动配置')}</span>
             </Button>
-          )}
+  );
+
+  return (
+    <ReviewPageShell
+      title={title}
+      actions={
+        <>
+          {!slug && rows.length > 0 && <CopyAgentPrompt prompt={agentHandoffPrompt(routeWorkspace, 'evaluate models against my task criteria within the authorized spending limits; report conclusions, cost, and limitations')} onError={setError} />}
+          {!slug && rows.length > 0 && manualSetup}
           {slug && detail.definition && !run && canWrite && (
             <Button
               variant="outline"
@@ -540,6 +542,7 @@ function EvaluationsView({
             </>
           ) : (
             <ReviewEmptyState
+            actions={manualSetup}
               title={uiF('No {0} yet', [title.toLowerCase()])}
               description={t(
                 'Ask your coding agent to evaluate models against your task criteria within an authorized test budget. Open an evaluation here to review its criteria, sample outcomes, input evidence, and known customer charges.',

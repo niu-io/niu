@@ -938,18 +938,20 @@ function RoutingView({
             '查看路由策略、Agent 修订记录和执行证据；需要时可手动调整配置。',
           ) : '';
 
+  const manualSetup = canWrite && (
+    <Button ref={poolEditorTriggerRef} size="sm" variant="outline" onClick={openCreatePoolDialog}>
+              <IconPlus size={16} />
+              {t('Manual setup', '手动配置')}
+            </Button>
+  );
+
   return (
     <ReviewPageShell
       title={title}
       actions={
         <>
           {!slug && rows.length > 0 && <CopyAgentPrompt prompt={agentHandoffPrompt(routeWorkspace, 'configure model routing for my task; inspect existing grants, costs, and evaluation evidence, explain tradeoffs, then verify the saved strategy')} onError={setError} />}
-          {!slug && canWrite && (
-            <Button ref={poolEditorTriggerRef} size="sm" variant="ghost" onClick={openCreatePoolDialog}>
-              <IconPlus size={16} />
-              {t('Manual setup', '手动配置')}
-            </Button>
-          )}
+          {!slug && rows.length > 0 && manualSetup}
           {slug && detail.pool && canWrite && (
             <>
               <Button
@@ -1082,6 +1084,7 @@ function RoutingView({
           </>
         ) : (
           <ReviewEmptyState
+            actions={manualSetup}
             title={t('No routing rules yet', '暂无路由规则')}
             description={t(
               'Ask your coding agent to configure routing for your task within your model access and spending limits. Review the saved strategy and evidence here.',

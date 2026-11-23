@@ -97,7 +97,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   const navigate = useNavigate();
   const generationReturn = useRef<string | null>(null);
   const initialCollectionPath = initialScope ? workspaceKeyPath(initialScope.projectId) : '';
-  const [keyStatusFilter, setKeyStatusFilter] = useState<KeyStatusFilter>('active');
+  const [keyStatusFilter, setKeyStatusFilter] = useState<KeyStatusFilter>('all');
   const initialPagePath = initialScope ? workspaceKeyPagePath(initialScope.projectId, 50, undefined, keyStatusFilter) : '';
   const initialCachedKeys = initialPagePath
     ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, initialPagePath)
@@ -109,7 +109,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(() => Boolean(initialCollectionPath && !loaderKeys && !initialCachedKeys));
   useEffect(() => {
-    if (loaderKeys && keyStatusFilter === "active") {
+    if (loaderKeys && keyStatusFilter === "all") {
       setKeys(loaderKeys);
       setNextCursor(loaderNextCursor ?? null);
       setLoadedScope(scopeIdentity);
@@ -486,12 +486,13 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   // never prevents either mutation form from opening or submitting.
   const activeNotice: KeyRequestNotice | null = requestNotice ?? (activePending ? {kind:'uncertain', pending:activePending} : null);
 
+  const emptyCollection = Boolean(workspace && !workspaceLoading && !isPending && !error && keyStatusFilter === "all" && !visibleKeys.length);
   const usageExample = issued ? `curl "${baseUrl()}/models" ${String.fromCharCode(92)}
   -H "Authorization: Bearer ${issued.token}"` : '';
   const invocationAllowed = issued?.key?.invocation_allowed !== false;
 
   return <div className="keys-page">
-    <PageHeader title={uiT("Keys")} action={<>{workspace && <Button ref={refreshButtonRef} type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh keys")} title={uiT("Refresh")} disabled={isPending} onClick={() => void reload()}><RefreshCw size={16} className={isPending ? 'animate-spin' : undefined} /></Button>}{canIssue && <Button className="header-icon-action" aria-label={uiT("New key")} title={uiT("New key")} onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New key")}</span></Button>}</>} />
+    <PageHeader title={uiT("Keys")} action={<>{workspace && <Button ref={refreshButtonRef} type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh keys")} title={uiT("Refresh")} disabled={isPending} onClick={() => void reload()}><RefreshCw size={16} className={isPending ? 'animate-spin' : undefined} /></Button>}{canIssue && !emptyCollection && <Button className="header-icon-action" aria-label={uiT("New key")} title={uiT("New key")} onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New key")}</span></Button>}</>} />
     {activeNotice && (() => {
       const noticeError = 'error' in activeNotice ? activeNotice.error : '';
       const pendingAction = 'pending' in activeNotice ? activeNotice.pending.action : null;
@@ -525,7 +526,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
       </Alert>;
     })()}
     {!workspaceLoading && !workspace && <p className="key-scope-empty">{uiT("Choose a workspace from the sidebar to manage its keys.")}</p>}
-    {workspace && <div className="keys-scope-line"><DropdownMenu><DropdownMenuTrigger asChild><Button ref={filterTriggerRef} type="button" variant="ghost" size="sm" aria-label={uiT("Filter by key status")} title={uiT("Filter by key status")} className={keyStatusFilter !== 'all' ? 'h-8 gap-1.5 px-2.5 text-xs text-primary bg-accent' : 'h-8 gap-1.5 px-2.5 text-xs'}><ListFilter size={15}/><span>{keyStatusFilter === 'active' ? uiT("Active keys") : keyStatusFilter === 'inactive' ? uiT("Revoked or expired") : uiT("All keys")}</span><ChevronDown size={14} aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" sideOffset={6}><DropdownMenuRadioGroup value={keyStatusFilter} onValueChange={value => setKeyStatusFilter(value as typeof keyStatusFilter)}><DropdownMenuRadioItem value="all">{uiT("All keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="active">{uiT("Active keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="inactive">{uiT("Revoked or expired")}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><span role="status">{isPending ? (visibleKeys.length ? uiT("Refreshing keys…") : uiT("Loading keys…")) : error && !visibleKeys.length ? uiT("Keys unavailable") : nextCursor ? uiF("{0} loaded", [visibleKeys.length]) : `${visibleKeys.length} ${visibleKeys.length === 1 ? uiT("key") : uiT("keys")}`}</span></div>}
+    {workspace && !emptyCollection && <div className="keys-scope-line"><DropdownMenu><DropdownMenuTrigger asChild><Button ref={filterTriggerRef} type="button" variant="ghost" size="sm" aria-label={uiT("Filter by key status")} title={uiT("Filter by key status")} className={keyStatusFilter !== 'all' ? 'h-8 gap-1.5 px-2.5 text-xs text-primary bg-accent' : 'h-8 gap-1.5 px-2.5 text-xs'}><ListFilter size={15}/><span>{keyStatusFilter === 'active' ? uiT("Active keys") : keyStatusFilter === 'inactive' ? uiT("Revoked or expired") : uiT("All keys")}</span><ChevronDown size={14} aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" sideOffset={6}><DropdownMenuRadioGroup value={keyStatusFilter} onValueChange={value => setKeyStatusFilter(value as typeof keyStatusFilter)}><DropdownMenuRadioItem value="all">{uiT("All keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="active">{uiT("Active keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="inactive">{uiT("Revoked or expired")}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><span role="status">{isPending ? (visibleKeys.length ? uiT("Refreshing keys…") : uiT("Loading keys…")) : error && !visibleKeys.length ? uiT("Keys unavailable") : nextCursor ? uiF("{0} loaded", [visibleKeys.length]) : `${visibleKeys.length} ${visibleKeys.length === 1 ? uiT("key") : uiT("keys")}`}</span></div>}
     {!canWrite && workspace && <p className="key-read-only">{uiT("You have read-only access.")}</p>}
     {error && <p className="key-error" role="alert">{uiT(error)}<Button type="button" variant="ghost" size="sm" onClick={() => void reload()}>{uiT("Try again")}</Button></p>}
     {(workspace || workspaceLoading) && <section className="key-list" aria-label={uiT("Keys")} aria-busy={isPending}>

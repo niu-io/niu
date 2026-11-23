@@ -10,7 +10,7 @@
       "reason": "Administration routing editor owns pool selection, preview and audit state. Next domain split under niu-4rp.15; extract the pool view-model and sections before adding features."
     },
     "app/features/routing/page.tsx": {
-      "lines": 1933,
+      "lines": 1936,
       "reason": "Workspace routing page still owns pool and candidate state. Split after route-pools shares its extracted routing primitives. Session recovery adds one shared authenticated-fetch import; no additional view logic."
     },
     "app/features/commercial-position/page.tsx": {
@@ -38,7 +38,7 @@
       "reason": "Provider business administration view. Split pending with provider domain modules under niu-4rp.15. Simplified default route to Models & discounts."
     },
     "app/features/evaluations/page.tsx": {
-      "lines": 898,
+      "lines": 901,
       "reason": "Evaluation run page. Split pending with the evaluation components under niu-4rp.15. Session recovery adds one shared authenticated-fetch import; no additional view logic."
     },
     "app/features/executions/components/GatewayActivity.tsx": {
