@@ -606,12 +606,12 @@ function ScopedModels({
         <Alert>
           <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             <span>
-              {connections.length === 0
-                ? uiT('Step 1: connect a Provider API key before selecting models.', '第一步：请先连接供应商 API 密钥，再选择可用模型。')
-                : uiT('All API keys for this Provider are currently disabled. Enable an API key first.', '此供应商的 API 密钥当前均已停用，请先启用 API 密钥。')}
+              {!connections.some(connection => connection.has_credential)
+                ? uiT('API key not configured. Configure an API key before enabling models.', 'API 密钥未配置，请先配置 API 密钥。')
+                : uiT('All configured API keys are disabled. Enable an API key first.', '已配置的 API 密钥处于停用状态，请先启用 API 密钥。')}
             </span>
             <Button asChild size="sm">
-              <Link to={keysHref}>{connections.length === 0 ? uiT('Connect API key') : uiT('Enable API key')}</Link>
+              <Link to={keysHref}>{!connections.some(connection => connection.has_credential) ? uiT('Configure API key', '配置 API 密钥') : uiT('Enable API key')}</Link>
             </Button>
           </AlertDescription>
         </Alert>

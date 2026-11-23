@@ -393,11 +393,11 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
         <Empty className="min-h-48">
           <EmptyHeader>
             <EmptyMedia variant="icon"><Router size={18} aria-hidden="true" /></EmptyMedia>
-            <EmptyTitle>{uiT("No API keys")}</EmptyTitle>
-            <EmptyDescription>{uiT("Add an API key to connect this Provider.")}</EmptyDescription>
+            <EmptyTitle>{uiT("API key not configured", "API 密钥未配置")}</EmptyTitle>
+            <EmptyDescription>{uiT("Configure an API key to connect this Provider and import models.", "配置 API 密钥以接入此供应商并自动导入模型。")}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button type="button" onClick={() => setAddingConnection(true)}>{uiT("Add API key")}</Button>
+            <Button type="button" onClick={() => setAddingConnection(true)}>{uiT("Configure API key", "配置 API 密钥")}</Button>
           </EmptyContent>
         </Empty>
       )
@@ -418,7 +418,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="font-semibold break-words">{connection.name}</h2>
                       <Badge variant={isReady ? 'secondary' : 'outline'}>
-                        {needsKey ? uiT("No API key saved", "未保存密钥") : connection.enabled ? uiT("Enabled") : uiT("Disabled")}
+                        {needsKey ? uiT("API key not configured", "API 密钥未配置") : connection.enabled ? uiT("Enabled") : uiT("Disabled")}
                       </Badge>
                       {isReady && activePoolCount > 1 && (
                         <Badge variant="outline">
@@ -445,7 +445,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
                       }}
                     >
                       <IconKey size={15} aria-hidden="true" />
-                      <span>{uiT("Enter API key & enable", "填写 API 密钥并启用")}</span>
+                      <span>{uiT("Enter API key & enable", "配置 API 密钥并启用")}</span>
                     </Button>
                   ) : !connection.enabled ? (
                     <Button
@@ -518,8 +518,8 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
               </div>
 
               {needsKey && (
-                <p className="text-sm text-destructive" role="status">
-                  {uiT("This connection has no stored API key (it was previously disconnected). Enter a new API key to enable it.", "此连接未保存 API 密钥（之前已被断开清除）。请重新填写 API 密钥以启用。")}
+                <p className="text-sm text-muted-foreground" role="status">
+                  {uiT("API key not configured for this connection. Enter an API key to enable it.", "此连接尚未配置 API 密钥，请填写 API 密钥以启用。")}
                 </p>
               )}
             </li>

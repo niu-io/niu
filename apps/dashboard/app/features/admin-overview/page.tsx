@@ -196,7 +196,7 @@ export default function AdminOverviewPage() {
 
   const providers = snapshot?.providers ?? [];
   const enabledKeys = providers.reduce((sum, item) => sum + (item.enabled_api_keys ?? 0), 0);
-  const savedKeys = providers.reduce((sum, item) => sum + (item.api_keys ?? 0), 0);
+  const savedKeys = providers.reduce((sum, item) => sum + (item.configured_api_keys ?? item.api_keys ?? 0), 0);
   const enabledRoutes = providers.reduce((sum, item) => sum + (item.enabled_model_routes ?? 0), 0);
   const savedRoutes = providers.reduce((sum, item) => sum + (item.models ?? 0), 0);
   const readyOffers = providers.reduce((sum, item) => sum + (item.ready_offers ?? 0), 0);

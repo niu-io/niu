@@ -291,9 +291,11 @@ export default function ProviderModelPolicySection({
             {accessMode === 'all' && (
               <div className="border-t border-border/60 pt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
                 <span>
-                  {!hasEnabledKey
-                    ? uiT('Add and enable an API key above to import and serve models.', '请先在上方添加并启用 API 密钥，即可同步并启用模型。')
-                    : counts.total === 0
+                  {!connections.some(connection => connection.has_credential)
+                    ? uiT('API key not configured. Configure an API key above to import and serve models.', 'API 密钥未配置。请先在上方配置 API 密钥，即可导入并启用模型。')
+                    : !hasEnabledKey
+                      ? uiT('All configured API keys are disabled. Enable an API key above to serve models.', '已配置的 API 密钥处于停用状态，请先在上方启用 API 密钥。')
+                      : counts.total === 0
                       ? uiT('No models synced yet. Click "Import models" to discover available models from this Provider.', '尚未同步模型。点击「导入模型」即可拉取并自动启用可用模型。')
                       : commercialEnabled && counts.unactivatedPricedCount > 0
                         ? counts.unactivatedPricedCount === 1

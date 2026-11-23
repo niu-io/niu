@@ -2020,6 +2020,11 @@ pub struct SettlementPreviewQuery {
 ///                         "type": "integer",
 ///                         "minimum": 0
 ///                       },
+///                       "configured_api_keys": {
+///                         "type": "integer",
+///                         "minimum": 0,
+///                         "description": "Connections that currently hold a stored non-empty API key credential, including disabled keys."
+///                       },
 ///                       "models": {
 ///                         "type": "integer",
 ///                         "minimum": 0

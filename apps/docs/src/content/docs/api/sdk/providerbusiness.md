@@ -21,6 +21,8 @@ export type ProviderBusiness = {
     api_keys: number;
     models: number;
     members: number;
+    /** Connections holding a stored non-empty credential (enabled or disabled). */
+    configured_api_keys?: number;
     /** Enabled saved configurations and mappings; not upstream verification. */
     enabled_api_keys?: number;
     enabled_model_routes?: number;

@@ -283,3 +283,62 @@ it('shows configured Providers once and excludes them from available presets', a
   expect(within(availableList).queryByRole('button', { name: 'Connect OpenRouter' })).toBeNull();
   expect(within(availableList).getByRole('button', { name: 'Connect DeepSeek' })).toBeTruthy();
 });
+
+it('shows Pending setup + API key not configured when no API key is configured (including erased/empty connection rows), and reserves API keys disabled for configured disabled keys', async () => {
+  const { providerAvailability } = await import('@/features/providers/provider-setup');
+  expect(providerAvailability({ api_keys: 0, configured_api_keys: 0, enabled_api_keys: 0, models: 0, ready_offers: 0 })).toMatchObject({
+    label: 'Pending setup',
+    detail: 'API key not configured.',
+    action: 'Configure API key',
+    usable: false,
+  });
+  expect(providerAvailability({ api_keys: 1, configured_api_keys: 0, enabled_api_keys: 0, models: 0, ready_offers: 0 })).toMatchObject({
+    label: 'Pending setup',
+    detail: 'API key not configured.',
+    action: 'Configure API key',
+    usable: false,
+  });
+  expect(providerAvailability({ api_keys: 1, configured_api_keys: 1, enabled_api_keys: 0, models: 4, ready_offers: 0 })).toMatchObject({
+    label: 'API keys disabled',
+    detail: 'All configured API keys are disabled.',
+    action: 'Enable API key',
+    usable: false,
+  });
+  expect(providerAvailability({ api_keys: 1, configured_api_keys: 1, enabled_api_keys: 1, models: 0, ready_offers: 0 })).toMatchObject({
+    label: 'Pending setup',
+    detail: 'No models imported yet.',
+    action: 'Configure',
+    usable: false,
+  });
+  expect(providerAvailability({ api_keys: 1, configured_api_keys: 1, enabled_api_keys: 1, models: 4, offers: 0, ready_offers: 0 })).toMatchObject({
+    label: 'Pending setup',
+    detail: 'Model pricing not configured.',
+    action: 'Configure',
+    usable: false,
+  });
+
+  vi.mocked(request).mockImplementation(async (_token, path) => ({
+    data: path.endsWith('/presets')
+      ? []
+      : [
+          {
+            id: 'prov-babelark',
+            slug: 'babelark',
+            name: 'BabelArk',
+            members: 0,
+            api_keys: 1,
+            configured_api_keys: 0,
+            enabled_api_keys: 0,
+            models: 0,
+            offers: 0,
+            ready_offers: 0,
+          },
+        ],
+  }));
+  render(<MemoryRouter><ProviderList /></MemoryRouter>);
+  const babelarkRow = (await screen.findByRole('link', { name: 'BabelArk' })).closest('li')!;
+  expect(within(babelarkRow).getByText('Pending setup')).toBeTruthy();
+  expect(within(babelarkRow).getByText('API key not configured.')).toBeTruthy();
+  expect(within(babelarkRow).getByRole('link', { name: 'Configure API key' })).toBeTruthy();
+  expect(within(babelarkRow).queryByText(/disabled/i)).toBeNull();
+});

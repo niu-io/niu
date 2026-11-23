@@ -1084,10 +1084,24 @@ async fn supplier_configuration_counts_do_not_confuse_saved_disabled_and_qualifi
         .find(|row| row["id"] == supplier.to_string())
         .unwrap();
     assert_eq!(setup["api_keys"], 1);
+    assert_eq!(setup["configured_api_keys"], 1);
     assert_eq!(setup["models"], 2);
     assert_eq!(setup["enabled_api_keys"], 0);
     assert_eq!(setup["ready_offers"], 0);
     assert_eq!(setup["enabled_model_routes"], 0);
+    sqlx::query("UPDATE vendors SET credential_ciphertext='\\x'::bytea WHERE id=$1")
+        .bind(vendor)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let rows = store.provider_businesses().await.unwrap();
+    let erased = rows
+        .iter()
+        .find(|row| row["id"] == supplier.to_string())
+        .unwrap();
+    assert_eq!(erased["api_keys"], 1);
+    assert_eq!(erased["configured_api_keys"], 0);
+    assert_eq!(erased["enabled_api_keys"], 0);
 }
 
 #[sqlx::test]

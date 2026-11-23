@@ -211,6 +211,18 @@ describe('Shared UI primitives layout safeguards', () => {
     const providerList = readFileSync(join(appDir, 'features/providers/ProviderList.tsx'), 'utf8');
     expect(providerList).not.toMatch(/API keys, (?:models|offers), or members/);
   });
+
+  it('distinguishes unconfigured Pending setup (API key not configured) from disabled API keys across Provider surfaces', () => {
+    const providerSetup = readFileSync(join(appDir, 'features/providers/provider-setup.ts'), 'utf8');
+    expect(providerSetup).toContain('configured_api_keys');
+    expect(providerSetup).toContain("label: 'Pending setup'");
+    expect(providerSetup).toContain("detail: 'API key not configured.'");
+    expect(providerSetup).not.toContain('No API key connected.');
+    const providerModels = readFileSync(join(appDir, 'features/provider-business/ProviderModels.tsx'), 'utf8');
+    expect(providerModels).toContain('connection.has_credential');
+    const policySection = readFileSync(join(appDir, 'features/provider-business/ProviderModelPolicySection.tsx'), 'utf8');
+    expect(policySection).toContain('connection.has_credential');
+  });
 });
 
 it('keeps model mapping actions outside the scrollable advanced settings', () => {
