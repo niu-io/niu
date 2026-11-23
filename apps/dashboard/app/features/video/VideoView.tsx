@@ -32,7 +32,7 @@ import { NiuAdminClient, type VideoIntentRequest, type VideoSubmissionIntent, ty
 import { useVideoDraft, type VideoDraftTicket } from './useVideoDraft';
 import { useDraftNavigation } from '../playground/useDraftNavigation';
 import { VideoIntent } from './intent';
-import { prepareVideoSessionIntent } from './session-intent';
+import { boundedVideoTitle, prepareVideoSessionIntent } from './session-intent';
 import { findVideoIntent, videoSessionTitle } from './intent-history';
 import { Button } from '@/components/ui/button';
 import { FormSectionSkeleton, ListRowsSkeleton } from '@/components/PageSkeletons';
@@ -58,15 +58,8 @@ import './video.css';
 import { findSupportedProviderModule, ProviderGenerationTools } from '@/features/provider-modules/registry';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
-const statusLabel: Record<string,string> = {submission_unknown:'Submission uncertain',queued:'Queued',running:'Running',succeeded:'Succeeded',failed:'Failed',unknown:'Status unavailable',reconciliation_required:'Needs reconciliation'};
+import { videoStatusLabel as statusLabel } from './status';
 function message(error: unknown) { return error instanceof Error ? error.message : 'The request could not be completed.'; }
-function boundedVideoTitle(promptText: string, modelName: string) {
-  const line = promptText.split('\n').map(item => item.trim()).find(Boolean) ?? '';
-  let title = line || (modelName.trim() ? `${translateUI("Video")} · ${modelName.trim()}` : translateUI("Video request"));
-  const bytes = new TextEncoder();
-  while (bytes.encode(title).length > 200) title = title.slice(0, -1);
-  return title.trim() || translateUI("Video request");
-}
 class VideoHTTPError extends Error { constructor(readonly status:number, text:string) { super(text); } }
 type SavedVideoTask = Pick<GenerationTask, 'id' | 'model' | 'state' | 'reference'> & {session_id?: string; artifacts?: GenerationTask['artifacts']};
 class VideoTaskResponseError extends Error {

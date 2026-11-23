@@ -15,7 +15,7 @@ import { useVideoDraft } from '../video/useVideoDraft';
 import { useDraftNavigation } from '../playground/useDraftNavigation';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
-import { translateUI, useLocale as useUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import ProviderLogo from '@/components/ProviderLogo';
 import { catalogTitle, modelIdentity } from '@/lib/providers';
 import { invalidateQueries, isQueryFresh, peekQuery, primeQuery } from '@/lib/query-cache';
@@ -24,20 +24,13 @@ import type { DashboardContext } from '@/shell/dashboard-context';
 import type { useGenerationKeys } from './useGenerationKeys';
 import { VIDEO_MODELS_FRESH_MS, videoModelsCacheKey } from './video-cache';
 import { controlLabels, initialControls, needsUnquotedConfirmation, videoRequest, validateSavedVideoReferences, type ControlValues } from '../video/request';
-import { matchesVideoIntentRequest, prepareVideoSessionIntent, videoDraftSubmissionIds } from '../video/session-intent';
+import { boundedVideoTitle, matchesVideoIntentRequest, prepareVideoSessionIntent, videoDraftSubmissionIds } from '../video/session-intent';
 import { VideoIntent } from '../video/intent';
 import type { VideoGenerationsSession } from '@niu-io/sdk/generations-sessions';
 import '../video/video.css';
 
 function message(error: unknown) {
   return error instanceof Error ? error.message : 'The request could not be completed.';
-}
-function titleFor(promptText: string, modelName: string) {
-  const line = promptText.split('\n').map(item => item.trim()).find(Boolean) ?? '';
-  let title = line || (modelName.trim() ? `${translateUI("Video")} · ${modelName.trim()}` : translateUI("Video request"));
-  const bytes = new TextEncoder();
-  while (bytes.encode(title).length > 200) title = title.slice(0, -1);
-  return title.trim() || translateUI("Video request");
 }
 function pickDefaultVideoModel(list: VideoModel[]): VideoModel | undefined {
   return list.find(item => item.id === 'fastrouter/seedance-2.0-mini') ?? list[0];
@@ -223,7 +216,7 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       preparingSavedDraft = Boolean(ticket);
       preparationAttempted = true;
       const prepared = await prepareVideoSessionIntent(client, {organizationId: workspace.organization_id, projectId: workspace.id}, {
-        sessionId: session.id, turnId, intentId, keyId: activeKeyId, title: titleFor(prompt, model.id), request,
+        sessionId: session.id, turnId, intentId, keyId: activeKeyId, title: boundedVideoTitle(prompt, model.id), request,
       });
       if (isStale()) return;
       if (!prepared.intent.reference) throw new Error('The saved video request identity does not match this link.');

@@ -70,3 +70,9 @@ Before marking any UI change complete:
    - Desktop Dark (`1440×900`)
    - Narrow mobile (`390×844`)
 3. **Zero regressions**: Verify 0 horizontal overflow, stable dialog/menu heights across loading -> loaded transitions, consistent sibling dimensions, and accessible contrast.
+
+### Empty collections and generation prerequisites
+
+Center a single empty result in the remaining page or pane below its controls. Keep one recovery action when several sections describe the same missing data. Keep dates and active filters reachable. Show separate sections for independently populated, loading or failed results.
+
+A new generation requires a usable workspace key before message entry, attachments, prompt examples or submission. Preserve existing draft content when the key becomes unavailable. Offer authorized key setup at the composer and enable it only after the selected key permits invocation. Creating a key and sending a message are distinct actions.

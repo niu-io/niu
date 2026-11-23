@@ -34824,7 +34824,32 @@ HTTP 503: Saved diagnostics unavailable
 
 `POST /v1/messages`
 
-Requires supports_messages on an OpenRouter or Anthropic route. Accepts version 2023-06-01 (default when omitted) and safe capability anthropic-beta tokens (prompt-caching-2024-07-31, token-efficient-tools-2025-02-19, interleaved-thinking-2025-05-14, fine-grained-tool-streaming-2025-05-14, output-128k-2025-02-19, pdfs-2024-09-25, extended-cache-ttl-2025-04-11; host marker claude-code-20250219 is stripped; unknown or hosted-tool betas return 501). Supports Extended Thinking (thinking enabled/disabled/adaptive and output_config.effort), top_k, metadata.user_id, client function tools (auto/any/none/tool, string or bounded array tool_result.content, cache_control on tools and tool blocks), thinking/redacted_thinking history blocks, and unpriced user image/document blocks (8 MiB body cap; rejected with 400 on priced routes which keep a 1 MiB limit). Streaming enforces per-event bounds (256 KiB) and validates cumulative usage before completion.
+**Route and version**
+
+Requires `supports_messages` on an OpenRouter or Anthropic route. The supported version is `2023-06-01`, which is also the default when the version is omitted.
+
+**Accepted anthropic-beta tokens**
+
+- `prompt-caching-2024-07-31`
+- `token-efficient-tools-2025-02-19`
+- `interleaved-thinking-2025-05-14`
+- `fine-grained-tool-streaming-2025-05-14`
+- `output-128k-2025-02-19`
+- `pdfs-2024-09-25`
+- `extended-cache-ttl-2025-04-11`
+
+The gateway strips the host marker `claude-code-20250219`. Unknown or hosted-tool betas return HTTP 501.
+
+**Request content**
+
+- Extended Thinking accepts enabled, disabled and adaptive thinking, plus `output_config.effort`. History can include thinking and redacted_thinking blocks.
+- Sampling and metadata support `top_k` and `metadata.user_id`.
+- Client function tools support auto, any, none and tool choices. `tool_result.content` accepts a string or bounded array. Tools and tool blocks accept `cache_control`.
+- Unpriced routes accept user image and document blocks with an 8 MiB body limit. Priced routes reject these blocks with HTTP 400 and retain a 1 MiB limit.
+
+**Streaming**
+
+Each event is limited to 256 KiB. The gateway validates cumulative usage before completion.
 
 Implementation: `implemented`. Operation: `createMessage`.
 
@@ -44045,7 +44070,20 @@ HTTP 503: Required encryption or storage unavailable
 
 `PUT /v1/events/{slug}`
 
-Requires a current workspace API key with explicitly delegated events:write. Responses are no-store. revision zero creates; otherwise the current expected revision is required. Creation and rotate_secret return one randomly generated signing secret, encrypted at rest and bound to workspace/subscription. Destination changes require rotation. Destination/secret/enable transitions start after the current stream head; metadata edits preserve the processed cursor. Update enabled=false to revoke future deliveries while retaining history; in-flight requests cannot be recalled. Maximum 32 retained subscriptions. Requires configured encryption. No inference or immediate delivery occurs. On conflict read/reconcile; never automatically replay an uncertain secret-issuing mutation.
+**Before you start**
+
+Use a current workspace API key with explicitly delegated `events:write`. Encryption must be configured. A workspace can retain up to 32 subscriptions.
+
+**Create or update**
+
+Revision zero creates a subscription. Updates require the current expected revision. Responses are no-store. Creation and `rotate_secret` each return one randomly generated signing secret, encrypted at rest and bound to the workspace and subscription. Changing the destination requires rotation.
+
+**Delivery and recovery**
+
+- Changing the destination, secret or enabled state starts delivery after the current stream head. Metadata edits preserve the processed cursor.
+- Set `enabled=false` to revoke future deliveries while retaining history. In-flight requests cannot be recalled.
+- This operation performs no inference or immediate delivery.
+- On conflict, read the current state and reconcile. Never automatically replay an uncertain mutation that issues a secret.
 
 Implementation: `implemented`. Operation: `setEventSubscription`.
 

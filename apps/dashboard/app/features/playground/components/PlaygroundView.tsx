@@ -25,7 +25,7 @@ import { useChatDraft, prefetchChatDraft, clearPrefetchedChatDraft, type ChatDra
 import { IconX as X, IconDots as MoreHorizontal, IconPencil as Pencil, IconTrash as Trash, IconArchive as Archive, IconDownload as Download, IconPaperclip as Paperclip, IconFlask as FlaskConical, IconArrowRight as ArrowRight, IconArrowUp as ArrowUp, IconCoin as CircleDollarSign, IconCopy as ClipboardCopy, IconClock as Clock3, IconHash as Hash, IconKey as KeyRound, IconLoader2, IconPlus as Plus, IconAdjustmentsHorizontal as Settings2, IconSparkles, IconSquare as Square, IconStopwatch as Timer, IconMessageChatbot, IconVideo as Video } from "@tabler/icons-react";
 import PlaygroundModelPickerDialog from './PlaygroundModelPickerDialog';
 import GenerationKeyPicker from '@/features/generations/GenerationKeyPicker';
-import { QuickKeyDialog, useQuickKeyProvisioner, type ProvisionedPlaygroundKey } from '@/features/generations/QuickKeyDialog';
+import { QuickKeyDialog, useQuickKeyProvisioner } from '@/features/generations/QuickKeyDialog';
 import ChatTurnAttachments, { type ChatAttachment } from './ChatTurnAttachments';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { Badge } from '@/components/ui/badge';
@@ -386,6 +386,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const historyToggleRef = useRef<HTMLButtonElement>(null);
   const apiKeyTriggerRef = useRef<HTMLButtonElement>(null);
   const historyDialogOpener = useRef<HTMLButtonElement | null>(null);
+  const archiveFromMobileHistory = useRef(false);
   const historyActionButtons = useRef(new Map<string, HTMLButtonElement>());
   function restoreHistoryFocus(event: Event) {
     event.preventDefault();
@@ -788,7 +789,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     setKeyLoadError(''); setWorkspaceKeysLoading(true);
     fetch(keysPath, { headers: { authorization: `Bearer ${token}` }, signal: controller.signal })
       .then(async response => { if (!response.ok) throw new Error('Could not load API keys. Reopen this menu to retry.'); return response.json(); })
-      .then(value => { if (!controller.signal.aborted) { setWorkspaceKeys(value.data.filter((key: {revoked: boolean; expired: boolean}) => !key.revoked && !key.expired)); setWorkspaceKeysReady(true); } })
+      .then(value => { if (!controller.signal.aborted) { setWorkspaceKeys(value.data.filter((key: {revoked: boolean; expired: boolean; invocation_allowed?: boolean}) => !key.revoked && !key.expired && key.invocation_allowed !== false)); setWorkspaceKeysReady(true); } })
       .catch(error => { if (!controller.signal.aborted) setKeyLoadError(error.message); })
       .finally(() => { if (!controller.signal.aborted) setWorkspaceKeysLoading(false); });
     return () => controller.abort();
@@ -938,7 +939,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     return new Map(entries.map(entry => [entry.attempt_id, entry]));
   }
 
-  async function handleQuickCreateKey(autoSendAfter: boolean) {
+  async function handleQuickCreateKey() {
     if (!token || !organization || !workspaceId || session?.permissions.write === false) return;
     const created = await quickKey.run({
       token,
@@ -958,32 +959,19 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     next.set('key', created.slug || created.id);
     navigate({ pathname: location.pathname, search: next.toString(), hash: location.hash }, { replace: true });
     setNotice('Created “Playground” API key. You can start chatting now.');
-    if (autoSendAfter) void compare(undefined, created);
   }
 
-  async function compare(event?: FormEvent<HTMLFormElement>, overrideKey?: ProvisionedPlaygroundKey) {
+  async function compare(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
-    const effectiveManagedKey = overrideKey ?? managedKey;
-    const effectiveApiKey = overrideKey ? token : apiKey;
     if (comparisonController.current || running || settingsSaving || historyLoading
       || modelsLoading || modelsError
-      || (!overrideKey && !hasUsableKey) || session?.permissions.write === false
+      || !hasUsableKey || !apiKey
       || !selectedModels.every(model => usableModels.includes(model))) return;
     if (!Number.isSafeInteger(maxTokens) || maxTokens <= 0) { setChatSettingsOpen(true); return; }
     const submittedPrompt = prompt;
     setNotice('');
     setError('');
     if (!organization || !workspaceId || !submittedPrompt.trim() || selectedModels.length < minComparisonModels || selectedModels.length > maxComparisonModels) return;
-    if (!effectiveApiKey) {
-      if (noAvailableKeys) {
-        quickKey.setError('');
-        setQuickKeyDialogOpen(true);
-      } else {
-        setApiSettingsOpen(true);
-      }
-      return;
-    }
-    if (!overrideKey && effectiveManagedKey && (!workspaceKeysReady || keyLoadError)) return;
     if (usableModels.length < minComparisonModels) {
       setApiSettingsOpen(true);
       return;
@@ -1046,7 +1034,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
           navigate(`${targetPath}${query.size ? `?${query}`:''}`, { replace: true });
         }
       }
-      const effectiveKeyId = overrideKey?.id ?? selectedKeyId;
+      const effectiveKeyId = selectedKeyId;
       await Promise.race([
         draft.flush({...(effectiveKeyId ? {keyId:effectiveKeyId}:{}),sessionId:comparisonId,prompt:'',models:selectedModels,attachments:[],settings:{systemPrompt,maxTokens,temperature,logPayloads}}),
         abortSignalPromise(controller.signal),
@@ -1069,7 +1057,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
       const completed = await Promise.all(selectedModels.map(model => {
         const messages: ConversationMessage[] = systemPrompt.trim() ? [{ role: 'system', content: systemPrompt.trim() }] : [];
         messages.push(...branchMessages(previousTurns, model), userMessage(currentTurn));
-        return runModel(model, effectiveApiKey, messages, maxTokens, temperature, controller.signal, updateResult, chatEndpoint, logPayloads, effectiveManagedKey?.id);
+        return runModel(model, apiKey, messages, maxTokens, temperature, controller.signal, updateResult, chatEndpoint, logPayloads, managedKey?.id);
       }));
       await checkpoint;
       if (checkpointError) throw checkpointError;
@@ -1176,7 +1164,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
               currentWorkspaceId={workspaceId}
               errorText={keyPickerError}
               manageKeysHref={`${workspaceRoot}/keys`}
-              onQuickCreateKey={noAvailableKeys && !keysLoading && session?.permissions.write !== false ? () => void handleQuickCreateKey(false) : undefined}
+              onQuickCreateKey={noAvailableKeys && !keysLoading && session?.permissions.write !== false ? () => { quickKey.setError(''); setQuickKeyDialogOpen(true); } : undefined}
               quickCreating={quickKey.busy}
               onCreateKey={noAvailableKeys && !keysLoading && session?.permissions.write !== false ? () => void (async () => { if (!await draft.flush()) return; navigate(`${workspaceRoot}/keys`, { state: { createKey: true, returnTo: location.pathname + location.search + location.hash } }); })() : undefined}
               onSelectKey={value => {
@@ -1191,7 +1179,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
           </div>} onNewSession={startWithNewChat ? startNewComparison : undefined} notice={historyError && <div className="p-3"><p role="alert" className="text-sm text-destructive">{uiT(historyError)}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>{uiT("Retry chat history")}</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: ((historyLoading || !draft.ready) && history.length === 0), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId ?? (requestedSession && !startWithNewChat ? requestedSession : null)), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);void draft.flush(comparisonDraft(item,selectedKeyId));navigate(`/generations/${encodeURIComponent(item.reference??id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
               <DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element => { if (element) historyActionButtons.current.set(item.id, element); else historyActionButtons.current.delete(item.id); }} showOnHover disabled={running || settingsSaving} aria-label={uiF("Actions for {0}", [sessionTitle(item)])}><MoreHorizontal /></SidebarMenuAction></DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setRenamingChat(item); setChatTitle(sessionTitle(item)); setRenameError(''); if (isMobile) setOpenMobile(false); }}><Pencil size={14} />{uiT("Rename")}</DropdownMenuItem><DropdownMenuItem disabled={exporting} onSelect={() => { void exportComparison(item); if (isMobile) setOpenMobile(false); }}><Download size={14} />{exporting ? uiT("Exporting…") : uiT("Export")}</DropdownMenuItem><DropdownMenuItem disabled={archiveBusy || running} onSelect={() => { void changeArchive(item, true); if (isMobile) setOpenMobile(false); }}><Archive size={14} />{uiT("Archive")}</DropdownMenuItem><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setDeletingChat(item); setDeleteError(''); if (isMobile) setOpenMobile(false); }}><Trash size={14} />{uiT("Delete")}</DropdownMenuItem></DropdownMenuContent>
-              </DropdownMenu>);})}} onArchive={event => { historyDialogOpener.current = event.currentTarget; setArchiveOpen(true); }} />
+              </DropdownMenu>);})}} onArchive={event => { historyDialogOpener.current = event.currentTarget; archiveFromMobileHistory.current = isMobile; setArchiveOpen(true); }} />
 
       <section className="playground-chat-main" aria-label={uiT("Model comparison chat")}>
         <div ref={transcriptRef} className="playground-transcript" aria-live="polite">
@@ -1288,7 +1276,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
         {(keyBlocked || (initialScope && modelAliases.length >= minComparisonModels)) && <Popover open={chatSettingsOpen} onOpenChange={open => {if (open) {setSettingsSaveError('');setChatSettingsOpen(true);} else void closeChatSettings();}}>
           <GenerationComposer formRef={composerRef} onSubmit={compare} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void addAttachments(event.dataTransfer.files); }} wrapSurface={surface => <PopoverAnchor asChild>{surface}</PopoverAnchor>}
             topBanner={noAvailableKeys && !managedKey
-              ? <div className="composer-key-banner" role="status"><div className="composer-key-banner-copy"><KeyRound size={15} className="shrink-0 text-muted-foreground" aria-hidden="true" /><span>{session?.permissions.write !== false ? uiT("Create an API key to start using models in this workspace.") : uiT("No active API key in this workspace yet. Ask a workspace administrator to create one before trying models.", "当前工作空间暂无可用 API 密钥，请联系工作空间管理员创建后再试用模型。")}</span></div>{session?.permissions.write !== false && <div className="flex flex-wrap items-center gap-2"><Button type="button" size="sm" disabled={quickKey.busy} onClick={() => void handleQuickCreateKey(false)}>{quickKey.busy ? <IconLoader2 size={14} className="animate-spin" aria-hidden="true" /> : <IconSparkles size={14} aria-hidden="true" />}{quickKey.busy ? uiT("Creating key…", "正在创建密钥…") : uiT("Auto-create key", "自动创建试用密钥")}</Button><Button type="button" size="sm" variant="outline" disabled={quickKey.busy} onClick={() => void (async () => { if (!await draft.flush()) return; navigate(`${workspaceRoot}/keys`, {state:{createKey:true,returnTo:`${location.pathname}${location.search}${location.hash}`}}); })()}>{uiT("Create API key")}</Button></div>}</div>
+              ? <div className="composer-key-banner" role="status"><div className="composer-key-banner-copy"><KeyRound size={15} className="shrink-0 text-muted-foreground" aria-hidden="true" /><span>{session?.permissions.write !== false ? uiT("Create an API key to start using models in this workspace.") : uiT("No active API key in this workspace yet. Ask a workspace administrator to create one before trying models.", "当前工作空间暂无可用 API 密钥，请联系工作空间管理员创建后再试用模型。")}</span></div>{session?.permissions.write !== false && <div className="flex flex-wrap items-center gap-2"><Button type="button" size="sm" disabled={quickKey.busy} onClick={() => { quickKey.setError(''); setQuickKeyDialogOpen(true); }}>{quickKey.busy ? <IconLoader2 size={14} className="animate-spin" aria-hidden="true" /> : <IconSparkles size={14} aria-hidden="true" />}{quickKey.busy ? uiT("Creating key…", "正在创建密钥…") : uiT("Auto-create key", "自动创建试用密钥")}</Button><Button type="button" size="sm" variant="outline" disabled={quickKey.busy} onClick={() => void (async () => { if (!await draft.flush()) return; navigate(`${workspaceRoot}/keys`, {state:{createKey:true,returnTo:`${location.pathname}${location.search}${location.hash}`}}); })()}>{uiT("Create API key")}</Button></div>}</div>
               : workspaceKeysReady && !availableKeys.loading && !noAvailableKeys && !managedKey && !selectedKey
                 ? <div className="composer-key-banner" role="status"><div className="composer-key-banner-copy"><KeyRound size={15} className="shrink-0 text-muted-foreground" aria-hidden="true" /><span>{uiT("Select an API key to send messages in this workspace.")}</span></div><Button type="button" size="sm" variant="outline" onClick={() => setApiSettingsOpen(true)}>{uiT("Choose API key")}</Button></div>
                 : null}
@@ -1344,7 +1332,13 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     </div>
 
     <Dialog open={archiveOpen} onOpenChange={open => { setArchiveOpen(open); if (!open && new URLSearchParams(location.search).has('archived')) { const params = new URLSearchParams(location.search); params.delete('archived'); const q = params.toString(); navigate(`${location.pathname}${q ? `?${q}` : ''}${location.hash}`, { replace: true }); } }}>
-      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg" onCloseAutoFocus={restoreHistoryFocus}><DialogHeader><DialogTitle>{uiT("Archived sessions")}</DialogTitle><DialogDescription>{uiT("Restore a Chat or Video session to Generations history.")}</DialogDescription></DialogHeader>
+      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg" onCloseAutoFocus={event => {
+        if (archiveFromMobileHistory.current && isMobile) {
+          event.preventDefault();
+          archiveFromMobileHistory.current = false;
+          setOpenMobile(true);
+        } else restoreHistoryFocus(event);
+      }}><DialogHeader><DialogTitle>{uiT("Archived sessions")}</DialogTitle><DialogDescription>{uiT("Restore a Chat or Video session to Generations history.")}</DialogDescription></DialogHeader>
         {archivedChats.length > 0 && <h3 className="text-sm font-medium">{uiT("Chats")}</h3>}
         {archiveError && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{uiT(archiveError)}</p>{archiveReadFailed && <Button variant="secondary" disabled={archiveLoading} onClick={() => setArchiveRevision(value => value + 1)}>{uiT("Retry")}</Button>}</div>}
         {archiveLoading ? <TableSkeleton columns={2} rows={3} label={uiT("Loading archived chats…")} /> : archivedChats.length === 0 ? null : <div className="max-h-[60vh] overflow-auto"><ShadcnTable className="table-fixed"><TableHeader><TableRow><TableHead>{uiT("Chat")}</TableHead><TableHead className="w-32 text-right">{uiT("Action")}</TableHead></TableRow></TableHeader><TableBody>{archivedChats.map(item => <TableRow key={item.id}><TableCell className="whitespace-normal break-words">{sessionTitle(item)}</TableCell><TableCell className="text-right"><Button variant="ghost" disabled={archiveBusy || running} onClick={() => void changeArchive(item, false)} aria-label={uiF("Restore {0}", [sessionTitle(item)])}>{uiT("Restore")}</Button></TableCell></TableRow>)}</TableBody></ShadcnTable></div>}
@@ -1402,13 +1396,13 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     <QuickKeyDialog
       open={quickKeyDialogOpen}
       onOpenChange={setQuickKeyDialogOpen}
-      mode="send"
+      mode="create"
       canWrite={session?.permissions.write !== false}
       workspaceRoot={workspaceRoot}
       returnTo={`${location.pathname}${location.search}${location.hash}`}
       busy={quickKey.busy}
       error={quickKey.error}
-      onQuickCreate={() => void handleQuickCreateKey(true)}
+      onQuickCreate={() => void handleQuickCreateKey()}
       onCustomCreate={() => void (async () => {
         if (!await draft.flush()) return;
         setQuickKeyDialogOpen(false);

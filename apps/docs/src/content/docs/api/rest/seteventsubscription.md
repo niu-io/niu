@@ -7,7 +7,20 @@ description: "PUT /v1/events/{slug}"
 
 `PUT /v1/events/{slug}`
 
-Requires a current workspace API key with explicitly delegated events:write. Responses are no-store. revision zero creates; otherwise the current expected revision is required. Creation and rotate_secret return one randomly generated signing secret, encrypted at rest and bound to workspace/subscription. Destination changes require rotation. Destination/secret/enable transitions start after the current stream head; metadata edits preserve the processed cursor. Update enabled=false to revoke future deliveries while retaining history; in-flight requests cannot be recalled. Maximum 32 retained subscriptions. Requires configured encryption. No inference or immediate delivery occurs. On conflict read/reconcile; never automatically replay an uncertain secret-issuing mutation.
+**Before you start**
+
+Use a current workspace API key with explicitly delegated `events:write`. Encryption must be configured. A workspace can retain up to 32 subscriptions.
+
+**Create or update**
+
+Revision zero creates a subscription. Updates require the current expected revision. Responses are no-store. Creation and `rotate_secret` each return one randomly generated signing secret, encrypted at rest and bound to the workspace and subscription. Changing the destination requires rotation.
+
+**Delivery and recovery**
+
+- Changing the destination, secret or enabled state starts delivery after the current stream head. Metadata edits preserve the processed cursor.
+- Set `enabled=false` to revoke future deliveries while retaining history. In-flight requests cannot be recalled.
+- This operation performs no inference or immediate delivery.
+- On conflict, read the current state and reconcile. Never automatically replay an uncertain mutation that issues a secret.
 
 Operation: `setEventSubscription`.
 
@@ -239,6 +252,19 @@ Required encryption or storage unavailable
 
 ## Behavior and supported scope
 
-Requires a current workspace API key with explicitly delegated events:write. Responses are no-store. revision zero creates; otherwise the current expected revision is required. Creation and rotate_secret return one randomly generated signing secret, encrypted at rest and bound to workspace/subscription. Destination changes require rotation. Destination/secret/enable transitions start after the current stream head; metadata edits preserve the processed cursor. Update enabled=false to revoke future deliveries while retaining history; in-flight requests cannot be recalled. Maximum 32 retained subscriptions. Requires configured encryption. No inference or immediate delivery occurs. On conflict read/reconcile; never automatically replay an uncertain secret-issuing mutation.
+**Before you start**
+
+Use a current workspace API key with explicitly delegated `events:write`. Encryption must be configured. A workspace can retain up to 32 subscriptions.
+
+**Create or update**
+
+Revision zero creates a subscription. Updates require the current expected revision. Responses are no-store. Creation and `rotate_secret` each return one randomly generated signing secret, encrypted at rest and bound to the workspace and subscription. Changing the destination requires rotation.
+
+**Delivery and recovery**
+
+- Changing the destination, secret or enabled state starts delivery after the current stream head. Metadata edits preserve the processed cursor.
+- Set `enabled=false` to revoke future deliveries while retaining history. In-flight requests cannot be recalled.
+- This operation performs no inference or immediate delivery.
+- On conflict, read the current state and reconcile. Never automatically replay an uncertain mutation that issues a secret.
 
 **Supported scope:** implemented

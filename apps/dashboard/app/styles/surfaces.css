@@ -235,7 +235,15 @@
 .page-content > .gateway-route-content:not([hidden]),
 .page-content > .gateway-route-content > div:not([hidden]):not([data-slot="tabs"]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; max-width: 100%; }
 .page-content > .gateway-route-content > [data-slot="tabs"] { min-width: 0; max-width: 100%; }
-.empty-region:has([data-slot="empty"]) { display: flex; flex: 0 0 auto; flex-direction: column; min-width: 0; }
+.empty-region:has([data-slot="empty"]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; }
+.empty-region > [data-slot="empty"],
+.empty-region > [data-slot="tabs"]:has(> [data-state="active"] > [data-slot="empty"]),
+.empty-region > [data-slot="tabs"] > [data-state="active"]:has(> [data-slot="empty"]),
+.empty-region > [data-slot="tabs"] > [data-state="active"] > [data-slot="empty"] {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+}
 .gateway-route-content > div > :is(.empty-state, .provider-access-message, .vendor-empty) { flex: 0 0 auto; }
 .provider-admin-panel:has(> [data-slot="empty"]) { display: flex; flex: 0 0 auto; flex-direction: column; }
 .operator-detail-empty { flex: 0 0 auto; justify-content: center; }

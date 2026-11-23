@@ -27,7 +27,13 @@ export default function ApiReference() {
     searchHotKey: 'i',
     showDeveloperTools: 'never',
     modelsSectionLabel: t('Schemas', '数据结构 (Schemas)'),
-    localization: { locale: locale === 'zh-CN' ? 'zh-CN' : 'en' },
+    localization: {
+      locale: locale === 'zh-CN' ? 'zh-CN' : 'en',
+      translations: { navigation: {
+        openMenu: t('Browse operations', '浏览 API 操作'),
+        closeMenu: t('Close operation index', '关闭操作目录'),
+      } },
+    },
     defaultOpenAllTags: false,
     hideClientButton: true,
     persistAuth: false,

@@ -108,15 +108,14 @@ describe('Global Chat', () => {
       <Route path="/workspaces/:workspace/keys" element={<Target/>}/>
     </Routes></MemoryRouter></SidebarProvider>);
     const prompt=await screen.findByLabelText('Prompt for all selected models');
-    await waitFor(()=>expect(prompt).toHaveProperty('disabled',false));
-    await user.type(prompt,'Keep this draft');
+    await waitFor(()=>expect(prompt).toHaveProperty('disabled',true));
+    expect(screen.getByRole('button',{name:'Send to 1 model'})).toHaveProperty('disabled',true);
     expect(await screen.findByText('Create an API key to start using models in this workspace.')).toBeTruthy();
     expect(screen.queryByLabelText('Key secret')).toBeNull();
     await user.click(screen.getByRole('button',{name:'Create API key'}));
     expect(JSON.parse((await screen.findByTestId('key-handoff')).textContent!)).toEqual({createKey:true,returnTo:'/generations/chat-42?workspace=workspace-a'});
-    expect([...serverDrafts.values()].some(draft=>(draft.payload as {prompt:string})?.prompt==='Keep this draft')).toBe(true);
   });
-  it('offers 1-click auto-create & send when submitting with zero active keys instead of opening an empty dropdown', async () => {
+  it('enables message entry only after explicit key creation', async () => {
     let created = false;
     stubFetch(vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -138,13 +137,13 @@ describe('Global Chat', () => {
     const user = userEvent.setup();
     renderPlayground(['fast']);
     const prompt = await screen.findByLabelText('Prompt for all selected models');
-    await waitFor(() => expect(prompt).toHaveProperty('disabled', false));
-    expect(await screen.findByRole('button', { name: 'Auto-create key' })).toBeTruthy();
-    await user.type(prompt, 'Hello without a key');
-    await user.click(screen.getByRole('button', { name: 'Send to 1 model' }));
+    expect(prompt).toHaveProperty('disabled', true);
+    await user.click(await screen.findByRole('button', { name: 'Auto-create key' }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Create an API key first')).toBeTruthy();
-    await user.click(within(dialog).getByRole('button', { name: 'Auto-create key & send' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Auto-create key' }));
+    await waitFor(() => expect(prompt).toHaveProperty('disabled', false));
+    await user.type(prompt, 'Hello with a key');
+    await user.click(screen.getByRole('button', { name: 'Send to 1 model' }));
     expect(await screen.findByText(/response/)).toBeTruthy();
     expect(await screen.findByRole('button', { name: 'API key: Playground' })).toBeTruthy();
   });
