@@ -13215,6 +13215,10 @@ Content type: `application/json`.
             "type": "string",
             "format": "uuid"
           },
+          "slug": {
+            "type": "string",
+            "description": "Stable customer URL slug."
+          },
           "organization_name": {
             "type": "string"
           },
@@ -13349,10 +13353,11 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 `customer` (path, required)
 
+Stable customer slug or legacy organization UUID.
+
 ```json
 {
-  "type": "string",
-  "format": "uuid"
+  "type": "string"
 }
 ```
 

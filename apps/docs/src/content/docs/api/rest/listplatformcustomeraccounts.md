@@ -93,6 +93,10 @@ Content type: `application/json`.
             "type": "string",
             "format": "uuid"
           },
+          "slug": {
+            "type": "string",
+            "description": "Stable customer URL slug."
+          },
           "organization_name": {
             "type": "string"
           },

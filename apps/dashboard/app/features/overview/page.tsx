@@ -72,6 +72,8 @@ export default function OverviewRoute() {
     canWrite={canWrite}
     canManagePlatform={canManagePlatform}
     hasModels={models.length > 0}
+    needsApiKey={needsApiKey}
+    onCreateKey={needsApiKey && canWrite ? () => { quickKey.setError(''); setQuickKeyOpen(true); } : undefined}
   />;
   return <>
     <PageHeader title={t('Overview', '概览')} action={token && <div className="overview-primary-actions">{models.length
@@ -83,6 +85,47 @@ export default function OverviewRoute() {
       : canManagePlatform
         ? <Button asChild><Link to="/admin" className="header-icon-action" aria-label={t('Admin setup', '进入管理后台')} title={t('Admin setup', '进入管理后台')}><Network aria-hidden="true" /><span>{t('Admin setup', '进入管理后台')}</span></Link></Button>
         : <Button asChild><Link to={modelsHref} className="header-icon-action" aria-label={t('Browse models', '浏览模型')} title={t('Browse models', '浏览模型')}><Network aria-hidden="true" /><span>{t('Browse models', '浏览模型')}</span></Link></Button>}</div>} />
+
+    {token && workspace && (
+      <section aria-label={t('Workspace status', '工作空间状态')} className="mb-5 grid gap-3 sm:grid-cols-3">
+        <Link to={modelsHref} className="flex items-center justify-between gap-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5 transition-colors hover:bg-accent/50">
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">{t('Available models', '可用模型')}</p>
+            <p className="mt-1 text-lg font-semibold tabular-nums">{models.length}</p>
+          </div>
+          <span className="text-xs text-muted-foreground">{t('Browse', '查看')} →</span>
+        </Link>
+        {needsApiKey && canWrite ? (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => { quickKey.setError(''); setQuickKeyOpen(true); }}
+            className="h-auto w-full items-center justify-between gap-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5 text-left font-normal hover:bg-accent/50"
+          >
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">{t('Active API keys', '有效 API 密钥')}</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">{workspace.active_key_count ?? 0}</p>
+            </div>
+            <span className="text-xs font-medium text-primary">{t('Create key', '创建密钥')} →</span>
+          </Button>
+        ) : (
+          <Link to={`${workspaceRoot}/keys`} className="flex items-center justify-between gap-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5 transition-colors hover:bg-accent/50">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">{t('Active API keys', '有效 API 密钥')}</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums">{workspace.active_key_count ?? 0}</p>
+            </div>
+            <span className="text-xs text-muted-foreground">{t('Manage', '管理')} →</span>
+          </Link>
+        )}
+        <Link to={session?.operating_mode === 'internal' ? `${workspaceRoot}/usage` : `${workspaceRoot}/billing`} className="flex items-center justify-between gap-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5 transition-colors hover:bg-accent/50">
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">{session?.operating_mode === 'internal' ? t('Workspace usage', '工作空间用量') : t('Credits & billing', '额度与账单')}</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{session?.operating_mode === 'internal' ? t('Inspect calls & tokens', '查看请求与用量') : t('Balance, top-ups & rates', '余额、充值与费率')}</p>
+          </div>
+          <span className="text-xs text-muted-foreground">{t('Open', '查看')} →</span>
+        </Link>
+      </section>
+    )}
 
     <QuickKeyDialog
       open={quickKeyOpen}

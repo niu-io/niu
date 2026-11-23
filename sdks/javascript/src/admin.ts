@@ -860,6 +860,7 @@ export type PlatformCustomerCreditSummary = {
 /** Platform account discovery row; credits is null when no Credits lots exist. */
 export type PlatformCustomerAccount = {
   organization_id: string; organization_name: string;
+  slug?: string;
   accounts: CustomerBalance[]; credits: PlatformCustomerCreditSummary | null;
 };
 export type CustomerTopupInput = {

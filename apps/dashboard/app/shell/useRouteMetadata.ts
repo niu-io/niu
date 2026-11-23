@@ -1,24 +1,18 @@
-import { useEffect, useMemo } from 'react';
-import { useLocation, useMatches } from 'react-router';
+import { useContext, useEffect, useMemo } from 'react';
+import { useLocation, UNSAFE_DataRouterStateContext, UNSAFE_DataRouterDataContext, type UIMatch } from 'react-router';
 import { catalogTitle } from '@/lib/providers';
 import { canManagePlatform, type AdminSession } from './dashboard-context';
 import { navigation, type NavItem } from './navigation';
 import type { RouteHandle } from './router-context';
 import { useLocale } from './ui-locale';
 
-const EMPTY_MATCHES: ReturnType<typeof useMatches> = [];
-
-function useSafeMatches() {
-  try {
-    return useMatches();
-  } catch {
-    return EMPTY_MATCHES;
-  }
-}
-
 export function useRouteMetadata(session: AdminSession | null, brandingDisplayName: string) {
   const location = useLocation();
-  const matches = useSafeMatches();
+  const routes = useContext(UNSAFE_DataRouterStateContext)?.matches;
+  const data = useContext(UNSAFE_DataRouterDataContext)?.loaderData;
+  const matches = useMemo<UIMatch[]>(() => (routes ?? []).map(({route, params, pathname}) => ({
+    id: route.id, params, pathname, handle: route.handle, loaderData: data?.[route.id],
+  })), [routes, data]);
   const { isZh, t } = useLocale();
 
   const matchedHandles = useMemo(() => {
@@ -131,7 +125,9 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
             : loginArea
             ? normalizedPath === '/setup'
               ? t('Initial setup', '初始化设置')
-              : t('Sign in', '登录')
+              : normalizedPath === '/register'
+                ? t('Request account', '申请注册账号')
+                : t('Sign in', '登录')
               : supplierArea
                 ? normalizedPath === '/admin'
                   ? t('Overview', '总览')
@@ -140,7 +136,7 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
                     : ({
                         customers: t('Customers', '客户管理'),
                         registrations: t('Registrations', '注册审批'),
-                        reports: t('Financial reports', '财务报表'),
+                        reports: t('Reports', '财务与用量'),
                         oauth: t('OAuth providers', 'OAuth 服务商'),
                         payments: t('Payments', '收款配置'),
                         pricing: t('Standard pricing', '标准售价'),
@@ -150,13 +146,13 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
                         pools: t('Custom models', '自定义模型'),
                         routing: t('Custom models', '自定义模型'),
                         overview: t('Overview', '概览'),
-                        keys: t('Connections', '上游连接'),
+                        keys: adminSupplierId ? t('API keys', 'API 密钥') : t('Connections', '上游连接'),
                         connections: t('Connections', '上游连接'),
                         models: t('Models', '模型'),
                         usage: t('Usage', '调用量'),
                         settlements: t('Settlements', '结算账单'),
                         members: t('Members', '成员'),
-                        settings: t('Settings', '平台设置'),
+                        settings: adminSupplierId ? t('Settings', '基本资料') : t('Settings', '平台设置'),
                       }[normalizedPath.split('/').pop() ?? ''] ??
                       (normalizedPath.startsWith('/admin/customers/')
                         ? t('Customer', '客户详情')

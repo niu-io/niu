@@ -1,6 +1,7 @@
 import {
   IconChartLine,
   IconHistory,
+  IconLayoutDashboard,
   IconPlugConnected,
   IconSettings,
   IconTag,
@@ -30,6 +31,7 @@ const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     id: 'core',
     items: [
+      { to: '/admin', labelEn: 'Overview', labelZh: '总览', icon: IconLayoutDashboard, end: true },
       { to: '/admin/providers', labelEn: 'Providers', labelZh: '模型供应商', icon: IconPlugConnected },
       { to: '/admin/pricing', labelEn: 'Standard pricing', labelZh: '标准售价', icon: IconTag, resaleOnly: true },
       {

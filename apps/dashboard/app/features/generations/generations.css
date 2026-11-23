@@ -43,12 +43,15 @@
 .generations-toolbar-actions { display:flex; align-items:center; gap:8px; min-width:0; }
 .generations-toolbar .playground-toolbar-actions { display:flex; }
 .generations-session .playground-chat-main { grid-template-rows:minmax(0,1fr) auto; }
+.generations-session .playground-chat-main.is-first-run { grid-template-rows:minmax(0,1fr); }
 .generations-session .playground-transcript { grid-area:1 / 1; padding-bottom:24px; }
+.generations-session .playground-chat-main.is-first-run .playground-transcript { display:flex; flex-direction:column; justify-content:center; padding-top:16px; padding-bottom:32px; }
 .generations-session .playground-composer { grid-area:2 / 1; }
 .generations-layout { --generation-reading-width:880px; }
 .generations-layout .playground-comparison-thread, .generations-layout .playground-composer-surface { width:100%; max-width:var(--generation-reading-width); margin-inline:auto; }
 /* Unified GenerationComposer shared by Chat, New Video, and Video Session. */
 .generations-layout .generation-composer { grid-area:2 / 1; align-self:end; flex-shrink:0; width:100%; padding:12px clamp(14px, 3vw, 36px) 16px; border:0; background:transparent; pointer-events:none; }
+.generations-layout .playground-chat-main.is-first-run .generation-composer { grid-area:auto; align-self:stretch; padding:0; }
 .generations-layout .generation-composer-surface { position:relative; display:flex; flex-direction:column; gap:8px; width:100%; max-width:var(--generation-reading-width); margin-inline:auto; padding:14px 16px 10px; border:0; border-radius:20px; background:var(--popover); box-shadow:var(--shadow-composer); overflow:hidden; pointer-events:auto; transition:box-shadow 160ms ease; }
 .generations-layout .generation-composer-surface:focus-within { box-shadow:var(--shadow-composer), 0 0 0 2px color-mix(in oklab, var(--ring) 28%, transparent); }
 .generations-layout .generation-composer-textarea { width:100%; min-height:54px; max-height:200px; padding:2px 2px 4px; border:0; border-radius:0; background:transparent; box-shadow:none; resize:none; font-size:var(--generation-body-size); line-height:var(--generation-body-leading); }
@@ -61,7 +64,7 @@
 .generations-layout .generation-composer-status { display:flex; flex-direction:column; gap:6px; min-width:0; }
 .generations-layout .generation-composer-status .video-error { margin:0; padding:0; }
 .generations-layout .generation-composer-bar { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:36px; min-width:0; }
-.generations-layout .generation-composer-leading { display:flex; flex:1 1 auto; align-items:center; flex-wrap:wrap; gap:4px; min-width:0; }
+.generations-layout .generation-composer-leading { display:flex; flex:1 1 auto; align-items:center; flex-wrap:nowrap; gap:4px; min-width:0; overflow:hidden; }
 .generations-layout .generation-composer-trailing { display:flex; flex:0 0 auto; align-items:center; gap:6px; }
 .generations-layout .generation-composer-trailing button[type="submit"],
 .generations-layout .generation-composer-trailing .generation-composer-submit { width:36px; height:36px; padding:0; flex:0 0 36px; border-radius:999px; }
@@ -87,7 +90,11 @@
 
 .generations-toolbar :where([data-slot="button"]) { font-size:14px; font-weight:500; line-height:20px; }
 .generations-layout .playground-transcript { padding-inline:clamp(14px,3vw,36px); }
-.generations-layout .playground-first-run { margin:clamp(36px, 10dvh, 96px) auto auto; }
+.generations-layout .playground-first-run { margin:auto; width:min(var(--generation-reading-width), 100%); gap:20px; }
+@media (max-width: 680px) {
+  .generations-session .playground-chat-main.is-first-run .playground-transcript { justify-content:flex-start; padding-top:16px; padding-bottom:24px; }
+  .generations-layout .playground-first-run { margin:0 auto; gap:16px; }
+}
 
 .generations-history .generations-new-generation[data-variant="outline"]:not(:focus-visible) { border-color:transparent; background:var(--popover); box-shadow:var(--shadow-subtle); }
 .generations-history .generations-new-generation[data-variant="outline"]:hover { background:var(--accent); }

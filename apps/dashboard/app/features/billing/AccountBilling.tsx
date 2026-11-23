@@ -250,7 +250,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
             </dl>}
             <div className="flex items-center justify-between gap-3 py-3">
               <div><h3 className="font-medium">{t("Low balance warning")}</h3><p className="text-sm text-muted-foreground">{account.warning_threshold_nanos === null ? t("Disabled") : t(`Below ${money(account.warning_threshold_nanos,account.currency)} · In app`, `低于 ${money(account.warning_threshold_nanos,account.currency)} · 应用内提醒`)}</p></div>
-              {canConfigure && account.currency === platformCurrency && <Button variant="ghost" size="sm" aria-label={t(`Configure ${account.currency} low balance warning`, `设置 ${account.currency} 余额提醒`)} onClick={event=>{warningOpener.current=event.currentTarget;editWarning(account);}}>{t("Configure")}</Button>}
+              {canConfigure && account.currency === platformCurrency && <Button variant="outline" size="sm" className="shrink-0" aria-label={t(`Configure ${account.currency} low balance warning`, `设置 ${account.currency} 余额提醒`)} onClick={event=>{warningOpener.current=event.currentTarget;editWarning(account);}}>{t("Configure")}</Button>}
             </div>
             {(unitSnapshot?.billing_mode ?? platformBillingMode) !== 'credits' && account.currency === platformCurrency && (BigInt(account.available_nanos) <= 0n
               ? <Alert variant="destructive"><AlertTitle>{t("Insufficient funds")}</AlertTitle><AlertDescription>{canConfigure ? t("Paid requests are paused until funds are added.") : t("Paid requests are paused. Contact your billing administrator to add funds.")}</AlertDescription></Alert>

@@ -26,6 +26,7 @@ export default function ExecutionsRoute() {
       models={models.map(model => model.id)}
       initialScope={scope}
       preferredModelAlias={params.get('modelAlias') ?? undefined}
+      activeKeyCount={workspace?.active_key_count}
     />}
   </ConnectGate>;
 }

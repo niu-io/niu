@@ -264,8 +264,8 @@ export default function AdminOverviewPage() {
     });
   } else {
     const modeLabel = billingMode === 'credits'
-      ? t('Branded Credits', '品牌积分（Branded Credits）')
-      : t('Settlement Currency', '结算币种');
+      ? t('Branded Credits', '自定义积分')
+      : t('Currency billing', '货币计费');
 
     steps.push({
       id: 'currency',
@@ -319,7 +319,7 @@ export default function AdminOverviewPage() {
 
     steps.push({
       id: 'offers',
-      step: t('3. Approve commercial purchase offers', '3. 配置并启用采购报价（Commercial offers）'),
+      step: t('3. Approve commercial purchase offers', '3. 配置并启用采购报价'),
       summary: snapshot?.providersError
         ? t('Offer readiness could not be loaded.', '无法读取采购报价就绪状态。')
         : readyOffers > 0
@@ -393,7 +393,7 @@ export default function AdminOverviewPage() {
           ? t('Verified', '已就绪')
           : t('Not verified', '未验证'),
       actionLabel: t('Open Payments', '管理收款'),
-      to: '/admin/payments',
+      to: '/admin/settings?tab=payments',
     });
 
     steps.push({

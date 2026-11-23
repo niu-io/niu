@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, Navigate, useLocation, useParams, useSearchParams } from 'react-router';
 import { IconArrowLeft, IconBuilding, IconCreditCard, IconDots, IconPlus, IconRefresh, IconSettings } from '@tabler/icons-react';
 import { NiuAdminClient, type CustomerBalance } from '@niu-io/sdk/admin';
 import PageHeader from '@/components/PageHeader';
@@ -76,6 +76,7 @@ export function CustomerDetail({
   const { locale, t: uiT, format: uiF } = useUILocale();
   const { currency: platformCurrency } = usePlatformCurrency();
   const [search, setSearch] = useSearchParams();
+  const location = useLocation();
   const rawTab = search.get('tab');
   const activeTab: DetailTab = rawTab === 'pricing' || rawTab === 'access' ? rawTab : 'overview';
 
@@ -171,6 +172,9 @@ export function CustomerDetail({
   }
 
   if (!company) return null;
+  if (company.slug && company.slug !== customerId) {
+    return <Navigate replace to={{ pathname: `/admin/customers/${encodeURIComponent(company.slug)}`, search: location.search, hash: location.hash }} />;
+  }
   const currentCompany: Company = company;
 
   const companyName = currentCompany.organization_name || uiT('Unnamed company');

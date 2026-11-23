@@ -12758,6 +12758,10 @@
                             "type": "string",
                             "format": "uuid"
                           },
+                          "slug": {
+                            "type": "string",
+                            "description": "Stable customer URL slug."
+                          },
                           "organization_name": {
                             "type": "string"
                           },
@@ -12892,9 +12896,9 @@
             "name": "customer",
             "in": "path",
             "required": true,
+            "description": "Stable customer slug or legacy organization UUID.",
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           }
         ],

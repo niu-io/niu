@@ -355,7 +355,7 @@ function EventSubscriptionsView({
         ) : (
           <ReviewEmptyState
             title={uiF('No {0} yet', [title.toLowerCase()])}
-            description={`${uiT('Ask your coding agent to')} ${uiT('configure an authorized notification receiver')}.`}
+            description={uiT('Ask your coding agent to configure an authorized notification receiver.', '请让你的编码 Agent 配置已授权的通知接收端。')}
             prompt={agentHandoffPrompt(
               routeWorkspace,
               'configure workspace event notifications to a receiver I authorize',

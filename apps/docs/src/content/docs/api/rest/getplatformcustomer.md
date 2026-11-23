@@ -36,12 +36,11 @@ curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/customers/{customer}" \
 
 ### customer
 
-Location: **path**. **Required.**
+Location: **path**. **Required.** Stable customer slug or legacy organization UUID.
 
 ```json
 {
-  "type": "string",
-  "format": "uuid"
+  "type": "string"
 }
 ```
 

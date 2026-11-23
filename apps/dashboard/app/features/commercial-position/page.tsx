@@ -740,9 +740,9 @@ function CommercialStatement({ token }: { token: string }) {
       </div>
 
       {loading && !position && (
-        <div className="space-y-6">
-          <MetricStripSkeleton count={4} label={uiT("Loading financial statement…")} />
-          <TableSkeleton columns={6} rows={6} label={uiT("Financial statement rows")} />
+        <div className="space-y-6" aria-label={uiT("Loading financial statement…")}>
+          <MetricStripSkeleton count={4} label="" />
+          <TableSkeleton columns={6} rows={6} label="" />
         </div>
       )}
       {error && (
@@ -834,8 +834,7 @@ function CommercialStatement({ token }: { token: string }) {
               </div>
               <p className="text-xs text-muted-foreground pt-1 tabular-nums">
                 {currentCohort.matchedAttempts.toString()}{" "}{uiT("settled requests ·")}{' '}
-                {currentCohort.activeModelCount}{" "}{uiT("active")}{' '}
-                {currentCohort.activeModelCount === 1 ? uiT("model") : uiT("models")}
+                {uiF('{0} active models', [currentCohort.activeModelCount])}
               </p>
             </article>
 

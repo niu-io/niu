@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from 'react';
 import {
-  useLoaderData,
-  useRouteLoaderData,
+  UNSAFE_DataRouterDataContext,
+  UNSAFE_RouteContext,
   type LoaderFunctionArgs,
   type Params,
   type ShouldRevalidateFunction,
@@ -17,7 +17,6 @@ import {
 } from './query-cache';
 import type { Workspace } from '@/shell/dashboard-context';
 import {
-  DataRouterPresenceContext,
   readRouterSessionSnapshot,
   type RouterSessionSnapshot,
 } from '@/shell/router-context';
@@ -327,17 +326,10 @@ export const routeShouldRevalidate: ShouldRevalidateFunction = ({
  * Also subscribes to `pending` loader promises so resolved loader data triggers a state update (`niu-wnr.4`).
  */
 export function useOptionalRouteLoaderData<T = unknown>(routeId?: string): RouteLoaderSnapshot<T> | undefined {
-  const inAppDataRouter = useContext(DataRouterPresenceContext);
-  let rawSnapshot: RouteLoaderSnapshot<T> | undefined;
-  try {
-    rawSnapshot = (routeId ? useRouteLoaderData(routeId) : useLoaderData()) as
-      | RouteLoaderSnapshot<T>
-      | undefined;
-  } catch {
-    if (inAppDataRouter) {
-      rawSnapshot = undefined;
-    }
-  }
+  const data = useContext(UNSAFE_DataRouterDataContext);
+  const route = useContext(UNSAFE_RouteContext);
+  const id = routeId ?? route.matches.at(-1)?.route.id;
+  const rawSnapshot = id ? data?.loaderData[id] as RouteLoaderSnapshot<T> | undefined : undefined;
 
   const [resolvedSnapshot, setResolvedSnapshot] = useState<RouteLoaderSnapshot<T> | undefined>(undefined);
 

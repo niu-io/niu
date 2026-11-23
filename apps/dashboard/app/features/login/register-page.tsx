@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { IconCheck, IconChevronDown, IconClock, IconLanguage } from '@tabler/icons-react';
+import { IconCheck, IconChevronDown, IconClock, IconEye, IconEyeOff, IconLanguage } from '@tabler/icons-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -46,6 +46,7 @@ export default function RegisterRoute() {
   const [email, setEmail] = useState('');
   const [organizationName, setOrganizationName] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -393,20 +394,33 @@ export default function RegisterRoute() {
 
               <div className="dashboard-login-field">
                 <Label htmlFor="register-password">{t('Password', '登录密码')}</Label>
-                <Input
-                  id="register-password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  maxLength={1024}
-                  disabled={submitting}
-                  placeholder={t('At least 15 characters', '至少 15 个字符')}
-                  value={password}
-                  onChange={event => {
-                    setPassword(event.target.value);
-                    setErrorMessage('');
-                  }}
-                />
+                <div className="relative">
+                  <Input
+                    id="register-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    required
+                    maxLength={1024}
+                    disabled={submitting}
+                    className="pr-10"
+                    placeholder={t('At least 15 characters', '至少 15 个字符')}
+                    value={password}
+                    onChange={event => {
+                      setPassword(event.target.value);
+                      setErrorMessage('');
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showPassword ? t('Hide password', '隐藏密码') : t('Show password', '显示密码')}
+                    onClick={() => setShowPassword(value => !value)}
+                  >
+                    {showPassword ? <IconEyeOff size={16} aria-hidden="true" /> : <IconEye size={16} aria-hidden="true" />}
+                  </Button>
+                </div>
                 <p className="dashboard-login-hint">
                   {t(
                     'At least 15 characters. You will use this exact password to sign in once approved.',
