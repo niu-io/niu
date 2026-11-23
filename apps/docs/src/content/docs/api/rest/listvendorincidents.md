@@ -3,7 +3,7 @@ title: "Read upstream connection incidents and recovery evidence"
 description: "GET /api/v1/admin/providers/connections/{vendor}/incidents"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/providers/connections/{vendor}/incidents`
 

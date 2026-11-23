@@ -3,7 +3,7 @@ title: "Archive or restore the authenticated owner's Chat session"
 description: "PUT /api/v1/workspaces/{workspace}/chats/{id}/archive"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/workspaces/{workspace}/chats/{id}/archive`
 

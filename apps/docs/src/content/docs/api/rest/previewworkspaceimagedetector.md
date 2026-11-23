@@ -3,7 +3,7 @@ title: "Preview explicitly consented workspace image processing"
 description: "POST /api/v1/workspaces/{workspace}/guardrails/image-detectors/{detector}/preview"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/workspaces/{workspace}/guardrails/image-detectors/{detector}/preview`
 

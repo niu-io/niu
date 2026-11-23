@@ -3,7 +3,7 @@ title: "List model bindings for one Provider API-key configuration"
 description: "GET /api/v1/admin/providers/connections/{id}/models"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/providers/connections/{id}/models`
 

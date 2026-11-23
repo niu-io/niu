@@ -3,7 +3,7 @@ title: "Create or update an event subscription"
 description: "PUT /v1/events/{slug}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /v1/events/{slug}`
 

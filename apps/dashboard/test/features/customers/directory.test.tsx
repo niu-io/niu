@@ -101,7 +101,7 @@ it('renders a clean directory with owner, balance, custom pricing, workspaces, M
     'Top up balance',
     'Set credit',
     'Grant noncash balance',
-    'Noncash grants',
+    'Noncash grant history',
   ]) {
     expect(screen.getByRole('menuitem', { name })).toBeTruthy();
   }

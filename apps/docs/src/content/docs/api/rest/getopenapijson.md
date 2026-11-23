@@ -3,7 +3,7 @@ title: "Download the public OpenAPI 3.1 JSON specification"
 description: "GET /openapi.json"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /openapi.json`
 

@@ -3,7 +3,7 @@ title: "Compare installation commercial Provider positions"
 description: "GET /api/v1/admin/finance/position"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/finance/position`
 

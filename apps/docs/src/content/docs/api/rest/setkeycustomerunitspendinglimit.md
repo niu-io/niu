@@ -3,7 +3,7 @@ title: "Set an API key's Credits spending limit"
 description: "PUT /api/v1/workspaces/{workspace}/keys/{key}/units/limit"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/workspaces/{workspace}/keys/{key}/units/limit`
 

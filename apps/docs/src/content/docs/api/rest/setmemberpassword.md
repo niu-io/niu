@@ -3,7 +3,7 @@ title: "Provision or reset an existing member password"
 description: "PUT /api/v1/members/{operator}/password"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/members/{operator}/password`
 

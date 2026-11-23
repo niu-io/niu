@@ -3,7 +3,7 @@ title: "Reconcile an API key creation or rotation request"
 description: "GET /api/v1/workspaces/{workspace}/keys/requests/{request}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/keys/requests/{request}`
 

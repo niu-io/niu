@@ -3,7 +3,7 @@ title: "Refresh one owned Provider asset"
 description: "POST /v1/media/assets/{id}/refresh"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /v1/media/assets/{id}/refresh`
 

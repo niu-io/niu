@@ -3,7 +3,7 @@ title: "Erase retained ordinary asset listing content"
 description: "DELETE /api/v1/admin/providers/connections/{id}/asset-management/listings/{listing}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `DELETE /api/v1/admin/providers/connections/{id}/asset-management/listings/{listing}`
 

@@ -3,7 +3,7 @@ title: "Read back and reconcile an acknowledged ordinary-group update"
 description: "POST /api/v1/admin/providers/connections/{id}/asset-management/group-updates/{update}/reconcile"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/admin/providers/connections/{id}/asset-management/group-updates/{update}/reconcile`
 

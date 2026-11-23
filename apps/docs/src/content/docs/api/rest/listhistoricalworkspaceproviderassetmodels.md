@@ -3,7 +3,7 @@ title: "Discover saved native-operation model contexts"
 description: "GET /api/v1/workspaces/{workspace}/media/asset-operation-models"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/media/asset-operation-models`
 

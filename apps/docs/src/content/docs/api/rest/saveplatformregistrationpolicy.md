@@ -3,7 +3,7 @@ title: "Update Limited Preview registration policy"
 description: "PUT /api/v1/admin/registration"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/admin/registration`
 

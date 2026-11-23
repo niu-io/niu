@@ -3,7 +3,7 @@ title: "Read this Provider's agreed media purchase schedules"
 description: "GET /api/v1/admin/providers/{provider}/media-rates"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/providers/{provider}/media-rates`
 

@@ -3,7 +3,7 @@ title: "List saved workspace materials"
 description: "GET /api/v1/workspaces/{workspace}/assets"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/assets`
 

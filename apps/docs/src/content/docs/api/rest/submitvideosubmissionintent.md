@@ -3,7 +3,7 @@ title: "Explicitly submit or replay an immutable saved video intent"
 description: "POST /api/v1/workspaces/{workspace}/video/intents/{intent}/submit"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/workspaces/{workspace}/video/intents/{intent}/submit`
 

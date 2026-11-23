@@ -3,7 +3,7 @@ title: "Check gateway readiness"
 description: "GET /readyz"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /readyz`
 

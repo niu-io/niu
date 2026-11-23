@@ -3,7 +3,7 @@ title: "Read invoice lines grouped by model and pinned rate revision"
 description: "GET /api/v1/workspaces/{workspace}/billing/invoices/{invoice}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/billing/invoices/{invoice}`
 

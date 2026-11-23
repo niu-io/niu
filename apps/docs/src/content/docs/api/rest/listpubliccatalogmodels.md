@@ -3,7 +3,7 @@ title: "List published public catalog models"
 description: "GET /catalog/v1/models"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /catalog/v1/models`
 

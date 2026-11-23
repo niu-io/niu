@@ -262,7 +262,7 @@ export function CustomerDetail({
                 </DropdownMenuItem>
                 {primaryAccount && (
                   <DropdownMenuItem onSelect={() => openEditorFrom('history', primaryAccount, openerRef.current)}>
-                    {uiT('Noncash grants')}
+                    {uiT('Noncash grant history')}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onSelect={() => openEditorFrom('units', primaryAccount, openerRef.current)}>

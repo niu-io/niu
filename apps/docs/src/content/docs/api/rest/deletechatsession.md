@@ -3,7 +3,7 @@ title: "Delete an owned Chat session in a workspace"
 description: "DELETE /api/v1/workspaces/{workspace}/chats/{id}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `DELETE /api/v1/workspaces/{workspace}/chats/{id}`
 

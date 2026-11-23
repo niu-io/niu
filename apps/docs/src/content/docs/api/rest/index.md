@@ -3,7 +3,7 @@ title: "REST API specification"
 description: "Generated endpoint reference from the complete Niu OpenAPI contract."
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 [Download the full OpenAPI JSON](/docs/openapi/public.json). Authentication, parameters, request bodies and response schemas below come from that same contract.
 

@@ -3,7 +3,7 @@ title: "Create a private video generations session"
 description: "PUT /api/v1/workspaces/{workspace}/sessions/{session}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/workspaces/{workspace}/sessions/{session}`
 

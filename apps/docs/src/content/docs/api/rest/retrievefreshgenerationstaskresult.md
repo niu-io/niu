@@ -3,7 +3,7 @@ title: "Retrieve fresh output from the original Video task"
 description: "POST /api/v1/workspaces/{workspace}/tasks/{task}/results/{kind}/refresh"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/workspaces/{workspace}/tasks/{task}/results/{kind}/refresh`
 

@@ -3,7 +3,7 @@ title: "Pin a workspace policy revision or follow the active workspace policy"
 description: "PUT /api/v1/workspaces/{workspace}/keys/{key}/guardrail"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/workspaces/{workspace}/keys/{key}/guardrail`
 

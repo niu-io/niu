@@ -3,7 +3,7 @@ title: "Reset one model's customer-specific price back to platform standard pric
 description: "DELETE /api/v1/admin/customers/{customer}/pricing/{price}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `DELETE /api/v1/admin/customers/{customer}/pricing/{price}`
 

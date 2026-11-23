@@ -3,7 +3,7 @@ title: "Resolve a platform incident to its connection"
 description: "GET /api/v1/admin/incidents/{incident}/connection"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/incidents/{incident}/connection`
 

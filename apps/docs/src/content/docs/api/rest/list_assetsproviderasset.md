@@ -3,7 +3,7 @@ title: "List saved workspace Provider assets"
 description: "GET /v1/media/assets"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /v1/media/assets`
 

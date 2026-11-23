@@ -3,7 +3,7 @@ title: "Read API key request rate policy"
 description: "GET /api/v1/workspaces/{workspace}/keys/{key}/request-rate-limit"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/keys/{key}/request-rate-limit`
 

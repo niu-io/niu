@@ -3,7 +3,7 @@ title: "Read platform customer revenue and cash receipt summary"
 description: "GET /api/v1/admin/finance/summary"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/finance/summary`
 

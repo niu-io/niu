@@ -3,7 +3,7 @@ title: "Read EPay configuration with platform administrator read access"
 description: "GET /api/v1/admin/payments/epay"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/payments/epay`
 

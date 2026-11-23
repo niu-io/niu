@@ -3,7 +3,7 @@ title: "Receive a signed classic EPay query notification"
 description: "GET /payments/epay/notify"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /payments/epay/notify`
 

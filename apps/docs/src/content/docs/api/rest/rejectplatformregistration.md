@@ -3,7 +3,7 @@ title: "Reject a Limited Preview registration"
 description: "POST /api/v1/admin/registrations/{registration}/reject"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/admin/registrations/{registration}/reject`
 

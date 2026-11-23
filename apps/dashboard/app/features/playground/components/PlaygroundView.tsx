@@ -453,7 +453,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const [attachments, setAttachments] = useState<Array<{name: string; type: string; content: string}>>(() => initialDraftPayload?.attachments ?? []);
   async function addAttachments(files: FileList | null) {
     if (!draft.ready) return;
-    if (!files || running) return;
+    if (!files || running || !hasUsableKey) return;
     const generation = attachmentGeneration.current;
     if (attachments.length + files.length > 4) { setError('Attach up to four files.'); return; }
     for (const file of Array.from(files)) {
@@ -821,6 +821,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const preferredKey = new URLSearchParams(location.search).get('key');
   const requestedKeyMissing = Boolean(workspaceKeysReady && !availableKeys.loading && !keyLoadError && !availableKeys.error && preferredKey && !workspaceKeys.some(key => key.id === preferredKey || key.slug === preferredKey));
   const keyBlocked = requestedKeyMissing || Boolean(draft.ready && workspaceKeysReady && !availableKeys.loading && selectedKeyId && !keyChoices.some(key=>key.id===selectedKeyId));
+  const hasUsableKey = Boolean(!keyBlocked && managedKey && workspaceKeysReady && !keyLoadError && session?.permissions.write !== false);
   const preferredModel = new URLSearchParams(location.search).get('model');
   useEffect(() => {
     const resolved = workspaceKeys.find(key => key.slug === preferredKey || key.id === preferredKey);
@@ -966,7 +967,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     const effectiveApiKey = overrideKey ? token : apiKey;
     if (comparisonController.current || running || settingsSaving || historyLoading
       || modelsLoading || modelsError
-      || (!overrideKey && selectedKey && !managedKey) || session?.permissions.write === false
+      || (!overrideKey && !hasUsableKey) || session?.permissions.write === false
       || !selectedModels.every(model => usableModels.includes(model))) return;
     if (!Number.isSafeInteger(maxTokens) || maxTokens <= 0) { setChatSettingsOpen(true); return; }
     const submittedPrompt = prompt;
@@ -1148,7 +1149,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     }
   }
 
-  const canSubmit = Boolean(organization && workspaceId && prompt.trim() && selectedModels.length >= minComparisonModels && selectedModels.length <= maxComparisonModels && temperature >= 0 && temperature <= 2 && Number.isSafeInteger(maxTokens) && maxTokens > 0 && !running && !settingsSaving && !historyLoading && !modelsLoading && !modelsError && (!managedKey || (workspaceKeysReady && !keyLoadError)) && (!selectedKey || managedKey) && session?.permissions.write !== false && selectedModels.every(model => usableModels.includes(model)));
+  const canSubmit = Boolean(hasUsableKey && organization && workspaceId && prompt.trim() && selectedModels.length >= minComparisonModels && selectedModels.length <= maxComparisonModels && temperature >= 0 && temperature <= 2 && Number.isSafeInteger(maxTokens) && maxTokens > 0 && !running && !settingsSaving && !historyLoading && !modelsLoading && !modelsError && selectedModels.every(model => usableModels.includes(model)));
   const activeComparison = history.find(item => item.id === activeComparisonId);
   const keysLoading = workspaceKeysLoading || (!workspaceKeysReady && !keyLoadError) || availableKeys.loading;
   const selectedKeyLabel = managedKey?.name ?? selectedKey?.name ?? (keysLoading ? uiT("Loading keys…") : uiT("Choose API key"));
@@ -1216,7 +1217,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                       </Tabs>
                     </div>
                     <div className="playground-starters" aria-label={uiT("Example prompts")}>
-                      {visiblePromptExamples.map(item => <Button key={item.id} type="button" variant="ghost" className="playground-starter" disabled={running || settingsSaving || !draft.ready || Boolean(modelsError) || (modelsLoading || modelAliases.length === 0)} onClick={() => {setPrompt(item.text); setError(''); setNotice(''); requestAnimationFrame(() => composerRef.current?.querySelector<HTMLTextAreaElement>('textarea')?.focus()); }}><strong>{uiT(item.title)}</strong><span>{uiT(item.summary)}</span><ArrowRight size={16} aria-hidden="true" /></Button>)}
+                      {visiblePromptExamples.map(item => <Button key={item.id} type="button" variant="ghost" className="playground-starter" disabled={!hasUsableKey || running || settingsSaving || !draft.ready || Boolean(modelsError) || (modelsLoading || modelAliases.length === 0)} onClick={() => {setPrompt(item.text); setError(''); setNotice(''); requestAnimationFrame(() => composerRef.current?.querySelector<HTMLTextAreaElement>('textarea')?.focus()); }}><strong>{uiT(item.title)}</strong><span>{uiT(item.summary)}</span><ArrowRight size={16} aria-hidden="true" /></Button>)}
                     </div>
                   </div>
                 </div>
@@ -1291,11 +1292,11 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
               : workspaceKeysReady && !availableKeys.loading && !noAvailableKeys && !managedKey && !selectedKey
                 ? <div className="composer-key-banner" role="status"><div className="composer-key-banner-copy"><KeyRound size={15} className="shrink-0 text-muted-foreground" aria-hidden="true" /><span>{uiT("Select an API key to send messages in this workspace.")}</span></div><Button type="button" size="sm" variant="outline" onClick={() => setApiSettingsOpen(true)}>{uiT("Choose API key")}</Button></div>
                 : null}
-            prompt={{ id: 'playground-user-prompt', label: uiT("Prompt for all selected models"), placeholder: uiT("Message models…"), value: prompt, maxLength: 12000, required: true, disabled: !draft.ready || running || settingsSaving, onChange: value => { setPrompt(value); setNotice(''); setError(''); }, onKeyDown: event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (canSubmit) event.currentTarget.form?.requestSubmit(); } } }}
+            prompt={{ id: 'playground-user-prompt', label: uiT("Prompt for all selected models"), placeholder: uiT("Message models…"), value: prompt, maxLength: 12000, required: true, disabled: !hasUsableKey || !draft.ready || running || settingsSaving, onChange: value => { setPrompt(value); setNotice(''); setError(''); }, onKeyDown: event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (canSubmit) event.currentTarget.form?.requestSubmit(); } } }}
             attachments={attachments.length > 0 ? <div className="flex flex-wrap gap-2 py-1">{attachments.map((file, index) => <div key={index} className="flex items-center gap-2 rounded-md border px-2 py-1 text-sm">{file.type === 'image' && <img src={file.content} alt="" className="size-8 rounded object-cover" />}<span>{file.name}</span><Button type="button" variant="ghost" size="icon" disabled={!draft.ready || running || settingsSaving} aria-label={uiF("Remove {0}", [file.name])} onClick={() => setAttachments(current => current.filter((_, i) => i !== index))}><X size={14}/></Button></div>)}</div> : null}
             leadingActions={<>
               <Input ref={attachmentInput} type="file" className="hidden" aria-label={uiT("Upload chat attachments")} multiple accept="image/png,image/jpeg,image/webp,text/*,.md,.json,.csv,.py,.ts,.js" onChange={event => void addAttachments(event.target.files)} />
-              <Button type="button" variant="ghost" size="icon" disabled={!draft.ready || running || settingsSaving} aria-label={uiT("Attach files")} onClick={() => attachmentInput.current?.click()}><Paperclip size={18}/></Button>
+              <Button type="button" variant="ghost" size="icon" disabled={!hasUsableKey || !draft.ready || running || settingsSaving} aria-label={uiT("Attach files")} onClick={() => attachmentInput.current?.click()}><Paperclip size={18}/></Button>
               <HoverCard open={modelDetailsOpen && !modelPickerOpen} onOpenChange={(open) => setModelDetailsOpen(open && !modelPickerOpen)} openDelay={150} closeDelay={250}>
                 <HoverCardTrigger asChild>
                   <Button type="button" variant="ghost" className="h-9 min-w-0 shrink justify-start gap-2 px-2" disabled={!draft.ready || running || settingsSaving} aria-label={uiF("Edit comparison models ({0} selected)", [selectedModels.length])} onClick={openModelPicker}>

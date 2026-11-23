@@ -3,7 +3,7 @@ title: "Publish one finite global or customer price"
 description: "POST /api/v1/admin/pricing/standard-prices/{price}/promotions"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/admin/pricing/standard-prices/{price}/promotions`
 

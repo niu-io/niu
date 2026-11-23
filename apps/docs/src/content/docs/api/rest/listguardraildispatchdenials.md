@@ -3,7 +3,7 @@ title: "Read latest 100 workspace dispatch policy exceptions"
 description: "GET /api/v1/workspaces/{workspace}/guardrails/dispatch-denials"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/guardrails/dispatch-denials`
 

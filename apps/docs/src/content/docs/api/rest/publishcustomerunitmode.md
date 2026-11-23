@@ -3,7 +3,7 @@ title: "Publish a preview-confirmed installation billing mode"
 description: "PUT /api/v1/admin/units/mode"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/admin/units/mode`
 

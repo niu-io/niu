@@ -3,7 +3,7 @@ title: "Revoke a workspace API key"
 description: "DELETE /api/v1/workspaces/{workspace}/keys/{key}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `DELETE /api/v1/workspaces/{workspace}/keys/{key}`
 

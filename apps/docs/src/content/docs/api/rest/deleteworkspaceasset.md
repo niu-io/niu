@@ -3,7 +3,7 @@ title: "Delete a saved workspace material"
 description: "DELETE /api/v1/workspaces/{workspace}/assets/{asset}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `DELETE /api/v1/workspaces/{workspace}/assets/{asset}`
 

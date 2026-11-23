@@ -3,7 +3,7 @@ title: "Queue a signed subscription test"
 description: "POST /v1/events/{slug}/test"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /v1/events/{slug}/test`
 

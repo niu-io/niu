@@ -344,7 +344,7 @@ export function Customers({
             </DropdownMenuItem>
             {account && (
               <DropdownMenuItem onSelect={() => openEditor({ kind: 'history', company, account })}>
-                {uiT("Noncash grants")}
+                {uiT("Noncash grant history")}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem onSelect={() => openEditor({ kind: 'units', company, account })}>

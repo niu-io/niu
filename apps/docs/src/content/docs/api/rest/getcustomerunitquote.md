@@ -3,7 +3,7 @@ title: "Read a saved Credits purchase quote"
 description: "GET /api/v1/organizations/{organization}/billing/quotes/{quote}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/organizations/{organization}/billing/quotes/{quote}`
 

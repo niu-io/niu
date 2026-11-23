@@ -3,7 +3,7 @@ title: "Record specific cascading-deletion consent without dispatch"
 description: "POST /api/v1/admin/providers/connections/{id}/asset-management/group-deletion-consents"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/admin/providers/connections/{id}/asset-management/group-deletion-consents`
 

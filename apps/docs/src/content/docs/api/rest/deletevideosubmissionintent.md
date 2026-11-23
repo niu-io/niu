@@ -3,7 +3,7 @@ title: "Erase saved intent content without cancelling its job"
 description: "DELETE /api/v1/workspaces/{workspace}/video/intents/{intent}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `DELETE /api/v1/workspaces/{workspace}/video/intents/{intent}`
 

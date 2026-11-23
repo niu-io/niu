@@ -3,7 +3,7 @@ title: "Read one original noncash gift and its correction"
 description: "GET /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/{grant}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/{grant}`
 

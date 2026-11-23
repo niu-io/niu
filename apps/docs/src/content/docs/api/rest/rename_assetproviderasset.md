@@ -3,7 +3,7 @@ title: "Rename a Provider asset"
 description: "PATCH /v1/media/assets/{id}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PATCH /v1/media/assets/{id}`
 

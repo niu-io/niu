@@ -3,7 +3,7 @@ title: "Recover an encrypted ordinary group read result"
 description: "GET /api/v1/admin/providers/connections/{id}/asset-management/group-reads/{read}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/providers/connections/{id}/asset-management/group-reads/{read}`
 

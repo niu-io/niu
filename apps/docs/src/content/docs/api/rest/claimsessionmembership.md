@@ -3,7 +3,7 @@ title: "Link an issued operator access token to the current member account"
 description: "POST /api/v1/session/memberships"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/session/memberships`
 

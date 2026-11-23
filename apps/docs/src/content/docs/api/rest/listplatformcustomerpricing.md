@@ -3,7 +3,7 @@ title: "List platform standard prices paired with one customer's active customer
 description: "GET /api/v1/admin/customers/{customer}/pricing"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/customers/{customer}/pricing`
 

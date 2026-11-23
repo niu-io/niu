@@ -494,7 +494,7 @@ function CommercialStatement({ token }: { token: string }) {
   );
 
   const displayedRows =
-    modelFilter === 'active' && activeRows.length > 0 ? activeRows : sortedRows;
+    modelFilter === 'active' ? activeRows : sortedRows;
 
   const priorRowMap = useMemo(() => {
     const map = new Map<string, CommercialPositionRow>();
@@ -1104,7 +1104,7 @@ function CommercialStatement({ token }: { token: string }) {
               <div>
                 <h2 className="text-[15px] font-semibold">{uiT("Unit economics by Provider & model")}</h2>
                 <p className="text-xs text-muted-foreground">
-                  {activeRows.length}{" "}{uiT("active")}{" "}{activeRows.length === 1 ? uiT("model") : uiT("models")}{" "}{uiT("with traffic in this period ·")}{" "}{sortedRows.length}{" "}{uiT("total configured routes")}</p>
+                  {uiF("Models with traffic: {0} · Configured routes: {1}", [activeRows.length, sortedRows.length])}</p>
               </div>
               <div className="commercial-print-hide flex flex-wrap items-center gap-1.5">
                 <Button
@@ -1126,7 +1126,7 @@ function CommercialStatement({ token }: { token: string }) {
 
             {displayedRows.length === 0 ? (
               <Empty className="min-h-36 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconCalendarStats size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>
-                {uiT("No commercial model configurations or activity in")}{" "}{currency}{" "}{uiT("for this period.")}</EmptyDescription></EmptyHeader></Empty>
+                {modelFilter === 'active' ? uiT("No models had activity in this period.") : uiT("No models are configured for this currency.")}</EmptyDescription></EmptyHeader></Empty>
             ) : (
               <div className="table-wrap"><Table className="commercial-position-table" aria-label={uiT("Provider commercial positions")}>
                 <TableHeader>

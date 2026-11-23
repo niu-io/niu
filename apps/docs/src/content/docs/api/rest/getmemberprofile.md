@@ -3,7 +3,7 @@ title: "Read current member profile"
 description: "GET /api/v1/auth/profile"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/auth/profile`
 

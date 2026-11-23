@@ -3,7 +3,7 @@ title: "Discover named customer accounts and Credits summaries for platform fina
 description: "GET /api/v1/admin/customers"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/customers`
 

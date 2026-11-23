@@ -3,7 +3,7 @@ title: "Change a scoped customer member role"
 description: "PATCH /api/v1/members/{operator}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PATCH /api/v1/members/{operator}`
 

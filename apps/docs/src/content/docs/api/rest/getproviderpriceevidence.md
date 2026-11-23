@@ -3,7 +3,7 @@ title: "Read an immutable Provider quote version"
 description: "GET /api/v1/admin/providers/{provider}/pricing/{revision}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/providers/{provider}/pricing/{revision}`
 

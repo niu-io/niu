@@ -3,7 +3,7 @@ title: "Discover and import Provider models"
 description: "POST /api/v1/admin/providers/connections/{id}/import"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/admin/providers/connections/{id}/import`
 

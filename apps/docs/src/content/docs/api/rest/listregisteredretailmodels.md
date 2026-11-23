@@ -3,7 +3,7 @@ title: "List registered shared models for standard-price preparation"
 description: "GET /api/v1/admin/pricing/standard-prices/models"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/pricing/standard-prices/models`
 

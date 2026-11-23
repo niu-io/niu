@@ -3,7 +3,7 @@ title: "Read retained request content in an authorized workspace"
 description: "GET /api/v1/workspaces/{workspace}/requests/{attempt}/payloads"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/requests/{attempt}/payloads`
 

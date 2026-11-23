@@ -3,7 +3,7 @@ title: "Read customer-safe ingestion status under the original API key"
 description: "GET /v1/media/image-ingestions/{id}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /v1/media/image-ingestions/{id}`
 

@@ -3,7 +3,7 @@ title: "End a Provider purchase schedule's eligibility"
 description: "POST /api/v1/admin/providers/{provider}/media-rates/{revision}/retire"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/admin/providers/{provider}/media-rates/{revision}/retire`
 

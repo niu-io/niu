@@ -3,7 +3,7 @@ title: "Update current member profile"
 description: "PUT /api/v1/auth/profile"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/auth/profile`
 

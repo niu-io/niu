@@ -3,7 +3,7 @@ title: "Generate native Gemini content or streamGenerateContent"
 description: "POST /v1beta/models/{model_action}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /v1beta/models/{model_action}`
 

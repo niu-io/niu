@@ -3,7 +3,7 @@ title: "Page current customer selling tariffs"
 description: "GET /api/v1/admin/pricing/organizations/{organization}/workspaces/{project}/tariffs"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/pricing/organizations/{organization}/workspaces/{project}/tariffs`
 

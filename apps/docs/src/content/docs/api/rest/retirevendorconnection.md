@@ -3,7 +3,7 @@ title: "Retire a Provider API-key connection without deleting history"
 description: "POST /api/v1/admin/providers/connections/{id}/retire"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/admin/providers/connections/{id}/retire`
 

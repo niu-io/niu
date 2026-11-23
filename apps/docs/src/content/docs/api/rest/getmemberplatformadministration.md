@@ -3,7 +3,7 @@ title: "Read an explicit platform administrator grant"
 description: "GET /api/v1/admin/members/{operator}/role"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/members/{operator}/role`
 

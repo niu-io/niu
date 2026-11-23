@@ -3,7 +3,7 @@ title: "Reject HEAD probes of image source capabilities"
 description: "HEAD /v1/media/sources/{token}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `HEAD /v1/media/sources/{token}`
 

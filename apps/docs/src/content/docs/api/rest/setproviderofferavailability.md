@@ -3,7 +3,7 @@ title: "A platform administrator can pause or resume an owned offer"
 description: "PATCH /api/v1/admin/providers/{provider}/offers/{offer}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PATCH /api/v1/admin/providers/{provider}/offers/{offer}`
 

@@ -3,7 +3,7 @@ title: "Read named qualified commercial video configuration choices"
 description: "GET /api/v1/organizations/{organization}/billing/media-rate-models"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/organizations/{organization}/billing/media-rate-models`
 

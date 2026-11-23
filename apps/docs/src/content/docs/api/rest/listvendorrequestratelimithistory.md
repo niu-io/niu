@@ -3,7 +3,7 @@ title: "Read credential request-limit history"
 description: "GET /api/v1/admin/providers/connections/{vendor}/request-rate-limit/history"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/providers/connections/{vendor}/request-rate-limit/history`
 

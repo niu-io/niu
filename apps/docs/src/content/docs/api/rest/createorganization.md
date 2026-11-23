@@ -3,7 +3,7 @@ title: "Create an organization and its initial zero-funded account"
 description: "POST /api/v1/organizations"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/organizations`
 

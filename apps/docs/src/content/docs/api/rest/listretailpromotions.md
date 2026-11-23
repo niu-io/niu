@@ -3,7 +3,7 @@ title: "Read promotion periods with complete retirement coverage"
 description: "GET /api/v1/admin/pricing/standard-prices/{price}/promotions"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/pricing/standard-prices/{price}/promotions`
 

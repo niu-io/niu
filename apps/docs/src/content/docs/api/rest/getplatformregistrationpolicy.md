@@ -3,7 +3,7 @@ title: "Read Limited Preview registration policy"
 description: "GET /api/v1/admin/registration"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/registration`
 

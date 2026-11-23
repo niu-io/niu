@@ -3,7 +3,7 @@ title: "Read one complete owned saved Chat conversation"
 description: "GET /api/v1/workspaces/{workspace}/chats/{id}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/chats/{id}`
 

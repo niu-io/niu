@@ -3,7 +3,7 @@ title: "Read public instance configuration, branding, currency, and sign-in capa
 description: "GET /api/v1/public/config"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/public/config`
 

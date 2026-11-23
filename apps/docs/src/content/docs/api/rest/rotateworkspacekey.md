@@ -3,7 +3,7 @@ title: "Rotate a workspace API key while preserving its policies and expiry"
 description: "POST /api/v1/workspaces/{workspace}/keys/{key}/rotate"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/workspaces/{workspace}/keys/{key}/rotate`
 

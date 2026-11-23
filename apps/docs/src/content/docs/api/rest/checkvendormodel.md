@@ -3,7 +3,7 @@ title: "Check provider reachability and whether a mapped model is listed"
 description: "POST /api/v1/admin/providers/connections/{id}/check"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/admin/providers/connections/{id}/check`
 

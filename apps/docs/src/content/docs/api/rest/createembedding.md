@@ -3,7 +3,7 @@ title: "Create OpenAI-compatible text embeddings"
 description: "POST /v1/embeddings"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /v1/embeddings`
 

@@ -3,7 +3,7 @@ title: "Read the Provider owning an API configuration"
 description: "GET /api/v1/admin/providers/connections/{id}/supplier"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/providers/connections/{id}/supplier`
 

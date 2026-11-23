@@ -3,7 +3,7 @@ title: "Dry-run routing preview for a model route pool"
 description: "POST /api/v1/admin/routing/{reference}/preview"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/admin/routing/{reference}/preview`
 

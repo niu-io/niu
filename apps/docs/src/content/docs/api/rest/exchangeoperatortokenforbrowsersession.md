@@ -3,7 +3,7 @@ title: "Use an existing user access token in the browser"
 description: "POST /api/v1/auth/browser/token"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/auth/browser/token`
 
