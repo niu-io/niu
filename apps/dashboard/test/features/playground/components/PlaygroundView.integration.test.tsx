@@ -116,6 +116,38 @@ describe('Global Chat', () => {
     expect(JSON.parse((await screen.findByTestId('key-handoff')).textContent!)).toEqual({createKey:true,returnTo:'/generations/chat-42?workspace=workspace-a'});
     expect([...serverDrafts.values()].some(draft=>(draft.payload as {prompt:string})?.prompt==='Keep this draft')).toBe(true);
   });
+  it('offers 1-click auto-create & send when submitting with zero active keys instead of opening an empty dropdown', async () => {
+    let created = false;
+    stubFetch(vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/keys') && init?.method === 'POST') {
+        created = true;
+        return jsonResponse({ id: 'key-auto', token: 'niu_auto_secret', allowed_models: ['*'], key: { id: 'key-auto', slug: 'playground', name: 'Playground', allowed_models: ['*'], invocation_allowed: true, revoked: false, expired: false } });
+      }
+      if (url.endsWith('/keys')) {
+        return jsonResponse({ data: created ? [{ id: 'key-auto', slug: 'playground', name: 'Playground', allowed_models: ['*'], revoked: false, expired: false }] : [] });
+      }
+      if (url === '/v1/chat/completions') {
+        return streamResponse('fast', 12, 'att-auto-1');
+      }
+      if (url.includes('/requests/att-auto-1')) {
+        return jsonResponse({ data: { attempt_id: 'att-auto-1', customer_charge_status: 'owner_funded', customer_charge_nanos: null, customer_charge_currency: null } });
+      }
+      return jsonResponse({ data: [] });
+    }));
+    const user = userEvent.setup();
+    renderPlayground(['fast']);
+    const prompt = await screen.findByLabelText('Prompt for all selected models');
+    await waitFor(() => expect(prompt).toHaveProperty('disabled', false));
+    expect(await screen.findByRole('button', { name: 'Auto-create key' })).toBeTruthy();
+    await user.type(prompt, 'Hello without a key');
+    await user.click(screen.getByRole('button', { name: 'Send to 1 model' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Create an API key first')).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'Auto-create key & send' }));
+    expect(await screen.findByText(/response/)).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'API key: Playground' })).toBeTruthy();
+  });
   it('consumes new-generation intent and restores an unsent server draft after remount', async () => {
     stubFetch(vi.fn(async () => jsonResponse({data:[]})));
     function LocationProbe() { const location=useLocation(); return <output data-testid="draft-location">{location.pathname+location.search}</output>; }
@@ -1133,13 +1165,15 @@ describe('Global Chat', () => {
     await waitFor(()=>expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).disabled).toBe(false));
     await user.type(screen.getByLabelText('Prompt for all selected models'), 'Stop this comparison.');
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
+    const keyDialog = await screen.findByRole('dialog');
+    expect(within(keyDialog).getByText('Create an API key first')).toBeTruthy();
+    expect(within(keyDialog).getByRole('button', { name: 'Auto-create key & send' })).toBeTruthy();
+    expect(screen.queryByLabelText('Key secret')).toBeNull();
+    expect(requests.filter(request => request.url === '/v1/chat/completions')).toHaveLength(0);
+    await user.click(within(keyDialog).getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: /API key:/i }));
     const keyMenu = await screen.findByRole('menu', { name: /API key:/i });
     expect(within(keyMenu).getByRole('menuitem', { name: 'Manage keys' }).getAttribute('href')).toBe('/workspaces/workspace-a/keys');
-    expect(screen.queryByLabelText('Key secret')).toBeNull();
-    expect(screen.queryByText('Choose a workspace API key before sending this prompt.')).toBeNull();
-    expect(screen.queryByText('Select a workspace API key to send requests')).toBeNull();
-    expect(screen.queryByText(/Create a key on the API keys page/)).toBeNull();
-    expect(requests.filter(request => request.url === '/v1/chat/completions')).toHaveLength(0);
     await user.click(await within(keyMenu).findByRole('menuitemradio', { name: 'Default' }));
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
     await waitFor(() => expect(requests.filter(request => request.url === '/v1/chat/completions')).toHaveLength(2));

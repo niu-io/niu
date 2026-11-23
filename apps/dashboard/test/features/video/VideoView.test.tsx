@@ -900,3 +900,27 @@ it('keeps typing and model choice available while an image uploads, then waits b
  expect(saves).toHaveLength(1);
  expect((saves[0].body as {request:{content:unknown[]}}).request.content).toContainEqual({type:'workspace_asset',workspace_asset:{asset_id:asset.id,consent_to_process:true},role:'first_frame'});
 });
+
+it('auto-creates a Playground API key in place from the zero-key Video cover and unlocks the composer', async () => {
+  let hasKey = false;
+  const fallback = mockFetch();
+  const baseFetch = globalThis.fetch;
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    if (path.endsWith('/keys') && init?.method === 'POST') {
+      hasKey = true;
+      return Response.json({ id: key, token: 'niu_video_auto', allowed_models: ['*'], key: { id: key, slug: 'playground', name: 'Playground', allowed_models: ['*'], invocation_allowed: true, revoked: false, expired: false } }, { status: 201 });
+    }
+    if (path.endsWith('/keys')) {
+      return Response.json({ data: hasKey ? [{ id: key, slug: 'playground', name: 'Playground', allowed_models: ['*'], revoked: false, expired: false }] : [] });
+    }
+    return baseFetch(input, init);
+  }));
+  mount(true, '/generations?new=video');
+  const user = userEvent.setup();
+  const autoBtn = await screen.findByRole('button', { name: 'Auto-create key' });
+  await user.click(autoBtn);
+  expect(await screen.findByRole('button', { name: 'Video model' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Video API key' }).textContent).toContain('Playground');
+  expect(fallback.some(call => call.path.endsWith('/submit'))).toBe(false);
+});

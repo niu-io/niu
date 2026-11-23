@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
 import { Link } from 'react-router';
-import { IconChevronDown as ChevronDown, IconKey as KeyIcon, IconLoader2 as Loader2, IconPlus as Plus } from '@tabler/icons-react';
+import { IconChevronDown as ChevronDown, IconKey as KeyIcon, IconLoader2 as Loader2, IconPlus as Plus, IconSparkles } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -29,6 +29,8 @@ type GenerationKeyPickerProps = {
   errorText?: string;
   emptyText?: string;
   manageKeysHref?: string;
+  onQuickCreateKey?: () => void;
+  quickCreating?: boolean;
   onCreateKey?: () => void;
   onSelectKey: (id: string) => void;
   className?: string;
@@ -55,13 +57,15 @@ export default function GenerationKeyPicker({
   errorText,
   emptyText,
   manageKeysHref,
+  onQuickCreateKey,
+  quickCreating = false,
   onCreateKey,
   onSelectKey,
   className,
 }: GenerationKeyPickerProps) {
   const uiT = translateUI;
   const loadingWithoutSelection = loading && !hasSelection;
-  const hasFooterActions = Boolean(onCreateKey || manageKeysHref);
+  const hasFooterActions = Boolean(onQuickCreateKey || onCreateKey || manageKeysHref);
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -122,6 +126,12 @@ export default function GenerationKeyPicker({
         {hasFooterActions && (
           <>
             <DropdownMenuSeparator />
+            {onQuickCreateKey && (
+              <DropdownMenuItem disabled={quickCreating} onSelect={onQuickCreateKey}>
+                <IconSparkles size={15} />
+                {quickCreating ? uiT("Creating key…") : uiT("Auto-create Playground key")}
+              </DropdownMenuItem>
+            )}
             {onCreateKey && (
               <DropdownMenuItem onSelect={onCreateKey}>
                 <Plus size={15} />

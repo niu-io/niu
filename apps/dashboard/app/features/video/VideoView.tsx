@@ -7,11 +7,12 @@ import { useGenerationKeys } from '@/features/generations/useGenerationKeys';
 import { GenerationSessionBindings, openGenerationsAssetsPanel } from '@/features/generations/GenerationsLayout';
 import GenerationComposer, { GenerationComposerCover } from '@/features/generations/GenerationComposer';
 import GenerationKeyPicker from '@/features/generations/GenerationKeyPicker';
+import { useQuickKeyProvisioner } from '@/features/generations/QuickKeyDialog';
 import ProviderLogo from '@/components/ProviderLogo';
 import { openGenerationsContextRun, type GenerationContextRunState, type GenerationsContextPanelData } from '@/features/generations/GenerationsContextPanel';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams, useNavigate, useLocation } from 'react-router';
-import { IconLoader2 as Loader, IconInfoCircle as InfoCircle, IconChevronDown as ChevronDown, IconArrowRight as ArrowRight, IconArrowUp as ArrowUp, IconAdjustmentsHorizontal as Settings, IconKey as KeyIcon, IconRefresh as RefreshCw, IconMessageChatbot, IconVideo } from '@tabler/icons-react';
+import { IconLoader2 as Loader, IconInfoCircle as InfoCircle, IconChevronDown as ChevronDown, IconArrowRight as ArrowRight, IconArrowUp as ArrowUp, IconAdjustmentsHorizontal as Settings, IconKey as KeyIcon, IconRefresh as RefreshCw, IconSparkles, IconMessageChatbot, IconVideo } from '@tabler/icons-react';
 import { isQueryFresh, peekQuery, primeQuery } from '@/lib/query-cache';
 import {
   VIDEO_DIAGNOSTICS_FRESH_MS,
@@ -101,6 +102,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   const {unit:platformUnit} = usePlatformCurrency();
   const {token,workspace,workspaces,session}=context;
   const canWrite=Boolean(session?.permissions.write);
+  const quickKey=useQuickKeyProvisioner();
   const [keyPickerOpen,setKeyPickerOpen]=useState(false);
   const [providerToolsOpen,setProviderToolsOpen]=useState(false);
   const availableKeys=useGenerationKeys(context,keyPickerOpen);
@@ -656,6 +658,22 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   }
 
 
+  async function handleQuickCreateVideoKey() {
+    if (!token || !workspace || !canWrite) return;
+    const created = await quickKey.run({
+      token,
+      organizationId: workspace.organization_id,
+      workspaceId: workspace.id,
+      rememberChatKey: context.rememberChatKey,
+      reloadWorkspaces: context.reloadWorkspaces,
+    });
+    if (!created) return;
+    setKeys(current => [created, ...current.filter(item => item.id !== created.id)]);
+    setAllKeys(current => [created, ...current.filter(item => item.id !== created.id)]);
+    setKeysScope(keyScopeIdentity);
+    setKeyPickerOpen(false);
+    chooseKey(created.id);
+  }
   function reloadSaved() {setKeysRevision(value=>value+1);setRevision(value=>value+1);}
   const keyIpRestricted=/does not allow the request source address/i.test(catalogError);
   const originalKeyAllowedCidrs=originalKey?(originalKey.ip_policy?originalKey.ip_policy.allowed_cidrs:originalKey.allowed_cidrs):undefined;
@@ -701,7 +719,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   };
   return <div className="video-shell">
     <Dialog open={draftNavigation.failed} onOpenChange={open=>{if(!open)draftNavigation.stay();}}><DialogContent className="max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={event=>{event.preventDefault();document.getElementById('video-prompt')?.focus();}}><DialogHeader><DialogTitle>{uiT("Draft not saved")}</DialogTitle><DialogDescription>{uiT("Your latest changes are still here. Stay to review and save them, or leave without saving these changes.")}</DialogDescription></DialogHeader><DialogFooter><Button variant="ghost" onClick={draftNavigation.leave}>{uiT("Leave without saving")}</Button><Button variant="outline" onClick={draftNavigation.stay}>{uiT("Stay here")}</Button></DialogFooter></DialogContent></Dialog>
-    <GenerationSessionBindings trigger={historyTriggerRef} title={generationTitle} contextPanel={contextPanelData} actions={<div className="playground-toolbar-actions"><GenerationKeyPicker open={keyPickerOpen} onOpenChange={setKeyPickerOpen} ariaLabel={uiT("Video API key")} className="video-key-choice" hasSelection={Boolean(originalKey)} loading={loading || availableKeys.loading} disabled={Boolean(busy) || loading || Boolean(intentId && !intentDocument?.job)} triggerLabel={originalKey ? `${originalKey.name}${originalKey.revoked ? ` ${uiT("· Revoked")}`:originalKey.expired ? ` ${uiT("· Expired")}`:keyIpRestricted ? ` ${uiT("· Source IP restricted")}`:''}` : (loading ? uiT("Loading keys…") : keysError ? uiT("API keys unavailable") : uiT("Choose API key"))} selectedKeyId={keyId} keyOptions={availableKeys.keys.length ? availableKeys.keys : keys.map(key => ({ ...key, workspace }))} currentWorkspaceId={workspace?.id} errorText={availableKeys.error || keysError ? uiT("Some API keys could not be loaded.") : ''} manageKeysHref={`${workspacePath}/keys`} onSelectKey={id => { const chosen = availableKeys.keys.find(key => key.id === id); if (chosen && chosen.workspace.id !== workspace?.id) { navigate(`/generations?new=video&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, context.workspaces ?? [chosen.workspace]))}&key=${encodeURIComponent(chosen.slug || id)}`); } else if (selected && !intentId && job?.status === 'succeeded') { const next = new URLSearchParams(search); next.set('key', keyReference(id)); setSearch(next); } else chooseKey(id); }} /></div>} history={{context: (context), currentKeys: (allKeys), activeVideo: (selected), activeVideoSession: (search.get('session') || (search.get('new') === 'video' ? 'new-video' : '')), disabled: (Boolean(busy))}} />
+    <GenerationSessionBindings trigger={historyTriggerRef} title={generationTitle} contextPanel={contextPanelData} actions={<div className="playground-toolbar-actions"><GenerationKeyPicker open={keyPickerOpen} onOpenChange={setKeyPickerOpen} ariaLabel={uiT("Video API key")} className="video-key-choice" hasSelection={Boolean(originalKey)} loading={loading || availableKeys.loading} disabled={Boolean(busy) || loading || Boolean(intentId && !intentDocument?.job)} triggerLabel={originalKey ? `${originalKey.name}${originalKey.revoked ? ` ${uiT("· Revoked")}`:originalKey.expired ? ` ${uiT("· Expired")}`:keyIpRestricted ? ` ${uiT("· Source IP restricted")}`:''}` : (loading ? uiT("Loading keys…") : keysError ? uiT("API keys unavailable") : uiT("Choose API key"))} selectedKeyId={keyId} keyOptions={availableKeys.keys.length ? availableKeys.keys : keys.map(key => ({ ...key, workspace }))} currentWorkspaceId={workspace?.id} errorText={availableKeys.error || keysError ? uiT("Some API keys could not be loaded.") : ''} manageKeysHref={`${workspacePath}/keys`} onQuickCreateKey={!keys.length && !loading && canWrite ? () => void handleQuickCreateVideoKey() : undefined} quickCreating={quickKey.busy} onCreateKey={!keys.length && !loading && canWrite ? () => navigate(`${workspacePath}/keys`, { state: { createKey: true, returnTo: composerReturnTo } }) : undefined} onSelectKey={id => { const chosen = availableKeys.keys.find(key => key.id === id); if (chosen && chosen.workspace.id !== workspace?.id) { navigate(`/generations?new=video&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, context.workspaces ?? [chosen.workspace]))}&key=${encodeURIComponent(chosen.slug || id)}`); } else if (selected && !intentId && job?.status === 'succeeded') { const next = new URLSearchParams(search); next.set('key', keyReference(id)); setSearch(next); } else chooseKey(id); }} /></div>} history={{context: (context), currentKeys: (allKeys), activeVideo: (selected), activeVideoSession: (search.get('session') || (search.get('new') === 'video' ? 'new-video' : '')), disabled: (Boolean(busy))}} />
     <section className="video-main playground-chat-main" aria-label={uiT("Video generation")}>
 
       <div className="video-content">
@@ -775,7 +793,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
             composerCover==='keys'?<GenerationComposerCover icon={<KeyIcon size={17}/>} title={uiT("API keys unavailable")} actions={<Button type="button" onClick={reloadSaved}>{uiT("Retry")}</Button>}/>
             : composerCover==='history'?<GenerationComposerCover icon={<KeyIcon size={17}/>} title={originalKey?.revoked ? uiT("This API key was revoked.") : originalKey?.expired ? uiT("This API key has expired.") : uiT("Select an active API key to continue.")} actions={<>{fallbackActiveKey&&<Button type="button" variant="default" onClick={()=>chooseKey(fallbackActiveKey.id)}>{uiF("Use {0}",[fallbackActiveKey.name])}</Button>}<Button asChild variant={fallbackActiveKey ? "outline" : "default"}><Link to={`${workspacePath}/keys`} state={{createKey:true,returnTo:composerReturnTo}}>{uiT("Create API key")}</Link></Button></>}/>
             : composerCover==='ip'?<GenerationComposerCover icon={<KeyIcon size={17}/>} title={uiF("{0} is restricted to allowed source IP addresses",[originalKey?.name??uiT("This API key")])} detail={`${originalKeyAllowedCidrs!==undefined&&originalKeyAllowedCidrs!==null?(originalKeyAllowedCidrs.length>0?`${uiF("Allowed source networks: {0}",[originalKeyAllowedCidrs.join(', ')])} · `:`${uiT("Current policy: Block all source IP addresses")} · `):''}${uiT("Your current network is not in this key’s source IP allowlist. Choose another API key, or add your current IP address to this key’s source IP policy.")}`} actions={<>{fallbackActiveKey&&<Button type="button" variant="default" onClick={()=>chooseKey(fallbackActiveKey.id)}>{uiF("Use {0}",[fallbackActiveKey.name])}</Button>}{originalKey&&<Button asChild variant="outline"><Link to={`${workspacePath}/keys/${encodeURIComponent(originalKey.slug||originalKey.id)}`}>{uiT("Configure source IP access")}</Link></Button>}<Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>{uiT("Manage keys")}</Link></Button><Button type="button" variant="ghost" onClick={reloadSaved}>{uiT("Recheck access")}</Button></>}/>
-            : composerCover==='nokey'?<GenerationComposerCover icon={<KeyIcon size={17}/>} title={originalKey?.revoked ? uiT("This API key was revoked.") : originalKey?.expired ? uiT("This API key has expired.") : uiT("Select an active API key to continue.")} actions={<Button asChild><Link to={`${workspacePath}/keys`} state={{createKey:true,returnTo:composerReturnTo}}>{uiT("Create API key")}</Link></Button>}/>
+            : composerCover==='nokey'?<GenerationComposerCover icon={<KeyIcon size={17}/>} title={originalKey?.revoked ? uiT("This API key was revoked.") : originalKey?.expired ? uiT("This API key has expired.") : canWrite ? uiT("Create an API key to generate videos.", "创建 API 密钥后即可生成视频。") : uiT("No active API key in this workspace yet. Ask a workspace administrator to create one.", "当前工作空间暂无可用 API 密钥，请联系工作空间管理员创建。")} detail={quickKey.error ? uiT(quickKey.error) : undefined} actions={canWrite ? <><Button type="button" disabled={quickKey.busy} onClick={() => void handleQuickCreateVideoKey()}>{quickKey.busy ? <Loader size={14} className="animate-spin" aria-hidden="true" /> : <IconSparkles size={14} aria-hidden="true" />}{quickKey.busy ? uiT("Creating key…", "正在创建密钥…") : uiT("Auto-create key", "自动创建试用密钥")}</Button><Button asChild variant="outline" disabled={quickKey.busy}><Link to={`${workspacePath}/keys`} state={{createKey:true,returnTo:composerReturnTo}}>{uiT("Create API key")}</Link></Button></> : <Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>{uiT("View keys", "查看密钥")}</Link></Button>}/>
             : composerCover==='model'?<GenerationComposerCover icon={<IconVideo size={17}/>} title={uiT("No video model available")} detail={uiT("This API key has no supported video route.")} actions={<Button asChild variant="outline"><Link to={canManageSuppliers ? '/admin/providers':`${workspacePath}/models`}>{canManageSuppliers ? uiT("Manage Providers"):uiT("View models")}</Link></Button>}/>
             : null
           }

@@ -5139,4 +5139,9 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Apply one discount off standard prices to {0} selected models.": "对已选中的 {0} 个模型统一应用标准价折扣。",
   "Apply one discount off standard prices to all {0} models.": "对全部 {0} 个模型统一应用标准价折扣。",
   "Set price ({0})": "批量设价 ({0})",
+  "Auto-create Playground key": "自动创建试用密钥",
+  "Creating key…": "正在创建密钥…",
+  "Created “Playground” API key. You can start chatting now.": "已自动创建「Playground」API 密钥，现在可以直接开始对话。",
+  "Could not confirm the new API key. Open Keys to check before retrying.": "无法确认新 API 密钥是否已创建，请先在「密钥」页确认后再重试。",
+  "Could not create an API key. Try again.": "无法创建 API 密钥，请重试。",
 };

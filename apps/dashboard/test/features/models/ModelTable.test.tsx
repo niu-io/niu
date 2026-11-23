@@ -425,3 +425,30 @@ it('hides active generation and curl CTAs for uncallable commercial models and l
   expect(screen.getByRole('link', { name: 'Complete Provider rate' }).getAttribute('href')).toBe('/admin/providers');
   expect(screen.getByRole('link', { name: 'Publish selling price' }).getAttribute('href')).toBe('/admin/pricing?model=openai%2Funpriced-commercial&publish=text');
 });
+
+it('intercepts model trial when workspace has zero active API keys and offers 1-click auto-create & try', async () => {
+  const user = userEvent.setup();
+  mockedContext.token = 'member-token';
+  mockedContext.workspace = { id: 'ws-zero', organization_id: 'org-1', name: 'Starter', active_key_count: 0 } as unknown as typeof mockedContext.workspace;
+  mockedContext.session = { kind: 'operator', permissions: { read: true, write: true, manage_operators: false } };
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input) === '/api/v1/workspaces/ws-zero/keys' && init?.method === 'POST') {
+      return Response.json({ id: 'key-play-1', token: 'niu_secret_play', allowed_models: ['*'], key: { id: 'key-play-1', slug: 'playground', name: 'Playground', allowed_models: ['*'], invocation_allowed: true, revoked: false, expired: false } }, { status: 201 });
+    }
+    return Response.json({ data: [] });
+  }));
+  const chatModel = { id: 'deepseek/deepseek-v3', provider: 'deepseek', public_catalog: true, catalog: { name: 'DeepSeek V3', output_modalities: ['text'] } };
+  render(
+    <MemoryRouter initialEntries={['/workspaces/starter/models/deepseek/deepseek-v3']}>
+      <Routes>
+        <Route path="/workspaces/:workspace/models/*" element={<SidebarProvider><ModelTable models={[chatModel]} /></SidebarProvider>} />
+        <Route path="/generations" element={<div data-testid="landed-gen">Ready</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  expect(screen.getByRole('status').textContent).toContain('No active API key');
+  await user.click(screen.getByRole('button', { name: 'Open Generations' }));
+  const dialog = await screen.findByRole('dialog');
+  await user.click(within(dialog).getByRole('button', { name: 'Auto-create key & try' }));
+  expect(await screen.findByTestId('landed-gen')).toBeTruthy();
+});

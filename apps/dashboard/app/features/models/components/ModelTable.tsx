@@ -11,7 +11,7 @@ import { IconCopy as Clipboard } from "@tabler/icons-react";
 import { IconKey as KeyRound } from "@tabler/icons-react";
 import { IconX as X } from "@tabler/icons-react";
 import { IconAdjustmentsHorizontal as SlidersHorizontal, IconSearch as Search } from "@tabler/icons-react";
-import { Link, useLocation, useParams, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupContent, useSidebar } from '@/components/ui/sidebar';
@@ -27,6 +27,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { capabilityGroups, capabilityValues, emptyCapabilities, matchesCapabilities, modelCapabilityTags, type CapabilityGroup } from '../model-capabilities';
 import { Label } from '@/components/ui/label';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
+import { QuickKeyDialog, useQuickKeyProvisioner } from '@/features/generations/QuickKeyDialog';
 import type { Model } from '@/shell/dashboard-context';
 
 function ModelFilterButton({ activeCount = 0 }: { activeCount?: number }) {
@@ -190,8 +191,14 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     });
     setLimit(20);
   }
-  const { token, workspace, workspaces, session } = useDashboardContext();
+  const { token, workspace, workspaces, session, rememberChatKey, reloadWorkspaces } = useDashboardContext();
   const isPlatformAdmin = Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false));
+  const canWrite = session?.permissions?.write !== false;
+  const needsApiKey = !publicMode && workspace?.active_key_count === 0;
+  const navigate = useNavigate();
+  const quickKey = useQuickKeyProvisioner();
+  const [pendingTry, setPendingTry] = useState<{ model: Model; kind: 'chat' | 'video' } | null>(null);
+  const pendingTryTriggerRef = useRef<HTMLElement | null>(null);
   const { billingMode } = usePlatformCurrency();
   const showUnitPricing = (model: Model) => model.customer_unit_pricing != null && (billingMode === 'credits' || model.customer_pricing == null);
   const params = useParams();
@@ -314,11 +321,26 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     const serialized = sp.toString();
     return serialized ? `?${serialized}` : '';
   }, [query, sort, capabilities, authorsSelected, providersSelected, sourcesSelected]);
-  function generationHref(model: Model, kind: 'chat' | 'video') {
+  function generationHref(model: Model, kind: 'chat' | 'video', keyRef?: string) {
     const query = new URLSearchParams({new: kind === 'video' ? 'video' : '1', model: model.id});
-    if (!publicMode && workspace) query.set('workspace', workspacePathSegment(workspace, workspaces));
+    if (!publicMode && workspace) query.set('workspace', workspacePathSegment(workspace, workspaces ?? [workspace]));
+    if (keyRef) query.set('key', keyRef);
     const target = `/generations?${query}`;
     return publicMode ? `/login?returnTo=${encodeURIComponent(target)}` : target;
+  }
+  async function handleQuickCreateAndTry() {
+    if (!pendingTry || !token || !workspace) return;
+    const created = await quickKey.run({
+      token,
+      organizationId: workspace.organization_id,
+      workspaceId: workspace.id,
+      rememberChatKey,
+      reloadWorkspaces,
+    });
+    if (!created) return;
+    const target = generationHref(pendingTry.model, pendingTry.kind, created.slug || created.id);
+    setPendingTry(null);
+    navigate(target);
   }
   const [copyFeedback, setCopyFeedback] = useState<{model:string; error:string; copied:boolean} | null>(null);
   const [modelIdFeedback, setModelIdFeedback] = useState<{model:string; copied:boolean} | null>(null);
@@ -533,9 +555,15 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
                 {isPlatformAdmin && missingProcurement && <Link className="text-foreground underline underline-offset-2" to="/admin/providers">{uiT("Complete Provider rate")}</Link>}
                 {isPlatformAdmin && (missingSelling || !missingProcurement) && <Link className="text-foreground underline underline-offset-2" to={pricingSetupHref(model)}>{uiT("Publish selling price")}</Link>}
               </> : <>
-                {hasChatOutput(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>}
-                {canTryUnverifiedChat(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Try in Chat")}</Link>}
-                {isVideoModel(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>}
+                {hasChatOutput(model) && (needsApiKey
+                  ? <Button type="button" variant="link" className="h-auto p-0 font-normal text-foreground" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'chat' }); }}>{uiT("Open Generations")}</Button>
+                  : <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>)}
+                {canTryUnverifiedChat(model) && (needsApiKey
+                  ? <Button type="button" variant="link" className="h-auto p-0 font-normal text-foreground" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'chat' }); }}>{uiT("Try in Chat")}</Button>
+                  : <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Try in Chat")}</Link>)}
+                {isVideoModel(model) && (needsApiKey
+                  ? <Button type="button" variant="link" className="h-auto p-0 font-normal text-foreground" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'video' }); }}>{uiT("Try in Video")}</Button>
+                  : <Link className="text-foreground hover:underline" to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>)}
                 {!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? uiT(canTryUnverifiedChat(model) ? "Support unverified" : "Preview not supported") : uiT("Capabilities not published")}</span>}
               </>}
             </div>
@@ -592,8 +620,24 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
           {(readinessIssues(selected).includes('selling_price_missing') || !readinessIssues(selected).includes('procurement_pricing_missing')) && <Button asChild><Link to={pricingSetupHref(selected)}>{uiT("Publish selling price")}</Link></Button>}
         </div> : null
       ) : <>
+        {needsApiKey && (
+          <p className="text-sm text-muted-foreground" role="status">
+            {canWrite
+              ? uiT("No active API key in this workspace yet. Trying a model lets you auto-create a default Playground key in one click.", "当前工作空间暂无可用 API 密钥，点击试用时可一键自动创建默认「Playground」密钥。")
+              : uiT("No active API key in this workspace yet. Ask a workspace administrator to create one before trying models.", "当前工作空间暂无可用 API 密钥，请联系工作空间管理员创建后再试用模型。")}
+          </p>
+        )}
         <div className="model-route-cta">
-          {hasChatOutput(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Open Generations")}</Link></Button>}{canTryUnverifiedChat(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Try in Chat")}</Link></Button>}{!hasGenerationOutput(selected) && <Button asChild variant={canTryUnverifiedChat(selected) ? 'outline' : 'default'}><a href={`${import.meta.env.BASE_URL}docs/api/explorer/`}>{uiT("View API reference")}</a></Button>}{isVideoModel(selected) && <Button asChild variant={hasChatOutput(selected) ? 'outline' : 'default'}><Link to={generationHref(selected, 'video')}>{uiT("Try in Video")}</Link></Button>}
+          {hasChatOutput(selected) && (needsApiKey
+            ? <Button type="button" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model: selected, kind: 'chat' }); }}>{uiT("Open Generations")}</Button>
+            : <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Open Generations")}</Link></Button>)}
+          {canTryUnverifiedChat(selected) && (needsApiKey
+            ? <Button type="button" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model: selected, kind: 'chat' }); }}>{uiT("Try in Chat")}</Button>
+            : <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Try in Chat")}</Link></Button>)}
+          {!hasGenerationOutput(selected) && <Button asChild variant={canTryUnverifiedChat(selected) ? 'outline' : 'default'}><a href={`${import.meta.env.BASE_URL}docs/api/explorer/`}>{uiT("View API reference")}</a></Button>}
+          {isVideoModel(selected) && (needsApiKey
+            ? <Button type="button" variant={hasChatOutput(selected) ? 'outline' : 'default'} onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model: selected, kind: 'video' }); }}>{uiT("Try in Video")}</Button>
+            : <Button asChild variant={hasChatOutput(selected) ? 'outline' : 'default'}><Link to={generationHref(selected, 'video')}>{uiT("Try in Video")}</Link></Button>)}
           {publicMode ? (
             <Button asChild variant="outline"><Link to="/login?returnTo=%2Fworkspaces%2Fdefault%2Fkeys%2Fnew">{uiT("Sign in to get an API key", "登录获取 API 密钥")}<KeyRound size={15} /></Link></Button>
           ) : (
@@ -609,5 +653,17 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
       </>}
       {!publicMode && <Link className="model-activity-link" to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(selected.id)}`}>{uiT("View requests for this model")}</Link>}
     </aside> : selectedId ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Boxes aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("Model unavailable")}</EmptyTitle><EmptyDescription>{uiT("This model is no longer in the catalog.")}</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={catalogPath + catalogSearch}>{uiT("Browse models")}</Link></Button></EmptyContent></Empty> : null}
+    <QuickKeyDialog
+      open={Boolean(pendingTry)}
+      onOpenChange={open => { if (!open) setPendingTry(null); }}
+      mode="try"
+      canWrite={canWrite}
+      workspaceRoot={workspacePath}
+      returnTo={pendingTry ? generationHref(pendingTry.model, pendingTry.kind) : undefined}
+      busy={quickKey.busy}
+      error={quickKey.error}
+      onQuickCreate={() => void handleQuickCreateAndTry()}
+      triggerRef={pendingTryTriggerRef}
+    />
   </div>;
 }
