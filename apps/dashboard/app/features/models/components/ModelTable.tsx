@@ -2,7 +2,7 @@ import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { generationCapability } from '../generation-capabilities';
 import '../models.css';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { IconCpu as Boxes } from "@tabler/icons-react";
 import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import { IconCheck as Check } from "@tabler/icons-react";
@@ -379,7 +379,11 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     }
     return [...matches].sort((a, b) => catalogTier(a) - catalogTier(b));
   }, [popularModels, query, authorsSelected, providersSelected, sourcesSelected, capabilities, sort]);
-  const visible = filtered.slice(0, limit);
+  const groupSources = hasMixedSources && !publicMode && sourcesSelected.length !== 1;
+  const orderedModels = groupSources
+    ? [...filtered.filter(model => modelSource(model) === 'catalog'), ...filtered.filter(model => modelSource(model) === 'own_api_key')]
+    : filtered;
+  const visible = orderedModels.slice(0, limit);
   const selected = models.find(model => model.id === selectedId) ?? null;
   const showOriginalDescription = Boolean(selected?.catalog?.description) && (isZh ? !/\p{Script=Han}/u.test(selected?.catalog?.description ?? '') : /\p{Script=Han}/u.test(selected?.catalog?.description ?? ''));
   const descriptionRef = useRef<HTMLDivElement>(null);
@@ -526,7 +530,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
         </div>}
         <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString(readUILocale())} {filtered.length === 1 ? uiT("model") : uiT("models")}</span>{filtered.length > 0 && (authorsSelected.length > 0 || providersSelected.length > 0 || sourcesSelected.length > 0 || hasCapabilities || query) && <Button variant="ghost" size="sm" onClick={clearAllFilters}>{uiT("Clear filters")}</Button>}</div>
         {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle><EmptyDescription>{uiT("Try another search or remove a filter.")}</EmptyDescription></EmptyHeader>{(authorsSelected.length > 0 || providersSelected.length > 0 || sourcesSelected.length > 0 || hasCapabilities || query) && <EmptyContent><Button variant="outline" onClick={clearAllFilters}>{uiT("Clear filters")}</Button></EmptyContent>}</Empty> : <div className="models-cards">
-          {visible.map(model => {
+          {visible.map((model, index) => {
             const cardTitle = catalogTitle(model);
             const rawDesc = model.catalog?.description;
             const hasHanDesc = /\p{Script=Han}/u.test(rawDesc ?? '');
@@ -542,7 +546,11 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
             const missingProcurement = issues.includes('procurement_pricing_missing');
             const missingSelling = issues.includes('selling_price_missing');
             const detailHref = `${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`;
-            return <article className="models-card" key={model.id}>
+            return <Fragment key={model.id}>
+              {groupSources && (index === 0 || modelSource(visible[index - 1]) !== modelSource(model)) && (
+                <h2 className="col-span-full text-sm font-medium">{modelSource(model) === 'catalog' ? uiT("Niu catalog") : uiT("Own API key")}</h2>
+              )}
+              <article className="models-card">
               <div className="models-card-header">
                 <ProviderLogo provider={modelIdentity(model)} size="default" />
                 <div className="models-card-identity">
@@ -601,7 +609,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
                   </>}
                 </div>
               </div>
-            </article>;
+            </article></Fragment>;
           })}
         </div>}
         {visible.length < filtered.length && <div className="models-load-more"><Button variant="outline" onClick={() => setLimit(value => value + 20)}>{uiT("Show more models")}</Button><span>{isZh ? `已显示 ${visible.length} / 共 ${filtered.length} 个` : `${visible.length} ${uiT("of")} ${filtered.length}`}</span></div>}

@@ -749,11 +749,11 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
             label: uiT("Prompt"),
             placeholder: uiT("Describe your video…"),
             value: prompt,
-            disabled: busy === 'create' || restoringIntent || Boolean(intentId && !intentDocument?.job),
+            disabled: !base || loading || busy === 'create' || restoringIntent || Boolean(intentId && !intentDocument?.job),
             onChange: value => { composerEdits.current.prompt = true; setComposerEdited(true); setPrompt(value); },
             onKeyDown: event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (!composerCover) void submitComposer(); } },
           }}
-          attachments={model && intentClient && workspace ? <ImageReferences model={model} client={intentClient} scope={{organizationId:workspace.organization_id,projectId:workspace.id}} references={draftReferences} onReferencesChange={references=>{composerEdits.current.references=true;setComposerEdited(true);setDraftReferences(references);}} images={images} onChange={next=>{composerEdits.current.images=true;setImages(next);}} disabled={Boolean(busy) || uncertain || Boolean(intentId && !intentDocument?.job)} toolbarSlot={attachSlot} onReadingChange={(reading,failed)=>{setReadingImages(reading);if(reading){estimateController.current?.abort();setQuote(null);}else if(failed)setWaitingForImages(false);}}/> : null}
+          attachments={model && intentClient && workspace ? <ImageReferences model={model} client={intentClient} scope={{organizationId:workspace.organization_id,projectId:workspace.id}} references={draftReferences} onReferencesChange={references=>{composerEdits.current.references=true;setComposerEdited(true);setDraftReferences(references);}} images={images} onChange={next=>{composerEdits.current.images=true;setImages(next);}} disabled={!base || loading || Boolean(busy) || uncertain || Boolean(intentId && !intentDocument?.job)} toolbarSlot={attachSlot} onReadingChange={(reading,failed)=>{setReadingImages(reading);if(reading){estimateController.current?.abort();setQuote(null);}else if(failed)setWaitingForImages(false);}}/> : null}
           status={<>
             {mutableComposer&&draft.error&&<div role="alert" className="video-error">{uiT(draft.error)}<Button type="button" variant="ghost" onClick={()=>{acceptDraft.current=true;draft.reload();}} disabled={Boolean(busy)}>{uiT("Load saved draft")}</Button></div>}
             {mutableComposer&&draft.ready&&(draft.saving||draft.dirty)&&composerEdited&&<p role="status" className="video-muted">{draft.saving?uiT("Saving draft…"):canWrite?uiT("Unsaved changes"):uiT("Your changes are not saved with read access.")}</p>}

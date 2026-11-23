@@ -4936,6 +4936,8 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "1 saved material reference. Current access and inspection are checked when submitting.": "已保存 1 个参考素材。提交时将重新检查访问权限与内容合规。",
   "{0} saved material references. Current access and inspection are checked when submitting.": "已保存 {0} 个参考素材。提交时将重新检查访问权限与内容合规。",
   "Provider created. Configure its models to continue setup.": "已创建 Provider。请配置其模型以继续设置。",
+  "Provider usage and accrued purchase charges over the last 90 days.": "过去 90 天的供应商用量与应计采购费用。",
+  "Outstanding balances and confirmed payments to this provider.": "此供应商的未结余额和已确认付款。",
   "Provider usage over the last 90 days.": "过去 90 天的 Provider 用量。",
   "Responses API": "Responses API",
   "text": "文本",

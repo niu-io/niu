@@ -1,3 +1,5 @@
+import ThemeMenu from '@/shell/ThemeMenu';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { IconCheck, IconChevronDown, IconClock, IconEye, IconEyeOff, IconLanguage } from '@tabler/icons-react';
@@ -266,7 +268,8 @@ export default function RegisterRoute() {
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-        </nav>
+          <TooltipProvider><ThemeMenu context={context} side="bottom" /></TooltipProvider>
+      </nav>
       </header>
       <div className="dashboard-login-stage">
         <section className="dashboard-login-card sm:w-[400px]" aria-label={uiT('Request Limited Preview access', '申请有限预览权限')}>

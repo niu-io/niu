@@ -97,9 +97,9 @@ export default function GenerationComposer({
         placeholder={prompt.placeholder}
         className="generation-composer-textarea"
       />
-      {attachments ? <div className="generation-composer-attachments">{attachments}</div> : null}
+      {attachments ? <div inert={blocked} className="generation-composer-attachments">{attachments}</div> : null}
       {status ? <div className="generation-composer-status">{status}</div> : null}
-      <div className="playground-composer-actions generation-composer-bar">
+      <div inert={blocked} className="playground-composer-actions generation-composer-bar">
         <div className="generation-composer-leading">{leadingActions}</div>
         <div className="generation-composer-trailing">
           {trailingActions}

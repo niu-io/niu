@@ -1,3 +1,5 @@
+import ThemeMenu from '@/shell/ThemeMenu';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
@@ -187,6 +189,7 @@ export default function LoginRoute() {
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
+        <TooltipProvider><ThemeMenu context={context} side="bottom" /></TooltipProvider>
       </nav>
     </header>
     <div className="dashboard-login-stage">

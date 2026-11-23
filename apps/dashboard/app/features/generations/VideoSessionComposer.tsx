@@ -54,8 +54,8 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
   const canWrite = Boolean(context.session?.permissions.write);
   const workspacePath = workspace ? `/workspaces/${workspacePathSegment(workspace, context.workspaces ?? [workspace])}` : '/workspaces/default';
   const keys = available.keys.filter(key => key.workspace.id === workspace?.id);
-  const activeKeyId = keyId;
-  const cover = session.archived ? 'archived' : !canWrite ? 'readonly' : available.error && !keys.length ? 'keys' : !available.loading && !keys.some(key=>key.id===activeKeyId) ? 'nokey' : null;
+  const activeKeyId = keys.some(key => key.id === keyId) ? keyId : undefined;
+  const cover = session.archived ? 'archived' : !canWrite ? 'readonly' : available.error && !keys.length ? 'keys' : !available.loading && !activeKeyId ? 'nokey' : null;
   const initialModels = token && activeKeyId && !cover
     ? peekQuery<VideoModel[]>(token, videoModelsCacheKey(activeKeyId), {persist: true})
     : undefined;
@@ -298,7 +298,7 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       label: uiT("Prompt"),
       placeholder: uiT("Describe your video…"),
       value: prompt,
-      disabled: busy || loading || restoringDraft,
+      disabled: !activeKeyId || busy || loading || restoringDraft,
       onChange: value => { setEdited(true); setPrompt(value); },
       onKeyDown: event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void generate(); } },
     }}
@@ -319,7 +319,7 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       </div>)}
       <Button type="button" variant="ghost" disabled={busy || restoringDraft} onClick={()=>{setEdited(true);setControls(initialControls(model));}}>{uiT("Reset settings")}</Button>
     </div></PopoverContent></Popover> : null}
-    submitAction={<Button ref={generateRef} type="submit" size="icon" className="generation-composer-submit rounded-full" aria-label={uiT("Generate video")} disabled={busy || Boolean(pendingReference) || loading || restoringDraft || !prompt.trim() || !model || references.length>0 || (model.requires_image&&!references.length) || Boolean(cover)}><ArrowUp size={19} /></Button>}
+    submitAction={<Button ref={generateRef} type="submit" size="icon" className="generation-composer-submit rounded-full" aria-label={uiT("Generate video")} disabled={!activeKeyId || busy || Boolean(pendingReference) || loading || restoringDraft || !prompt.trim() || !model || references.length>0 || (model.requires_image&&!references.length) || Boolean(cover)}><ArrowUp size={19} /></Button>}
     blockedCover={
       cover === 'archived' ? <GenerationComposerCover icon={<Archive size={17} />} title={uiT("Archived")} detail={uiT("Restore this session from Archived sessions to return it to history.")} />
       : cover === 'readonly' ? <GenerationComposerCover icon={<LockIcon size={17} />} title={uiT("Generation needs write access.")} detail={uiT("A member with write access can describe the next video here.")} />
