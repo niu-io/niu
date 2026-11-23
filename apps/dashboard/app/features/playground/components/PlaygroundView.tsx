@@ -1256,7 +1256,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                   </div>}
                   <div className="playground-first-run-heading"><h2>{uiT("What would you like to create?")}</h2>{videoKey && <p>{uiT("Write, build, compare models or generate a video.")}</p>}{modelsLoading ? <ListRowsSkeleton rows={2} label={uiT("Loading model catalog…")} /> : !modelsError && modelAliases.length===0 ? <p>{uiT("No text models are available. Ask a platform administrator to add a model route to the catalog.")}</p> : null}</div>
                   {composerElement}
-                  {!prompt.trim() && <div className="playground-starter-picker" aria-label={uiT("Example tasks")}>
+                  {!prompt.trim() && hasUsableKey && !modelsLoading && !modelsError && usableModels.length > 0 && <div className="playground-starter-picker" role="group" aria-label={uiT("Example tasks")}>
                     <div className="flex flex-wrap items-center justify-center gap-2">
                       <Tabs value={promptCategory} onValueChange={value => setPromptCategory(value as typeof promptCategory)} className="playground-starter-tabs">
                         <TabsList aria-label={uiT("Task category")} className="playground-starter-categories">
