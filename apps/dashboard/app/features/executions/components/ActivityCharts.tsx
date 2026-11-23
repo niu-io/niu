@@ -106,7 +106,7 @@ export default function ActivityCharts({ buckets, models, compact = false, loadi
         <AreaChart accessibilityLayer data={buckets} margin={{left:0,right:12,top:12,bottom:0}}>
           <CartesianGrid vertical={false}/><XAxis dataKey="start_ms" tickFormatter={date} minTickGap={70} tickLine={false} axisLine={false}/><YAxis allowDecimals={false} domain={bucketAxis.domain} ticks={bucketAxis.ticks} tickFormatter={count} tickLine={false} axisLine={false} width={44}/>
           <ChartTooltip content={<ChartTooltipContent labelFormatter={(_label, payload) => payload[0]?.payload ? `${date(payload[0].payload.start_ms)} – ${date(payload[0].payload.end_ms)}` : ''}/>}/>
-          <Area type="linear" baseValue={0} strokeLinecap="round" strokeLinejoin="round" dataKey="request_count" stroke="var(--color-request_count)" fill="var(--color-request_count)" fillOpacity={0.12} strokeWidth={2} isAnimationActive={false}/>
+          <Area type="linear" baseValue={0} strokeLinecap="round" strokeLinejoin="round" dataKey="request_count" stroke="var(--color-request_count)" fill="var(--color-request_count)" fillOpacity={0.12} strokeWidth={2} dot={(buckets?.length ?? 0) === 1 ? {r: 4, fill: 'var(--color-request_count)', strokeWidth: 0} : false} isAnimationActive={false}/>
         </AreaChart>
       </ChartContainer> : <Empty className="mt-3 min-h-32 py-6"><EmptyHeader><EmptyMedia variant="icon"><IconChartBar size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{buckets === undefined ? uiT("Activity history unavailable.") : uiT("No requests in this range.")}</EmptyDescription></EmptyHeader></Empty>}
     </div>

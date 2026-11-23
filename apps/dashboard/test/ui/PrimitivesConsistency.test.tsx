@@ -99,4 +99,24 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(fallback.className).toContain('--avatar-brand-fg');
     expect(fallback.className).not.toContain('bg-muted');
   });
+
+  it('locks key-table column geometry with table-layout: fixed so secret reveal never shifts columns', () => {
+    const css = readFileSync(resolve(process.cwd(), 'app/styles/operations.css'), 'utf8');
+    expect(css).toMatch(/\.key-table\s*\{[^}]*table-layout:\s*fixed/);
+  });
+
+  it('caps bar width across every Recharts Bar in the dashboard so single-bucket data never fills the canvas', () => {
+    const violations: string[] = [];
+    const pattern = /<Bar\b[^>]*>/g;
+    for (const file of tsxFiles) {
+      const source = readFileSync(file, 'utf8');
+      for (const match of source.matchAll(pattern)) {
+        if (!/maxBarSize=/.test(match[0])) {
+          const line = source.slice(0, match.index ?? 0).split('\n').length;
+          violations.push(`${relative(appDir, file)}:${line}`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
 });

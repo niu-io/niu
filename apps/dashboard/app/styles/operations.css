@@ -212,30 +212,44 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
   .gateway-task-feed.is-compact .gateway-task-feed-heading h2 { font-size: 15px; }
   .gateway-task-feed.is-compact .gateway-feed-actions { font-size: 12px; }}
 
-/* Searchable key directory follows the shared compact table layout. */
-.key-table .key-name-link { max-width: 220px; white-space: normal; overflow-wrap: anywhere; }
+/* Searchable key directory follows the shared compact table layout with
+   fixed column geometry so revealing a full API key never shifts columns. */
+.key-table { table-layout: fixed; width: 100%; }
+.key-table :is(th, td).key-table-col-key { width: auto; }
+.key-table :is(th, td).key-table-col-models { width: 18%; }
+.key-table :is(th, td).key-table-col-limits { width: 14%; }
+.key-table :is(th, td).key-table-col-expires { width: 112px; }
+.key-table :is(th, td).key-table-col-usage { width: 116px; }
+.key-table :is(th, td).key-table-col-status { width: 96px; }
+.key-table :is(th, td).key-table-col-actions { width: 64px; }
+.key-table .key-name-link { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .key-table .key-name-link svg { flex-shrink: 0; }
-.key-table .key-model-summary { max-width: 220px; }
+.key-table .key-model-summary { max-width: 100%; }
 .key-list { container-type: inline-size; }
 /* Adapt to the available canvas, including expanded navigation.
    Keep expiry and last use; model access and limits move to the key detail page first. */
 @container (max-width: 900px) {
   .key-table { min-width: 0; width: 100%; }
+  .key-table :is(th, td).key-table-col-key { width: auto; }
   .key-table :is(th, td):nth-child(2),
   .key-table :is(th, td):nth-child(3) { display: none; }
   .key-table .key-model-summary { max-width: 180px; white-space: normal; overflow-wrap: anywhere; }}
 @container (max-width: 720px) {
   .key-table { min-width: 0; width: 100%; }
+  .key-table :is(th, td).key-table-col-key { width: auto; }
   .key-table .key-table-metadata { display: none; }
   .key-table td:first-child { min-width: 0; }
   .key-table .key-name-link { max-width: none; }}
 @media (max-width: 640px) {
   .key-table { min-width: 0; width: 100%; }
+  .key-table :is(th, td).key-table-col-key { width: auto; }
   .key-table .key-table-metadata, .key-table .key-table-usage { display: none; }
   .key-table td:first-child { min-width: 0; }
   .key-table .key-name-link { max-width: none; }
   .key-table th, .key-table td { padding: 12px 8px; }
-  .key-table td:not(:first-child) { width: 1%; white-space: nowrap; }}
+  .key-table :is(th, td).key-table-col-status { width: 84px; }
+  .key-table :is(th, td).key-table-col-actions { width: 48px; }
+  .key-table td:not(:first-child) { white-space: nowrap; }}
 
 @media (max-width: 680px) {
   .dashboard-page-actions .operator-page-actions { width: auto; }

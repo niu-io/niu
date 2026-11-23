@@ -79,8 +79,8 @@ it('uses the same local calendar boundaries for query and histogram on a single-
   const format = new Intl.DateTimeFormat(undefined, {dateStyle: 'medium', timeStyle: 'medium'});
   expect(screen.getByText(format.format(new Date(start)))).toBeTruthy();
   expect(screen.getByText(format.format(new Date(end)))).toBeTruthy();
-  expect(chart.querySelector('rect')?.getAttribute('x')).toBe('4');
-  expect(chart.querySelector('rect')?.getAttribute('width')).toBe('950');
+  expect(chart.querySelector('rect')?.getAttribute('x')).toBe('464');
+  expect(chart.querySelector('rect')?.getAttribute('width')).toBe('28');
 });
 
 it('explains durable failure classifications when request payloads are unavailable', async () => {
@@ -746,6 +746,8 @@ describe('gateway activity', () => {
     expect(chart.textContent).toContain('2 requests');
     const [firstBar, secondBar] = chart.querySelectorAll('rect');
     expect(Number(secondBar.getAttribute('x'))).toBeGreaterThan(Number(firstBar.getAttribute('x')));
+    expect(Number(firstBar.getAttribute('width'))).toBeLessThanOrEqual(28);
+    expect(Number(secondBar.getAttribute('width'))).toBeLessThanOrEqual(28);
     expect(screen.queryByText(/Latest .* loaded requests/)).toBeNull();
     expect(screen.queryByText('Niu base URL')).toBeNull();
     expect(screen.queryByText('Provider · provider-fast-v2')).toBeNull();
@@ -767,6 +769,30 @@ describe('gateway activity', () => {
     expect(screen.getByRole('heading', { name: /Requests/ })).toBeTruthy();
     expect(calls.some(call => call.path.endsWith('/requests?limit=100&after=attempt-new'))).toBe(true);
     expect(screen.queryByRole('button', { name: 'Load older requests' })).toBeNull();
+  });
+
+  it('caps single-day request histogram bar width instead of stretching across the page', async () => {
+    const req = makeRequest('attempt-single', 'task-single', 'fast', null);
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => {
+      const path = String(input);
+      const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body } as Response);
+      if (path.endsWith('/keys')) return ok({ data: [] });
+      return ok({
+        data: [req],
+        next_cursor: null,
+        summary: {
+          ...summary,
+          request_count: 1,
+          request_histogram: [{ start_ms: 1767225600000, end_ms: 1767312000000, request_count: 1 }],
+        },
+      });
+    }));
+    render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
+    const chart = await screen.findByRole('img', { name: 'Requests over time' });
+    const bars = chart.querySelectorAll('rect');
+    expect(bars).toHaveLength(1);
+    expect(Number(bars[0].getAttribute('width'))).toBeLessThanOrEqual(28);
+    expect(Number(bars[0].getAttribute('x'))).toBeGreaterThan(400);
   });
 
   it('applies date, model, key, and status filters to the scoped feed', async () => {
