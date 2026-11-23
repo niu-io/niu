@@ -1,18 +1,17 @@
-import { lazy, Suspense, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import PageHeader, { PageHeaderTabsTargetContext } from '@/components/PageHeader';
-import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlatformCurrencySetting } from './platform-currency';
 import { PlatformUnitsSetting } from './platform-units';
 import { RegistrationPolicySection } from './registration-review';
 
-const BrandingTab = lazy(() => import('@/features/branding/page'));
-const PaymentsTab = lazy(() => import('@/features/platform/page'));
+import BrandingTab from '@/features/branding/page';
+import PaymentsTab from '@/features/platform/page';
 
 type SettingsTab = 'general' | 'registration' | 'branding' | 'payments' | 'units';
 
@@ -99,16 +98,12 @@ export default function PlatformSettingsRoute() {
         </TabsContent>
 
         <TabsContent value="branding">
-          <Suspense fallback={<FormSectionSkeleton fields={3} label={uiT('Loading branding…')} />}>
-            <BrandingTab />
-          </Suspense>
+          <BrandingTab />
         </TabsContent>
 
         {!isInternal && (
           <TabsContent value="payments">
-            <Suspense fallback={<FormSectionSkeleton fields={3} label={uiT('Loading payments…')} />}>
-              <PaymentsTab />
-            </Suspense>
+            <PaymentsTab />
           </TabsContent>
         )}
 

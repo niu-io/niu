@@ -30,8 +30,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TableSkeleton } from '@/components/PageSkeletons';
 import { formatDateTime } from '@/features/operators/api';
-import { ApiRequestError, request } from '@/lib/api-client';
-import { invalidateQueries } from '@/lib/query-cache';
+import { ApiRequestError, cachedGet, peekCachedGet, request } from '@/lib/api-client';
+import { invalidateQueries, primeQuery } from '@/lib/query-cache';
 import { useLocale } from '@/shell/ui-locale';
 import { ApproveRegistrationDialog, RejectRegistrationDialog } from './registration-dialogs';
 
@@ -62,7 +62,7 @@ export function RegistrationPolicySection({
   onPolicySaved?: (policy: PlatformRegistrationPolicy) => void;
 }) {
   const { t } = useLocalizedMessages();
-  const [policy, setPolicy] = useState<PlatformRegistrationPolicy | null>(null);
+  const [policy, setPolicy] = useState(() => peekCachedGet<{ data: PlatformRegistrationPolicy }>(token, REGISTRATION_POLICY_PATH)?.data ?? null);
   const [draftMode, setDraftMode] = useState<RegistrationMode>('approval_required');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -73,20 +73,14 @@ export function RegistrationPolicySection({
   const activePolicy = useRef<AbortController | null>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
 
-  const loadPolicy = useCallback(async () => {
+  const loadPolicy = useCallback(async (force = false) => {
     activePolicy.current?.abort();
     const controller = new AbortController();
     activePolicy.current = controller;
     setLoading(true);
     setLoadFailed(false);
     try {
-      const result = await request<{ data: PlatformRegistrationPolicy }>(
-        token,
-        REGISTRATION_POLICY_PATH,
-        'GET',
-        undefined,
-        controller.signal,
-      );
+      const result = await cachedGet<{ data: PlatformRegistrationPolicy }>(token, REGISTRATION_POLICY_PATH, { signal: controller.signal, force });
       if (controller.signal.aborted) return;
       setPolicy(result.data);
       setDraftMode(result.data.mode);
@@ -121,6 +115,7 @@ export function RegistrationPolicySection({
           expected_revision: policy.revision,
         },
       );
+      primeQuery(token, REGISTRATION_POLICY_PATH, result);
       setPolicy(result.data);
       setDraftMode(result.data.mode);
       setDialogOpen(false);
@@ -130,7 +125,7 @@ export function RegistrationPolicySection({
     } catch (error) {
       if (error instanceof ApiRequestError && error.status === 409) {
         setSaveErrorKind('conflict');
-        void loadPolicy();
+        void loadPolicy(true);
       } else {
         setSaveErrorKind('failed');
       }
@@ -184,7 +179,7 @@ export function RegistrationPolicySection({
         <Alert variant="destructive">
           <AlertDescription className="flex flex-wrap items-center gap-3">
             <span>{t('Could not load registration policy.', '无法加载注册策略。')}</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => void loadPolicy()}>
+            <Button type="button" variant="outline" size="sm" onClick={() => void loadPolicy(true)}>
               {t('Retry', '重试')}
             </Button>
           </AlertDescription>

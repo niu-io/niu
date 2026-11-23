@@ -5,22 +5,30 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 import { Tabs as TabsPrimitive } from "radix-ui"
 
+export const TabResourceContext = React.createContext("")
+const SelectedTab = React.createContext<string | undefined>(undefined)
+
 function Tabs({
   className,
+  value,
   orientation = "horizontal",
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.Root>) {
+  const resource = React.useContext(TabResourceContext)
   return (
-    <TabsPrimitive.Root
-      data-slot="tabs"
-      data-orientation={orientation}
-      orientation={orientation}
-      className={cn(
-        "group/tabs flex gap-2 data-[orientation=horizontal]:flex-col",
-        className
-      )}
-      {...props}
-    />
+    <SelectedTab.Provider key={resource} value={value}>
+      <TabsPrimitive.Root
+        value={value}
+        data-slot="tabs"
+        data-orientation={orientation}
+        orientation={orientation}
+        className={cn(
+          "group/tabs flex gap-2 data-[orientation=horizontal]:flex-col",
+          className
+        )}
+        {...props}
+      />
+    </SelectedTab.Provider>
   )
 }
 
@@ -76,15 +84,31 @@ function TabsTrigger({
 
 function TabsContent({
   className,
+  forceMount,
+  value,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.Content>) {
-  return (
+  const selected = React.useContext(SelectedTab)
+  const active = selected === value
+  const [visited, setVisited] = React.useState(false)
+  React.useLayoutEffect(() => {
+    if (active) setVisited(true)
+  }, [active])
+
+  const retain = selected !== undefined && !forceMount
+  if (retain && !active && !visited) return null
+
+  const panel = (
     <TabsPrimitive.Content
+      value={value}
+      forceMount={retain ? true : forceMount}
       data-slot="tabs-content"
       className={cn("flex-1 outline-none", className)}
       {...props}
     />
   )
+  // Activity preserves visited panel state while disconnecting its effects and portals.
+  return retain ? <React.Activity mode={active ? "visible" : "hidden"}>{panel}</React.Activity> : panel
 }
 
 export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants }

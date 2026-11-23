@@ -147,3 +147,5 @@ Provider purchase prices, upstream expenses, procurement budgets, and platform m
 Zero-key generation sessions must disable the prompt, attachments, starter prompts and all submission paths. Keep prior drafts readable. Confirm key creation separately from sending a request. Aggregate duplicate empty notices for one collection and keep the recovery action beside the empty result. See the UI consistency standard.
 
 Model mapping dialogs show a single title, the editable mapping fields and visible Cancel and Save actions. Keep catalog metadata and optional capabilities under advanced settings. Show video configuration for declared video output, unknown output, or an existing saved video configuration.
+
+Tab navigation must preserve already available data within the same authorization and resource scope. A presentation-only tab change must not revalidate unrelated route loaders. Keep slow first reads and errors local to the affected panel. Verify both cold activation and return visits with browser frames.
