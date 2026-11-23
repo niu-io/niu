@@ -3,7 +3,7 @@ title: "Select an assigned role for the current browser sign-in"
 description: "PUT /api/v1/session/role"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/session/role`
 

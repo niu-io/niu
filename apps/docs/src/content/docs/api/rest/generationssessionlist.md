@@ -3,7 +3,7 @@ title: "List private generations sessions"
 description: "GET /api/v1/workspaces/{workspace}/sessions"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/sessions`
 

@@ -3,7 +3,7 @@ title: "Retrieve a workspace API key with its policies and usage window"
 description: "GET /api/v1/workspaces/{workspace}/keys/{key}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/keys/{key}`
 

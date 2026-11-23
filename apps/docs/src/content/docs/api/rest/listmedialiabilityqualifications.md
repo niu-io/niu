@@ -3,7 +3,7 @@ title: "List immutable route media liability qualifications"
 description: "GET /api/v1/admin/providers/{supplier}/offers/{offer}/media-liability-bounds"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/providers/{supplier}/offers/{offer}/media-liability-bounds`
 

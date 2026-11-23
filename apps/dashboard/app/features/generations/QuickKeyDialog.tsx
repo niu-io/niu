@@ -98,7 +98,7 @@ export function QuickKeyDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  mode: 'send' | 'try' | 'setup';
+  mode: 'create' | 'try' | 'setup';
   canWrite: boolean;
   workspaceRoot: string;
   returnTo?: string;
@@ -111,8 +111,8 @@ export function QuickKeyDialog({
   const { t: uiT } = useUILocale();
   const keysHref = `${workspaceRoot}/keys`;
   const primaryLabel =
-    mode === 'send'
-      ? uiT('Auto-create key & send', '自动创建并发送')
+    mode === 'create'
+      ? uiT('Auto-create key', '自动创建试用密钥')
       : mode === 'try'
         ? uiT('Auto-create key & try', '自动创建并试用')
         : uiT('Auto-create & open Generations', '自动创建并开始生成');

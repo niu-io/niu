@@ -3,7 +3,7 @@ title: "Accept a one-time member invitation"
 description: "POST /api/v1/session/invitations"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/session/invitations`
 

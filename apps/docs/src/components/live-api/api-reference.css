@@ -54,3 +54,24 @@
 .niu-api-reference .selected-client-action {
   display: none !important;
 }
+
+.niu-api-reference .t-doc__header > header > .scalar-icon-button:first-child {
+  display: inline-flex;
+  width: auto;
+  align-items: center;
+  gap: .5rem;
+  aspect-ratio: auto;
+}
+.niu-api-reference .t-doc__header > header > .scalar-icon-button:first-child svg {
+  width: 1rem;
+  height: 1rem;
+}
+.niu-api-reference .t-doc__header > header > .scalar-icon-button:first-child .sr-only {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  clip-path: none;
+}

@@ -3,7 +3,7 @@ title: "Read original noncash gift intent by idempotency key"
 description: "GET /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/organizations/{organization}/billing/accounts/{currency}/grants/prepared/{key}`
 

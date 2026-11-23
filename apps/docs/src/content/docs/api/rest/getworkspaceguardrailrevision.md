@@ -3,7 +3,7 @@ title: "Inspect a preserved workspace policy version before restoring"
 description: "GET /api/v1/workspaces/{workspace}/guardrails/revisions/{revision}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/guardrails/revisions/{revision}`
 

@@ -3,7 +3,7 @@ title: "Fetch exact approved image bytes using an expiring capability"
 description: "GET /v1/media/sources/{token}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /v1/media/sources/{token}`
 

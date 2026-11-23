@@ -3,7 +3,7 @@ title: "List active Provider business identities"
 description: "GET /api/v1/admin/providers"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/providers`
 

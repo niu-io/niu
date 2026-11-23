@@ -24,6 +24,7 @@ pub struct CustomerTariffPublication<'a> {
 #[derive(sqlx::FromRow)]
 pub(crate) struct PlatformCompanyRecord {
     pub id: Uuid,
+    pub slug: String,
     pub name: String,
     pub created_at: String,
 }
@@ -522,7 +523,7 @@ SELECT jsonb_build_object(
                 return Err(StoreError::Conflict);
             }
         }
-        let mut companies: Vec<PlatformCompanyRecord> = sqlx::query_as("SELECT id,name,to_jsonb(created_at) #>> '{}' AS created_at FROM organizations WHERE $1::uuid IS NULL OR id>$1 ORDER BY id LIMIT $2")
+        let mut companies: Vec<PlatformCompanyRecord> = sqlx::query_as("SELECT id,name,slug,to_jsonb(created_at) #>> '{}' AS created_at FROM organizations WHERE $1::uuid IS NULL OR id>$1 ORDER BY id LIMIT $2")
             .bind(after).bind(limit+1).fetch_all(&mut **snapshot).await?;
         let more = companies.len() > limit as usize;
         companies.truncate(limit as usize);
@@ -634,6 +635,7 @@ SELECT jsonb_build_object(
                 json!({
                     "organization_id": company.id,
                     "organization_name": company.name,
+                    "slug": company.slug,
                     "created_at": company.created_at,
                     "owner": owners.remove(&company.id).unwrap_or(Value::Null),
                     "workspace_count": workspace_counts.get(&company.id).copied().unwrap_or(0),
@@ -652,16 +654,21 @@ SELECT jsonb_build_object(
     /// and recent billing activity) in one bounded snapshot.
     pub async fn platform_customer_account(
         &self,
-        organization_id: Uuid,
+        reference: impl ToString,
     ) -> Result<Option<Value>, StoreError> {
+        let reference = reference.to_string();
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let org: Option<(String, String)> = sqlx::query_as(
-            "SELECT name, to_jsonb(created_at) #>> '{}' FROM organizations WHERE id=$1",
+        let org: Option<(Uuid, String, String, String)> = sqlx::query_as(
+            "SELECT o.id, o.name, o.slug, to_jsonb(o.created_at) #>> '{}' FROM organizations o
+             WHERE o.id = $1 OR o.slug = $2 OR EXISTS (
+                SELECT 1 FROM organization_slug_aliases a WHERE a.organization_id = o.id AND a.slug = $2
+             ) ORDER BY (o.id = $1) DESC NULLS LAST LIMIT 1",
         )
-        .bind(organization_id)
+        .bind(Uuid::parse_str(&reference).ok())
+        .bind(&reference)
         .fetch_optional(&mut *snapshot)
         .await?;
-        let Some((organization_name, created_at)) = org else {
+        let Some((organization_id, organization_name, slug, created_at)) = org else {
             crate::commit_tx(snapshot).await?;
             return Ok(None);
         };
@@ -760,6 +767,7 @@ SELECT jsonb_build_object(
         Ok(Some(json!({
             "organization_id": organization_id,
             "organization_name": organization_name,
+            "slug": slug,
             "created_at": created_at,
             "owner": owner,
             "workspace_count": workspaces.len(),

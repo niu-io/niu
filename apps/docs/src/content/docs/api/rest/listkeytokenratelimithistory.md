@@ -3,7 +3,7 @@ title: "List API key token rate policy history"
 description: "GET /api/v1/workspaces/{workspace}/keys/{key}/token-rate-limit/history"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/keys/{key}/token-rate-limit/history`
 

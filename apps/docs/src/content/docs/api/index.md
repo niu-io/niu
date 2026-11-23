@@ -3,7 +3,7 @@ title: "API reference"
 description: "SDK declarations and REST OpenAPI specifications generated from source."
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 ## SDK interfaces
 

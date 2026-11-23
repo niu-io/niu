@@ -139,6 +139,56 @@ export function clientLoader(args: LoaderFunctionArgs) {
 
 export const shouldRevalidate = routeShouldRevalidate;
 
+function OrgBalanceStrip({ token, organizationId, organizationName, canFund, workspaceSettingsHref }: {
+  token: string;
+  organizationId: string;
+  organizationName: string;
+  canFund: boolean;
+  workspaceSettingsHref: string;
+}) {
+  const { t } = useUILocale();
+  type OrgAccount = { currency: string; available_nanos: string };
+  const path = `/api/v1/organizations/${encodeURIComponent(organizationId)}/billing/balance`;
+  const initial = peekCachedGet<{ data: OrgAccount[] }>(token, path)?.data ?? null;
+  const [accounts, setAccounts] = useState<OrgAccount[] | null>(initial);
+  useEffect(() => {
+    const controller = new AbortController();
+    void cachedGet<{ data: OrgAccount[] }>(token, path, { signal: controller.signal })
+      .then(result => {
+        if (!controller.signal.aborted && Array.isArray(result?.data)) setAccounts(result.data);
+      })
+      .catch(() => {
+        /* Balance summary is optional; BillingView surfaces primary billing errors. */
+      });
+    return () => controller.abort();
+  }, [token, path]);
+  const primary = accounts?.[0] ?? null;
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius-panel)] bg-card px-5 py-4">
+      <div className="min-w-0 space-y-1">
+        <p className="text-xs text-muted-foreground">
+          {organizationName
+            ? `${organizationName} · ${t('Shared balance across workspaces', '组织内各工作空间共享余额')}`
+            : t('Shared balance across workspaces', '组织内各工作空间共享余额')}
+        </p>
+        <p className="text-2xl font-semibold tabular-nums tracking-tight">
+          {primary ? money(primary.available_nanos, primary.currency) : '—'}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild variant="outline" size="sm">
+          <Link to={workspaceSettingsHref}>{t('Spending limits', '支出限额')}</Link>
+        </Button>
+        {canFund && (
+          <Button asChild size="sm">
+            <Link to={settingsHref('billing')}>{t('Add credits', '充值')}</Link>
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function BillingRoute() {
   const { t: uiT, format: uiF } = useUILocale();
   useOptionalRouteLoaderData();
@@ -152,6 +202,15 @@ export default function BillingRoute() {
     ? <><Button asChild variant="outline" size="sm" className="hidden sm:inline-flex"><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="sm:hidden" aria-label={uiT("Billing actions")}><IconDots size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem asChild><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></DropdownMenuItem></DropdownMenuContent></DropdownMenu></>
     : undefined;
   return <>
+    {!internal && matchingOrganization && (
+      <OrgBalanceStrip
+        token={token}
+        organizationId={workspace.organization_id}
+        organizationName={organizationName}
+        canFund={canFund}
+        workspaceSettingsHref="../settings"
+      />
+    )}
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
       <p className="text-sm text-muted-foreground">{internal ? uiT("Workspace spending limits apply to Niu charges. Usage billed by a Provider is paid directly to that Provider.") : organizationName ? uiF("Spending and limits apply to this workspace. {0}'s Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.", [organizationName]) : uiT("Spending and limits apply to this workspace. Its organization's Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.")}</p>
       {!internal && (!matchingOrganization ? <p className="text-sm text-muted-foreground">{uiT("Organization billing is unavailable. Refresh or switch to this workspace's organization.")}</p> : !canFund ? <p className="text-sm text-muted-foreground">{uiT("Contact your organization owner to add credits.")}</p> : null)}

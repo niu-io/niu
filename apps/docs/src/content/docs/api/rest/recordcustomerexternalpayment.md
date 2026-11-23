@@ -3,7 +3,7 @@ title: "Record one confirmed full external invoice payment"
 description: "POST /api/v1/workspaces/{workspace}/billing/invoices/{invoice}/payment"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/workspaces/{workspace}/billing/invoices/{invoice}/payment`
 

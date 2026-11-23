@@ -3,7 +3,7 @@ title: "Save or clear a mutable personal Video composer"
 description: "PUT /api/v1/workspaces/{workspace}/video/draft"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/workspaces/{workspace}/video/draft`
 

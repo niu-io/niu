@@ -3,7 +3,7 @@ title: "Retrieve a bounded saved video or last frame"
 description: "GET /v1/video/jobs/{id}/results/{kind}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /v1/video/jobs/{id}/results/{kind}`
 

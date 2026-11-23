@@ -1,3 +1,5 @@
+import ThemeMenu from '@/shell/ThemeMenu';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
@@ -187,6 +189,7 @@ export default function LoginRoute() {
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
+        <TooltipProvider><ThemeMenu context={context} side="bottom" /></TooltipProvider>
       </nav>
     </header>
     <div className="dashboard-login-stage">
@@ -291,9 +294,11 @@ export default function LoginRoute() {
             {submitting ? t('Signing in…', '正在登录…') : checking ? t('Loading…', '加载中…') : t('Sign in', '登录')}
           </Button>}
         </form>
-        {!configurationFailed && !signInNotConfigured && !registrationOpen && (
+        {!configurationFailed && !signInNotConfigured && (
           <p className="dashboard-login-hint dashboard-login-access-help">
-            {t('Need an account or forgot your password? Ask your organization owner for an invitation or contact your installation administrator.', '需要账号、邀请或忘记密码？请联系组织所有者获取邀请，或联系实例管理员协助恢复。')}
+            {registrationOpen
+              ? t('Forgot your password? Contact your organization owner or platform administrator for recovery.', '忘记密码？请联系组织所有者或平台管理员协助重置。')
+              : t('Need an account or forgot your password? Ask your organization owner for an invitation or contact your installation administrator.', '需要账号、邀请或忘记密码？请联系组织所有者获取邀请，或联系平台管理员协助恢复。')}
           </p>
         )}
         {(demoLogin || registrationOpen) && (

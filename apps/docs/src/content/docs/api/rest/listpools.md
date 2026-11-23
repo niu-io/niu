@@ -3,7 +3,7 @@ title: "List platform-managed model route pools"
 description: "GET /api/v1/admin/routing"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/routing`
 

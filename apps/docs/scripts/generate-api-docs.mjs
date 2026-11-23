@@ -311,7 +311,7 @@ outputs.set('contracts/generated/views/customer-management-openapi.json', JSON.s
 outputs.set('contracts/generated/views/console-openapi.json', JSON.stringify(buildAudienceView('Niu Console & Saved Session API', ['console']), null, 2) + '\n');
 outputs.set('contracts/generated/views/platform-provider-openapi.json', JSON.stringify(buildAudienceView('Niu Platform & Provider Administration API', ['platform', 'provider']), null, 2) + '\n');
 const generated = 'Generated from the checked-in source. Do not edit this reference by hand.';
-function page(title, description, lines) { return ['---', `title: ${JSON.stringify(title)}`, `description: ${JSON.stringify(description)}`, '---', '', generated, '', ...lines].join('\n') + '\n'; }
+function page(title, description, lines) { return ['---', `title: ${JSON.stringify(title)}`, `description: ${JSON.stringify(description)}`, '---', '', `<!-- ${generated} -->`, '', ...lines].join('\n') + '\n'; }
 function block(language, value) { return ['```' + language, value, '```', '']; }
 function resolveSchema(schema, seen = new Set()) {
   if (!schema || typeof schema !== 'object') return schema;
@@ -424,6 +424,12 @@ for(const exported of exports.sort((a,b)=>a.name.localeCompare(b.name))) {
  const sourceLink=`https://github.com/niu-io/niu/blob/release/${releaseLine}/`+path.relative(root,original.getSourceFile().fileName).split(path.sep).join('/');
  const slug=exported.name.toLowerCase();
  const lines=[`[SDK source](${sourceLink}). [All SDK types](/docs/api/sdk/).`, '', ...block('typescript',printer.printNode(ts.EmitHint.Unspecified,node,file))];
+ if (ts.isTypeAliasDeclaration(node) && ts.isTypeReferenceNode(node.type)) {
+   const target = node.type.typeName.getText(file);
+   if (target !== exported.name && exports.some(entry => entry.name === target)) {
+     lines.unshift(`See [${target}](/docs/api/sdk/${target.toLowerCase()}/) for the underlying declaration.`, '');
+   }
+ }
  if(ts.isClassDeclaration(node)) {
    lines.length=0;lines.push(`[SDK source](${sourceLink}). [All SDK types](/docs/api/sdk/).`, '', '## Constructor and members', '');
    for(const member of [...node.members].sort((a,b)=>Number(ts.isConstructorDeclaration(b))-Number(ts.isConstructorDeclaration(a)))) {

@@ -235,7 +235,15 @@
 .page-content > .gateway-route-content:not([hidden]),
 .page-content > .gateway-route-content > div:not([hidden]):not([data-slot="tabs"]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; max-width: 100%; }
 .page-content > .gateway-route-content > [data-slot="tabs"] { min-width: 0; max-width: 100%; }
-.empty-region:has([data-slot="empty"]) { display: flex; flex: 0 0 auto; flex-direction: column; min-width: 0; }
+.empty-region:has([data-slot="empty"]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; }
+.empty-region > [data-slot="empty"],
+.empty-region > [data-slot="tabs"]:has(> [data-state="active"] > [data-slot="empty"]),
+.empty-region > [data-slot="tabs"] > [data-state="active"]:has(> [data-slot="empty"]),
+.empty-region > [data-slot="tabs"] > [data-state="active"] > [data-slot="empty"] {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+}
 .gateway-route-content > div > :is(.empty-state, .provider-access-message, .vendor-empty) { flex: 0 0 auto; }
 .provider-admin-panel:has(> [data-slot="empty"]) { display: flex; flex: 0 0 auto; flex-direction: column; }
 .operator-detail-empty { flex: 0 0 auto; justify-content: center; }
@@ -352,3 +360,13 @@
 
 @media (max-width: 380px) {
   .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:first-child:not(:last-child) { max-width: 56px; }}
+
+@media (max-width: 600px) {
+  .standard-price-directory, .standard-price-directory tbody { display: block; width: 100%; }
+  .standard-price-directory thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .standard-price-directory tbody tr { display: grid; gap: .4rem; padding-block: 1rem; border-bottom: 1px solid var(--border); }
+  .standard-price-directory tbody td { display: block; max-width: none; padding: 0; border: 0; white-space: normal; }
+  .standard-price-directory tbody td[data-label] { display: grid; grid-template-columns: minmax(6rem, 32%) minmax(0, 1fr); gap: .6rem; align-items: baseline; }
+  .standard-price-directory td[data-label]::before { content: attr(data-label); color: var(--muted-foreground); font-size: .8rem; }
+  .standard-price-directory td:last-child { margin-top: .3rem; }
+}

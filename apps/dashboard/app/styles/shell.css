@@ -52,7 +52,8 @@
 .dashboard-login-brand:hover { opacity: .86; }
 .dashboard-login-brand img { width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; }
 .dashboard-login-brand > span:first-of-type { min-width: 0; white-space: nowrap; }
-.dashboard-login-nav { display: flex; align-items: center; gap: 4px; }
+.dashboard-login-nav { display: flex; flex: 1; align-items: center; gap: 4px; }
+.dashboard-login-nav > [aria-haspopup="menu"]:first-of-type { margin-inline-start: auto; }
 .dashboard-login-nav [data-slot="button"] { height: 32px; padding-inline: 11px; border-radius: 7px; color: var(--muted-foreground); font-size: 13px; font-weight: 500; }
 .dashboard-login-nav [data-slot="button"]:hover { color: var(--foreground); background: color-mix(in srgb, var(--foreground) 6%, transparent); }
 .dashboard-login-stage { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px 20px 76px; }

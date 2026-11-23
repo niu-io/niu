@@ -3,7 +3,7 @@ title: "Read immutable key policy assignment history"
 description: "GET /api/v1/workspaces/{workspace}/keys/{key}/guardrail/history"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/keys/{key}/guardrail/history`
 

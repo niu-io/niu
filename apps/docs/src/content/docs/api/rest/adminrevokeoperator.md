@@ -3,7 +3,7 @@ title: "Revoke an operator and all of its sessions"
 description: "DELETE /api/v1/members/{operator}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `DELETE /api/v1/members/{operator}`
 

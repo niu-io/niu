@@ -3,7 +3,7 @@ title: "Download an authorized retained output"
 description: "GET /api/v1/workspaces/{workspace}/artifacts/{task}/{kind}/content"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/artifacts/{task}/{kind}/content`
 

@@ -3,7 +3,7 @@ title: "Capture an immutable Provider quote version"
 description: "POST /api/v1/admin/providers/{provider}/pricing"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/admin/providers/{provider}/pricing`
 

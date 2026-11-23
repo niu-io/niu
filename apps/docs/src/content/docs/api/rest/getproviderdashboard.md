@@ -3,7 +3,7 @@ title: "Provider-scoped earnings and operations; active explicit membership requ
 description: "GET /api/v1/admin/providers/{provider}/dashboard"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/providers/{provider}/dashboard`
 

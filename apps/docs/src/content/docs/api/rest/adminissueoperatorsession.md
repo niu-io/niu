@@ -3,7 +3,7 @@ title: "Issue an additional one-time operator session token"
 description: "POST /api/v1/members/{operator}/sessions"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/members/{operator}/sessions`
 

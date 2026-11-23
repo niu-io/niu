@@ -3,7 +3,7 @@ title: "Read a saved Provider asset"
 description: "GET /v1/media/assets/{id}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /v1/media/assets/{id}`
 

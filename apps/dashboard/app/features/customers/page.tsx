@@ -300,7 +300,7 @@ export function Customers({
   }
 
   function rowActions(company: Company, account: CustomerBalance | null) {
-    const detailHref = `/admin/customers/${encodeURIComponent(company.organization_id)}`;
+    const detailHref = `/admin/customers/${encodeURIComponent(company.slug || company.organization_id)}`;
     const canTransact = Boolean(platformCurrency && (!account || account.currency === platformCurrency));
     return (
       <div className="inline-flex items-center justify-end gap-1">
@@ -344,7 +344,7 @@ export function Customers({
             </DropdownMenuItem>
             {account && (
               <DropdownMenuItem onSelect={() => openEditor({ kind: 'history', company, account })}>
-                {uiT("Noncash grants")}
+                {uiT("Noncash grant history")}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem onSelect={() => openEditor({ kind: 'units', company, account })}>
@@ -533,7 +533,7 @@ export function Customers({
               <TableBody>
                 {filteredCompanies.map(company => {
                   const account = primaryCustomerAccount(company, platformCurrency);
-                  const detailHref = `/admin/customers/${encodeURIComponent(company.organization_id)}`;
+                  const detailHref = `/admin/customers/${encodeURIComponent(company.slug || company.organization_id)}`;
                   return (
                     <TableRow
                       key={company.organization_id}

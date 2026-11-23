@@ -3,7 +3,7 @@ title: "List key-accessible model aliases and workspace customer prices"
 description: "GET /v1/models"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /v1/models`
 

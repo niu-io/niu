@@ -3,7 +3,7 @@ title: "List models eligible for customer tariff publication"
 description: "GET /api/v1/admin/pricing/models"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/pricing/models`
 

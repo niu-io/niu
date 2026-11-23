@@ -3,7 +3,7 @@ title: "Append one retained video instruction"
 description: "PUT /api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}`
 

@@ -3,7 +3,7 @@ title: "Read platform branding and theme configuration"
 description: "GET /api/v1/admin/branding"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/branding`
 

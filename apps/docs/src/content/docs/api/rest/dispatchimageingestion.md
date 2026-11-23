@@ -3,7 +3,7 @@ title: "Claim and dispatch one inspected image ingestion"
 description: "POST /v1/media/image-ingestions/{id}/dispatch"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /v1/media/image-ingestions/{id}/dispatch`
 

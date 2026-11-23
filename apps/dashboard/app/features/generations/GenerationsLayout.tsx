@@ -33,6 +33,8 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
   const [listTarget, setListTarget] = useState<HTMLDivElement | null>(null);
   const scrollNode = useRef<HTMLDivElement | null>(null);
   const scrollTop = useRef(0);
+  const archiveButton = useRef<HTMLButtonElement>(null);
+  const returnToArchive = useRef(false);
   const attachList = useCallback((node: HTMLDivElement | null) => {
     if (scrollNode.current) scrollTop.current = scrollNode.current.scrollTop;
     scrollNode.current = node?.parentElement as HTMLDivElement | null;
@@ -41,7 +43,13 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
   useLayoutEffect(() => { if (scrollNode.current) scrollNode.current.scrollTop = scrollTop.current; }, [listTarget]);
   return <><Sidebar side="left" id="generation-history" className="playground-history generations-history" mobileClassName="generations-history"
     mobileStyle={{ left: 0, right: 'auto', top: 0, bottom: 0, height: '100dvh', width: 'min(320px, calc(100vw - 24px))' }}
-    mobileContentProps={{ onCloseAutoFocus: event => { const trigger = toggle.current; if (trigger?.isConnected) { event.preventDefault(); trigger.focus(); } }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"], [data-slot="dropdown-menu-content"], [data-slot="dialog-content"]')) event.preventDefault(); } }} aria-label={uiT("Generation history")}>
+    mobileContentProps={{ onOpenAutoFocus: event => {
+      if (returnToArchive.current && archiveButton.current) {
+        event.preventDefault();
+        returnToArchive.current = false;
+        archiveButton.current.focus({preventScroll: true});
+      }
+    }, onCloseAutoFocus: event => { const trigger = toggle.current; if (trigger?.isConnected) { event.preventDefault(); trigger.focus(); } }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"], [data-slot="dropdown-menu-content"], [data-slot="dialog-content"]')) event.preventDefault(); } }} aria-label={uiT("Generation history")}>
     <SidebarHeader className="sidebar-heading generations-history-heading">
       <h2 className="sidebar-heading-row">{uiT("Generations")}</h2>
       {!isMobile && (
@@ -58,7 +66,7 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
       <div ref={attachList} style={{ display: 'contents' }} />
       {content?.extra}
     </SidebarContent>
-    <SidebarFooter><Button variant="ghost" className="justify-start" onClick={event => { if(content?.onArchive)content.onArchive(event); else navigate(`/generations?archived=1${workspaceQuery}`); if(isMobile)setOpenMobile(false); }}><IconArchive size={15} />{uiT("Archived sessions")}</Button></SidebarFooter>
+    <SidebarFooter><Button ref={archiveButton} variant="ghost" className="justify-start" onClick={event => { returnToArchive.current = isMobile; if(content?.onArchive)content.onArchive(event); else navigate(`/generations?archived=1${workspaceQuery}`); if(isMobile)setOpenMobile(false); }}><IconArchive size={15} />{uiT("Archived sessions")}</Button></SidebarFooter>
   </Sidebar>
     {content && <SessionHistory {...content.history} focusFallback={toggle} listTarget={listTarget} key={content.history.context.token} />}
   </>;
@@ -75,9 +83,9 @@ export function GenerationSessionBindings(content: Content) {
 export default function GenerationsLayout({ children }: { children: ReactNode }) {
   const navigation = useSidebar();
   return <SidebarProvider
-    defaultOpen={typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1101px)').matches ?? window.innerWidth >= 1101)}
+    defaultOpen={false}
     className="generations-provider min-h-0 min-w-0 flex-1"
-    style={{ '--sidebar-width': '320px', '--sidebar-width-mobile': '320px' } as CSSProperties}
+    style={{ '--sidebar-width': '300px', '--sidebar-width-mobile': '300px' } as CSSProperties}
   ><GenerationsCanvas navigation={navigation}>{children}</GenerationsCanvas></SidebarProvider>;
 }
 
@@ -91,8 +99,19 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
   const [assetsOpen, setAssetsOpen] = useState(false);
   const [contextTab, setContextTab] = useState<'runs' | 'deliverables'>('runs');
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const userToggledHistory = useRef(false);
+  const autoOpenedForHistory = useRef(false);
   const publish = useMemo(() => (next: Content) => setContent(next), []);
   useLayoutEffect(() => { if(content)content.trigger.current = toggle.current; }, [content]);
+
+  const savedSessionCount = (content?.history.chats?.length ?? 0) + (content?.history.videos?.length ?? 0);
+  useEffect(() => {
+    if (isMobile || userToggledHistory.current || autoOpenedForHistory.current) return;
+    if (savedSessionCount > 0 && typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1280px)').matches ?? window.innerWidth >= 1280)) {
+      autoOpenedForHistory.current = true;
+      setOpen(true);
+    }
+  }, [isMobile, savedSessionCount, setOpen]);
 
   const closeHistory = useCallback(() => {
     setOpen(false);
@@ -100,6 +119,7 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
   }, [setOpen, setOpenMobile]);
 
   const handleToggleHistory = useCallback(() => {
+    userToggledHistory.current = true;
     const currentlyOpen = isMobile ? openMobile : open;
     if (!currentlyOpen) {
       setContextOpen(false);
@@ -163,13 +183,16 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
   const workspaceSlug = workspace ? workspacePathSegment(workspace, workspaces) : '';
   const workspaceHomePath = workspaceSlug ? `/workspaces/${encodeURIComponent(workspaceSlug)}` : '/workspaces/default';
 
+  const hasContextRuns = Boolean(content?.contextPanel && content.contextPanel.runs.length > 0);
+
   return <Host.Provider value={publish}><div className="generations-layout"><GenerationsSidebar content={content} toggle={toggle} /><div className="generations-session">
-    <header className="generations-toolbar"><div className="generations-toolbar-leading">{navigation.isMobile && <div className="playground-header-navigation"><Button variant="ghost" size="icon" className="sidebar-toggle" onClick={navigation.toggleSidebar} aria-label={uiT("Toggle workspace navigation", "切换工作空间导航")} aria-expanded={navigation.openMobile}>{navigation.openMobile ? <IconLayoutSidebarLeftCollapse /> : <IconLayoutSidebarLeftExpand />}</Button><Link className="mobile-header-brand" to={workspaceHomePath} aria-label={uiT("Niu home")}><img src={logo} alt="" /></Link></div>}<Button ref={toggle} variant={(isMobile ? openMobile : open) ? 'secondary' : 'ghost'} size="sm" className="generations-history-trigger gap-1.5 px-2" title={uiT("Sessions")} onClick={handleToggleHistory} aria-label={uiT("Toggle generation history")} aria-controls="generation-history" aria-expanded={isMobile ? openMobile : open}><IconHistory size={16} /><span>{uiT("Sessions", "会话")}</span></Button></div><div className="generations-identity flex min-w-0 flex-col justify-center gap-0 overflow-hidden sm:flex-row sm:items-center sm:justify-start sm:gap-2"><h1 className="truncate max-sm:text-sm max-sm:leading-tight">{content?.title ?? uiT("New generation")}</h1>{workspace && workspaceSlug && <Link to={`/workspaces/${encodeURIComponent(workspaceSlug)}`} className="inline-flex min-w-0 max-w-full sm:max-w-44 shrink-0 items-center text-[11px] leading-tight text-muted-foreground transition-colors hover:text-foreground sm:rounded-md sm:bg-muted/60 sm:px-2 sm:py-0.5 sm:text-xs sm:hover:bg-muted"><span className="truncate">{uiT(workspaceDisplayName(workspace.name))}</span></Link>}</div><div className="generations-toolbar-actions">
+    <header className="generations-toolbar"><div className="generations-toolbar-leading">{navigation.isMobile && <div className="playground-header-navigation"><Button variant="ghost" size="icon" className="sidebar-toggle" onClick={navigation.toggleSidebar} aria-label={uiT("Toggle workspace navigation", "切换工作空间导航")} aria-expanded={navigation.openMobile}>{navigation.openMobile ? <IconLayoutSidebarLeftCollapse /> : <IconLayoutSidebarLeftExpand />}</Button><Link className="mobile-header-brand" to={workspaceHomePath} aria-label={uiT("Niu home")}><img src={logo} alt="" /></Link></div>}<Button ref={toggle} variant={(isMobile ? openMobile : open) ? 'secondary' : 'ghost'} size="sm" className="generations-history-trigger gap-1.5 px-2" title={uiT("Sessions")} onClick={handleToggleHistory} aria-label={uiT("Toggle generation history")} aria-controls="generation-history" aria-expanded={isMobile ? openMobile : open}><IconHistory size={16} /><span>{uiT("Sessions", "会话")}</span></Button></div><div className="generations-identity flex min-w-0 flex-col justify-center gap-0 overflow-hidden sm:flex-row sm:items-center sm:justify-start sm:gap-2"><h1 className="truncate max-sm:text-sm max-sm:leading-tight">{content?.title ?? uiT("New generation")}</h1>{workspace && workspaceSlug && <Link to={`/workspaces/${encodeURIComponent(workspaceSlug)}`} className="inline-flex min-w-0 max-w-full sm:max-w-44 shrink-0 items-center text-[11px] leading-tight text-muted-foreground transition-colors hover:text-foreground sm:rounded-md sm:bg-muted/60 sm:px-2 sm:py-0.5 sm:text-xs sm:hover:bg-muted"><span className="truncate">{workspaceDisplayName(workspace.name)}</span></Link>}</div><div className="generations-toolbar-actions">
       {content?.actions}
       {workspace && token && (
         <Button
           type="button"
-          variant={assetsOpen ? 'secondary' : 'outline'}
+          variant={assetsOpen ? 'secondary' : 'ghost'}
+          size="sm"
           className="generations-context-trigger generations-secondary-action"
           onClick={() => handleAssetsOpenChange(!assetsOpen)}
           aria-label={uiT("Toggle assets panel", "切换素材库面板")}
@@ -180,7 +203,7 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
           <span>{uiT("Assets", "素材库")}</span>
         </Button>
       )}
-      {content?.contextPanel && <span className="generations-secondary-action"><GenerationsContextTrigger panel={content.contextPanel} open={contextOpen} onToggle={() => handleContextOpenChange(!contextOpen)} /></span>}
+      {content?.contextPanel && hasContextRuns && <span className="generations-secondary-action"><GenerationsContextTrigger panel={content.contextPanel} open={contextOpen} onToggle={() => handleContextOpenChange(!contextOpen)} /></span>}
       <DropdownMenu>
         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="generations-more-actions" aria-label={uiT("Generation actions", "生成操作")}><IconDotsVertical /></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="end" collisionPadding={12}>

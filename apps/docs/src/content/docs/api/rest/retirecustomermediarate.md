@@ -3,7 +3,7 @@ title: "End a published customer media rate's eligibility"
 description: "POST /api/v1/organizations/{organization}/billing/media-rates/{revision}/retire"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/organizations/{organization}/billing/media-rates/{revision}/retire`
 

@@ -12,6 +12,7 @@
 /* Workspace billing: group spending and limits as quiet solid-tone sections. */
 .billing-content .billing-balance-content { gap: 16px; }
 .billing-content .billing-balance-content > section { margin-top: 0; padding: 20px 22px; border-radius: var(--radius-panel); background: var(--card); }
+.billing-content .billing-balance-content > section:has(> .billing-empty) { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding-inline: 0; }
 .billing-content .billing-balance-content > section h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
 .billing-content .billing-balance-content > section p { font-size: 14px; }
 .billing-content .billing-spending { margin-top: 14px; font-size: 28px; letter-spacing: -.03em; }

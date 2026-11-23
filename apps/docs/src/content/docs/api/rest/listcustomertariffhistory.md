@@ -3,7 +3,7 @@ title: "Read immutable customer text price history"
 description: "GET /api/v1/workspaces/{workspace}/billing/tariffs/{model}/history"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/billing/tariffs/{model}/history`
 

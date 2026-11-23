@@ -1276,3 +1276,8 @@ a[data-slot='button'][data-variant='outline']:hover {
 
 /* Keep the public header anchored when article length changes scrollbar presence. */
 html { scrollbar-gutter: stable; }
+
+.sl-markdown-content .expressive-code figure.frame pre {
+  max-width: 100%;
+  overflow-x: auto;
+}

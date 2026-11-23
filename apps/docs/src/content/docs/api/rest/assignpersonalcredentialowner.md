@@ -3,7 +3,7 @@ title: "Assign a configured personal credential to its account"
 description: "PUT /api/v1/admin/providers/connections/{id}/personal-owner"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/admin/providers/connections/{id}/personal-owner`
 

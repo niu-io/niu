@@ -3,7 +3,7 @@ title: "Change the signed-in member's password with current-password proof"
 description: "PUT /api/v1/auth/password"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/auth/password`
 

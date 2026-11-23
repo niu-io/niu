@@ -3,7 +3,7 @@ title: "Read immutable operator and session lifecycle events"
 description: "GET /api/v1/members/{operator}/events"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/members/{operator}/events`
 

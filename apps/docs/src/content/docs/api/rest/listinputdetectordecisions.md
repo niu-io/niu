@@ -3,7 +3,7 @@ title: "Read latest 100 workspace input detector decisions"
 description: "GET /api/v1/workspaces/{workspace}/guardrails/detector-decisions"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/guardrails/detector-decisions`
 

@@ -3,7 +3,7 @@ title: "Read committed financial recovery progress"
 description: "GET /api/v1/admin/finance/recovery"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/finance/recovery`
 

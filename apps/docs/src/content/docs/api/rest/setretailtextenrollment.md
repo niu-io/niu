@@ -3,7 +3,7 @@ title: "Enroll a workspace model in a platform selling price"
 description: "POST /api/v1/workspaces/{workspace}/billing/retail-price-enrollment"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/workspaces/{workspace}/billing/retail-price-enrollment`
 

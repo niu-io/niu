@@ -3,7 +3,7 @@ title: "Configure approved credit and low-balance threshold"
 description: "PUT /api/v1/organizations/{organization}/billing/accounts/{currency}/policy"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/organizations/{organization}/billing/accounts/{currency}/policy`
 

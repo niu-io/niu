@@ -3,7 +3,7 @@ title: "Update Provider group metadata"
 description: "PATCH /v1/media/groups/{id}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PATCH /v1/media/groups/{id}`
 

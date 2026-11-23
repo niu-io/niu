@@ -1,3 +1,4 @@
+import type { RetailPriceRecord } from '@niu-io/sdk/admin';
 import { request } from '@/features/providers/api';
 export type RetailModelChoice = { model_alias: string; media: { channel: string; resolutions: string[]; reference_video: boolean; meter: string } | null };
 /** Registration supports price preparation; never infer supply from this list. */
@@ -29,4 +30,25 @@ export async function retailCustomers(token: string, signal: AbortSignal): Promi
     after = page.next_after; if (after) seen.add(after);
   } while (after);
   return [...rows.values()];
+}
+
+export type RetailLookup = Map<string, RetailPriceRecord>;
+export async function fetchAllStandardTextPrices(token: string, signal: AbortSignal): Promise<RetailLookup> {
+  const nextRetail: RetailLookup = new Map();
+  let after: string | null = null;
+  for (let page = 0; page < 20; page += 1) {
+    if (signal.aborted) break;
+    const path: string = '/api/v1/admin/pricing/standard-prices?limit=100' + (after ? `&after=${encodeURIComponent(after)}` : '');
+    const res: { data: RetailPriceRecord[]; next_after?: string | null } = await request(token, path, 'GET', undefined, signal);
+    if (!Array.isArray(res?.data)) break;
+    for (const row of res.data) {
+      if (row?.schedule?.kind === 'text' && typeof row.model_alias === 'string') {
+        nextRetail.set(row.model_alias, row);
+      }
+    }
+    const nextCursor: string | null = res.next_after ?? null;
+    if (!nextCursor || nextCursor === after) break;
+    after = nextCursor;
+  }
+  return nextRetail;
 }

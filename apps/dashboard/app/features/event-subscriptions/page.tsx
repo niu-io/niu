@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams, type LoaderFunctionArgs } from 'react-router';
@@ -355,7 +356,8 @@ function EventSubscriptionsView({
         ) : (
           <ReviewEmptyState
             title={uiF('No {0} yet', [title.toLowerCase()])}
-            description={`${uiT('Ask your coding agent to')} ${uiT('configure an authorized notification receiver')}.`}
+            description={uiT('Connect an authorized receiver to start recording deliveries. You can use your coding agent or follow the API reference.', '连接已授权的接收端后即可记录投递。你可以通过编码 Agent 或 API 参考完成配置。')}
+            actions={<Button asChild variant="outline"><a href="/docs/api/rest/seteventsubscription/">{uiT('View API reference')}</a></Button>}
             prompt={agentHandoffPrompt(
               routeWorkspace,
               'configure workspace event notifications to a receiver I authorize',

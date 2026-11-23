@@ -3,7 +3,7 @@ title: "Switch the active organization for the current member session"
 description: "PUT /api/v1/session/organization"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/session/organization`
 

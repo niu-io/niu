@@ -15,7 +15,7 @@ export const handle: RouteHandle = {
 
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint<{ data: ProjectKey[]; next_cursor?: string | null }>(args, ({ workspace }) => ({
-    endpoint: workspace ? workspaceKeyPagePath(workspace.id) : null,
+    endpoint: workspace ? workspaceKeyPagePath(workspace.id, 50, undefined, 'all') : null,
   }));
 }
 

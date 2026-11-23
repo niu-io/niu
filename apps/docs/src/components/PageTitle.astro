@@ -17,6 +17,9 @@ function hasCurrentLink(entry: SidebarEntry): boolean {
 
 const home = /^\/docs\/?$/.test(Astro.url.pathname);
 const explorer = /^\/docs\/api\/explorer\/?$/.test(Astro.url.pathname);
+const symbolTitle = /^\/docs\/api\/sdk\/[^/]+\/?$/.test(Astro.url.pathname)
+  ? Astro.locals.starlightRoute.entry.data.title.split(/(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])/)
+  : null;
 const sidebar = (Astro.locals.starlightRoute?.sidebar ?? []) as SidebarEntry[];
 const activeGroup = sidebar.find(hasCurrentLink)?.label ?? documentationSection(Astro.url.pathname);
 ---
@@ -28,6 +31,6 @@ const activeGroup = sidebar.find(hasCurrentLink)?.label ?? documentationSection(
       <span class="docs-article-eyebrow">{activeGroup}</span>
       {!explorer && documentationAudience(Astro.url.pathname) !== 'agent' && <CopyPageButton client:load />}
     </div>
-    <PageTitle />
+    {symbolTitle ? <h1 id="_top">{symbolTitle.map((part, index) => <>{index > 0 && <wbr />}{part}</>)}</h1> : <PageTitle />}
   </div>
 )}

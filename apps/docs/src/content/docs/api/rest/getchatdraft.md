@@ -3,7 +3,7 @@ title: "Read the persistent personal Chat draft"
 description: "GET /api/v1/workspaces/{workspace}/chats/draft"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/chats/draft`
 

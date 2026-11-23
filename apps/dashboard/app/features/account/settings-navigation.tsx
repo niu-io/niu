@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router';
 import { IconUserCircle, IconSun, IconBuildings, IconUsers, IconCreditCard, IconBook } from '@tabler/icons-react';
-import { SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
+import { SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import { useLocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import { settingsHref } from './settings-routes';
@@ -25,8 +25,7 @@ export function SettingsNavigation({ context, section }: { context: DashboardCon
   const location = useLocation();
   const entries = settingsNavigationEntries(context, t);
   return <>
-    <SidebarHeader className="sidebar-heading"><h2 className="sidebar-heading-row">{t('Settings', '设置')}</h2></SidebarHeader>
-    <SidebarContent className="px-3 pb-3"><nav aria-label={uiT("Settings navigation")}><SidebarMenu>
+    <SidebarContent className="px-3 py-3"><nav aria-label={uiT("Settings navigation")}><SidebarMenu>
       {entries.map(item => {
         const selectedSection = section ?? location.pathname.split('/')[2];
         const normalizedSection = selectedSection === 'payments' ? 'billing' : selectedSection;

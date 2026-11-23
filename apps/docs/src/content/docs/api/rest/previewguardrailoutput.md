@@ -3,7 +3,7 @@ title: "Test synthetic output against local text rules without enforcement"
 description: "POST /api/v1/workspaces/{workspace}/guardrails/output-preview"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/workspaces/{workspace}/guardrails/output-preview`
 

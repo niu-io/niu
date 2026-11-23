@@ -3,7 +3,7 @@ title: "Retrieve one persisted readiness observation without an upstream request
 description: "GET /v1/media/image-ingestions/{id}/readiness/{read_id}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /v1/media/image-ingestions/{id}/readiness/{read_id}`
 

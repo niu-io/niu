@@ -3,7 +3,7 @@ title: "Review: List workspace event subscriptions"
 description: "GET /api/v1/workspaces/{workspace}/events"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/events`
 

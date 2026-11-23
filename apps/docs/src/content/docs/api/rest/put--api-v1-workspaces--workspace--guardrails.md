@@ -3,7 +3,7 @@ title: "Activate a validated workspace access-policy revision"
 description: "PUT /api/v1/workspaces/{workspace}/guardrails"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/workspaces/{workspace}/guardrails`
 

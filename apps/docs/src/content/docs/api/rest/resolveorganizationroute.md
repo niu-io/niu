@@ -3,7 +3,7 @@ title: "Get an authorized organization by UUID or canonical slug"
 description: "GET /api/v1/organizations/{organization}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/organizations/{organization}`
 

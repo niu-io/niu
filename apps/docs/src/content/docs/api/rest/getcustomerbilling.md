@@ -3,7 +3,7 @@ title: "Read workspace customer charges, tariffs and latest 100 invoices"
 description: "GET /api/v1/workspaces/{workspace}/billing"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/billing`
 

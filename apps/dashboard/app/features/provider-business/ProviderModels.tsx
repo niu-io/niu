@@ -1,3 +1,4 @@
+import { fetchAllStandardTextPrices, type RetailLookup } from '@/features/retail-pricing/api';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { IconChevronDown, IconDownload, IconPercentage, IconPlus, IconRefresh, IconSearch } from '@tabler/icons-react';
@@ -21,8 +22,9 @@ import {
   type ProviderModelCheck,
   type ModelWrite,
 } from '@/features/providers/api';
-import type { ProviderOffer, RetailPriceRecord } from '@niu-io/sdk/admin';
+import type { ProviderOffer } from '@niu-io/sdk/admin';
 import {
+  supportsAdapterPricing,
   applyDiscountNanos,
   extractUpstreamStandardPrices,
   formatDiscountBadge,
@@ -48,39 +50,7 @@ import {
 } from './provider-model-actions';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
-type RetailLookup = Map<string, RetailPriceRecord>;
 
-const SUPPORTED_ADAPTER_PRICING = new Set(['openrouter', 'fastrouter', 'babelark', 'qiniu', 'deepseek']);
-const SUPPORTED_ADAPTER_PRICING_HOSTS = ['openrouter.ai', 'fastrouter', 'babelark.ai', 'qiniu', 'deepseek.com'];
-
-function supportsAdapterPricing(connections: ProviderConnection[]): boolean {
-  return connections.some(c => {
-    const adapter = c.adapter.toLowerCase();
-    if (SUPPORTED_ADAPTER_PRICING.has(adapter)) return true;
-    const base = c.api_base.toLowerCase();
-    return SUPPORTED_ADAPTER_PRICING_HOSTS.some(host => base.includes(host));
-  });
-}
-
-async function fetchAllStandardTextPrices(token: string, signal: AbortSignal): Promise<RetailLookup> {
-  const nextRetail: RetailLookup = new Map();
-  let after: string | null = null;
-  for (let page = 0; page < 20; page += 1) {
-    if (signal.aborted) break;
-    const path: string = '/api/v1/admin/pricing/standard-prices?limit=100' + (after ? `&after=${encodeURIComponent(after)}` : '');
-    const res: { data: RetailPriceRecord[]; next_after?: string | null } = await request(token, path, 'GET', undefined, signal);
-    if (!Array.isArray(res?.data)) break;
-    for (const row of res.data) {
-      if (row?.schedule?.kind === 'text' && typeof row.model_alias === 'string') {
-        nextRetail.set(row.model_alias, row);
-      }
-    }
-    const nextCursor: string | null = res.next_after ?? null;
-    if (!nextCursor || nextCursor === after) break;
-    after = nextCursor;
-  }
-  return nextRetail;
-}
 
 function peekScopedModels(token: string, providerId: string): { connections: ProviderConnection[]; entries: ModelRowEntry[] } | null {
   if (!token || !providerId) return null;
@@ -616,7 +586,7 @@ function ScopedModels({
       )}
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center min-w-0">
+        {counts.total > 0 && <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center min-w-0">
           <div className="relative w-full sm:w-64">
             <IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
@@ -650,7 +620,7 @@ function ScopedModels({
               </Button>
             ))}
           </div>
-        </div>
+        </div>}
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           {commercialEnabled && selectedAliases.size > 0 && (

@@ -3,7 +3,7 @@ title: "Grant, change or disable a Provider membership"
 description: "PUT /api/v1/admin/providers/{provider}/members/{operator}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/admin/providers/{provider}/members/{operator}`
 

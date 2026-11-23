@@ -3,7 +3,7 @@ title: "Create the first platform administrator account during initial setup"
 description: "POST /api/v1/setup"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/setup`
 

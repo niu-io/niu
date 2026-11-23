@@ -673,6 +673,13 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       }
     }
 
+    const tabTitle = root.querySelector('title');
+    if (tabTitle) {
+      const original = rememberOriginalText(tabTitle);
+      const label = h1?.textContent?.trim() || (root.querySelector('[data-docs-home-title]') ? '牛元文档' : '');
+      tabTitle.textContent = isZh && label ? label + ' | Niu' : original;
+    }
+
     // 5. Pagination links (Previous / Next + link titles)
     root.querySelectorAll<HTMLElement>('.pagination-links a').forEach((link) => {
       const rel = link.getAttribute('rel');

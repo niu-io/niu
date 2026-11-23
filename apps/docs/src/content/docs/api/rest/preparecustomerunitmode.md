@@ -3,7 +3,7 @@ title: "Save a billing-mode change preview"
 description: "POST /api/v1/admin/units/mode/previews"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/admin/units/mode/previews`
 

@@ -1,3 +1,4 @@
+import { translateUI } from '@/shell/ui-locale';
 import { NiuAPIError } from '@niu-io/sdk';
 import type { RequestOptions } from '@niu-io/sdk';
 import type { NiuAdminClient, TenantScope, VideoIntentRequest, VideoSubmissionIntent } from '@niu-io/sdk/admin';
@@ -129,4 +130,12 @@ export async function prepareVideoSessionIntent(client: Client, scope: TenantSco
   const restored = await restoreVideoSessionIntent(client, scope, input, options);
   checkSession(restored.session, scope, input, true);
   return restored;
+}
+
+export function boundedVideoTitle(promptText: string, modelName: string) {
+  const line = promptText.split('\n').map(item => item.trim()).find(Boolean) ?? '';
+  let title = line || (modelName.trim() ? `${translateUI("Video")} · ${modelName.trim()}` : translateUI("Video request"));
+  const bytes = new TextEncoder();
+  while (bytes.encode(title).length > 200) title = title.slice(0, -1);
+  return title.trim() || translateUI("Video request");
 }

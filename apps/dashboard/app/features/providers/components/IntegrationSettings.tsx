@@ -16,7 +16,9 @@ export default function IntegrationSettings({ token, resource, id, onSaved }: {
   const controlId = useId();
   const editBtnRef = useRef<HTMLButtonElement>(null);
   const connection = resource === 'vendors';
-  const path = `/api/v1/${resource}/${encodeURIComponent(id)}/integration`;
+  const path = resource === 'vendors'
+    ? `/api/v1/admin/providers/connections/${encodeURIComponent(id)}/integration`
+    : `/api/v1/admin/providers/${encodeURIComponent(id)}/integration`;
   const initial = token ? peekCachedGet<{ data: ProviderIntegration }>(token, path)?.data ?? null : null;
   const [current, setCurrent] = useState<ProviderIntegration | null>(initial);
   const [selection, setSelection] = useState(initial?.integration_type ?? '');

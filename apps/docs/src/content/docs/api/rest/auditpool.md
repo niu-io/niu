@@ -3,7 +3,7 @@ title: "Audit routing and billing strategy for a model route pool"
 description: "GET /api/v1/admin/routing/{reference}/audit"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/routing/{reference}/audit`
 

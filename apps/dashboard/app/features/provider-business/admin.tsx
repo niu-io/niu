@@ -434,9 +434,9 @@ function Administration({ token }: { token: string }) {
   const sectionTitle = uiT({ overview: "Models & discounts", usage: "Usage", members: "Members", models: internal ? "Models" : "Models & discounts", settlements: "Settlements" }[section] ?? "Providers");
   const sectionAction =
     section === "members" ? (
-      <Button variant="outline" className="header-icon-action" aria-label={uiT("Manage portal access")} title={uiT("Manage portal access")} disabled={!data} onClick={() => open("membership")}>
+      <Button variant="outline" className="header-icon-action" aria-label={uiT("Manage membership")} title={uiT("Manage membership")} disabled={!data} onClick={() => open("membership")}>
         <Plus size={16} />
-        <span>{uiT("Manage portal access")}</span>
+        <span>{uiT("Manage membership")}</span>
       </Button>
     ) : !internal && section === "settlements" ? (
       <Button variant="outline" className="header-icon-action" aria-label={uiT("Record payment")} title={uiT("Record payment")} disabled={!data} onClick={() => open("settlement")}><Plus size={16} /><span>{uiT("Record payment")}</span></Button>
@@ -588,7 +588,7 @@ function Administration({ token }: { token: string }) {
     models: internal ? 'Choose which imported models are enabled.' : 'Choose which models are available on this platform and optionally set a discount off upstream standard prices (default: no discount).',
     usage: internal ? 'Provider usage over the last 90 days.' : 'Provider usage and accrued purchase charges over the last 90 days.',
     settlements: 'Outstanding balances and confirmed payments to this provider.',
-    members: 'Grant provider representatives access to their own offers, usage, earnings, and payments.',
+    members: 'Manage the accounts and roles assigned to this Provider.',
   }[section];
   const payableBalances = (data?.balances ?? []).filter(
     balance =>
@@ -644,12 +644,11 @@ function Administration({ token }: { token: string }) {
               {!internal && <TableRow><TableCell>{uiT("3. Approve commercial purchase offers")}</TableCell><TableCell>{selectedBusiness.ready_offers == null ? uiT("Not checked") : uiF("{0} ready · {1} configured", [selectedBusiness.ready_offers, selectedBusiness.offers ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/models?view=text`}>{uiT("Review offers")}</Link></Button></TableCell></TableRow>}
               {!internal && <TableRow><TableCell>{uiT("4. Set customer selling prices")}</TableCell><TableCell>{uiT("Platform-wide prices")}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">{uiT("Pricing")}</Link></Button></TableCell></TableRow>}
             </TableBody></ShadcnTable>
-            {!internal && <p className="px-6 pt-4 text-sm text-muted-foreground">{uiT("Provider portal access is optional. It lets Provider representatives view their own business records; it does not connect an API key.")}</p>}
           </div>}
           {section === "members" && members.length > 0 && <div className="provider-members-summary">
             <IconUsers size={20} aria-hidden="true" />
             <strong>{members.filter(member => member.active && !member.revoked).length}</strong>
-            <span>{uiT("accounts with portal access")}</span>
+            <span>{uiT("active members")}</span>
           </div>}
           {section === "members" && (membersLoading ? <div className="px-6 pb-6"><TableSkeleton columns={4} rows={3} label={uiT("Loading members…")} /></div> : members.length ? <ShadcnTable className="provider-ledger">
             <TableHeader><TableRow><TableHead>{uiT("Account")}</TableHead><TableHead>{uiT("Role")}</TableHead><TableHead>{uiT("Access")}</TableHead><TableHead><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader>
@@ -657,7 +656,7 @@ function Administration({ token }: { token: string }) {
               <TableCell>{member.name || uiT("Unnamed account")}</TableCell><TableCell>{member.role === "manager" ? uiT("Manager") : uiT("Viewer")}</TableCell><TableCell>{member.revoked ? uiT("Account revoked") : member.active ? uiT("Active") : uiT("Revoked")}</TableCell>
               <TableCell><Button variant="ghost" size="sm" disabled={member.revoked} aria-label={uiF("Edit access for {0}", [member.name || uiT("unnamed account")])} onClick={() => { open("membership"); setOperator(member.operator_id); setRole(member.role); setActive(String(member.active)); }}>{uiT("Edit access")}</Button></TableCell>
             </TableRow>)}</TableBody>
-          </ShadcnTable> : !error && <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><IconUsers size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No provider portal access granted")}</EmptyTitle><EmptyDescription>{uiT("API keys and model routes work without portal access.")}</EmptyDescription></EmptyHeader></Empty>)}
+          </ShadcnTable> : !error && <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><IconUsers size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No Provider members")}</EmptyTitle><EmptyDescription>{uiT("Assign an account to add the first member.")}</EmptyDescription></EmptyHeader></Empty>)}
           {!internal && section === "overview" && <div className="provider-admin-block">
             <div className="provider-admin-section-heading"><h2>{uiT("Model offers")}</h2><Button asChild variant="ghost"><Link to={`/admin/providers/${encodeURIComponent(providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected}))}/models`}>{uiT("Models")}</Link></Button></div>
             <div className="provider-balance-list"><div className="provider-balance-row">
@@ -740,13 +739,13 @@ function Administration({ token }: { token: string }) {
           <div><DialogTitle>{uiT(
           {
             create: "New provider",
-            membership: "Manage provider portal access",
+            membership: "Manage Provider membership",
             offer: offerId ? "Edit agreed rates" : "Set agreed rates",
             settlement: "Record a confirmed external payment",
             "offer-enable": "Enable offer",
             "offer-pause": "Pause offer",
           }[dialog] ?? "")
-        }</DialogTitle><DialogDescription className={dialog === "membership" ? "sr-only" : undefined}>{dialog === "membership" ? uiT("Manage account access to this provider portal.") : dialog === "offer" ? uiT("Provider payments for model usage.") : uiT("Provider management")}</DialogDescription></div>
+        }</DialogTitle><DialogDescription className={dialog === "membership" ? "sr-only" : undefined}>{dialog === "membership" ? uiT("Choose an account and its Provider role.") : dialog === "offer" ? uiT("Provider payments for model usage.") : uiT("Provider management")}</DialogDescription></div>
           <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
         </DialogHeader>
         {error && (

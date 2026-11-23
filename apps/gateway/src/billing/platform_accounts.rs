@@ -86,6 +86,7 @@ async fn actor(state: &AppState, headers: &HeaderMap) -> Result<OperatorAuditAct
 ///                         "type": "string",
 ///                         "format": "uuid"
 ///                       },
+///                       "slug": { "type": "string", "description": "Stable customer URL slug." },
 ///                       "organization_name": {
 ///                         "type": "string"
 ///                       },
@@ -234,7 +235,8 @@ pub async fn list(
 ///         "name": "customer",
 ///         "in": "path",
 ///         "required": true,
-///         "schema": { "type": "string", "format": "uuid" }
+///         "description": "Stable customer slug or legacy organization UUID.",
+///         "schema": { "type": "string" }
 ///       }
 ///     ],
 ///     "responses": {
@@ -249,7 +251,7 @@ pub async fn list(
 pub async fn get_customer(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Path(customer): Path<Uuid>,
+    Path(customer): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     state.authorize_platform_headers(&headers).await?;
     let data = state

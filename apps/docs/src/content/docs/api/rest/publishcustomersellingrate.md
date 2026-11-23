@@ -3,7 +3,7 @@ title: "Publish an immutable customer selling rate revision"
 description: "POST /api/v1/workspaces/{workspace}/billing/tariffs"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/workspaces/{workspace}/billing/tariffs`
 

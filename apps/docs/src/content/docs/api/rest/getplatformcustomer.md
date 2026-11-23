@@ -3,7 +3,7 @@ title: "Read one customer company's overview, balances, workspaces, members, and
 description: "GET /api/v1/admin/customers/{customer}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/customers/{customer}`
 
@@ -36,12 +36,11 @@ curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/customers/{customer}" \
 
 ### customer
 
-Location: **path**. **Required.**
+Location: **path**. **Required.** Stable customer slug or legacy organization UUID.
 
 ```json
 {
-  "type": "string",
-  "format": "uuid"
+  "type": "string"
 }
 ```
 

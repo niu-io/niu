@@ -3,7 +3,7 @@ title: "Read a mutable personal Video composer"
 description: "GET /api/v1/workspaces/{workspace}/video/draft"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/video/draft`
 

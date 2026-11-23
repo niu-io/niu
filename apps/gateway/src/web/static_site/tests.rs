@@ -487,3 +487,23 @@ async fn zh_root_prefers_website_zh_artifact_when_present() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 }
+
+#[tokio::test]
+async fn admin_detail_and_registrations_routes_survive_direct_reload() {
+    let fixture = Fixture::new();
+    for with_site in [false, true] {
+        let app = fixture.router(with_site);
+        for path in [
+            "/admin/customers/ea0806ce-cc1d-46ec-b3f3-32d25c5ccf1e",
+            "/admin/customers/personal-workspace",
+            "/admin/registrations",
+            "/admin/settings/registration",
+        ] {
+            assert_eq!(
+                body(&app, path, StatusCode::OK).await,
+                "workspace shell",
+                "{path} with_site={with_site}"
+            );
+        }
+    }
+}

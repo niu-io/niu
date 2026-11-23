@@ -3,7 +3,7 @@ title: "Consent to ingestion of one inspected image into one ordinary asset grou
 description: "PUT /v1/media/image-ingestions/{id}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /v1/media/image-ingestions/{id}`
 

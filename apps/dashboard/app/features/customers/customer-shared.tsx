@@ -41,6 +41,7 @@ export type CompanyTransactionSummary = {
 export type Company = {
   organization_id: string;
   organization_name: string;
+  slug?: string;
   created_at?: string;
   owner?: CompanyOwnerSummary | null;
   workspace_count?: number;

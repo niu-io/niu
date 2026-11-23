@@ -1,3 +1,4 @@
+import type { ProviderConnection } from '@/features/providers/api';
 import { amountFromNanos, amountToNanos } from '@/lib/money';
 
 export type UpstreamStandardPrice = {
@@ -231,4 +232,16 @@ export function formatPer1MShort(nanos: string, currency: string): string {
   const formatted = frac.length === 0 ? `${whole}.00` : frac.length === 1 ? `${whole}.${frac}0` : raw;
   const symbol = currency === 'USD' ? '$' : currency === 'CNY' ? '¥' : currency === 'EUR' ? '€' : `${currency} `;
   return `${symbol}${formatted}`;
+}
+
+const SUPPORTED_ADAPTER_PRICING = new Set(['openrouter', 'fastrouter', 'babelark', 'qiniu', 'deepseek']);
+const SUPPORTED_ADAPTER_PRICING_HOSTS = ['openrouter.ai', 'fastrouter', 'babelark.ai', 'qiniu', 'deepseek.com'];
+
+export function supportsAdapterPricing(connections: ProviderConnection[]): boolean {
+  return connections.some(c => {
+    const adapter = c.adapter.toLowerCase();
+    if (SUPPORTED_ADAPTER_PRICING.has(adapter)) return true;
+    const base = c.api_base.toLowerCase();
+    return SUPPORTED_ADAPTER_PRICING_HOSTS.some(host => base.includes(host));
+  });
 }

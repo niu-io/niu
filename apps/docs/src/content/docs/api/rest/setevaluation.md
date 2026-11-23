@@ -3,7 +3,7 @@ title: "Save an evaluation definition with optimistic revision"
 description: "PUT /v1/evaluations/{slug}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /v1/evaluations/{slug}`
 

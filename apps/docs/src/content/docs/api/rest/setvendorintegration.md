@@ -3,7 +3,7 @@ title: "Set vendor integration identity"
 description: "PUT /api/v1/admin/providers/connections/{id}/integration"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/admin/providers/connections/{id}/integration`
 

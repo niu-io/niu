@@ -3,7 +3,7 @@ title: "Rename or archive a private video session"
 description: "PATCH /api/v1/workspaces/{workspace}/sessions/{session}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PATCH /api/v1/workspaces/{workspace}/sessions/{session}`
 

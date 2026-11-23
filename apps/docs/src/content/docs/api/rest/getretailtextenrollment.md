@@ -3,7 +3,7 @@ title: "Read own workspace retail pricing mode"
 description: "GET /api/v1/workspaces/{workspace}/billing/retail-price-enrollment"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/billing/retail-price-enrollment`
 

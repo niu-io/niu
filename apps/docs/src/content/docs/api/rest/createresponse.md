@@ -3,7 +3,7 @@ title: "Create a native OpenAI Response"
 description: "POST /v1/responses"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /v1/responses`
 

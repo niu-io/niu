@@ -3,7 +3,7 @@ title: "Dispatch one irreversible ordinary-group cascading deletion"
 description: "POST /api/v1/admin/providers/connections/{id}/asset-management/group-deletion-consents/{consent}/dispatch"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/admin/providers/connections/{id}/asset-management/group-deletion-consents/{consent}/dispatch`
 

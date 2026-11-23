@@ -3,7 +3,7 @@ title: "Discover saved asset group creation requests"
 description: "GET /api/v1/workspaces/{workspace}/asset-group-intents"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces/{workspace}/asset-group-intents`
 

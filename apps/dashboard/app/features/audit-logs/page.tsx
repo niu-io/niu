@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { IconChevronDown, IconHistory, IconRefresh, IconSearch } from '@tabler/icons-react';
 import type { PlatformAuditCategory, PlatformAuditEvent, PlatformAuditPage } from '@niu-io/sdk/platform-audit';
 import { TableSkeleton } from '@/components/PageSkeletons';
+import PageHeader from '@/components/PageHeader';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { request } from '@/features/providers/api';
@@ -106,6 +107,21 @@ function AuditLogs({ token }: { token: string }) {
   const needle = query.trim().toLowerCase();
   const visibleRows = rows?.filter(event => !needle || [actionName(event.action), actorName(event), event.target_label, translateUI(categories[event.category])].join(' ').toLowerCase().includes(needle));
   return <section className="empty-region space-y-5" aria-label={uiT("Platform audit logs")}>
+    <PageHeader
+      title={uiT("Audit logs")}
+      action={
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={loading}
+          aria-label={uiT("Refresh")}
+          title={uiT("Refresh")}
+          onClick={() => setRevision(value => value + 1)}
+        >
+          <IconRefresh size={16} className={loading ? 'animate-spin' : undefined} aria-hidden="true" />
+        </Button>
+      }
+    />
     <p className="text-sm text-muted-foreground">{uiT("Recorded account, access, Provider, and configuration changes.")}</p>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <DropdownMenu>
@@ -145,7 +161,6 @@ function AuditLogs({ token }: { token: string }) {
             )}
           </PopoverContent>
         </Popover>
-        <Button variant="outline" disabled={loading} onClick={() => setRevision(value => value + 1)}><IconRefresh size={16} />{uiT("Refresh")}</Button>
       </div>
     </div>
     {error && <p role="alert" className="text-sm text-destructive">{error} <Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}

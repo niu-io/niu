@@ -3,7 +3,7 @@ title: "Inspect the current workspace API key"
 description: "GET /v1/key"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /v1/key`
 

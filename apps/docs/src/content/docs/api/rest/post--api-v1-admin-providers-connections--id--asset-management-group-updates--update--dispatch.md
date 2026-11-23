@@ -3,7 +3,7 @@ title: "Dispatch a prepared ordinary-group metadata update once"
 description: "POST /api/v1/admin/providers/connections/{id}/asset-management/group-updates/{update}/dispatch"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/admin/providers/connections/{id}/asset-management/group-updates/{update}/dispatch`
 

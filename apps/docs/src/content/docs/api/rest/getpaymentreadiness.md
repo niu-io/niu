@@ -3,7 +3,7 @@ title: "Read deployment service and payment readiness"
 description: "GET /api/v1/payments/readiness"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/payments/readiness`
 

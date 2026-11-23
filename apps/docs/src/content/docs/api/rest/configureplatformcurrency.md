@@ -3,7 +3,7 @@ title: "Configure the installation currency once"
 description: "PUT /api/v1/admin/currency"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/admin/currency`
 

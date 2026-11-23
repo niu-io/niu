@@ -3,7 +3,7 @@ title: "Read the retired Provider portal membership directory"
 description: "GET /api/v1/admin/providers/memberships"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/admin/providers/memberships`
 

@@ -186,7 +186,7 @@ export function CompanyBrandedUnitsDialog({
   const [actionError, setActionError] = useState('');
   const [conflict, setConflict] = useState(false);
 
-  // Grant state. Noncash grants are promotional: purchase credits only come
+  // Grant state. Noncash grant history are promotional: purchase credits only come
   // from a completed, independently verified payment.
   const [grantAmount, setGrantAmount] = useState('50');
   const [grantReason, setGrantReason] = useState('');

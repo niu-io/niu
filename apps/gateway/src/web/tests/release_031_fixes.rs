@@ -1431,7 +1431,10 @@ async fn provider_offer_and_prepaid_workspace_dispatch_without_legacy_budget(poo
         })),
     )
     .await;
-    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {conn}");
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "{status} {conn}"
+    );
     let conn_id = conn["data"]["id"].as_str().unwrap();
 
     let (status, _, route) = json_call(
@@ -1448,7 +1451,10 @@ async fn provider_offer_and_prepaid_workspace_dispatch_without_legacy_budget(poo
         })),
     )
     .await;
-    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {route}");
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "{status} {route}"
+    );
 
     // 2. Publish & activate Provider offer ($0.80 / $2.40 per 1M) + Standard selling price ($1.00 / $3.00 per 1M).
     let (status, _, offer) = json_call(
@@ -1465,7 +1471,10 @@ async fn provider_offer_and_prepaid_workspace_dispatch_without_legacy_budget(poo
         })),
     )
     .await;
-    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {offer}");
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "{status} {offer}"
+    );
 
     let (status, _, retail) = json_call(
         &app,
@@ -1492,7 +1501,10 @@ async fn provider_offer_and_prepaid_workspace_dispatch_without_legacy_budget(poo
         })),
     )
     .await;
-    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {retail}");
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "{status} {retail}"
+    );
 
     // 3. Create prepaid customer organization + workspace + API key (NO legacy project_budgets row!).
     let org = state.store.create_organization("Demo Corp").await.unwrap();
@@ -1601,10 +1613,7 @@ async fn provider_offer_and_prepaid_workspace_dispatch_without_legacy_budget(poo
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{reply}");
-    assert_eq!(
-        reply["choices"][0]["message"]["content"],
-        "Hello from Acme"
-    );
+    assert_eq!(reply["choices"][0]["message"]["content"], "Hello from Acme");
 
     // 7. Verify exact customer balance deduction ($10.00 - $0.0025 = $9.9975)
     //    and exact provider payable accrual ($0.0020).
@@ -1731,7 +1740,10 @@ async fn commercial_route_pool_with_provider_offers_dispatches_bills_and_fails_o
             })),
         )
         .await;
-        assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {conn}");
+        assert!(
+            status == StatusCode::OK || status == StatusCode::CREATED,
+            "{status} {conn}"
+        );
         let cid = conn["data"]["id"].as_str().unwrap();
 
         let (status, _, route) = json_call(
@@ -1748,7 +1760,10 @@ async fn commercial_route_pool_with_provider_offers_dispatches_bills_and_fails_o
             })),
         )
         .await;
-        assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {route}");
+        assert!(
+            status == StatusCode::OK || status == StatusCode::CREATED,
+            "{status} {route}"
+        );
 
         let (status, _, offer) = json_call(
             &app,
@@ -1764,7 +1779,10 @@ async fn commercial_route_pool_with_provider_offers_dispatches_bills_and_fails_o
             })),
         )
         .await;
-        assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {offer}");
+        assert!(
+            status == StatusCode::OK || status == StatusCode::CREATED,
+            "{status} {offer}"
+        );
         provider_ids.push(pid);
     }
 
@@ -1804,12 +1822,18 @@ async fn commercial_route_pool_with_provider_offers_dispatches_bills_and_fails_o
     assert_eq!(status, StatusCode::OK, "{preview}");
     assert_eq!(preview["data"]["routable"], true, "{preview}");
     assert_eq!(
-        preview["data"]["eligible_candidates"].as_array().unwrap().len(),
+        preview["data"]["eligible_candidates"]
+            .as_array()
+            .unwrap()
+            .len(),
         2,
         "{preview}"
     );
     assert!(
-        preview["data"]["ineligible_candidates"].as_array().unwrap().is_empty(),
+        preview["data"]["ineligible_candidates"]
+            .as_array()
+            .unwrap()
+            .is_empty(),
         "{preview}"
     );
 
@@ -1839,10 +1863,17 @@ async fn commercial_route_pool_with_provider_offers_dispatches_bills_and_fails_o
         })),
     )
     .await;
-    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {retail}");
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "{status} {retail}"
+    );
 
     // 5. Onboard funded prepaid customer workspace & API key.
-    let org = state.store.create_organization("Pool Customer").await.unwrap();
+    let org = state
+        .store
+        .create_organization("Pool Customer")
+        .await
+        .unwrap();
     let scope = state.store.create_project(org, "Prod").await.unwrap();
     sqlx::query(
         "INSERT INTO customer_balance_accounts(id, organization_id, currency) VALUES ($1, $2, 'USD')",
@@ -1992,9 +2023,18 @@ async fn commercial_route_pool_with_provider_offers_dispatches_bills_and_fails_o
     .await;
     assert_eq!(status, StatusCode::OK, "{audit}");
     assert_eq!(audit["data"]["totals"]["observed_attempts"], 2, "{audit}");
-    assert_eq!(audit["data"]["totals"]["customer_charge_nanos"], "6000000", "{audit}");
-    assert_eq!(audit["data"]["totals"]["supplier_cost_nanos"], "4250000", "{audit}");
-    assert_eq!(audit["data"]["totals"]["net_margin_nanos"], "1750000", "{audit}");
+    assert_eq!(
+        audit["data"]["totals"]["customer_charge_nanos"], "6000000",
+        "{audit}"
+    );
+    assert_eq!(
+        audit["data"]["totals"]["supplier_cost_nanos"], "4250000",
+        "{audit}"
+    );
+    assert_eq!(
+        audit["data"]["totals"]["net_margin_nanos"], "1750000",
+        "{audit}"
+    );
 }
 
 /// Same-Provider multi-API-key pooling:
@@ -2125,7 +2165,10 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
         Some(json!({ "name": "MultiKey Provider A" })),
     )
     .await;
-    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {prov_a}");
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "{status} {prov_a}"
+    );
     let provider_a_id = prov_a["data"]["id"].as_str().unwrap().to_owned();
 
     let (status, _, prov_b) = json_call(
@@ -2136,7 +2179,10 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
         Some(json!({ "name": "Isolated Provider B" })),
     )
     .await;
-    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {prov_b}");
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "{status} {prov_b}"
+    );
     let provider_b_id = prov_b["data"]["id"].as_str().unwrap().to_owned();
 
     let create_conn = |name: &str, supplier_id: &str, api_base: &str, api_key: &str| {
@@ -2158,15 +2204,36 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
                 Some(body),
             )
             .await;
-            assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {res}");
+            assert!(
+                status == StatusCode::OK || status == StatusCode::CREATED,
+                "{status} {res}"
+            );
             res["data"]["id"].as_str().unwrap().to_owned()
         }
     };
 
     let key1_id = create_conn("Key 1", &provider_a_id, &pool_base, "sk-pool-key-1").await;
-    let key2_id = create_conn("Key 2", &provider_a_id, &format!("{pool_base}/"), "sk-pool-key-2").await;
-    let _key3_other_base = create_conn("Key 3 Other Base", &provider_a_id, &other_base, "sk-diff-base").await;
-    let _key4_other_provider = create_conn("Key 4 Other Prov", &provider_b_id, &pool_base, "sk-other-provider").await;
+    let key2_id = create_conn(
+        "Key 2",
+        &provider_a_id,
+        &format!("{pool_base}/"),
+        "sk-pool-key-2",
+    )
+    .await;
+    let _key3_other_base = create_conn(
+        "Key 3 Other Base",
+        &provider_a_id,
+        &other_base,
+        "sk-diff-base",
+    )
+    .await;
+    let _key4_other_provider = create_conn(
+        "Key 4 Other Prov",
+        &provider_b_id,
+        &pool_base,
+        "sk-other-provider",
+    )
+    .await;
 
     // 2. Register model on Key 1, publish & activate 3-step offer + retail price.
     let (status, _, model_res) = json_call(
@@ -2183,7 +2250,10 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
         })),
     )
     .await;
-    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {model_res}");
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "{status} {model_res}"
+    );
 
     let (status, _, offer_res) = json_call(
         &app,
@@ -2199,7 +2269,10 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
         })),
     )
     .await;
-    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {offer_res}");
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "{status} {offer_res}"
+    );
 
     let (status, _, retail_res) = json_call(
         &app,
@@ -2223,7 +2296,10 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
         })),
     )
     .await;
-    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {retail_res}");
+    assert!(
+        status == StatusCode::OK || status == StatusCode::CREATED,
+        "{status} {retail_res}"
+    );
 
     // 3. Importing models on sibling Key 2 must NOT duplicate pool-chat-upstream.
     let (status, _, import_res) = json_call(
@@ -2235,12 +2311,23 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{import_res}");
-    assert_eq!(import_res["data"]["imported"], 0, "sibling import must deduplicate: {import_res}");
+    assert_eq!(
+        import_res["data"]["imported"], 0,
+        "sibling import must deduplicate: {import_res}"
+    );
     assert_eq!(import_res["data"]["discovered"], 1, "{import_res}");
 
     // 4. Create funded prepaid customer + API key.
-    let org = state.store.create_organization("MultiKey Customer").await.unwrap();
-    let scope = state.store.create_project(org, "MultiKey Workspace").await.unwrap();
+    let org = state
+        .store
+        .create_organization("MultiKey Customer")
+        .await
+        .unwrap();
+    let scope = state
+        .store
+        .create_project(org, "MultiKey Workspace")
+        .await
+        .unwrap();
     sqlx::query(
         "INSERT INTO customer_balance_accounts(id, organization_id, currency) VALUES ($1, $2, 'USD')",
     )
@@ -2284,24 +2371,30 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
     {
         let log = seen_pool_keys.lock().unwrap();
         assert_eq!(log.len(), 4, "{log:?}");
-        assert_eq!(log.iter().filter(|k| k.as_str() == "sk-pool-key-1").count(), 2, "{log:?}");
-        assert_eq!(log.iter().filter(|k| k.as_str() == "sk-pool-key-2").count(), 2, "{log:?}");
+        assert_eq!(
+            log.iter().filter(|k| k.as_str() == "sk-pool-key-1").count(),
+            2,
+            "{log:?}"
+        );
+        assert_eq!(
+            log.iter().filter(|k| k.as_str() == "sk-pool-key-2").count(),
+            2,
+            "{log:?}"
+        );
         assert!(seen_other_endpoint.lock().unwrap().is_empty());
     }
-    let key1_attempts: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM managed_attempt_routes WHERE vendor_id=$1::uuid",
-    )
-    .bind(&key1_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    let key2_attempts: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM managed_attempt_routes WHERE vendor_id=$1::uuid",
-    )
-    .bind(&key2_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let key1_attempts: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM managed_attempt_routes WHERE vendor_id=$1::uuid")
+            .bind(&key1_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    let key2_attempts: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM managed_attempt_routes WHERE vendor_id=$1::uuid")
+            .bind(&key2_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!((key1_attempts, key2_attempts), (2, 2));
 
     let earned: i64 = sqlx::query_scalar(
@@ -2311,7 +2404,11 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(earned, 4 * 2_000_000, "all 4 attempts must accrue to Provider A");
+    assert_eq!(
+        earned,
+        4 * 2_000_000,
+        "all 4 attempts must accrue to Provider A"
+    );
 
     // 6. RPM spillover: cap Key 1 to 1 RPM (already has 2 admissions in last 60s) -> next 2 requests go to Key 2.
     let (status, _, rpm_res) = json_call(
@@ -2337,7 +2434,10 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
         )
         .await;
         assert_eq!(status, StatusCode::OK, "rpm req {i}: {reply}");
-        assert_eq!(reply["choices"][0]["message"]["content"], "served-by:sk-pool-key-2");
+        assert_eq!(
+            reply["choices"][0]["message"]["content"],
+            "served-by:sk-pool-key-2"
+        );
     }
 
     // 7. Cooldown failover: lift Key 1 RPM cap, put Key 2 in cooldown -> routes to Key 1.
@@ -2367,7 +2467,10 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{reply}");
-    assert_eq!(reply["choices"][0]["message"]["content"], "served-by:sk-pool-key-1");
+    assert_eq!(
+        reply["choices"][0]["message"]["content"],
+        "served-by:sk-pool-key-1"
+    );
 
     // Clear Key 2 cooldown, then disable primary Key 1 -> catalog & offers stay live, traffic flows via Key 2!
     sqlx::query("DELETE FROM vendor_cooldowns WHERE vendor_id=$1::uuid")
@@ -2406,8 +2509,14 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
         "model must stay visible in catalog while sibling Key 2 is active: {catalog}"
     );
 
-    let (status, _, providers_summary) =
-        json_call(&app, Method::GET, "/api/v1/admin/providers", Some(ADMIN), None).await;
+    let (status, _, providers_summary) = json_call(
+        &app,
+        Method::GET,
+        "/api/v1/admin/providers",
+        Some(ADMIN),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{providers_summary}");
     let prov_a_summary = providers_summary["data"]
         .as_array()
@@ -2415,7 +2524,10 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
         .iter()
         .find(|p| p["id"] == provider_a_id)
         .unwrap();
-    assert_eq!(prov_a_summary["enabled_model_routes"], 1, "{prov_a_summary}");
+    assert_eq!(
+        prov_a_summary["enabled_model_routes"], 1,
+        "{prov_a_summary}"
+    );
     assert_eq!(prov_a_summary["ready_offers"], 1, "{prov_a_summary}");
 
     let (status, _, reply) = json_call(
@@ -2430,7 +2542,10 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{reply}");
-    assert_eq!(reply["choices"][0]["message"]["content"], "served-by:sk-pool-key-2");
+    assert_eq!(
+        reply["choices"][0]["message"]["content"],
+        "served-by:sk-pool-key-2"
+    );
 
     // 8. Retire primary Key 1 -> model stays enabled and continues serving on sibling Key 2!
     let (status, _, retire_res) = json_call(
@@ -2454,7 +2569,10 @@ async fn provider_multi_key_pool_load_balances_fails_over_and_isolates(pool: PgP
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{reply}");
-    assert_eq!(reply["choices"][0]["message"]["content"], "served-by:sk-pool-key-2");
+    assert_eq!(
+        reply["choices"][0]["message"]["content"],
+        "served-by:sk-pool-key-2"
+    );
 
     // 9. Disable last remaining sibling Key 2 -> catalog drops model & dispatch fails closed with 404.
     let key2_rev: i64 = sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1::uuid")

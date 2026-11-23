@@ -3,7 +3,7 @@ title: "List saved workspace Provider groups"
 description: "GET /v1/media/groups"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /v1/media/groups`
 

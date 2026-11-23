@@ -3,7 +3,7 @@ title: "Save an encrypted asset-management credential revision"
 description: "PUT /api/v1/admin/providers/connections/{id}/asset-management"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /api/v1/admin/providers/connections/{id}/asset-management`
 

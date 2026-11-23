@@ -15,7 +15,7 @@ import { useVideoDraft } from '../video/useVideoDraft';
 import { useDraftNavigation } from '../playground/useDraftNavigation';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
-import { translateUI, useLocale as useUILocale } from '@/shell/ui-locale';
+import { useLocale as useUILocale } from '@/shell/ui-locale';
 import ProviderLogo from '@/components/ProviderLogo';
 import { catalogTitle, modelIdentity } from '@/lib/providers';
 import { invalidateQueries, isQueryFresh, peekQuery, primeQuery } from '@/lib/query-cache';
@@ -24,20 +24,13 @@ import type { DashboardContext } from '@/shell/dashboard-context';
 import type { useGenerationKeys } from './useGenerationKeys';
 import { VIDEO_MODELS_FRESH_MS, videoModelsCacheKey } from './video-cache';
 import { controlLabels, initialControls, needsUnquotedConfirmation, videoRequest, validateSavedVideoReferences, type ControlValues } from '../video/request';
-import { matchesVideoIntentRequest, prepareVideoSessionIntent, videoDraftSubmissionIds } from '../video/session-intent';
+import { boundedVideoTitle, matchesVideoIntentRequest, prepareVideoSessionIntent, videoDraftSubmissionIds } from '../video/session-intent';
 import { VideoIntent } from '../video/intent';
 import type { VideoGenerationsSession } from '@niu-io/sdk/generations-sessions';
 import '../video/video.css';
 
 function message(error: unknown) {
   return error instanceof Error ? error.message : 'The request could not be completed.';
-}
-function titleFor(promptText: string, modelName: string) {
-  const line = promptText.split('\n').map(item => item.trim()).find(Boolean) ?? '';
-  let title = line || (modelName.trim() ? `${translateUI("Video")} · ${modelName.trim()}` : translateUI("Video request"));
-  const bytes = new TextEncoder();
-  while (bytes.encode(title).length > 200) title = title.slice(0, -1);
-  return title.trim() || translateUI("Video request");
 }
 function pickDefaultVideoModel(list: VideoModel[]): VideoModel | undefined {
   return list.find(item => item.id === 'fastrouter/seedance-2.0-mini') ?? list[0];
@@ -61,8 +54,8 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
   const canWrite = Boolean(context.session?.permissions.write);
   const workspacePath = workspace ? `/workspaces/${workspacePathSegment(workspace, context.workspaces ?? [workspace])}` : '/workspaces/default';
   const keys = available.keys.filter(key => key.workspace.id === workspace?.id);
-  const activeKeyId = keyId;
-  const cover = session.archived ? 'archived' : !canWrite ? 'readonly' : available.error && !keys.length ? 'keys' : !available.loading && !keys.some(key=>key.id===activeKeyId) ? 'nokey' : null;
+  const activeKeyId = keys.some(key => key.id === keyId) ? keyId : undefined;
+  const cover = session.archived ? 'archived' : !canWrite ? 'readonly' : available.error && !keys.length ? 'keys' : !available.loading && !activeKeyId ? 'nokey' : null;
   const initialModels = token && activeKeyId && !cover
     ? peekQuery<VideoModel[]>(token, videoModelsCacheKey(activeKeyId), {persist: true})
     : undefined;
@@ -223,7 +216,7 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       preparingSavedDraft = Boolean(ticket);
       preparationAttempted = true;
       const prepared = await prepareVideoSessionIntent(client, {organizationId: workspace.organization_id, projectId: workspace.id}, {
-        sessionId: session.id, turnId, intentId, keyId: activeKeyId, title: titleFor(prompt, model.id), request,
+        sessionId: session.id, turnId, intentId, keyId: activeKeyId, title: boundedVideoTitle(prompt, model.id), request,
       });
       if (isStale()) return;
       if (!prepared.intent.reference) throw new Error('The saved video request identity does not match this link.');
@@ -305,7 +298,7 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       label: uiT("Prompt"),
       placeholder: uiT("Describe your video…"),
       value: prompt,
-      disabled: busy || loading || restoringDraft,
+      disabled: !activeKeyId || busy || loading || restoringDraft,
       onChange: value => { setEdited(true); setPrompt(value); },
       onKeyDown: event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void generate(); } },
     }}
@@ -326,7 +319,7 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
       </div>)}
       <Button type="button" variant="ghost" disabled={busy || restoringDraft} onClick={()=>{setEdited(true);setControls(initialControls(model));}}>{uiT("Reset settings")}</Button>
     </div></PopoverContent></Popover> : null}
-    submitAction={<Button ref={generateRef} type="submit" size="icon" className="generation-composer-submit rounded-full" aria-label={uiT("Generate video")} disabled={busy || Boolean(pendingReference) || loading || restoringDraft || !prompt.trim() || !model || references.length>0 || (model.requires_image&&!references.length) || Boolean(cover)}><ArrowUp size={19} /></Button>}
+    submitAction={<Button ref={generateRef} type="submit" size="icon" className="generation-composer-submit rounded-full" aria-label={uiT("Generate video")} disabled={!activeKeyId || busy || Boolean(pendingReference) || loading || restoringDraft || !prompt.trim() || !model || references.length>0 || (model.requires_image&&!references.length) || Boolean(cover)}><ArrowUp size={19} /></Button>}
     blockedCover={
       cover === 'archived' ? <GenerationComposerCover icon={<Archive size={17} />} title={uiT("Archived")} detail={uiT("Restore this session from Archived sessions to return it to history.")} />
       : cover === 'readonly' ? <GenerationComposerCover icon={<LockIcon size={17} />} title={uiT("Generation needs write access.")} detail={uiT("A member with write access can describe the next video here.")} />
