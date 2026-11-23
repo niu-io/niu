@@ -59,7 +59,7 @@ export function BankConfiguration({ token }: { token: string }) {
     </div>
     {error && !action && <p role="alert">{error} <Button variant="ghost" onClick={() => setRefresh(v => v+1)}>{t('Refresh', '刷新')}</Button></p>}
     <Dialog open={action !== null} onOpenChange={open => { if (!open && !busy) setAction(null); }}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={e => {
+      <DialogContent  onCloseAutoFocus={e => {
         e.preventDefault(); (trigger.current?.isConnected ? trigger.current : edit.current)?.focus();
       }}>
         <DialogHeader><DialogTitle>{action === 'remove' ? t('Remove bank details?', '移除收款资料？') : t('Bank details', '收款资料')}</DialogTitle>

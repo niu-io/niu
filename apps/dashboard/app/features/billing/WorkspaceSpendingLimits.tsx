@@ -299,7 +299,6 @@ export default function WorkspaceSpendingLimits({token, organization: _organizat
       }}
     >
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto"
         onCloseAutoFocus={event => {
           const currency = closingCurrencyRef.current;
           const trigger = currency ? currencyTriggerRefs.current[currency] : null;
@@ -383,7 +382,6 @@ export default function WorkspaceSpendingLimits({token, organization: _organizat
       }}
     >
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto"
         onCloseAutoFocus={event => {
           if (unitTriggerRef.current?.isConnected) {
             event.preventDefault();

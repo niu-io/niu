@@ -222,7 +222,6 @@ export function RegistrationPolicySection({
         }}
       >
         <DialogContent
-          className="max-h-[90dvh] overflow-y-auto"
           onCloseAutoFocus={event => {
             if (editButtonRef.current?.isConnected) {
               event.preventDefault();

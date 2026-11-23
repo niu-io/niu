@@ -315,7 +315,7 @@ export function ModelDiscountDialog({
   return (
     <Dialog open={open} onOpenChange={next => { if (!next && !busy) onClose(); }}>
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
+        className="sm:max-w-lg"
         onCloseAutoFocus={event => {
           if (openerRef.current?.isConnected) {
             event.preventDefault();
@@ -442,7 +442,7 @@ export function BatchDiscountDialog({
 
   return (
     <Dialog open={open} onOpenChange={next => { if (!next && !busy) onClose(); }}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{uiT('Set discount in bulk', '批量设置折扣')}</DialogTitle>
           <DialogDescription>

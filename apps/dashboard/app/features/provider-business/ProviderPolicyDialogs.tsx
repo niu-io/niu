@@ -120,7 +120,7 @@ export function ProviderPolicyDialogs({
         }}
       >
         <DialogContent
-          className="max-h-[90dvh] overflow-y-auto sm:max-w-5xl [&:has([data-dialog-back])>[data-slot=dialog-footer]]:hidden"
+          className="sm:max-w-5xl [&:has([data-dialog-back])>[data-slot=dialog-footer]]:hidden"
           onEscapeKeyDown={event => {
             const back = (event.currentTarget as HTMLElement).querySelector<HTMLButtonElement>('[data-dialog-back]');
             if (back) {
@@ -183,7 +183,7 @@ export function ProviderPolicyDialogs({
         }}
       >
         <DialogContent
-          className="max-h-[90dvh] overflow-y-auto sm:max-w-md"
+          className="sm:max-w-md"
           onCloseAutoFocus={event => {
             if (discountTriggerRef.current?.isConnected) {
               event.preventDefault();
@@ -258,7 +258,7 @@ export function ProviderPolicyDialogs({
         }}
       >
         <DialogContent
-          className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
+          className="sm:max-w-lg"
           onCloseAutoFocus={event => {
             if (pickerTriggerRef.current?.isConnected) {
               event.preventDefault();
@@ -381,7 +381,7 @@ export function ProviderPolicyDialogs({
           if (!open) setActiveModal('browser');
         }}
       >
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-4xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{uiT('Media rate history', '视频与媒体费率历史')}</DialogTitle>
             <DialogDescription>{uiT('Published media purchase rates for this Provider.')}</DialogDescription>

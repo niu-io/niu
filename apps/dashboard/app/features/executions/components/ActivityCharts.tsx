@@ -123,7 +123,7 @@ export default function ActivityCharts({ buckets, models, compact = false, loadi
           const formatted = Number.isFinite(Number(rawValue)) ? new Intl.NumberFormat(readLocale()).format(Number(rawValue)) : '—';
           return <>
             <span className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{backgroundColor: `var(--color-${seriesKey})`}} />
-            <div className="flex flex-1 items-center justify-between gap-4 leading-none">
+            <div className="flex flex-1 items-center justify-between gap-4 leading-tight">
               <span className="text-muted-foreground">{label}</span>
               <span className="font-mono font-medium text-foreground tabular-nums">{formatted}</span>
             </div>

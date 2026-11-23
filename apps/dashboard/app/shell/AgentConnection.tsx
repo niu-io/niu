@@ -115,7 +115,7 @@ export default function AgentConnection({ context, sidebar = false }: { context:
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader className="text-left">
           <DialogTitle className="flex items-center gap-2">
             <McpIcon className="size-4 shrink-0" />

@@ -129,7 +129,7 @@ export function PolicyTestDialog({
   return (
     <Dialog open={open} onOpenChange={(value) => { if (!testing) onOpenChange(value); }}>
       <DialogContent
-        className="w-[calc(100vw-2rem)] sm:max-w-xl max-h-[90dvh] overflow-y-auto"
+        className="w-[calc(100vw-2rem)] sm:max-w-xl"
         onCloseAutoFocus={(event) => {
           if (returnFocusRef?.current?.isConnected) {
             event.preventDefault();

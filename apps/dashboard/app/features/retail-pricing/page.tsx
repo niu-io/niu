@@ -265,7 +265,7 @@ function History({ token, price, onClose, onCloseAutoFocus }: { token: string; p
     price.schedule.completion_rate === '0';
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent onCloseAutoFocus={onCloseAutoFocus} className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90dvh] overflow-y-auto">
+      <DialogContent onCloseAutoFocus={onCloseAutoFocus} className="w-[calc(100vw-2rem)] sm:max-w-3xl">
         <div className="flex items-start justify-between gap-3 pr-8">
           <DialogHeader className="min-w-0 text-left">
             <DialogTitle>{uiT("Prices & history")}</DialogTitle>

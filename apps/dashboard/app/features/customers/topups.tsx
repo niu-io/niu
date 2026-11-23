@@ -138,7 +138,6 @@ export function TopupEditor({ token, editor, onClose, onSaved }: { token: string
   return (
     <Dialog open onOpenChange={open => { if (!open && !pending) onClose(); }}>
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto"
         onCloseAutoFocus={event => {
           if (openerRef.current?.isConnected) {
             event.preventDefault();

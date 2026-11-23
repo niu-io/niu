@@ -169,7 +169,7 @@ export function CustomerModelPriceDialog({
   return (
     <Dialog open onOpenChange={next => { if (!next && !busy) onClose(); }}>
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto sm:max-w-md"
+        className="sm:max-w-md"
         onCloseAutoFocus={event => {
           if (returnFocusTo?.isConnected) {
             event.preventDefault();
@@ -351,7 +351,7 @@ export function CustomerBatchPriceDialog({
   return (
     <Dialog open onOpenChange={next => { if (!next && !busy) onClose(); }}>
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto sm:max-w-md"
+        className="sm:max-w-md"
         onCloseAutoFocus={event => {
           if (returnFocusTo?.isConnected) {
             event.preventDefault();

@@ -120,7 +120,7 @@ export function QuickKeyDialog({
   return (
     <Dialog open={open} onOpenChange={next => { if (!busy) onOpenChange(next); }}>
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto sm:max-w-md"
+        className="sm:max-w-md"
         onCloseAutoFocus={event => {
           if (triggerRef?.current?.isConnected) {
             event.preventDefault();

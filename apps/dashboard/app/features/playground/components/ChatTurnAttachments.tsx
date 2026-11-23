@@ -34,7 +34,7 @@ export default function ChatTurnAttachments({ attachments }: { attachments: Chat
       </Button>; })}
     </div>
     <Dialog open={Boolean(preview)} onOpenChange={open => { if (!open) setPreview(null); }}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl" onCloseAutoFocus={event => {
+      <DialogContent className="sm:max-w-2xl" onCloseAutoFocus={event => {
         if (trigger.current?.isConnected) { event.preventDefault(); trigger.current.focus(); }
       }}>
         <DialogHeader><DialogTitle className="break-all">{preview?.name}</DialogTitle><DialogDescription className="sr-only">{t("Attachment sent with this message.")}</DialogDescription></DialogHeader>

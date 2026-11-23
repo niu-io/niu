@@ -32,7 +32,7 @@ export default function CustomerSetup({company,token,client,onClose,onWorkspaceC
   return()=>controller.abort();
  },[client,token,company.id,revision]);
  const refresh=()=>setRevision(value=>value+1);
- return <Dialog open onOpenChange={open=>{if(!open&&!writing)onClose();}}><DialogContent onCloseAutoFocus={event=>{if(onRestoreFocus){event.preventDefault();onRestoreFocus();}}} className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle className="min-w-0 pr-5 [overflow-wrap:anywhere]">{uiT("Set up")}{" "}{company.name}</DialogTitle><DialogDescription>{uiT("Saved steps remain available when you return. Creating access does not add funds or make models available.")}</DialogDescription></DialogHeader>
+ return <Dialog open onOpenChange={open=>{if(!open&&!writing)onClose();}}><DialogContent onCloseAutoFocus={event=>{if(onRestoreFocus){event.preventDefault();onRestoreFocus();}}} className="sm:max-w-2xl"><DialogHeader><DialogTitle className="min-w-0">{uiT("Set up")}{" "}{company.name}</DialogTitle><DialogDescription>{uiT("Saved steps remain available when you return. Creating access does not add funds or make models available.")}</DialogDescription></DialogHeader>
   {loading&&<FormSectionSkeleton fields={3} label={uiT("Reading saved setup…")}/>}
   {error&&<Alert variant="destructive"><AlertDescription>{error}{setupRemedy&&<Button asChild variant="outline"><Link to={setupRemedy==='currency'?'/admin/settings':'/admin/payments'} onClick={onClose}>{setupRemedy==='currency'?uiT("Configure platform currency"):uiT("Configure payment gateways")}</Link></Button>}<Button variant="outline" onClick={refresh}>{uiT("Reload setup")}</Button></AlertDescription></Alert>}
   {!loading&&!error&&<div className="space-y-3">

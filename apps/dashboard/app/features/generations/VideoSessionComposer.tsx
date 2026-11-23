@@ -283,13 +283,13 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
     finally { setBusy(false); }
   }
   return <><Dialog open={unquotedConfirmation !== null} onOpenChange={open => { if (!open) setUnquotedConfirmation(null); }}>
-    <DialogContent className="max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={event => { event.preventDefault(); generateRef.current?.focus(); }}>
+    <DialogContent  onCloseAutoFocus={event => { event.preventDefault(); generateRef.current?.focus(); }}>
       <DialogHeader><DialogTitle>{uiT("Generate video with your Provider account")}</DialogTitle><DialogDescription>{uiT("No output estimate is available for this video configuration. Your Provider may charge your account. This sends the request once; an uncertain outcome must be checked before another submission.")}</DialogDescription></DialogHeader>
       <p className="break-words text-sm">{model && catalogTitle({id: model.id})}</p>
       {!confirmationMatches && <p role="alert" className="text-sm text-destructive">{uiT("The request or access changed. Close this dialog and review the current request.")}</p>}
       <DialogFooter><Button variant="outline" onClick={() => setUnquotedConfirmation(null)}>{uiT("Cancel")}</Button><Button disabled={!confirmationMatches || !canWrite || busy || loading || restoringDraft || Boolean(cover)} onClick={() => { if (confirmationMatches && unquotedConfirmation) void generate(unquotedConfirmation); }}>{uiT("Generate video")}</Button></DialogFooter>
     </DialogContent>
-  </Dialog><Dialog open={navigation.failed} onOpenChange={open=>{if(!open)navigation.stay();}}><DialogContent className="max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={event=>{event.preventDefault();promptRef.current?.focus();}}><DialogHeader><DialogTitle>{uiT("Draft not saved")}</DialogTitle><DialogDescription>{uiT("Your latest changes are still here. Stay to review and save them, or leave without saving these changes.")}</DialogDescription></DialogHeader><DialogFooter><Button variant="ghost" onClick={navigation.leave}>{uiT("Leave without saving")}</Button><Button variant="outline" onClick={navigation.stay}>{uiT("Stay here")}</Button></DialogFooter></DialogContent></Dialog>
+  </Dialog><Dialog open={navigation.failed} onOpenChange={open=>{if(!open)navigation.stay();}}><DialogContent  onCloseAutoFocus={event=>{event.preventDefault();promptRef.current?.focus();}}><DialogHeader><DialogTitle>{uiT("Draft not saved")}</DialogTitle><DialogDescription>{uiT("Your latest changes are still here. Stay to review and save them, or leave without saving these changes.")}</DialogDescription></DialogHeader><DialogFooter><Button variant="ghost" onClick={navigation.leave}>{uiT("Leave without saving")}</Button><Button variant="outline" onClick={navigation.stay}>{uiT("Stay here")}</Button></DialogFooter></DialogContent></Dialog>
   <GenerationComposer
     onSubmit={event => { event.preventDefault(); void generate(); }}
     prompt={{

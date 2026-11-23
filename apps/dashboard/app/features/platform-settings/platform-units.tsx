@@ -502,7 +502,6 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
         }}
       >
         <DialogContent
-          className="max-h-[90dvh] overflow-y-auto"
           onCloseAutoFocus={event => {
             if (defBtnRef.current?.isConnected) {
               event.preventDefault();
@@ -583,7 +582,6 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
         }}
       >
         <DialogContent
-          className="max-h-[90dvh] overflow-y-auto"
           onCloseAutoFocus={event => {
             if (ruleBtnRef.current?.isConnected) {
               event.preventDefault();
@@ -648,7 +646,6 @@ export function PlatformUnitsSetting({ token }: { token: string }) {
         }}
       >
         <DialogContent
-          className="max-h-[90dvh] overflow-y-auto"
           onCloseAutoFocus={event => {
             if (modeBtnRef.current?.isConnected) {
               event.preventDefault();

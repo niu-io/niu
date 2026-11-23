@@ -531,7 +531,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
     {/* Rate limit & cooldown modal */}
     <Dialog open={Boolean(rateLimitTarget)} onOpenChange={open => { if (!open) setRateLimitTarget(null); }}>
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"
+        className="sm:max-w-xl"
         onCloseAutoFocus={event => {
           if (rateLimitTriggerRef.current?.isConnected) {
             event.preventDefault();
@@ -559,7 +559,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
 
     {/* Quick reconnect modal for disconnected keys */}
     <Dialog open={Boolean(reconnectingConnection)} onOpenChange={open => { if (!open && !busy) { setReconnectingConnection(null); setReconnectApiKey(''); } }}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{uiT("Enter API key & enable", "填写 API 密钥并启用")}</DialogTitle>
           <DialogDescription>
@@ -592,7 +592,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
 
     {/* Add / full edit modal */}
     <Dialog open={addingConnection || editingConnection} onOpenChange={open => { if (!open && !busy) { setAddingConnection(false); setEditingConnection(false); } }}>
-      <DialogContent className="niu-modal vendor-dialog max-h-[90dvh] overflow-y-auto" showCloseButton={false}>
+      <DialogContent className="niu-modal vendor-dialog" showCloseButton={false}>
         <DialogHeader className="niu-modal-heading flex-row text-left">
           <div>
             <DialogTitle>{addingConnection ? uiT("Add Provider API key") : uiF("Edit {0}", [activeConnection?.name ?? uiT("API key")])}</DialogTitle>
@@ -633,7 +633,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
 
     {/* Disable confirmation modal */}
     <Dialog open={Boolean(disableTarget)} onOpenChange={open => { if (!open && !busy) setDisableTarget(null); }}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{uiT("Disable this API key?")}</DialogTitle>
           <DialogDescription>
@@ -651,7 +651,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
 
     {/* Disconnect & erase confirmation modal */}
     <Dialog open={Boolean(disconnectTarget)} onOpenChange={open => { if (!open && !busy) setDisconnectTarget(null); }}>
-      <DialogContent className="niu-modal max-h-[90dvh] overflow-y-auto" showCloseButton={false}>
+      <DialogContent className="niu-modal" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>{uiT("Disconnect this Provider connection?")}</DialogTitle>
           <DialogDescription>

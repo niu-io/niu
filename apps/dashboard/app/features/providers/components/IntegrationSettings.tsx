@@ -205,7 +205,6 @@ export default function IntegrationSettings({ token, resource, id, compact = fal
       }}
     >
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto"
         onCloseAutoFocus={event => {
           if (editBtnRef.current?.isConnected) {
             event.preventDefault();

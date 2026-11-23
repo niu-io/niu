@@ -1005,8 +1005,7 @@ function RoutePoolEditorDialog({
         if (!open && !busy) onClose();
       }}
     >
-      <DialogContent
-        className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[90dvh] overflow-x-hidden overflow-y-auto"
+      <DialogContent className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-4xl overflow-x-hidden"
         onCloseAutoFocus={event => {
           if (triggerRef.current?.isConnected) {
             event.preventDefault();
@@ -1756,8 +1755,7 @@ function RoutePoolPreviewDialog({
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent
-        className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90dvh] overflow-x-hidden overflow-y-auto"
+      <DialogContent className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-3xl overflow-x-hidden"
         onCloseAutoFocus={event => {
           if (triggerRef.current?.isConnected) {
             event.preventDefault();
@@ -1978,8 +1976,7 @@ function RoutePoolAuditDialog({
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent
-        className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[90dvh] overflow-x-hidden overflow-y-auto"
+      <DialogContent className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-4xl overflow-x-hidden"
         onCloseAutoFocus={event => {
           if (triggerRef.current?.isConnected) {
             event.preventDefault();
@@ -2245,8 +2242,7 @@ function RoutePoolHistoryDialog({
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent
-        className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90dvh] overflow-x-hidden overflow-y-auto"
+      <DialogContent className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-3xl overflow-x-hidden"
         onCloseAutoFocus={event => {
           if (triggerRef.current?.isConnected) {
             event.preventDefault();

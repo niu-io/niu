@@ -551,7 +551,7 @@ export function CompanyBrandedUnitsDialog({
   return (
     <Dialog open onOpenChange={open => { if (!open && !busy) closeDialog(); }}>
       <DialogContent
-        className="w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[90dvh] overflow-y-auto"
+        className="w-[calc(100vw-2rem)] sm:max-w-2xl"
         showCloseButton={!busy}
         onCloseAutoFocus={event => {
           if (openerRef.current?.isConnected) {

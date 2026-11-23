@@ -39,7 +39,7 @@ export function PricingHealthNotice({ health }: { health?: PricingHealth }) {
             : uiT("No lower unit rates");
   return <div className="flex min-w-0 sm:min-w-36 max-w-sm flex-wrap items-center gap-1 whitespace-normal">
     <Badge variant={below || missing ? 'destructive' : 'outline'} className="h-auto max-w-full whitespace-normal break-words text-left">{(below || missing) && <IconAlertTriangle size={14} />}{label}</Badge>
-    <Dialog><DialogTrigger asChild><Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Price check details")} title={uiT("Price check details")}><IconInfoCircle /></Button></DialogTrigger><DialogContent className="w-[calc(100vw-2rem)] max-h-[90dvh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>{label}</DialogTitle><DialogDescription>{uiT("Current configuration advice. Refresh after changing prices. Below-cost rates do not block publication.")}</DialogDescription></DialogHeader><div className="space-y-3 text-sm">
+    <Dialog><DialogTrigger asChild><Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Price check details")} title={uiT("Price check details")}><IconInfoCircle /></Button></DialogTrigger><DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl"><DialogHeader><DialogTitle>{label}</DialogTitle><DialogDescription>{uiT("Current configuration advice. Refresh after changing prices. Below-cost rates do not block publication.")}</DialogDescription></DialogHeader><div className="space-y-3 text-sm">
       {supply === 'unconfigured' && (
         <p className="text-muted-foreground">
           {uiT(

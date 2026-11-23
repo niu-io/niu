@@ -13,12 +13,15 @@ export default function ShellSectionTabs({ context }: {
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useLocale();
-  const [tabsTarget, setTabsTarget] = useState<HTMLElement | null>(() =>
-    typeof document !== 'undefined' ? document.getElementById('dashboard-page-tabs') : null,
-  );
+  // Start with the inline fallback on both the server and the first client render,
+  // then move the tabs into the shell header before paint. Reading the DOM during
+  // render would desynchronize SSR markup and client hydration.
+  const [tabsTarget, setTabsTarget] = useState<HTMLElement | null>(null);
   useLayoutEffect(() => {
-    setTabsTarget(typeof document !== 'undefined' ? document.getElementById('dashboard-page-tabs') : null);
-  }, [location.pathname]);
+    // The shell header mounts before route content and keeps this host for the
+    // lifetime of the layout, so resolve it once after hydration.
+    setTabsTarget(document.getElementById('dashboard-page-tabs'));
+  }, []);
   const workspace = context.workspace;
   const workspaces = context.workspaces ?? (workspace ? [workspace] : []);
   const workspaceSlug = workspace ? workspacePathSegment(workspace, workspaces) : '';

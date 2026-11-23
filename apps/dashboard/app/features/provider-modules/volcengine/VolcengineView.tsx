@@ -748,5 +748,5 @@ export default function VolcengineView({
 }
 
 function Unavailable({ title, description }: { heading: string; title: string; description: string }) {
-  return <div className=""><Empty className="min-h-40 border-0 py-10"><EmptyHeader><EmptyMedia variant="icon"><ScanFace size={20} strokeWidth={1.5} aria-hidden="true" /></EmptyMedia><EmptyTitle className="text-sm font-medium">{title}</EmptyTitle><EmptyDescription className="max-w-sm text-sm">{description}</EmptyDescription></EmptyHeader></Empty></div>;
+  return <div><Empty className="min-h-40 border-0 py-10"><EmptyHeader><EmptyMedia variant="icon"><ScanFace size={20} strokeWidth={1.5} aria-hidden="true" /></EmptyMedia><EmptyTitle className="text-sm font-medium">{title}</EmptyTitle><EmptyDescription className="max-w-sm text-sm">{description}</EmptyDescription></EmptyHeader></Empty></div>;
 }

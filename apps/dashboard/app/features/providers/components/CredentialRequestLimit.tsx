@@ -85,7 +85,7 @@ export default function CredentialRequestLimit({ token, vendorId, withinDialog =
         </div>
       )
     ) : (
-      <Dialog open={open} onOpenChange={next => {if (!saving) setOpen(next);}}><DialogContent className="max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{uiT("Requests per minute")}</DialogTitle><DialogDescription>{uiT("Counts dispatched requests through this Provider API key across workspaces in a rolling 60-second window, including failed requests.")}</DialogDescription></DialogHeader>{editorForm}</DialogContent></Dialog>
+      <Dialog open={open} onOpenChange={next => {if (!saving) setOpen(next);}}><DialogContent><DialogHeader><DialogTitle>{uiT("Requests per minute")}</DialogTitle><DialogDescription>{uiT("Counts dispatched requests through this Provider API key across workspaces in a rolling 60-second window, including failed requests.")}</DialogDescription></DialogHeader>{editorForm}</DialogContent></Dialog>
     )}
   </div>;
 }

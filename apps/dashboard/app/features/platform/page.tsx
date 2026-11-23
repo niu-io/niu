@@ -618,7 +618,7 @@ function PaymentConfiguration({ token }: { token: string }) {
       </Tabs>
 
       <Dialog open={mockOpen} onOpenChange={value => { if (!mockBusy) setMockOpen(value); }}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{uiT("Configure mock payments")}</DialogTitle>
             <DialogDescription>{uiT("Test checkout, notifications and account funding without a real payment merchant. Saved changes apply immediately and persist across restarts.")}</DialogDescription>
@@ -642,7 +642,7 @@ function PaymentConfiguration({ token }: { token: string }) {
       </Dialog>
 
       <Dialog open={open} onOpenChange={value => { if (!busy) { setOpen(value); setKey(''); } }}>
-        <DialogContent className="niu-modal max-h-[90dvh] overflow-y-auto">
+        <DialogContent className="niu-modal">
           <DialogHeader>
             <DialogTitle>{uiT("Configure EPay")}</DialogTitle>
             <DialogDescription>{uiT("Connect your domestic payment gateway to organization balance top-ups.")}</DialogDescription>

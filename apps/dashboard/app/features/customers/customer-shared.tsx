@@ -574,7 +574,7 @@ export function CreateCompany({
 
   return (
     <Dialog open={open} onOpenChange={value => { if (!value) closeDialog(); else onOpenChange(true); }}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg" onCloseAutoFocus={event => { event.preventDefault(); onRestoreFocus(); }}>
+      <DialogContent className="sm:max-w-lg" onCloseAutoFocus={event => { event.preventDefault(); onRestoreFocus(); }}>
         {handoff ? (
           <>
             <DialogHeader className="text-left">
@@ -1024,7 +1024,6 @@ export function CreditEditor({
   return (
     <Dialog open onOpenChange={open => { if (!open && !pending) onClose(); }}>
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto"
         onCloseAutoFocus={event => {
           if (openerRef.current?.isConnected) {
             event.preventDefault();

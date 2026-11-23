@@ -102,7 +102,6 @@ export function ApproveRegistrationDialog({
       }}
     >
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto"
         onCloseAutoFocus={event => {
           if (opener?.isConnected) {
             event.preventDefault();
@@ -255,7 +254,6 @@ export function RejectRegistrationDialog({
       }}
     >
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto"
         onCloseAutoFocus={event => {
           if (opener?.isConnected) {
             event.preventDefault();

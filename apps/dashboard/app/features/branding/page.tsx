@@ -325,7 +325,7 @@ export default function BrandingPage() {
         onOpenChange={open => { if (!open) closeEditor(); }}
       >
         <DialogContent
-          className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"
+          className="sm:max-w-xl"
           onCloseAutoFocus={event => {
             if (editBrandingBtnRef.current?.isConnected) {
               event.preventDefault();
@@ -425,7 +425,7 @@ export default function BrandingPage() {
         onOpenChange={open => { if (!open) closeEditor(); }}
       >
         <DialogContent
-          className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"
+          className="sm:max-w-2xl"
           onCloseAutoFocus={event => {
             if (editThemeBtnRef.current?.isConnected) {
               event.preventDefault();
@@ -546,7 +546,6 @@ export default function BrandingPage() {
         onOpenChange={open => { if (!busy) { setResetOpen(open); if (!open) { setError(''); setReloadNeeded(false); } } }}
       >
         <DialogContent
-          className="max-h-[90dvh] overflow-y-auto"
           onCloseAutoFocus={event => {
             if (resetBtnRef.current?.isConnected && !defaultMatches) {
               event.preventDefault();
@@ -582,7 +581,7 @@ export default function BrandingPage() {
       </Dialog>
 
       <Dialog open={preview} onOpenChange={setPreview}>
-        <DialogContent className="niu-modal max-h-[90dvh] overflow-y-auto">
+        <DialogContent className="niu-modal">
           <DialogHeader>
             <DialogTitle>{t('Appearance preview', '外观预览')}</DialogTitle>
             <DialogDescription>

@@ -101,7 +101,7 @@ export function GrantEditor({ token, editor, onClose, onIssued }: { token: strin
   }
   let preview: string | null = null;
   try { preview = money((BigInt(editor.account?.balance_nanos ?? '0') + BigInt(amountToNanos(amount))).toString(), currency); } catch { /* Submit explains invalid input. */ }
-  return <Dialog open onOpenChange={open => { if (!open && !pending) onClose(); }}><DialogContent className="max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{uiT("Grant noncash balance")}</DialogTitle><DialogDescription>{editor.company.organization_name || uiT("Unnamed company")} · {currency}{uiT(". This is a gift, not a cash receipt. Consumed gifts reduce revenue; issuance alone recognizes no income.")}</DialogDescription></DialogHeader>
+  return <Dialog open onOpenChange={open => { if (!open && !pending) onClose(); }}><DialogContent><DialogHeader><DialogTitle>{uiT("Grant noncash balance")}</DialogTitle><DialogDescription>{editor.company.organization_name || uiT("Unnamed company")} · {currency}{uiT(". This is a gift, not a cash receipt. Consumed gifts reduce revenue; issuance alone recognizes no income.")}</DialogDescription></DialogHeader>
     {issued ? <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-lg font-medium">{money(issued.amount_nanos, issued.currency)}</p><Badge variant="outline">{uiT("Issued")}</Badge></div>
       <p className="break-words">{issued.reason}</p><p className="text-sm text-muted-foreground">{uiT(policyLabel(issued.application_policy))}{" "}{uiT("· Prepared")}{" "}{createdAt(issued.created_at)} UTC</p>
@@ -141,7 +141,7 @@ export function GrantHistory({ token, editor, onClose, onOpen, onCorrect }: { to
     finally { if (!controller.signal.aborted) setLoading(false); }
   }
   useEffect(() => { void load(); return () => active.current?.abort(); }, [token, editor.company.organization_id, currency]);
-  return <Dialog open onOpenChange={open => { if (!open) onClose(); }}><DialogContent className="w-[calc(100vw-2rem)] sm:max-w-5xl max-h-[90dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto"><DialogHeader><DialogTitle>{uiT("Noncash grant history")}</DialogTitle><DialogDescription>{editor.company.organization_name || uiT("Unnamed company")} · {currency}{uiT(". Issued gifts and separate corrections. A saved grant awaiting issuance can be resumed here.")}</DialogDescription></DialogHeader>
+  return <Dialog open onOpenChange={open => { if (!open) onClose(); }}><DialogContent className="w-[calc(100vw-2rem)] sm:max-w-5xl grid-cols-[minmax(0,1fr)]"><DialogHeader><DialogTitle>{uiT("Noncash grant history")}</DialogTitle><DialogDescription>{editor.company.organization_name || uiT("Unnamed company")} · {currency}{uiT(". Issued gifts and separate corrections. A saved grant awaiting issuance can be resumed here.")}</DialogDescription></DialogHeader>
     {error && <Alert variant="destructive"><AlertDescription>{uiT(error)} <Button variant="outline" disabled={loading} onClick={() => void load(failedCursor)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
     {!!rows.length && <section className="space-y-3" aria-label={uiT("Awaiting issuance")}>
       <div><p className="text-sm font-medium">{uiT("Awaiting issuance")}</p><p className="text-sm text-muted-foreground">{uiT("A saved grant is waiting to be issued. Resume it to finish with its original key.")}</p></div>

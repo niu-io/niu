@@ -39,7 +39,7 @@
   .playground-starter { min-width: 170px; flex-basis: 170px; padding: 10px 12px; }}
 
 /* Single responsive left sidebar (240px expanded, 64px collapsed icon mode, <960px drawer). */
-.app-shell { --rail: 0px; --context: 240px; --workspace-sidebar-icon-width: 64px; --dashboard-header-height: 56px; height: 100dvh; min-height: 100dvh; overflow: hidden; }
+.app-shell { --rail: 0px; --context: 240px; --workspace-sidebar-icon-width: 64px; --dashboard-header-height: 56px; --page-gutter: 32px; height: 100dvh; min-height: 100dvh; overflow: hidden; }
 .app-shell [data-slot="sidebar-gap"] { width: var(--context); flex: 0 0 var(--context); }
 .app-shell [data-slot="sidebar"][data-collapsible="offcanvas"] [data-slot="sidebar-gap"] { width: 0; flex-basis: 0; }
 .app-shell > [data-slot="sidebar"][data-collapsible="icon"] [data-slot="sidebar-gap"],
@@ -48,21 +48,13 @@
 .app-shell [data-slot="sidebar"][data-collapsible="offcanvas"] [data-slot="sidebar-container"].niu-workspace-sidebar { left: calc(var(--rail) - var(--context)); }
 .app-shell [data-slot="sidebar-inner"] { border-right: 0; }
 .app-shell .main-panel { width: auto; min-height: 0; min-width: 0; flex: 1 1 0; margin: 0; container-type: inline-size; }
-/* Size management gutters from the canvas left after navigation (32px desktop, 24px intermediate, 16px narrow). */
+/* One gutter source for the canvas and its header; header tabs stay flush with page content. */
 .app-shell .main-panel > .page-content:not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider))),
 .app-shell .main-panel > .dashboard-page-header {
-  padding-inline: 32px;
+  padding-inline: var(--page-gutter);
 }
-@media (max-width: 1100px) {
-  .app-shell .main-panel > .page-content:not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider))),
-  .app-shell .main-panel > .dashboard-page-header {
-    padding-inline: 24px;
-  }}
-@media (max-width: 580px) {
-  .app-shell .main-panel > .page-content:not(:has(> .gateway-route-content:not([hidden]) > div:not([hidden]) > :is(.generations-layout, .generations-provider))),
-  .app-shell .main-panel > .dashboard-page-header {
-    padding-inline: 16px;
-  }}
+@media (max-width: 1100px) { .app-shell { --page-gutter: 24px; } }
+@media (max-width: 580px) { .app-shell { --page-gutter: 16px; } }
 /* The canvas owns the first content inset; legacy panels must not add another one. */
 .gateway-route-content > div:not([hidden]) > .panel:first-child { margin-top: 0; }
 
@@ -335,17 +327,21 @@
 .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-separator"] { flex-shrink: 0; }
 .dashboard-page-header .breadcrumbs [aria-label="Switch workspace page"] { min-width: 0; max-width: 100%; padding: 4px; }
 @media (max-width: 768px) {
-  .dashboard-page-header { flex-wrap: wrap; flex-basis: auto; flex-shrink: 0; height: auto; padding: 6px 16px; }
-  .dashboard-page-header:has(.dashboard-page-tabs:not(:empty)) { flex-wrap: wrap; height: auto; padding-bottom: 0; row-gap: 2px; }
+  .dashboard-page-header { flex-wrap: wrap; flex-basis: auto; flex-shrink: 0; height: auto; padding-block: 6px; }
   .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:first-child:not(:last-child) { flex: 0 1 auto; }
   .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:last-child { flex: 1 1 0; }
-  .dashboard-page-tabs { order: 10; flex: 1 0 100%; max-width: 100%; height: auto; }
-  .dashboard-header-tabs-slot [data-slot="tabs-list"] { height: 40px; }
-  .dashboard-header-tabs-slot [data-slot="tabs-trigger"] { height: 40px; font-size: 14px; padding: 0 10px; }
-  .dashboard-header-tabs-slot [data-slot="tabs-trigger"]:first-child { padding-left: 0; }
   .dashboard-page-actions { max-width: 100%; }
   .dashboard-page-actions .page-heading-action { width: auto; }
   .dashboard-page-actions .page-heading-action > a { width: auto; }}
+/* Below the desktop rail breakpoint the header gains a navigation toggle, so section tabs
+   move to their own full-width row instead of being squeezed into the 56px control row. */
+@media (max-width: 959px) {
+  .dashboard-page-header:has(.dashboard-page-tabs:not(:empty)) { flex-wrap: wrap; flex-basis: auto; flex-shrink: 0; height: auto; min-height: var(--dashboard-header-height); padding-block: 6px 0; row-gap: 2px; }
+  .dashboard-page-header:has(.dashboard-page-tabs:not(:empty)) .dashboard-page-tabs { order: 10; flex: 1 0 100%; max-width: 100%; height: 40px; }
+  .dashboard-header-tabs-slot { height: 40px; }
+  .dashboard-header-tabs-slot [data-slot="tabs-list"],
+  .dashboard-header-tabs-slot [data-slot="tabs-trigger"] { height: 40px; }
+  .dashboard-header-tabs-slot [data-slot="tabs-trigger"]:first-child { padding-left: 0; }}
 .gateway-task-feed:not(.is-compact) { margin-top: 0; border: 0; border-radius: var(--radius-panel); background: transparent; overflow: hidden; }
 .gateway-task-feed:not(.is-compact) .gateway-task-feed-heading { padding: 12px 14px; min-height: 0; }
 .gateway-task-feed:not(.is-compact) .gateway-task-feed-heading h2 { font-size: 15px; font-weight: 600; letter-spacing: -.015em; }

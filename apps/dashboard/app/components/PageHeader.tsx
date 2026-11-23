@@ -15,18 +15,14 @@ export default function PageHeader({ title, syncRouteTitle, routeTitleKey, tabs,
 }) {
   const actionsTargetId = useContext(PageHeaderActionsTargetContext);
   const tabsTargetId = useContext(PageHeaderTabsTargetContext);
-  const [actionsTarget, setActionsTarget] = useState<HTMLElement | null>(() =>
-    typeof document !== 'undefined' && actionsTargetId ? document.getElementById(actionsTargetId) : null,
-  );
-  const [tabsTarget, setTabsTarget] = useState<HTMLElement | null>(() =>
-    typeof document !== 'undefined' && tabsTargetId ? document.getElementById(tabsTargetId) : null,
-  );
+  // Resolve portal hosts only after hydration so the server and first client render
+  // agree on the inline fallback; layout effects move controls into the shell before paint.
+  const [actionsTarget, setActionsTarget] = useState<HTMLElement | null>(null);
+  const [tabsTarget, setTabsTarget] = useState<HTMLElement | null>(null);
   useLayoutEffect(() => {
     setActionsTarget(actionsTargetId ? document.getElementById(actionsTargetId) : null);
-  }, [actionsTargetId]);
-  useLayoutEffect(() => {
     setTabsTarget(tabsTargetId ? document.getElementById(tabsTargetId) : null);
-  }, [tabsTargetId]);
+  }, [actionsTargetId, tabsTargetId]);
   useLayoutEffect(() => {
     if (!syncRouteTitle || !title) return;
     const headerTitle = document.querySelector<HTMLElement>('.dashboard-page-header .dashboard-route-title');

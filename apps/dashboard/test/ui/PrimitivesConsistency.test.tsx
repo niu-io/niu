@@ -175,8 +175,8 @@ describe('Shared UI primitives layout safeguards', () => {
       'features/customers/page.tsx',
       'features/platform-settings/page.tsx',
       'features/incidents/page.tsx',
-      'features/platform/page.tsx',
       'features/retail-pricing/page.tsx',
+      'features/assets/page.tsx',
     ]) {
       const source = readFileSync(join(appDir, rel), 'utf8');
       expect(source, `${rel} should pass primary section tabs into PageHeader`).toMatch(/<PageHeader[\s\S]*?tabs=/);
@@ -277,10 +277,79 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(shellSectionTabs).toContain('createPortal(');
     expect(shellSectionTabs).toContain('models|routing|evaluations)\\/?$');
     expect(shellSectionTabs).toContain('settings|guardrails|events)\\/?$');
-    const guardrailsPage = readFileSync(join(appDir, 'features/guardrails/page.tsx'), 'utf8');
-    expect(guardrailsPage).not.toContain('<TabsList');
+    for (const rel of [
+      'features/guardrails/page.tsx',
+      'features/platform-settings/registration-review.tsx',
+      'features/branding/page.tsx',
+      'features/platform/page.tsx',
+    ]) {
+      const source = readFileSync(join(appDir, rel), 'utf8');
+      expect(source, `${rel} must not render a second stacked <TabsList>`).not.toContain('<TabsList');
+    }
     const shellCss = readFileSync(resolve(process.cwd(), 'app/styles/shell.css'), 'utf8');
-    expect(shellCss).toContain('.dashboard-page-header { position: sticky; top: 0; z-index: 18; display: flex; flex: 0 0 var(--dashboard-header-height); min-height: var(--dashboard-header-height); align-items: center; gap: 10px; padding: 0 32px;');
+    expect(shellCss).toContain('.dashboard-page-header { position: sticky; top: 0; z-index: 18; display: flex; flex: 0 0 var(--dashboard-header-height); min-height: var(--dashboard-header-height); align-items: center; gap: 10px; padding-block: 0;');
+  });
+
+  it('uses one page-gutter token for header tabs and page content, and wraps tabs below the desktop rail breakpoint', () => {
+    const surfaces = readFileSync(resolve(process.cwd(), 'app/styles/surfaces.css'), 'utf8');
+    const shell = readFileSync(resolve(process.cwd(), 'app/styles/shell.css'), 'utf8');
+    const foundation = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
+    expect(surfaces).toContain('--page-gutter: 32px');
+    expect(surfaces).toContain('padding-inline: var(--page-gutter)');
+    expect(surfaces).toContain('@media (max-width: 1100px) { .app-shell { --page-gutter: 24px; } }');
+    expect(surfaces).toContain('@media (max-width: 580px) { .app-shell { --page-gutter: 16px; } }');
+    expect(surfaces).toContain('@media (max-width: 959px)');
+    expect(surfaces).toContain('.dashboard-page-header:has(.dashboard-page-tabs:not(:empty)) .dashboard-page-tabs { order: 10; flex: 1 0 100%;');
+    expect(shell).toContain('.page-content { width: 100%; max-width: none; flex: 1 0 auto; margin: 0; padding-block: 24px 72px; }');
+    expect(foundation).not.toMatch(/\.page-content\s*\{[^}]*padding:/);
+  });
+
+  it('keeps dialog framing, bounded scroll, and close affordances in the shared primitive', () => {
+    const dialog = readFileSync(join(appDir, 'components/ui/dialog.tsx'), 'utf8');
+    const foundation = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
+    expect(dialog).toContain('max-h-[90dvh]');
+    expect(dialog).toContain('overflow-y-auto');
+    expect(dialog).toContain('overscroll-contain');
+    expect(dialog).toContain('leading-snug');
+    expect(dialog).toContain('size-8 items-center justify-center rounded-md');
+    expect(foundation).toContain(':has(> [data-slot="dialog-close"])) > :where([data-slot="dialog-header"])');
+    const setup = readFileSync(join(appDir, 'features/customers/setup.tsx'), 'utf8');
+    const library = readFileSync(join(appDir, 'features/library/page.tsx'), 'utf8');
+    expect(setup).not.toMatch(/<DialogTitle[^>]*pr-/);
+    expect(library).not.toMatch(/<DialogTitle[^>]*pr-/);
+  });
+
+  it('keeps chart legend labels on a CJK-safe line height', () => {
+    const chart = readFileSync(join(appDir, 'components/ui/chart.tsx'), 'utf8');
+    const activity = readFileSync(join(appDir, 'features/executions/components/ActivityCharts.tsx'), 'utf8');
+    expect(chart).not.toContain('leading-none');
+    expect(activity).not.toContain('leading-none');
+  });
+
+  it('keeps the default bounded dialog frame in DialogContent instead of repeating it at call sites', () => {
+    const violations: string[] = [];
+    for (const file of tsxFiles) {
+      const source = readFileSync(file, 'utf8');
+      for (const match of source.matchAll(/<DialogContent\b[\s\S]*?>/g)) {
+        if (match[0].includes('max-h-[90dvh]') && match[0].includes('overflow-y-auto')) {
+          const line = source.slice(0, match.index ?? 0).split('\n').length;
+          violations.push(`${relative(appDir, file)}:${line}`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it('resolves PageHeader and ShellSectionTabs portal hosts after hydration and renders one billing tab strip', () => {
+    const pageHeader = readFileSync(join(appDir, 'components/PageHeader.tsx'), 'utf8');
+    const sectionTabs = readFileSync(join(appDir, 'shell/ShellSectionTabs.tsx'), 'utf8');
+    expect(pageHeader).toContain('useState<HTMLElement | null>(null)');
+    expect(sectionTabs).toContain('useState<HTMLElement | null>(null)');
+    expect(pageHeader).not.toContain("typeof document !== 'undefined' && actionsTargetId");
+    expect(sectionTabs).not.toContain("typeof document !== 'undefined' ? document.getElementById('dashboard-page-tabs')");
+    const billing = readFileSync(join(appDir, 'features/billing/page.tsx'), 'utf8');
+    expect(billing).not.toContain('hasShellHeaderTabs');
+    expect(billing).not.toContain('<TabsList');
   });
 });
 

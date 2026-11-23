@@ -180,7 +180,7 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange, withinSetti
       const closingDialog = event.target instanceof HTMLElement ? event.target : null;
       const target = opener?.isConnected && opener.getClientRects().length && !closingDialog?.contains(opener) ? opener : ['[aria-label="Create workspace"]', '.workspace-switcher-trigger', '.sidebar-toggle'].flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector))).find(element => element.isConnected && element.getClientRects().length && !element.closest('[role="dialog"]'));
       if (target) { event.preventDefault(); target.focus(); }
-    }} className="niu-modal workspace-create-dialog max-h-[90dvh] overflow-y-auto" overlayClassName="workspace-create-overlay" showCloseButton={false}>
+    }} className="niu-modal workspace-create-dialog" overlayClassName="workspace-create-overlay" showCloseButton={false}>
       <DialogHeader className="niu-modal-heading flex-row text-left">
         <div><DialogTitle>{t('Create workspace', '创建工作空间')}</DialogTitle><DialogDescription>{description}</DialogDescription></div>
         <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
@@ -317,7 +317,7 @@ export function OrganizationCreateDialog({ context, open, onOpenChange, withinSe
             .flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector)))
             .find(element => element.isConnected && element.getClientRects().length && !element.closest('[role="dialog"]'));
       if (target) { event.preventDefault(); target.focus(); }
-    }} className="niu-modal workspace-create-dialog max-h-[90dvh] overflow-y-auto" overlayClassName="workspace-create-overlay" showCloseButton={false}>
+    }} className="niu-modal workspace-create-dialog" overlayClassName="workspace-create-overlay" showCloseButton={false}>
       <DialogHeader className="niu-modal-heading flex-row text-left">
         <div>
           <DialogTitle>{t('Create organization', '创建组织')}</DialogTitle>

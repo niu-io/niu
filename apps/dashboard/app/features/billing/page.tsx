@@ -20,7 +20,7 @@ import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatExactUnitAtoms, formatUnitAtoms, money } from '@/lib/money';
 import { cachedGet, markCachedStale, peekCachedGet, request } from '@/features/providers/api';
@@ -353,17 +353,11 @@ function BillingView({ token, organization, project, headerAction }: { token: st
   }
 
   const rateColumns = currencyTariffColumns(data?.tariffs ?? []);
-  const hasShellHeaderTabs = typeof document !== 'undefined' && Boolean(document.getElementById('dashboard-page-tabs'));
 
   return <>
     <PageHeader title={uiT("Billing and rates", "账单与费率")} action={<>{headerAction}<Button variant="ghost" size="icon-sm" aria-label={uiT("Refresh billing")} title={uiT("Refresh billing")} disabled={loading || invoiceLoading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button></>} />
     {error && <Alert variant="destructive"><AlertTitle>{uiT("Billing unavailable")}</AlertTitle><AlertDescription>{uiT(error)}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
     {loading && !data ? <WorkspaceShellSkeleton label={uiT("Loading billing…")} /> : data && <Tabs value={activeTab} onValueChange={selectTab} className="billing-content">
-      {!hasShellHeaderTabs && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <TabsList aria-label={uiT("Billing sections")}><TabsTrigger value="balance">{uiT("Spending")}</TabsTrigger><TabsTrigger value="statements">{uiT("Statements")}</TabsTrigger><TabsTrigger value="rates">{uiT("Rates")}</TabsTrigger></TabsList>
-        </div>
-      )}
       <TabsContent value="balance" className="billing-balance-content">
         <section aria-label={uiT("Workspace spending")}>
           <h2>{uiT("Workspace spending")}</h2>

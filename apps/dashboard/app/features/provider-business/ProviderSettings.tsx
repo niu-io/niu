@@ -147,7 +147,7 @@ export default function ProviderSettings() {
       </div>}
     <Dialog open={editOpen && Boolean(profile)} onOpenChange={open => { if (!open) closeEditDialog(); }}>
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"
+        className="sm:max-w-xl"
         onCloseAutoFocus={event => {
           if (editBtnRef.current?.isConnected) {
             event.preventDefault();

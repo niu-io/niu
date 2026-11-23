@@ -116,7 +116,6 @@ export function PlatformCurrencySetting({ token }: { token: string }) {
         }}
       >
         <DialogContent
-          className="max-h-[90dvh] overflow-y-auto"
           onCloseAutoFocus={event => {
             if (triggerRef.current?.isConnected) {
               event.preventDefault();

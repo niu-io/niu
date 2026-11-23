@@ -454,7 +454,7 @@ function UnitTextTariffDialog({
 
   return (
     <Dialog open onOpenChange={open => { if (!open && !saving) onClose(); }}>
-      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl max-h-[90dvh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{initial ? uiF("Revise {0} text tariff", [unitName]) : uiF("Publish {0} text tariff", [unitName])}</DialogTitle>
           <DialogDescription>{uiF("Rates are in {0} per 1,000,000 tokens. Up to 9 decimal places are stored exactly.", [unitName])}</DialogDescription>
@@ -602,7 +602,7 @@ function UnitMediaTariffDialog({
 
   return (
     <Dialog open onOpenChange={open => { if (!open && !saving) onClose(); }}>
-      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl max-h-[90dvh] overflow-y-auto">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{initial ? uiF("Revise {0} media tariff", [unitName]) : uiF("Publish {0} media tariff", [unitName])}</DialogTitle>
           <DialogDescription>{uiF("Set {0} consumption rates for video generation. The selected registered model fixes its channel and supported resolutions.", [unitName])}</DialogDescription>
