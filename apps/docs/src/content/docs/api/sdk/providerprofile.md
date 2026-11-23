@@ -15,6 +15,10 @@ export type ProviderProfile = {
     description: string;
     website_url: string;
     logo_url: string;
+    model_access_mode?: ProviderModelAccessMode;
+    default_discount_bps?: number;
+    allowlisted_models?: string[];
+    blocklisted_models?: string[];
     revision: number;
 };
 ```

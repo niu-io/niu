@@ -149,10 +149,9 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
                         keys: adminSupplierId ? t('API keys', 'API 密钥') : t('Connections', '上游连接'),
                         connections: t('Connections', '上游连接'),
                         models: t('Models', '模型'),
-                        usage: t('Usage', '调用量'),
-                        settlements: t('Settlements', '结算账单'),
-                        members: t('Members', '成员'),
-                        settings: adminSupplierId ? t('Settings', '基本资料') : t('Settings', '平台设置'),
+                        usage: adminSupplierId ? t('Analytics', '统计') : t('Usage', '调用量'),
+                        settlements: adminSupplierId ? t('Analytics', '统计') : t('Settlements', '结算账单'),
+                        settings: adminSupplierId ? t('Configuration', '配置') : t('Settings', '平台设置'),
                       }[normalizedPath.split('/').pop() ?? ''] ??
                       (normalizedPath.startsWith('/admin/customers/')
                         ? t('Customer', '客户详情')

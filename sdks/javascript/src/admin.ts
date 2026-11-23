@@ -364,9 +364,16 @@ export type CreatedCompany = {
 export type CompanyCreateOptions = RequestOptions & { idempotencyKey?: string };
 
 
+export type ProviderModelAccessMode = 'all' | 'allowlist' | 'blocklist';
+
 /** Platform-only credential configuration metadata. Secret values are never returned. */
 export type ProviderBusiness = {
   slug: string;
+  logo_url?: string;
+  model_access_mode?: ProviderModelAccessMode;
+  default_discount_bps?: number;
+  offers?: number;
+  ready_offers?: number;
   id: string; name: string; api_keys: number; models: number; members: number;
   /** Enabled saved configurations and mappings; not upstream verification. */
   enabled_api_keys?: number; enabled_model_routes?: number;
@@ -383,12 +390,22 @@ export type ProviderBusinessCreate = {
 
 export type ProviderProfile = {
   slug: string;
-  id: string; name: string; description: string; website_url: string; logo_url: string; revision: number;
+  id: string; name: string; description: string; website_url: string; logo_url: string;
+  model_access_mode?: ProviderModelAccessMode;
+  default_discount_bps?: number;
+  allowlisted_models?: string[];
+  blocklisted_models?: string[];
+  revision: number;
 };
 export type SupplierProfile = ProviderProfile;
 export type ProviderProfileUpdate = {
   name: string; description?: string | null; website_url?: string | null;
-  logo_url?: string | null; expected_revision?: number | null;
+  logo_url?: string | null;
+  model_access_mode?: ProviderModelAccessMode | null;
+  default_discount_bps?: number | null;
+  allowlisted_models?: string[] | null;
+  blocklisted_models?: string[] | null;
+  expected_revision?: number | null;
 };
 export type SupplierProfileUpdate = ProviderProfileUpdate;
 

@@ -45,7 +45,9 @@ export function providerSectionPath(section: string): string {
       ? 'usage'
       : section === 'offers'
         ? 'models'
-        : section;
+        : section === 'members'
+          ? ''
+          : section;
 }
 
 const ADMIN_PROVIDER_STATIC_SECTIONS = new Set([
@@ -109,7 +111,8 @@ export function resolveLegacyRedirectTarget(
     (parts[0] === 'providers' || parts[0] === 'suppliers' || parts[0] === 'supplier-accounts') &&
     parts[1] === 'manage'
   ) {
-    return `/admin/providers/${providerSectionPath(decodeURIComponent(parts[2]))}${suffix}`;
+    const next = providerSectionPath(decodeURIComponent(parts[2]));
+    return `/admin/providers${next ? `/${next}` : ''}${suffix}`;
   }
 
   if (
@@ -124,14 +127,16 @@ export function resolveLegacyRedirectTarget(
   if (parts[0] === 'supplier-accounts' && parts.length >= 2) {
     const target = params.provider ?? decodeURIComponent(parts[1]);
     const sec = params.section ?? (parts[2] ? decodeURIComponent(parts[2]) : '');
-    const secSuffix = sec ? `/${providerSectionPath(sec)}` : '';
+    const mapped = sec ? providerSectionPath(sec) : '';
+    const secSuffix = mapped ? `/${mapped}` : '';
     return `/providers/${encodeURIComponent(target)}${secSuffix}${suffix}`;
   }
 
   if ((parts[0] === 'providers' || parts[0] === 'suppliers') && parts.length >= 2) {
     const target = params.provider ?? params.supplier ?? decodeURIComponent(parts[1]);
     const sec = params.section ?? (parts[2] ? decodeURIComponent(parts[2]) : '');
-    const secSuffix = sec ? `/${providerSectionPath(sec)}` : '';
+    const mapped = sec ? providerSectionPath(sec) : '';
+    const secSuffix = mapped ? `/${mapped}` : '';
     return `/admin/providers/${encodeURIComponent(target)}${secSuffix}${suffix}`;
   }
 
@@ -163,7 +168,7 @@ export function resolveLegacyRedirectTarget(
       const nextSection = section === 'offers' ? 'models' : providerSectionPath(section);
       return `${
         provider
-          ? `/admin/providers/${encodeURIComponent(provider)}/${nextSection}`
+          ? `/admin/providers/${encodeURIComponent(provider)}${nextSection ? `/${nextSection}` : ''}`
           : '/admin/providers'
       }${sp.size ? '?' + sp.toString() : ''}${hash}`;
     }
@@ -172,7 +177,7 @@ export function resolveLegacyRedirectTarget(
       const providerId = params.providerId ?? decodeURIComponent(parts[2]);
       const actionSec = parts[3];
       if (actionSec === 'members') {
-        return `/admin/providers/${encodeURIComponent(providerId)}/members${suffix}`;
+        return `/admin/providers/${encodeURIComponent(providerId)}${suffix}`;
       }
       if (actionSec === 'offers') {
         const sp = new URLSearchParams(search);
@@ -190,7 +195,8 @@ export function resolveLegacyRedirectTarget(
     if (sub === 'suppliers' && parts.length >= 3) {
       const supplierId = params.supplierId ?? decodeURIComponent(parts[2]);
       const sec = params.section ?? (parts[3] ? decodeURIComponent(parts[3]) : '');
-      const secSuffix = sec ? `/${providerSectionPath(sec)}` : '';
+      const mapped = sec ? providerSectionPath(sec) : '';
+      const secSuffix = mapped ? `/${mapped}` : '';
       return `/admin/providers/${encodeURIComponent(supplierId)}${secSuffix}${suffix}`;
     }
   }

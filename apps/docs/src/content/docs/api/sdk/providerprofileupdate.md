@@ -13,6 +13,10 @@ export type ProviderProfileUpdate = {
     description?: string | null;
     website_url?: string | null;
     logo_url?: string | null;
+    model_access_mode?: ProviderModelAccessMode | null;
+    default_discount_bps?: number | null;
+    allowlisted_models?: string[] | null;
+    blocklisted_models?: string[] | null;
     expected_revision?: number | null;
 };
 ```

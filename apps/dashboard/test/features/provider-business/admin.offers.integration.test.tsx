@@ -46,14 +46,6 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
     const body = typeof init?.body === "string" ? JSON.parse(init.body) as Record<string, unknown> : undefined;
     requests.push({ path, method, body });
     if (path.startsWith("/api/v1/admin/providers/connections")) return Response.json({data:[]});
-    if (path === "/api/v1/members") return Response.json({ data: [
-      { id: "account-demo", name: "Demo", revoked: false },
-      { id: "account-revoked", name: "Revoked account", revoked: true },
-    ] });
-    if (path === `/api/v1/admin/providers/${supplierId}/members`) return Response.json({ data: [
-      { operator_id: "account-demo", name: "Demo", role: "manager", active: true, revoked: false },
-      { operator_id: "account-revoked", name: "Revoked account", role: "viewer", active: false, revoked: true },
-    ] });
 
     if (path === "/api/v1/admin/providers") {
       return Response.json({
@@ -124,54 +116,50 @@ describe("installation Provider commercial offer lifecycle", () => {
     expect(screen.queryByRole('button', {name: 'Set agreed rates'})).toBeNull();
     expect(screen.queryByText('example/model')).toBeNull();
   });
-  it("ignores a previous Provider save failure after navigation", async () => {
-    const { router } = setup("1000000000", false, false, "members");
+  it("ignores a previous Provider settlement save failure after navigating to another Provider", async () => {
+    const { router } = setup("1000000000", false, false, "settlements");
     const originalFetch = globalThis.fetch;
     let finish!: (response: Response) => void;
-    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => init?.method === "PUT"
-      ? new Promise<Response>(resolve => { finish = resolve; })
-      : originalFetch(input, init)));
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path.includes("/settlements/preview?")) return Promise.resolve(settlementPreview(path));
+      if (path.endsWith("/settlements") && init?.method === "POST") {
+        return new Promise<Response>(resolve => { finish = resolve; });
+      }
+      return originalFetch(input, init);
+    }));
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Edit access for Demo" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Save", exact: true }).hasAttribute("disabled")).toBe(false));
-    await user.click(screen.getByRole("button", { name: "Save", exact: true }));
-    await act(async () => { await router.navigate('/admin/providers/another-supplier/members'); });
+    await user.click(await screen.findByRole("button", { name: "Record payment" }));
+    const dialog = within(screen.getByRole("dialog"));
+    await dialog.findByText("Unpaid earnings included: 42");
+    await user.type(dialog.getByLabelText("External payment reference"), "October payout");
+    await user.click(dialog.getByRole("button", { name: "Record confirmed payment" }));
+    await act(async () => { await router.navigate('/admin/providers/another-supplier/settlements'); });
     await act(async () => { finish(Response.json({ error: { message: "Previous Provider save failed" } }, { status: 503 })); });
     expect(screen.queryByText("Previous Provider save failed")).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
   });
-  it("discards an open membership draft when the Provider changes", async () => {
-    const { router } = setup("1000000000", false, false, "members");
+  it("discards an open dialog when the Provider changes", async () => {
+    const { router } = setup("1000000000", false, false, "settlements");
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path.includes("/settlements/preview?")) return Promise.resolve(settlementPreview(path));
+      return originalFetch(input, init);
+    }));
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Edit access for Demo" }));
-    await screen.findByRole("dialog", { name: "Manage provider portal access" });
-    await act(async () => { await router.navigate('/admin/providers/another-supplier/members'); });
+    await user.click(await screen.findByRole("button", { name: "Record payment" }));
+    await screen.findByRole("dialog", { name: "Record a confirmed external payment" });
+    await act(async () => { await router.navigate('/admin/providers/another-supplier/settlements'); });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.queryByText("Provider configuration saved.")).toBeNull();
   });
-  it("shows named memberships and prefills existing access without exposing identifiers", async () => {
-    setup("1000000000", false, false, "members");
-    const user = userEvent.setup();
-    await screen.findByRole("button", { name: "Edit access for Demo" });
-    expect(screen.queryByText("account-demo")).toBeNull();
-    expect(screen.getByRole("button", { name: "Edit access for Revoked account" }).hasAttribute("disabled")).toBe(true);
-    await user.click(screen.getByRole("button", { name: "Edit access for Demo" }));
-    await waitFor(() => expect(screen.getByLabelText("Account").textContent).toContain("Demo"));
-    expect(screen.getByLabelText("Provider role").textContent).toContain("Manager");
-    expect(screen.getByLabelText("Access").textContent).toContain("Grant access");
-  });
-  it("selects an active account by name while retaining its identifier only in the request", async () => {
-    const { requests } = setup("1000000000", false, false, "members");
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Manage portal access" }));
-    await waitFor(() => expect(screen.getByLabelText("Account").hasAttribute("disabled")).toBe(false));
-    expect(screen.getByRole("button", { name: "Save", exact: true }).hasAttribute("disabled")).toBe(true);
-    await user.click(screen.getByLabelText("Account"));
-    expect(screen.queryByRole("menuitemradio", { name: "Revoked account" })).toBeNull();
-    expect(screen.queryByText("account-demo")).toBeNull();
-    await user.click(screen.getByRole("menuitemradio", { name: "Demo" }));
-    await user.click(screen.getByRole("button", { name: "Save", exact: true }));
-    await waitFor(() => expect(requests.some(item => item.path === `/api/v1/admin/providers/${supplierId}/members/account-demo` && item.method === "PUT")).toBe(true));
+  it("does not expose Provider member management or request Provider member endpoints", async () => {
+    const { requests } = setup("1000000000", false, false, "models");
+    await screen.findByText("example/model");
+    expect(screen.queryByRole("button", { name: /Manage.*membership/i })).toBeNull();
+    expect(screen.queryByText("No Provider members")).toBeNull();
+    expect(requests.some(item => item.path.includes("/members"))).toBe(false);
   });
   it("opens media rates publisher directly from video model row actions", async () => {
     const { requests } = setup("1000000000", false, true);

@@ -22,8 +22,9 @@ import ProviderEditor, { type ProviderConnectionCreate } from './ProviderEditor'
 import CredentialRequestLimit from './CredentialRequestLimit';
 import CredentialCooldown from './CredentialCooldown';
 
-export default function ProvidersView({ token, session, refreshWorkspace, catalogPath: _catalogPath = '/workspaces', providerSlug, fixedConnectionId, organizationId }: {
+export default function ProvidersView({ token, session, refreshWorkspace, catalogPath: _catalogPath = '/workspaces', providerSlug, fixedConnectionId, organizationId, embedded = false }: {
   catalogPath?: string;
+  embedded?: boolean;
   fixedConnectionId?: string;
   organizationId?: string;
   providerSlug?: string;
@@ -178,12 +179,21 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       setActiveConnectionId(result.data.id);
       invalidateForMutation(token, '/api/v1/admin/providers', 'POST');
       window.dispatchEvent(new Event('niu:provider-profile-updated'));
+      window.dispatchEvent(new Event('niu:provider-connections-updated'));
       try {
         await reloadConnections(signal, true);
       } catch {
         throw new Error('API key saved, but the Provider list could not be refreshed. Refresh the list to view it.');
       }
       if (signal.aborted || generation !== authGeneration.current) return;
+      if (embedded) {
+        try {
+          await request(token, `/api/v1/admin/providers/connections/${encodeURIComponent(result.data.id)}/import`, 'POST', {}, signal);
+          window.dispatchEvent(new Event('niu:provider-connections-updated'));
+        } catch {
+          // Catalog discovery is best-effort after saving the key; the models section exposes explicit retry.
+        }
+      }
       setNotice('API key saved and enabled.');
       void refreshWorkspace().catch(() => { /* Workspace refresh tracks its own catalog/session error state. */ });
     });
@@ -206,6 +216,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       setReconnectApiKey('');
       invalidateForMutation(token, '/api/v1/admin/providers', 'PUT');
       window.dispatchEvent(new Event('niu:provider-profile-updated'));
+      window.dispatchEvent(new Event('niu:provider-connections-updated'));
       setNotice(successMessage);
       void refreshWorkspace().catch(() => { /* Workspace refresh tracks its own catalog/session error state. */ });
     });
@@ -269,6 +280,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       invalidateForMutation(token, '/api/v1/admin/providers/connections', 'POST');
       invalidateForMutation(token, '/api/v1/admin/providers', 'POST');
       window.dispatchEvent(new Event('niu:provider-profile-updated'));
+      window.dispatchEvent(new Event('niu:provider-connections-updated'));
       await reloadConnections(undefined, true);
       setNotice('API key disconnected and credential erased.');
       void refreshWorkspace().catch(() => { /* Workspace refresh tracks its own catalog/session error state. */ });
@@ -312,29 +324,56 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   const disableRemaining = remainingActiveSiblings(disableTarget);
   const disconnectRemaining = remainingActiveSiblings(disconnectTarget);
 
-  return <section className="empty-region min-w-0 space-y-5">
-    <h2 className="sr-only">{uiT("API keys", "API 密钥")}</h2>
-    <PageHeader
-      title={uiT("API keys", "API 密钥")}
-      action={!fixedConnectionId && canManage && (
-        <div className="flex items-center gap-2">
-          <Button type="button" size="sm" variant="outline" disabled={busy || loadingConnections} onClick={() => void refreshConnections()}>
-            <IconRefresh size={15} aria-hidden="true" />
-            <span>{uiT("Refresh")}</span>
-          </Button>
-          <Button type="button" size="sm" onClick={() => { setError(''); setAddingConnection(true); }}>
-            <IconPlus size={15} aria-hidden="true" />
-            <span>{providerId ? uiT("Add API key") : uiT("Add provider")}</span>
-          </Button>
+  return <section className="empty-region min-w-0 space-y-4">
+    {embedded ? (
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h2 className="text-[15px] font-semibold">{uiT("API keys", "API 密钥")}</h2>
+          <p className="text-sm text-muted-foreground">
+            {uiT(
+              "Multiple enabled keys with the same API format and base URL automatically share models, load-balance traffic, and fail over on cooldown or rate limits.",
+              "相同 API 格式与接口地址的多个已启用密钥会自动共享模型、轮询负载均衡，并在冷却或限流时自动故障切换。",
+            )}
+          </p>
         </div>
-      )}
-    />
-    <p className="text-sm text-muted-foreground">
-      {uiT(
-        "Step 1: connect or enable upstream API keys for this Provider. Multiple enabled keys with the same API format and base URL automatically share models, load-balance traffic, and fail over on cooldown, rate limits, or disable.",
-        "第一步：连接或启用此供应商的上游 API 密钥。相同 API 格式与接口地址的多个已启用密钥会自动共享模型列表、轮询负载均衡，并在冷却、限流或停用时自动故障切换。",
-      )}
-    </p>
+        {!fixedConnectionId && canManage && (
+          <div className="flex items-center gap-2">
+            <Button type="button" size="icon-sm" variant="ghost" aria-label={uiT("Refresh API keys", "刷新 API 密钥")} title={uiT("Refresh API keys", "刷新 API 密钥")} disabled={busy || loadingConnections} onClick={() => void refreshConnections()}>
+              <IconRefresh size={15} className={loadingConnections ? 'animate-spin' : undefined} aria-hidden="true" />
+            </Button>
+            <Button type="button" size="sm" variant={connections.some(c => c.enabled && c.has_credential) ? 'outline' : 'default'} onClick={() => { setError(''); setAddingConnection(true); }}>
+              <IconPlus size={15} aria-hidden="true" />
+              <span>{providerId ? uiT("Add API key") : uiT("Add provider")}</span>
+            </Button>
+          </div>
+        )}
+      </div>
+    ) : (
+      <>
+        <h2 className="sr-only">{uiT("API keys", "API 密钥")}</h2>
+        <PageHeader
+          title={uiT("API keys", "API 密钥")}
+          action={!fixedConnectionId && canManage && (
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" variant="outline" disabled={busy || loadingConnections} onClick={() => void refreshConnections()}>
+                <IconRefresh size={15} aria-hidden="true" />
+                <span>{uiT("Refresh")}</span>
+              </Button>
+              <Button type="button" size="sm" onClick={() => { setError(''); setAddingConnection(true); }}>
+                <IconPlus size={15} aria-hidden="true" />
+                <span>{providerId ? uiT("Add API key") : uiT("Add provider")}</span>
+              </Button>
+            </div>
+          )}
+        />
+        <p className="text-sm text-muted-foreground">
+          {uiT(
+            "Step 1: connect or enable upstream API keys for this Provider. Multiple enabled keys with the same API format and base URL automatically share models, load-balance traffic, and fail over on cooldown, rate limits, or disable.",
+            "第一步：连接或启用此供应商的上游 API 密钥。相同 API 格式与接口地址的多个已启用密钥会自动共享模型列表、轮询负载均衡，并在冷却、限流或停用时自动故障切换。",
+          )}
+        </p>
+      </>
+    )}
     {notice && <p role="status" className="text-sm text-foreground">{uiT(notice)}</p>}
     {error && !addingConnection && !editingConnection && !reconnectingConnection && (
       <Alert variant="destructive">
@@ -420,7 +459,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
                     </Button>
                   ) : (
                     <>
-                      {modelsHref && (
+                      {!embedded && modelsHref && (
                         <Button asChild size="sm">
                           <Link to={modelsHref}>{uiT("Select models", "选择可用模型")}</Link>
                         </Button>

@@ -107,28 +107,27 @@ export default function ProviderSettings() {
     } }
     finally { if (!controller.signal.aborted) setBusy(false); }
   }
-  return <section className="supplier-settings space-y-6 py-6">
-    <div className="supplier-section-heading"><h2>{uiT("Settings")}</h2><p>{uiT("Manage this provider’s identity and business information.")}</p></div>
-    {loading && !profile ? <FormSectionSkeleton fields={4} label={uiT("Loading provider details…")} /> : !profile ? <div><p role="alert">{uiT(error)}</p><Button variant="outline" onClick={() => setReload(value => value + 1)}>{uiT("Retry")}</Button></div> :
-      <div className="space-y-5 rounded-[var(--radius-panel)] bg-card p-5">
+  return <section className="supplier-settings space-y-4" aria-label={uiT("Business profile")}>
+    {loading && !profile ? <FormSectionSkeleton fields={3} label={uiT("Loading provider details…")} /> : !profile ? <div className="space-y-2"><p role="alert" className="text-sm text-destructive">{uiT(error)}</p><Button variant="outline" size="sm" onClick={() => setReload(value => value + 1)}>{uiT("Retry")}</Button></div> :
+      <div className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
-            <h3 className="font-medium">{uiT("Business profile")}</h3>
-            <p className="text-sm text-muted-foreground">{uiT("These details identify the provider. API endpoints and credentials are managed in API keys.")}</p>
+            <h2 className="text-[15px] font-semibold">{uiT("Business profile")}</h2>
+            <p className="text-sm text-muted-foreground">{uiT("Manage this provider’s identity, website, and default upstream integration.")}</p>
           </div>
           <Button ref={editBtnRef} type="button" variant="outline" size="sm" onClick={openEditDialog}>
             {uiT('Edit profile', '编辑资料')}
           </Button>
         </div>
         <div className="flex flex-wrap items-start gap-5">
-          <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted" aria-label={uiT("Provider logo preview")}>
+          <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted" aria-label={uiT("Provider logo preview")}>
             {profile.logo_url && /^https?:\/\//i.test(profile.logo_url) && !savedLogoBroken ? (
               <img src={providerLogoSource(profile.logo_url)} alt={uiT("Provider logo")} className={`size-full object-contain${providerLogoIsMonochrome(profile.logo_url) ? ' dark:invert' : ''}`} referrerPolicy="no-referrer" onError={() => setSavedLogoBroken(true)} />
             ) : (
-              <IconPlugConnected className="size-6 text-muted-foreground" aria-hidden="true" />
+              <IconPlugConnected className="size-5 text-muted-foreground" aria-hidden="true" />
             )}
           </div>
-          <dl className="grid min-w-0 flex-1 gap-4 text-sm sm:grid-cols-2">
+          <dl className="grid min-w-0 flex-1 gap-4 text-sm sm:grid-cols-3">
             <div className="min-w-0">
               <dt className="text-xs text-muted-foreground">{uiT("Name")}</dt>
               <dd className="mt-1 font-medium break-words">{profile.name}</dd>
@@ -137,13 +136,14 @@ export default function ProviderSettings() {
               <dt className="text-xs text-muted-foreground">{uiT("Website URL")}</dt>
               <dd className="mt-1 break-all text-muted-foreground">{profile.website_url || uiT('Not set', '未设置')}</dd>
             </div>
-            <div className="min-w-0 sm:col-span-2">
+            <div className="min-w-0">
               <dt className="text-xs text-muted-foreground">{uiT("Description")}</dt>
               <dd className="mt-1 whitespace-pre-wrap text-muted-foreground">{profile.description || uiT('No description', '暂无描述')}</dd>
             </div>
           </dl>
         </div>
         {saved && <p role="status" className="text-sm text-muted-foreground">{uiT("Provider details saved.")}</p>}
+        {canManageIntegration && <IntegrationSettings compact key={`${token}:${activeProviderId}`} token={token} resource="providers" id={activeProviderId} />}
       </div>}
     <Dialog open={editOpen && Boolean(profile)} onOpenChange={open => { if (!open) closeEditDialog(); }}>
       <DialogContent
@@ -203,6 +203,5 @@ export default function ProviderSettings() {
         )}
       </DialogContent>
     </Dialog>
-    {canManageIntegration && <IntegrationSettings key={`${token}:${activeProviderId}`} token={token} resource="providers" id={activeProviderId} />}
   </section>;
 }

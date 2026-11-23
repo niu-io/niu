@@ -80,6 +80,21 @@ Content type: `application/json`.
             "type": "string",
             "description": "Saved Provider logo URL; empty uses the default logo."
           },
+          "model_access_mode": {
+            "type": "string",
+            "enum": [
+              "all",
+              "allowlist",
+              "blocklist"
+            ],
+            "description": "Provider model availability policy: all (default), allowlist or blocklist."
+          },
+          "default_discount_bps": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 100000,
+            "description": "Default purchase rate percentage in basis points (10000 = 100%, no discount)."
+          },
           "api_keys": {
             "type": "integer",
             "minimum": 0

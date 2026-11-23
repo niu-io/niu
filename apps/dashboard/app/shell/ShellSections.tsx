@@ -183,11 +183,10 @@ export function ShellSidebar({
 
 export function AdminProviderTabs({
   adminSupplierId,
-  operatingMode,
   gatewayStatus,
 }: {
   adminSupplierId: string;
-  operatingMode: string | undefined;
+  operatingMode?: string | undefined;
   gatewayStatus: GatewayStatus;
 }) {
   const { t } = useLocale();
@@ -208,8 +207,8 @@ export function AdminProviderTabs({
     return () => observer.disconnect();
   }, [location.pathname, gatewayStatus]);
 
-  const rawSection = location.pathname.split('/')[4] || 'models';
-  const activeTab = rawSection === 'keys' || rawSection === 'settings' ? rawSection : 'models';
+  const rawSection = location.pathname.split('/')[4] || 'config';
+  const activeTab = rawSection === 'usage' || rawSection === 'settlements' ? 'usage' : 'config';
 
   return (
     <Tabs
@@ -217,7 +216,7 @@ export function AdminProviderTabs({
       onValueChange={section =>
         navigate(
           `/admin/providers/${encodeURIComponent(adminSupplierId)}${
-            section === 'models' ? '' : '/' + section
+            section === 'config' ? '' : '/' + section
           }`,
         )
       }
@@ -226,12 +225,11 @@ export function AdminProviderTabs({
       <div ref={supplierTabsRef} className="max-w-full overflow-x-auto overflow-y-hidden">
         <TabsList variant="line" aria-label={t('Provider sections', '供应商详情分区')}>
           {[
-            ['models', operatingMode === 'internal' ? t('Models', '模型') : t('Models & discounts', '模型与折扣')],
-            ['keys', t('API keys', 'API 密钥')],
-            ['settings', t('Settings', '基本资料')],
+            ['config', t('Configuration', '配置')],
+            ['usage', t('Analytics', '统计')],
           ].map(([value, label]) => {
             const tabPath = `/admin/providers/${encodeURIComponent(adminSupplierId)}${
-              value === 'models' ? '' : '/' + value
+              value === 'config' ? '' : '/' + value
             }`;
             return (
               <TabsTrigger

@@ -27,6 +27,7 @@ export function ProviderModelEditorDialog({
   connections,
   editor,
   openerRef,
+  inline = false,
   onChangeConnection,
   onClose,
   onSave,
@@ -37,6 +38,7 @@ export function ProviderModelEditorDialog({
   connections: ProviderConnection[];
   editor: ModelEditorTarget | null;
   openerRef: React.RefObject<HTMLElement | null>;
+  inline?: boolean;
   onChangeConnection: (connectionId: string) => void;
   onClose: () => void;
   onSave: (input: ModelWrite) => Promise<void>;
@@ -84,6 +86,55 @@ export function ProviderModelEditorDialog({
     } finally {
       if (!controller.signal.aborted) setCatalogLoading(false);
     }
+  }
+
+  if (inline) {
+    if (!editor || !selectedConnection) return null;
+    return (
+      <div className="space-y-4">
+        <div className={videoSubViewOpen ? 'sr-only' : 'space-y-1'}>
+          <h3 className="text-base font-semibold">{editor.model ? uiF('Edit {0}', [editor.model.alias]) : uiT('Add model')}</h3>
+          <p className="text-sm text-muted-foreground">{editor.model ? uiF('API key: {0}', [selectedConnection.name || uiT('Unnamed API key')]) : uiT('Choose a saved API key and upstream model.', '选择 API 密钥和上游模型。')}</p>
+        </div>
+        <ModelMappingForm
+          key={`${selectedConnection.id}:${editor.model?.alias ?? 'new'}`}
+          connectionField={!editor.model && <div className="grid gap-2"><Label htmlFor="mapping-connection">{uiT('Provider API key')}</Label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button id="mapping-connection" className="justify-between" variant="outline" disabled={busy}>
+                    {selectedConnection.name || uiT('Unnamed API key')}
+                    <IconChevronDown size={16} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuRadioGroup value={selectedConnection.id} onValueChange={onChangeConnection}>
+                    {connections.map(connection => (
+                      <DropdownMenuRadioItem key={connection.id} value={connection.id}>
+                        {connection.name || uiT('Unnamed API key')}
+                        {!connection.enabled ? uiT('· Disabled') : ''}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+          </div>}
+          withinModal
+          onSubViewChange={setVideoSubViewOpen}
+          initialAlias={editor.initialAlias}
+          adapter={selectedConnection.adapter}
+          ownerFunded={selectedConnection.owner_funded}
+          accessScope={selectedConnection.access_scope}
+          model={editor.model}
+          catalog={catalog}
+          catalogLoading={catalogLoading}
+          catalogError={catalogError}
+          onRetryCatalog={() => void loadCatalog()}
+          disabled={busy}
+          onCancel={() => { setVideoSubViewOpen(false); onClose(); }}
+          onSave={onSave}
+        />
+      </div>
+    );
   }
 
   return (

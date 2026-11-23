@@ -2,7 +2,7 @@
   "note": "Modules above the 800-line reviewability threshold. Split by domain or record a reviewable reason. Regenerate with: pnpm --dir apps/dashboard exec node scripts/check-module-size.mjs --update-baseline",
   "exceptions": {
     "app/shell/locale-messages.ts": {
-      "lines": 5167,
+      "lines": 5190,
       "reason": "Data-only system UI message table. Entries are append-only translations reviewed by check:i18n; splitting would add import indirection without reducing the review surface."
     },
     "app/features/route-pools/page.tsx": {
@@ -34,8 +34,8 @@
       "reason": "Shared cache core owns authority isolation, request generations and invalidation. Splitting would scatter a single consistency contract; keep as one reviewed module."
     },
     "app/features/provider-business/admin.tsx": {
-      "lines": 971,
-      "reason": "Provider business administration view. Split pending with provider domain modules under niu-4rp.15. Simplified default route to Models & discounts."
+      "lines": 850,
+      "reason": "Provider business administration view. Split pending with provider domain modules under niu-4rp.15. Unified Analytics view after retiring Provider members."
     },
     "app/features/evaluations/page.tsx": {
       "lines": 901,

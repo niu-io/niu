@@ -844,9 +844,18 @@ impl Store {
         if current != Some(expected_revision) {
             return Err(StoreError::Conflict);
         }
-        let (owner_funded, personal_only): (bool, bool) = sqlx::query_as(
+        let (owner_funded, personal_only, access_mode, allowlisted, blocklisted): (
+            bool,
+            bool,
+            String,
+            Vec<String>,
+            Vec<String>,
+        ) = sqlx::query_as(
             "SELECT EXISTS(SELECT 1 FROM personal_vendor_ownership WHERE vendor_id=$1), \
-                    EXISTS(SELECT 1 FROM personal_vendor_ownership WHERE vendor_id=$1 AND access_scope='personal')",
+                    EXISTS(SELECT 1 FROM personal_vendor_ownership WHERE vendor_id=$1 AND access_scope='personal'), \
+                    COALESCE((SELECT p.model_access_mode FROM vendor_supplier_ownership o JOIN provider_businesses p ON p.id=o.provider_id WHERE o.vendor_id=$1), 'all'), \
+                    COALESCE((SELECT p.allowlisted_models FROM vendor_supplier_ownership o JOIN provider_businesses p ON p.id=o.provider_id WHERE o.vendor_id=$1), '{}'::text[]), \
+                    COALESCE((SELECT p.blocklisted_models FROM vendor_supplier_ownership o JOIN provider_businesses p ON p.id=o.provider_id WHERE o.vendor_id=$1), '{}'::text[])",
         )
         .bind(vendor)
         .fetch_one(&mut *tx)
@@ -860,6 +869,11 @@ impl Store {
         }
         let mut inserted = 0;
         for entry in entries {
+            let policy_enabled = match access_mode.as_str() {
+                "allowlist" => allowlisted.iter().any(|item| item == &entry.alias),
+                "blocklist" => !blocklisted.iter().any(|item| item == &entry.alias),
+                _ => true,
+            };
             let result = sqlx::query(
                 "INSERT INTO vendor_models(alias,vendor_id,upstream_model,public_catalog,enabled,capabilities,pricing) \
                  SELECT $1,$2,$3,$4,$5,$6,NULL \
@@ -869,7 +883,7 @@ impl Store {
                        AND niu_vendor_serves_model($2, existing.alias) \
                  )",
             )
-                .bind(&entry.alias).bind(vendor).bind(&entry.upstream_model).bind(publish_public_catalog).bind(entry.enabled && owner_funded).bind(entry.capabilities)
+                .bind(&entry.alias).bind(vendor).bind(&entry.upstream_model).bind(publish_public_catalog).bind(entry.enabled && owner_funded && policy_enabled).bind(entry.capabilities)
                 .execute(&mut *tx).await.map_err(map_vendor_write_error)?;
             if result.rows_affected() > 0 {
                 insert_audit(

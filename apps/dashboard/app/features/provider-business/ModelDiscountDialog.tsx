@@ -3,7 +3,7 @@ import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { amountFromNanos } from '@/lib/money';
@@ -31,6 +31,7 @@ export type SingleModelPricingSubmit = {
 
 export function ModelDiscountDialog({
   open,
+  inline = false,
   alias,
   upstreamModel,
   currency,
@@ -47,6 +48,7 @@ export function ModelDiscountDialog({
   onSubmit,
 }: {
   open: boolean;
+  inline?: boolean;
   alias: string;
   upstreamModel?: string;
   currency: string;
@@ -129,30 +131,20 @@ export function ModelDiscountDialog({
     });
   }
 
-  return (
-    <Dialog open={open} onOpenChange={next => { if (!next && !busy) onClose(); }}>
-      <DialogContent
-        className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
-        onCloseAutoFocus={event => {
-          if (openerRef.current?.isConnected) {
-            event.preventDefault();
-            openerRef.current.focus();
-          }
-        }}
-      >
-        <DialogHeader>
-          <DialogTitle>
-            {enabling
-              ? uiT('Enable model & set discount', '启用模型并设置折扣')
-              : uiT('Set discount & pricing', '设置模型折扣与价格')}
-          </DialogTitle>
-          <DialogDescription>
-            <span className="font-mono text-foreground">{alias}</span>
-            {upstreamModel && upstreamModel !== alias ? ` (${upstreamModel})` : ''}
-          </DialogDescription>
-        </DialogHeader>
+  if (!open) return null;
 
-        <form onSubmit={event => void handleSubmit(event)} className="space-y-4">
+  const titleText = enabling
+    ? uiT('Enable model & set discount', '启用模型并设置折扣')
+    : uiT('Set discount & pricing', '设置模型折扣与价格');
+  const subtitleNode = (
+    <>
+      <span className="font-mono text-foreground">{alias}</span>
+      {upstreamModel && upstreamModel !== alias ? ` (${upstreamModel})` : ''}
+    </>
+  );
+
+  const formContent = (
+    <form onSubmit={event => void handleSubmit(event)} className="space-y-4">
           {upstreamHint && upstreamHint.currency !== currency && (
             <Alert>
               <AlertDescription className="text-xs">
@@ -293,7 +285,7 @@ export function ModelDiscountDialog({
             </Alert>
           )}
 
-          <DialogFooter>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
               {uiT('Cancel')}
             </Button>
@@ -304,8 +296,38 @@ export function ModelDiscountDialog({
                   ? uiT('Save & enable', '保存并启用')
                   : uiT('Save & apply', '保存并生效')}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
+  );
+
+  if (inline) {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <h3 className="text-base font-semibold">{titleText}</h3>
+          <p className="text-sm text-muted-foreground">{subtitleNode}</p>
+        </div>
+        {formContent}
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={next => { if (!next && !busy) onClose(); }}>
+      <DialogContent
+        className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
+        onCloseAutoFocus={event => {
+          if (openerRef.current?.isConnected) {
+            event.preventDefault();
+            openerRef.current.focus();
+          }
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>{titleText}</DialogTitle>
+          <DialogDescription>{subtitleNode}</DialogDescription>
+        </DialogHeader>
+        {formContent}
       </DialogContent>
     </Dialog>
   );
@@ -313,6 +335,7 @@ export function ModelDiscountDialog({
 
 export function BatchDiscountDialog({
   open,
+  inline = false,
   currency,
   eligibleCount,
   skippedCount,
@@ -322,6 +345,7 @@ export function BatchDiscountDialog({
   onSubmit,
 }: {
   open: boolean;
+  inline?: boolean;
   currency: string;
   eligibleCount: number;
   skippedCount: number;
@@ -347,15 +371,9 @@ export function BatchDiscountDialog({
     await onSubmit(discountPercent);
   }
 
-  return (
-    <Dialog open={open} onOpenChange={next => { if (!next && !busy) onClose(); }}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{uiT('Set discount in bulk', '批量设置折扣')}</DialogTitle>
-          <DialogDescription>
-            {uiF('Apply one discount percentage off upstream standard prices to {0} selected models and activate them immediately.', [eligibleCount])}
-          </DialogDescription>
-        </DialogHeader>
+  if (!open) return null;
+
+  const batchForm = (
         <form onSubmit={event => void handleSubmit(event)} className="space-y-4">
           {skippedCount > 0 && (
             <Alert>
@@ -395,7 +413,7 @@ export function BatchDiscountDialog({
               <AlertDescription>{validationError || uiT(error)}</AlertDescription>
             </Alert>
           )}
-          <DialogFooter>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
               {uiT('Cancel')}
             </Button>
@@ -404,8 +422,34 @@ export function BatchDiscountDialog({
                 ? uiT('Applying…', '应用中…')
                 : uiF('Apply to {0} models', [eligibleCount])}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
+  );
+
+  if (inline) {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <h3 className="text-base font-semibold">{uiT('Set discount in bulk', '批量设置折扣')}</h3>
+          <p className="text-sm text-muted-foreground">
+            {uiF('Apply one discount percentage off upstream standard prices to {0} selected models and activate them immediately.', [eligibleCount])}
+          </p>
+        </div>
+        {batchForm}
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={next => { if (!next && !busy) onClose(); }}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{uiT('Set discount in bulk', '批量设置折扣')}</DialogTitle>
+          <DialogDescription>
+            {uiF('Apply one discount percentage off upstream standard prices to {0} selected models and activate them immediately.', [eligibleCount])}
+          </DialogDescription>
+        </DialogHeader>
+        {batchForm}
       </DialogContent>
     </Dialog>
   );

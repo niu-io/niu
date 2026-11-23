@@ -191,6 +191,26 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(retailPage).toContain('Publication note:');
     expect(retailPage).not.toMatch(/<\/DialogHeader>\s*<Button[^>]*>[^<]*Refresh history/);
   });
+
+  it('enforces the two-tab Provider detail (Configuration | Analytics), default-collapsed model policy, and zero Provider member UI', () => {
+    const shellSections = readFileSync(join(appDir, 'shell/ShellSections.tsx'), 'utf8');
+    expect(shellSections).not.toMatch(/\['members',\s*t\(/);
+    expect(shellSections).toContain("['config', t('Configuration', '配置')]");
+    expect(shellSections).toContain("['usage', t('Analytics', '统计')]");
+    const providerSettings = readFileSync(join(appDir, 'features/provider-business/ProviderSettings.tsx'), 'utf8');
+    expect(providerSettings).not.toContain('../members');
+    expect(providerSettings).not.toContain('Provider members');
+    const providerAdmin = readFileSync(join(appDir, 'features/provider-business/admin.tsx'), 'utf8');
+    expect(providerAdmin).not.toContain('/members');
+    expect(providerAdmin).not.toContain('Manage Provider membership');
+    expect(providerAdmin).not.toContain('No Provider members');
+    const providerConfig = readFileSync(join(appDir, 'features/provider-business/ProviderConfigurationPage.tsx'), 'utf8');
+    expect(providerConfig).toContain('<ProviderSettings');
+    expect(providerConfig).toContain('<ProvidersView');
+    expect(providerConfig).toContain('<ProviderModelPolicySection');
+    const providerList = readFileSync(join(appDir, 'features/providers/ProviderList.tsx'), 'utf8');
+    expect(providerList).not.toMatch(/API keys, (?:models|offers), or members/);
+  });
 });
 
 it('keeps model mapping actions outside the scrollable advanced settings', () => {

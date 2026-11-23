@@ -82,6 +82,10 @@ Content type: `application/json`.
         "description",
         "website_url",
         "logo_url",
+        "model_access_mode",
+        "default_discount_bps",
+        "allowlisted_models",
+        "blocklisted_models",
         "id",
         "revision",
         "slug"
@@ -98,6 +102,35 @@ Content type: `application/json`.
         },
         "logo_url": {
           "type": "string"
+        },
+        "model_access_mode": {
+          "type": "string",
+          "enum": [
+            "all",
+            "allowlist",
+            "blocklist"
+          ],
+          "description": "Provider model availability policy: all (default), allowlist or blocklist."
+        },
+        "default_discount_bps": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 100000,
+          "description": "Default purchase rate percentage in basis points (10000 = 100%, no discount)."
+        },
+        "allowlisted_models": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Explicitly enabled model aliases when model_access_mode is allowlist."
+        },
+        "blocklisted_models": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Explicitly excluded model aliases when model_access_mode is blocklist."
         },
         "id": {
           "type": "string",

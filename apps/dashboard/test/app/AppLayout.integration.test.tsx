@@ -125,7 +125,7 @@ describe('dashboard route layout', () => {
     const router = renderAt(`/admin/providers/${id}/settings?view=general#profile`);
     await screen.findByRole('heading', { name: 'Business profile' });
     expect(screen.getByRole('button', { name: 'Edit profile' })).toBeTruthy();
-    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-provider/settings'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-provider'));
     expect(router.state.location.search).toBe('?view=general');
     expect(router.state.location.hash).toBe('#profile');
     expect(calls).toContain(`/api/v1/admin/providers/${id}`);
@@ -143,9 +143,11 @@ describe('dashboard route layout', () => {
     expect(breadcrumb.queryByText('Admin')).toBeNull();
     expect(breadcrumb.getByRole('link', {name:'Providers'}).getAttribute('href')).toBe('/admin/providers');
     const tabs = await screen.findByRole('tablist', { name: 'Provider sections' });
-    await user.click(within(tabs).getByRole('tab', { name: 'API keys' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-supplier/keys'));
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'API keys' }).getAttribute('aria-selected')).toBe('true'));
+    expect(within(tabs).queryByRole('tab', { name: 'Members' })).toBeNull();
+    expect(within(tabs).getByRole('tab', { name: 'Configuration' }).getAttribute('aria-selected')).toBe('true');
+    await user.click(within(tabs).getByRole('tab', { name: 'Analytics' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-supplier/usage'));
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Analytics' }).getAttribute('aria-selected')).toBe('true'));
     await user.click(within(navigation).getByRole('link', { name: 'Settings' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/settings'));
     await waitFor(() => expect(screen.queryByRole('tablist', { name: 'Provider sections' })).toBeNull());

@@ -1089,3 +1089,129 @@ async fn supplier_configuration_counts_do_not_confuse_saved_disabled_and_qualifi
     assert_eq!(setup["ready_offers"], 0);
     assert_eq!(setup["enabled_model_routes"], 0);
 }
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL"]
+async fn provider_model_policy_defaults_validation_and_discovery_filtering(pool: PgPool) {
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool.clone());
+    let scope = store.default_workspace().await.unwrap();
+    let supplier = store
+        .create_provider_business("Qiniu Policy Test")
+        .await
+        .unwrap();
+
+    let profile = store.supplier_profile(supplier).await.unwrap().unwrap();
+    assert_eq!(profile.model_access_mode, "all");
+    assert_eq!(profile.default_discount_bps, 10000);
+    assert!(profile.allowlisted_models.is_empty());
+    assert!(profile.blocklisted_models.is_empty());
+
+    assert!(matches!(
+        store
+            .update_supplier_profile(
+                supplier,
+                &niu_storage::SupplierProfileUpdate {
+                    name: profile.name.clone(),
+                    model_access_mode: Some("invalid-mode".into()),
+                    ..Default::default()
+                },
+            )
+            .await,
+        Err(StoreError::InvalidAccount)
+    ));
+    assert!(matches!(
+        store
+            .update_supplier_profile(
+                supplier,
+                &niu_storage::SupplierProfileUpdate {
+                    name: profile.name.clone(),
+                    default_discount_bps: Some(0),
+                    ..Default::default()
+                },
+            )
+            .await,
+        Err(StoreError::InvalidAccount)
+    ));
+
+    let updated = store
+        .update_supplier_profile(
+            supplier,
+            &niu_storage::SupplierProfileUpdate {
+                name: profile.name.clone(),
+                model_access_mode: Some("blocklist".into()),
+                default_discount_bps: Some(8500),
+                allowlisted_models: Some(vec![" z-model ".into(), "a-model".into(), "a-model".into()]),
+                blocklisted_models: Some(vec!["blocked/model".into()]),
+                expected_revision: Some(profile.revision),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(updated.model_access_mode, "blocklist");
+    assert_eq!(updated.default_discount_bps, 8500);
+    assert_eq!(updated.allowlisted_models, vec!["a-model", "z-model"]);
+    assert_eq!(updated.blocklisted_models, vec!["blocked/model"]);
+
+    let directory = store.provider_businesses().await.unwrap();
+    let row = directory
+        .iter()
+        .find(|item| item["id"] == supplier.to_string())
+        .unwrap();
+    assert_eq!(row["model_access_mode"], "blocklist");
+    assert_eq!(row["default_discount_bps"], 8500);
+
+    let vendor = store
+        .create_vendor_with_access_scope(
+            niu_storage::VendorInput {
+                id: Uuid::new_v4(),
+                name: "Qiniu Internal".into(),
+                adapter: "openai".into(),
+                api_base: "https://api.qnaigc.com/v1".into(),
+                enabled: true,
+                credential_ciphertext: vec![7u8; 48],
+            },
+            false,
+            Some(supplier),
+            Some(scope.organization_id),
+            niu_storage::VendorAccessScope::Internal,
+        )
+        .await
+        .unwrap();
+
+    let imported = store
+        .import_discovered_vendor_models(
+            vendor.id,
+            vendor.revision,
+            vec![
+                niu_storage::VendorModelInput {
+                    alias: "allowed/model".into(),
+                    upstream_model: "allowed/model".into(),
+                    public_catalog: false,
+                    enabled: true,
+                    capabilities: json!({"chat": true}),
+                    pricing: None,
+                    expected_revision: None,
+                },
+                niu_storage::VendorModelInput {
+                    alias: "blocked/model".into(),
+                    upstream_model: "blocked/model".into(),
+                    public_catalog: false,
+                    enabled: true,
+                    capabilities: json!({"chat": true}),
+                    pricing: None,
+                    expected_revision: None,
+                },
+            ],
+        )
+        .await
+        .unwrap();
+    assert_eq!(imported, 2);
+
+    let models = store.vendor_models(vendor.id).await.unwrap();
+    let allowed = models.iter().find(|m| m.alias == "allowed/model").unwrap();
+    let blocked = models.iter().find(|m| m.alias == "blocked/model").unwrap();
+    assert!(allowed.enabled);
+    assert!(!blocked.enabled);
+}

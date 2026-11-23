@@ -1,6 +1,7 @@
 import { request, type ProviderConnection, type ProviderModel } from '@/features/providers/api';
 import type { ProviderOffer, RetailPriceRecord } from '@niu-io/sdk/admin';
 import {
+  applyDiscountNanos,
   inferDiscountPercent,
   lookupUpstreamPrice,
   type UpstreamStandardPrice,
@@ -254,4 +255,152 @@ export async function enableInternalProviderModel(
       expected_revision: targetRoute.model.revision,
     },
   );
+}
+
+export type PolicySyncMode = 'all' | 'allowlist' | 'blocklist';
+
+export async function syncProviderPolicyModels({
+  token,
+  providerId,
+  mode,
+  defaultDiscountBps,
+  allowlistedModels,
+  blocklistedModels,
+  commercialEnabled,
+  platformCurrency,
+  connections,
+  rows,
+  updateExistingDiscounts = false,
+}: {
+  token: string;
+  providerId: string;
+  mode: PolicySyncMode;
+  defaultDiscountBps: number;
+  allowlistedModels: string[];
+  blocklistedModels: string[];
+  commercialEnabled: boolean;
+  platformCurrency: string;
+  connections: ProviderConnection[];
+  rows: ResolvedModelRow[];
+  updateExistingDiscounts?: boolean;
+}): Promise<{ activated: number; disabled: number; skippedUnpriced: number; failures: string[] }> {
+  const allowSet = new Set(allowlistedModels);
+  const blockSet = new Set(blocklistedModels);
+  const discountPercent = defaultDiscountBps / 100;
+  let activated = 0;
+  let disabled = 0;
+  let skippedUnpriced = 0;
+  const failures: string[] = [];
+
+  const tasks: Array<() => Promise<void>> = [];
+
+  for (const row of rows) {
+    const isMedia =
+      row.offer?.rate_kind === 'media' ||
+      row.routes.some(r => Boolean(r.model.capabilities?.video_schema));
+    const shouldEnable =
+      mode === 'all'
+        ? true
+        : mode === 'blocklist'
+          ? !blockSet.has(row.alias)
+          : allowSet.has(row.alias);
+
+    if (!shouldEnable) {
+      const anyEnabled = row.isActive || row.routes.some(r => r.model.enabled);
+      if (anyEnabled) {
+        tasks.push(async () => {
+          try {
+            await disableProviderModel({ token, providerId, info: row });
+            disabled += 1;
+          } catch (reason) {
+            failures.push(`${row.alias}: ${reason instanceof Error ? reason.message : 'disable failed'}`);
+          }
+        });
+      }
+      continue;
+    }
+
+    const targetRoute =
+      row.routes.find(r => hasEnabledPoolKey(r.connection, connections)) ?? row.primary;
+    if (!targetRoute || !hasEnabledPoolKey(targetRoute.connection, connections)) continue;
+
+    if (!commercialEnabled) {
+      if (!row.isActive) {
+        tasks.push(async () => {
+          try {
+            await enableInternalProviderModel(token, targetRoute);
+            activated += 1;
+          } catch (reason) {
+            failures.push(`${row.alias}: ${reason instanceof Error ? reason.message : 'enable failed'}`);
+          }
+        });
+      }
+      continue;
+    }
+
+    if (isMedia) continue;
+    if (!platformCurrency) continue;
+
+    const stdIn = row.stdInputNanos;
+    const stdOut = row.stdOutputNanos;
+    const hasPositiveStd =
+      stdIn !== null &&
+      stdOut !== null &&
+      (BigInt(stdIn) > 0n || BigInt(stdOut) > 0n);
+
+    if (!hasPositiveStd || stdIn === null || stdOut === null) {
+      if (!row.isActive) skippedUnpriced += 1;
+      continue;
+    }
+
+    const alreadyMatchesDiscount =
+      row.isActive &&
+      row.discountPercent !== null &&
+      Math.abs(row.discountPercent - discountPercent) < 0.05;
+
+    if (row.isActive && (!updateExistingDiscounts || alreadyMatchesDiscount)) {
+      continue;
+    }
+
+    tasks.push(async () => {
+      try {
+        await activateProviderModel({
+          token,
+          providerId,
+          commercialEnabled,
+          platformCurrency,
+          info: row,
+          connections,
+          pricing: {
+            standardInputNanos: stdIn,
+            standardOutputNanos: stdOut,
+            standardCachedInputNanos: row.stdCachedNanos,
+            discountPercent,
+            purchaseInputNanos: applyDiscountNanos(stdIn, discountPercent),
+            purchaseOutputNanos: applyDiscountNanos(stdOut, discountPercent),
+            purchaseCachedInputNanos: row.stdCachedNanos
+              ? applyDiscountNanos(row.stdCachedNanos, discountPercent)
+              : null,
+            updateCustomerPrice: !row.retail,
+          },
+        });
+        activated += 1;
+      } catch (reason) {
+        failures.push(`${row.alias}: ${reason instanceof Error ? reason.message : 'activate failed'}`);
+      }
+    });
+  }
+
+  const concurrency = Math.min(6, tasks.length);
+  let cursor = 0;
+  await Promise.all(
+    Array.from({ length: concurrency }, async () => {
+      while (cursor < tasks.length) {
+        const index = cursor++;
+        await tasks[index]();
+      }
+    }),
+  );
+
+  return { activated, disabled, skippedUnpriced, failures };
 }

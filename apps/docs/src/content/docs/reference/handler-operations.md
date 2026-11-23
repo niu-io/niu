@@ -25934,6 +25934,10 @@ Content type: `application/json`.
         "description",
         "website_url",
         "logo_url",
+        "model_access_mode",
+        "default_discount_bps",
+        "allowlisted_models",
+        "blocklisted_models",
         "id",
         "revision",
         "slug"
@@ -25950,6 +25954,35 @@ Content type: `application/json`.
         },
         "logo_url": {
           "type": "string"
+        },
+        "model_access_mode": {
+          "type": "string",
+          "enum": [
+            "all",
+            "allowlist",
+            "blocklist"
+          ],
+          "description": "Provider model availability policy: all (default), allowlist or blocklist."
+        },
+        "default_discount_bps": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 100000,
+          "description": "Default purchase rate percentage in basis points (10000 = 100%, no discount)."
+        },
+        "allowlisted_models": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Explicitly enabled model aliases when model_access_mode is allowlist."
+        },
+        "blocklisted_models": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Explicitly excluded model aliases when model_access_mode is blocklist."
         },
         "id": {
           "type": "string",
@@ -26059,6 +26092,50 @@ Content type: `application/json`.
         "null"
       ],
       "description": "Empty to clear, null/omitted to preserve. Nonempty values must be HTTP(S) URLs with a host, no credentials or control characters and at most 2,048 UTF-8 bytes after trimming."
+    },
+    "model_access_mode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "all",
+        "allowlist",
+        "blocklist",
+        null
+      ],
+      "description": "Optional Provider model availability policy (all, allowlist or blocklist); null/omitted preserves saved policy."
+    },
+    "default_discount_bps": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 10,
+      "maximum": 100000,
+      "description": "Optional default purchase rate percentage in basis points (10000 = 100%, no discount); null/omitted preserves saved value."
+    },
+    "allowlisted_models": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 2000,
+      "description": "Optional replacement allowlist of model aliases; null/omitted preserves saved list."
+    },
+    "blocklisted_models": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 2000,
+      "description": "Optional replacement blocklist of model aliases; null/omitted preserves saved list."
     }
   }
 }
@@ -26084,6 +26161,10 @@ Content type: `application/json`.
         "description",
         "website_url",
         "logo_url",
+        "model_access_mode",
+        "default_discount_bps",
+        "allowlisted_models",
+        "blocklisted_models",
         "id",
         "revision",
         "slug"
@@ -26100,6 +26181,35 @@ Content type: `application/json`.
         },
         "logo_url": {
           "type": "string"
+        },
+        "model_access_mode": {
+          "type": "string",
+          "enum": [
+            "all",
+            "allowlist",
+            "blocklist"
+          ],
+          "description": "Provider model availability policy: all (default), allowlist or blocklist."
+        },
+        "default_discount_bps": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 100000,
+          "description": "Default purchase rate percentage in basis points (10000 = 100%, no discount)."
+        },
+        "allowlisted_models": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Explicitly enabled model aliases when model_access_mode is allowlist."
+        },
+        "blocklisted_models": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Explicitly excluded model aliases when model_access_mode is blocklist."
         },
         "id": {
           "type": "string",
@@ -26973,6 +27083,21 @@ Content type: `application/json`.
           "logo_url": {
             "type": "string",
             "description": "Saved Provider logo URL; empty uses the default logo."
+          },
+          "model_access_mode": {
+            "type": "string",
+            "enum": [
+              "all",
+              "allowlist",
+              "blocklist"
+            ],
+            "description": "Provider model availability policy: all (default), allowlist or blocklist."
+          },
+          "default_discount_bps": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 100000,
+            "description": "Default purchase rate percentage in basis points (10000 = 100%, no discount)."
           },
           "api_keys": {
             "type": "integer",

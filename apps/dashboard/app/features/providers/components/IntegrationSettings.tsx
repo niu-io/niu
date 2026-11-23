@@ -9,8 +9,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { cachedGet, peekCachedGet, ProviderRequestError, request, integrationLabels, type ProviderIntegration, type ProviderIntegrationType } from '../api';
 
 /** Niu's revision-checked Provider default and connection inheritance workflow. */
-export default function IntegrationSettings({ token, resource, id, onSaved }: {
-  token: string; resource: 'providers' | 'vendors'; id: string; onSaved?: () => void;
+export default function IntegrationSettings({ token, resource, id, compact = false, onSaved }: {
+  token: string; resource: 'providers' | 'vendors'; id: string; compact?: boolean; onSaved?: () => void;
 }) {
   const { t: uiT } = useUILocale();
   const controlId = useId();
@@ -131,9 +131,35 @@ export default function IntegrationSettings({ token, resource, id, onSaved }: {
     </section>;
   }
 
-  return <section className="space-y-4" aria-labelledby={`${controlId}-heading`}>
+  return <section className={compact ? 'border-t border-border/60 pt-4 space-y-3' : 'space-y-4'} aria-labelledby={`${controlId}-heading`}>
     {loading && !current ? <FormSectionSkeleton fields={2} label={uiT("Loading integration…")} /> : !current ? (
       error && <div className="space-y-2"><p role="alert" className="text-destructive">{error}</p><Button type="button" variant="outline" disabled={busy} onClick={() => setReload(value => value + 1)}>{uiT("Reload saved integration")}</Button></div>
+    ) : compact ? (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 space-y-0.5 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <span id={`${controlId}-heading`} className="text-xs text-muted-foreground">{uiT("Default integration")}</span>
+            <span className="font-medium">
+              {integrationLabels[current.effective_type]} · {current.source === 'provider' ? uiT("Provider default") : uiT("Not configured; manual setup available")}
+            </span>
+          </div>
+          {saved && <p role="status" className="text-xs text-muted-foreground">{uiT("Integration saved.")}</p>}
+        </div>
+        <Button
+          ref={editBtnRef}
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setSelection(current.integration_type ?? '');
+            if (!needsReload) setError('');
+            setSaved(false);
+            setEditOpen(true);
+          }}
+        >
+          {uiT('Edit integration', '编辑集成')}
+        </Button>
+      </div>
     ) : (
       <div className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">

@@ -37,7 +37,7 @@ it('opens the newly created Provider directly without refreshing the directory',
   vi.mocked(request).mockImplementation(async (_token, _path, method = 'GET') => method === 'POST' ? { data: { id: 'new-provider' } } : { data: [] });
   const router = createMemoryRouter([
     { path: '/admin/providers', element: <ProviderList /> },
-    { path: '/admin/providers/:providerId/keys', element: <h1>New Provider API keys</h1> },
+    { path: '/admin/providers/:providerId', element: <h1>New Provider configuration</h1> },
   ], { initialEntries: ['/admin/providers'] });
   render(<RouterProvider router={router} />);
   const user = userEvent.setup();
@@ -45,8 +45,8 @@ it('opens the newly created Provider directly without refreshing the directory',
   await user.click(screen.getByRole('button', { name: 'Add Provider' }));
   await user.type(screen.getByLabelText('Provider name'), 'New Provider');
   await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add Provider' }));
-  await screen.findByRole('heading', { name: 'New Provider API keys' });
-  expect(router.state.location.pathname).toBe('/admin/providers/new-provider/keys');
+  await screen.findByRole('heading', { name: 'New Provider configuration' });
+  expect(router.state.location.pathname).toBe('/admin/providers/new-provider');
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(vi.mocked(request).mock.calls.filter(([, , method]) => method === 'POST')).toHaveLength(1);
   expect(vi.mocked(request).mock.calls.filter(([, , method]) => method === 'GET')).toHaveLength(2);
@@ -58,7 +58,7 @@ it('creates the optional profile in one request and opens the returned Provider 
   vi.mocked(request).mockImplementation(async (_token, _path, method = 'GET') => method === 'POST' ? { data: { id: 'new-provider', slug: 'complete-provider' } } : { data: [] });
   const router = createMemoryRouter([
     { path: '/admin/providers', element: <ProviderList /> },
-    { path: '/admin/providers/:providerId/keys', element: <h1>Provider profile created</h1> },
+    { path: '/admin/providers/:providerId', element: <h1>Provider profile created</h1> },
   ], { initialEntries: ['/admin/providers'] });
   render(<RouterProvider router={router} />);
   const user = userEvent.setup();
@@ -73,7 +73,7 @@ it('creates the optional profile in one request and opens the returned Provider 
   await user.click(screen.getByRole('menuitemradio', { name: 'OpenRouter', exact: true }));
   await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add Provider' }));
   await screen.findByRole('heading', { name: 'Provider profile created' });
-  expect(router.state.location.pathname).toBe('/admin/providers/complete-provider/keys');
+  expect(router.state.location.pathname).toBe('/admin/providers/complete-provider');
   const writes = vi.mocked(request).mock.calls.filter(([, , method]) => method !== 'GET');
   expect(writes).toHaveLength(1);
   expect(writes[0][3]).toEqual({ name: 'Complete Provider', website_url: 'https://example.com', description: 'Model services', logo_url: providerLogoPresets[0].url });
@@ -147,7 +147,7 @@ it('explains why a populated provider cannot be deleted before submission', asyn
   await user.click(await screen.findByRole('button', { name: 'Actions for Active provider' }));
   await user.click(screen.getByRole('menuitem', { name: 'Delete Provider' }));
   const dialog = screen.getByRole('dialog');
-  expect(within(dialog).getByText(/has API keys, models, or members and cannot be deleted/)).toBeTruthy();
+  expect(within(dialog).getByText(/has API keys or models and cannot be deleted/)).toBeTruthy();
   expect((within(dialog).getByRole('button', { name: 'Delete Provider' }) as HTMLButtonElement).disabled).toBe(true);
 });
 
@@ -224,9 +224,9 @@ it('derives commercial supply readiness only from explicitly authorized active o
   const { supplierAvailability } = await import('@/features/providers/provider-setup');
   const configured = { api_keys: 1, enabled_api_keys: 1, models: 2, enabled_model_routes: 2, offers: 1, ready_offers: 0 };
   expect(supplierAvailability({ ...configured }).label).toBe('No models active');
-  expect(supplierAvailability({ ...configured }).action).toBe('Select models');
+  expect(supplierAvailability({ ...configured }).action).toBe('Configure');
   expect(supplierAvailability({ ...configured, ready_offers: 1 }).label).toBe('Ready');
-  expect(supplierAvailability({ ...configured, ready_offers: 1 }).action).toBe('Manage models');
+  expect(supplierAvailability({ ...configured, ready_offers: 1 }).action).toBe('Configure');
   expect(supplierAvailability({ ...configured, ready_offers: undefined }).label).toBe('Status unavailable');
 });
 
@@ -243,8 +243,8 @@ it('refreshes missing readiness data instead of sending users to edit offers', a
 
 it('does not require commercial authorization for administrator-managed internal models', async () => {
   const { providerAvailability } = await import('@/features/providers/provider-setup');
-  expect(providerAvailability({api_keys:1,internal_api_keys:1,internal_model_routes:2})).toMatchObject({label:'Models configured',section:'models',usable:false});
-  expect(providerAvailability({api_keys:1,internal_api_keys:1,internal_model_routes:0})).toMatchObject({label:'API key saved',action:'Select models',section:'models'});
+  expect(providerAvailability({api_keys:1,internal_api_keys:1,internal_model_routes:2})).toMatchObject({label:'Models configured',section:'config',usable:false});
+  expect(providerAvailability({api_keys:1,internal_api_keys:1,internal_model_routes:0})).toMatchObject({label:'API key saved',action:'Configure',section:'config'});
 });
 
 it('uses backend connection instructions rather than a bundled endpoint list', async () => {
@@ -265,7 +265,7 @@ it('presents Provider identity and actions without exposing preset endpoints in 
   expect(await screen.findByRole('button', { name: 'Connect DeepSeek' })).toBeTruthy();
   expect(screen.queryByText('https://api.deepseek.com/v1')).toBeNull();
   expect(screen.queryByRole('table')).toBeNull();
-  expect(screen.getByRole('link', { name: 'Manage models' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Configure' })).toBeTruthy();
 });
 
 it('shows configured Providers once and excludes them from available presets', async () => {

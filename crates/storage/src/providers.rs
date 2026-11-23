@@ -114,6 +114,10 @@ pub struct SupplierProfile {
     pub description: String,
     pub website_url: String,
     pub logo_url: String,
+    pub model_access_mode: String,
+    pub default_discount_bps: i32,
+    pub allowlisted_models: Vec<String>,
+    pub blocklisted_models: Vec<String>,
     pub revision: i64,
 }
 
@@ -126,13 +130,17 @@ pub struct ProviderBusinessCreate {
     pub logo_url: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SupplierProfileUpdate {
     pub name: String,
     pub description: Option<String>,
     pub website_url: Option<String>,
     pub logo_url: Option<String>,
+    pub model_access_mode: Option<String>,
+    pub default_discount_bps: Option<i32>,
+    pub allowlisted_models: Option<Vec<String>>,
+    pub blocklisted_models: Option<Vec<String>>,
     pub expected_revision: Option<i64>,
 }
 
@@ -256,7 +264,7 @@ impl Store {
         .await?)
     }
     pub async fn provider_businesses(&self) -> Result<Vec<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name,'logo_url',p.logo_url,'api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o WHERE o.provider_id=p.id),'models',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'enabled_api_keys',(SELECT COUNT(*) FROM vendors v JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND v.enabled AND octet_length(v.credential_ciphertext) > 0),'enabled_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id AND vm.enabled AND niu_model_has_enabled_vendor(vm.alias)),'internal_api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o JOIN personal_vendor_ownership po ON po.vendor_id=o.vendor_id WHERE o.provider_id=p.id),'internal_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id JOIN personal_vendor_ownership po ON po.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'offers',(SELECT COUNT(*) FROM provider_offers f WHERE f.provider_id=p.id),'ready_offers',(SELECT COUNT(*) FROM provider_offers f JOIN vendor_models vm ON vm.alias=f.model_alias AND vm.vendor_id=f.vendor_id JOIN vendor_supplier_ownership own ON own.vendor_id=vm.vendor_id AND own.provider_id=p.id WHERE f.provider_id=p.id AND f.active AND vm.enabled AND niu_model_has_enabled_vendor(vm.alias) AND niu_offer_qualification_current(p.id,f.id,f.current_revision)),'members',(SELECT COUNT(*) FROM provider_memberships m JOIN admin_operators a ON a.id=m.operator_id WHERE m.provider_id=p.id AND m.active AND a.revoked_at IS NULL)) FROM provider_businesses p WHERE p.deleted_at IS NULL ORDER BY p.name,p.id").fetch_all(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name,'logo_url',p.logo_url,'model_access_mode',p.model_access_mode,'default_discount_bps',p.default_discount_bps,'api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o WHERE o.provider_id=p.id),'models',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'enabled_api_keys',(SELECT COUNT(*) FROM vendors v JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND v.enabled AND octet_length(v.credential_ciphertext) > 0),'enabled_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id AND vm.enabled AND niu_model_has_enabled_vendor(vm.alias)),'internal_api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o JOIN personal_vendor_ownership po ON po.vendor_id=o.vendor_id WHERE o.provider_id=p.id),'internal_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id JOIN personal_vendor_ownership po ON po.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'offers',(SELECT COUNT(*) FROM provider_offers f WHERE f.provider_id=p.id),'ready_offers',(SELECT COUNT(*) FROM provider_offers f JOIN vendor_models vm ON vm.alias=f.model_alias AND vm.vendor_id=f.vendor_id JOIN vendor_supplier_ownership own ON own.vendor_id=vm.vendor_id AND own.provider_id=p.id WHERE f.provider_id=p.id AND f.active AND vm.enabled AND niu_model_has_enabled_vendor(vm.alias) AND niu_offer_qualification_current(p.id,f.id,f.current_revision)),'members',(SELECT COUNT(*) FROM provider_memberships m JOIN admin_operators a ON a.id=m.operator_id WHERE m.provider_id=p.id AND m.active AND a.revoked_at IS NULL)) FROM provider_businesses p WHERE p.deleted_at IS NULL ORDER BY p.name,p.id").fetch_all(&self.pool).await?)
     }
 
     pub async fn provider_memberships(
@@ -345,7 +353,7 @@ impl Store {
         &self,
         provider: Uuid,
     ) -> Result<Option<SupplierProfile>, StoreError> {
-        Ok(sqlx::query_as("SELECT id,slug,name,description,website_url,logo_url,profile_revision AS revision FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL")
+        Ok(sqlx::query_as("SELECT id,slug,name,description,website_url,logo_url,model_access_mode,default_discount_bps,allowlisted_models,blocklisted_models,profile_revision AS revision FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL")
             .bind(provider).fetch_optional(&self.pool).await?)
     }
 
@@ -374,17 +382,51 @@ impl Store {
         input: &SupplierProfileUpdate,
         actor: Option<OperatorAuditActor>,
     ) -> Result<SupplierProfile, StoreError> {
+        fn normalize_model_list(list: &[String]) -> Result<Vec<String>, StoreError> {
+            if list.len() > 2000 {
+                return Err(StoreError::InvalidAccount);
+            }
+            let mut normalized = Vec::with_capacity(list.len());
+            for item in list {
+                let trimmed = item.trim();
+                if trimmed.is_empty()
+                    || trimmed.len() > 200
+                    || trimmed.chars().any(char::is_control)
+                {
+                    return Err(StoreError::InvalidAccount);
+                }
+                normalized.push(trimmed.to_owned());
+            }
+            normalized.sort();
+            normalized.dedup();
+            Ok(normalized)
+        }
         let description = input.description.as_deref().map(str::trim);
         let website = input.website_url.as_deref().map(str::trim);
         let logo = input.logo_url.as_deref().map(str::trim);
+        let access_mode = input.model_access_mode.as_deref().map(str::trim);
+        let allowlisted = input
+            .allowlisted_models
+            .as_deref()
+            .map(normalize_model_list)
+            .transpose()?;
+        let blocklisted = input
+            .blocklisted_models
+            .as_deref()
+            .map(normalize_model_list)
+            .transpose()?;
         if !valid_profile_fields(&input.name, description, website, logo)
             || input.expected_revision.is_some_and(|v| v < 1)
+            || access_mode.is_some_and(|mode| !matches!(mode, "all" | "allowlist" | "blocklist"))
+            || input
+                .default_discount_bps
+                .is_some_and(|bps| !(10..=100_000).contains(&bps))
         {
             return Err(StoreError::InvalidAccount);
         }
         let mut tx = self.begin_bounded_recording().await?;
-        let profile = sqlx::query_as("UPDATE provider_businesses SET name=$2,description=COALESCE($3,description),website_url=COALESCE($4,website_url),logo_url=COALESCE($5,logo_url),profile_revision=profile_revision+1 WHERE id=$1 AND deleted_at IS NULL AND ($6::bigint IS NULL OR profile_revision=$6) RETURNING id,slug,name,description,website_url,logo_url,profile_revision AS revision")
-            .bind(provider).bind(input.name.trim()).bind(description).bind(website).bind(logo).bind(input.expected_revision)
+        let profile = sqlx::query_as("UPDATE provider_businesses SET name=$2,description=COALESCE($3,description),website_url=COALESCE($4,website_url),logo_url=COALESCE($5,logo_url),model_access_mode=COALESCE($6,model_access_mode),default_discount_bps=COALESCE($7,default_discount_bps),allowlisted_models=COALESCE($8,allowlisted_models),blocklisted_models=COALESCE($9,blocklisted_models),profile_revision=profile_revision+1 WHERE id=$1 AND deleted_at IS NULL AND ($10::bigint IS NULL OR profile_revision=$10) RETURNING id,slug,name,description,website_url,logo_url,model_access_mode,default_discount_bps,allowlisted_models,blocklisted_models,profile_revision AS revision")
+            .bind(provider).bind(input.name.trim()).bind(description).bind(website).bind(logo).bind(access_mode).bind(input.default_discount_bps).bind(allowlisted).bind(blocklisted).bind(input.expected_revision)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         let (actor_kind, actor_id) = actor.map_or(("unknown", None), |value| value.kind_and_id());
         sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id,actor_kind,actor_operator_id,provider_label) VALUES($1,'supplier_profile_updated',$1,$2,$3,$4)").bind(provider).bind(actor_kind).bind(actor_id).bind(input.name.trim()).execute(&mut *tx).await?;

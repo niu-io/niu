@@ -40,6 +40,7 @@ import {
   type ResolvedModelRow,
 } from './ProviderModelsTable';
 import { ProviderModelEditorDialog, type ModelEditorTarget } from './ProviderModelEditorDialog';
+import { ProviderModelsInlineView } from './ProviderModelsInlineView';
 import {
   activateProviderModel,
   buildResolvedModelRow,
@@ -54,13 +55,13 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 
 function peekScopedModels(token: string, providerId: string): { connections: ProviderConnection[]; entries: ModelRowEntry[] } | null {
   if (!token || !providerId) return null;
-  const vendors = peekCachedGet<{ data: ProviderConnection[] }>(token, `/api/v1/admin/providers/connections?supplier=${encodeURIComponent(providerId)}`)?.data;
-  if (!vendors) return null;
+  const vendors = peekCachedGet<{ data?: ProviderConnection[] }>(token, `/api/v1/admin/providers/connections?supplier=${encodeURIComponent(providerId)}`)?.data;
+  if (!Array.isArray(vendors)) return null;
   const scoped = vendors.filter(item => (item.provider ?? item.supplier)?.id === providerId);
   const entries: ModelRowEntry[] = [];
   for (const connection of scoped) {
-    const models = peekCachedGet<{ data: ProviderModel[] }>(token, `/api/v1/admin/providers/connections/${encodeURIComponent(connection.id)}/models`)?.data;
-    if (!models) return null;
+    const models = peekCachedGet<{ data?: ProviderModel[] }>(token, `/api/v1/admin/providers/connections/${encodeURIComponent(connection.id)}/models`)?.data;
+    if (!Array.isArray(models)) return null;
     for (const model of models) entries.push({ connection, model });
   }
   return { connections: scoped, entries };
@@ -74,6 +75,8 @@ type Props = {
   offers: ProviderOffer[];
   offersComplete: boolean;
   commercialEnabled?: boolean;
+  withinDialog?: boolean;
+  initialStatusFilter?: StatusFilter;
   onOffer: (alias: string, media: boolean) => void;
   onEnableOffer: (id: string) => void;
   onSaved: () => void;
@@ -91,6 +94,8 @@ function ScopedModels({
   canManage,
   offers,
   commercialEnabled = true,
+  withinDialog = false,
+  initialStatusFilter = 'all',
   onOffer,
   onSaved,
 }: Props) {
@@ -112,7 +117,7 @@ function ScopedModels({
   const lastRevision = useRef(0);
 
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatusFilter);
   const [limit, setLimit] = useState(40);
   const [selectedAliases, setSelectedAliases] = useState<Set<string>>(() => new Set());
   const [rowBusy, setRowBusy] = useState('');
@@ -567,10 +572,37 @@ function ScopedModels({
   }
 
   const discountTarget = discountDialog ? resolveModelRow(discountDialog.alias) : null;
+  if (withinDialog && Boolean((discountDialog && discountTarget) || batchDiscountOpen || editor)) {
+    return (
+      <ProviderModelsInlineView
+        token={token}
+        busy={busy}
+        canManage={canManage}
+        connections={connections}
+        currency={platformCurrency}
+        dialogError={dialogError}
+        discountDialog={discountDialog}
+        discountTarget={discountTarget}
+        batchDiscountOpen={batchDiscountOpen}
+        eligibleCount={batchSummary.eligible.length}
+        skippedCount={batchSummary.skipped.length}
+        editor={editor}
+        openerRef={opener}
+        onBack={() => { setDiscountDialog(null); setBatchDiscountOpen(false); setEditor(null); setDialogError(''); }}
+        onCloseDiscount={() => { if (!busy) setDiscountDialog(null); }}
+        onSubmitSingleDiscount={handleSingleDiscountSubmit}
+        onCloseBatch={() => { if (!busy) setBatchDiscountOpen(false); }}
+        onSubmitBatchDiscount={handleBatchDiscountSubmit}
+        onChangeConnection={connectionId => setEditor(current => (current ? { ...current, connectionId, model: null } : current))}
+        onCloseEditor={() => setEditor(null)}
+        onSaveManualModel={input => saveManualModel(input)}
+      />
+    );
+  }
 
   return (
     <div className="empty-region space-y-4 py-1">
-      {!loading && !error && !hasEnabledKey && (
+      {!withinDialog && !loading && !error && !hasEnabledKey && (
         <Alert>
           <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             <span>
@@ -606,49 +638,23 @@ function ScopedModels({
               ['active', uiF('Active ({0})', [counts.active])],
               ['inactive', uiF('Inactive ({0})', [counts.inactive])],
             ] as const).map(([key, label]) => (
-              <Button
-                key={key}
-                type="button"
-                size="sm"
-                variant={statusFilter === key ? 'secondary' : 'ghost'}
-                onClick={() => {
-                  setStatusFilter(key);
-                  setLimit(40);
-                }}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
-        </div>}
-
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {commercialEnabled && selectedAliases.size > 0 && (
-            <Button
-              type="button"
-              size="sm"
-              disabled={!canManage || busy || !hasEnabledKey}
-              onClick={() => {
-                setDialogError('');
-                setBatchDiscountOpen(true);
-              }}
-            >
-              <IconPercentage size={15} aria-hidden="true" />
-              <span>{uiF('Set discount ({0})', [selectedAliases.size])}</span>
-            </Button>
-          )}
-          {importConnections.length === 1 && (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={!canManage || loading || !!error || busy}
-              onClick={() => void importModels(importConnections[0])}
-            >
-              <IconDownload size={15} aria-hidden="true" />
-              <span>{importing ? uiT('Importing…') : uiT('Import models')}</span>
-            </Button>
-          )}
+            <Button key={key} type="button" size="sm" variant={statusFilter === key ? 'secondary' : 'ghost'} onClick={() => { setStatusFilter(key); setLimit(40); }}>{label}</Button>
+          ))}
+        </div>
+      </div>}
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
+        {commercialEnabled && selectedAliases.size > 0 && (
+          <Button type="button" size="sm" disabled={!canManage || busy || !hasEnabledKey} onClick={() => { setDialogError(''); setBatchDiscountOpen(true); }}>
+            <IconPercentage size={15} aria-hidden="true" />
+            <span>{uiF('Set discount ({0})', [selectedAliases.size])}</span>
+          </Button>
+        )}
+        {importConnections.length === 1 && (
+          <Button type="button" size="sm" variant="outline" disabled={!canManage || loading || !!error || busy} onClick={() => void importModels(importConnections[0])}>
+            <IconDownload size={15} aria-hidden="true" />
+            <span>{importing ? uiT('Importing…') : uiT('Import models')}</span>
+          </Button>
+        )}
           {importConnections.length > 1 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -766,29 +772,8 @@ function ScopedModels({
           onSubmit={handleSingleDiscountSubmit}
         />
       )}
-
-      <BatchDiscountDialog
-        open={batchDiscountOpen}
-        currency={platformCurrency}
-        eligibleCount={batchSummary.eligible.length}
-        skippedCount={batchSummary.skipped.length}
-        busy={busy}
-        error={dialogError}
-        onClose={() => { if (!busy) setBatchDiscountOpen(false); }}
-        onSubmit={handleBatchDiscountSubmit}
-      />
-
-      <ProviderModelEditorDialog
-        token={token}
-        canManage={canManage}
-        busy={busy}
-        connections={connections}
-        editor={editor}
-        openerRef={opener}
-        onChangeConnection={connectionId => setEditor(current => (current ? { ...current, connectionId, model: null } : current))}
-        onClose={() => setEditor(null)}
-        onSave={input => saveManualModel(input)}
-      />
+      <BatchDiscountDialog open={batchDiscountOpen} currency={platformCurrency} eligibleCount={batchSummary.eligible.length} skippedCount={batchSummary.skipped.length} busy={busy} error={dialogError} onClose={() => { if (!busy) setBatchDiscountOpen(false); }} onSubmit={handleBatchDiscountSubmit} />
+      <ProviderModelEditorDialog token={token} canManage={canManage} busy={busy} connections={connections} editor={editor} openerRef={opener} onChangeConnection={connectionId => setEditor(current => (current ? { ...current, connectionId, model: null } : current))} onClose={() => setEditor(null)} onSave={input => saveManualModel(input)} />
     </div>
   );
 }

@@ -61,13 +61,13 @@ it('blocks blind replay after uncertain key creation and clears the secret', asy
   expect(request).toHaveBeenCalledOnce();
 });
 
-it('discovers commercial models and links directly to model selection', async () => {
+it('discovers commercial models and links directly to unified Provider configuration with autosync', async () => {
   mode.value='resale';
   vi.mocked(request).mockImplementation(async (_token,path) => path.endsWith('/supplier') ? {data:{id:'resale-provider',slug:'deepseek'}} : path.endsWith('/integration') ? {data:{effective_type:'deepseek',revision:0}} : path.endsWith('/import') ? {data:{imported:2,discovered:2}} : {data:{id:'resale-key',revision:1}});
   const {user}=show();await user.type(screen.getByLabelText('Provider API key'),'resale-private-key');
   await user.click(screen.getByRole('button',{name:'Connect and import models'}));
-  const nextLink = await screen.findByRole('link',{name:'Select models'});
-  expect(nextLink.getAttribute('href')).toBe('/admin/providers/deepseek');
+  const nextLink = await screen.findByRole('link',{name:'Configure Provider'});
+  expect(nextLink.getAttribute('href')).toBe('/admin/providers/deepseek?autosync=1');
   expect(screen.getByRole('status').textContent).toContain('2 models discovered');
   expect(vi.mocked(request).mock.calls.filter(([,path])=>path.endsWith('/import'))).toHaveLength(1);
   expect(vi.mocked(request).mock.calls[0][3]).not.toHaveProperty('personal_organization_id');

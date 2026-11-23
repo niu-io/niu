@@ -11,6 +11,11 @@ description: "Generated TypeScript declaration for ProviderBusiness"
 /** Platform-only credential configuration metadata. Secret values are never returned. */
 export type ProviderBusiness = {
     slug: string;
+    logo_url?: string;
+    model_access_mode?: ProviderModelAccessMode;
+    default_discount_bps?: number;
+    offers?: number;
+    ready_offers?: number;
     id: string;
     name: string;
     api_keys: number;
