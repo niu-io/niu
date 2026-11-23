@@ -39,3 +39,13 @@ The workspace routing dialog tells newcomers to open Advanced for priority and w
 The published REST and SDK indexes linked to 461 and 476 child pages respectively. Every listed child had a screenshot paired to its final path at 1280px and 390px. The paired first-viewport contact sheets were inspected for layout variation, with full-resolution inspection of exceptions. This establishes first-viewport coverage rather than verification of every contract, selector or scroll position.
 
 An SDK alias page displayed only the compatibility assignment and generic source/index links, with no direct link to the canonical type defining its fields (ref-847, `niu-gvkc`). Some workspace model detail pages offer a chat trial and key creation before disclosing that the model's supported inputs and outputs remain unpublished (model-2-390, `niu-57rf`).
+
+The live catalog exposed 95 distinct workspace model URLs. All 95 resolved to their own detail paths and were inspected in desktop/mobile screenshot pairs. In 89 cases the chat trial preceded the unpublished-capabilities warning (`niu-57rf`). The second Provider had zero configured models and disabled credentials. Its empty list retained search and three zero-count filters above the placeholder (other-provider-0/1, `niu-m19q`).
+
+## Review criteria
+
+The financial filter and zero-key composer were assessed against visibility of system status and error prevention. Repeated upload actions and competing empty-state explanations were assessed against consistency and minimalist presentation. These are usability heuristics. The observed counts, enabled controls and button labels establish the product-specific evidence. [Nielsen Norman Group usability heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/)
+
+For keyboard dismissal, the WAI authoring pattern recommends returning focus to the opening control when it remains available. The pricing dialog returned focus to the document body, while the tested Provider and key creation dialogs returned it to their trigger. [WAI modal dialog keyboard pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)
+
+WCAG reflow guidance distinguishes page-level horizontal scrolling from an individual table that requires two-dimensional layout. The recorded 390px documentation measurements establish mobile overflow. A formal conformance check also requires the criterion's specified viewport and applicable exceptions. [W3C explanation of reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html)
