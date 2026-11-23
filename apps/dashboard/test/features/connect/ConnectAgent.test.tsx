@@ -254,7 +254,7 @@ it('tailors AgentConnection setup prompt by selected task goal and links to API 
   } as unknown as DashboardContext;
   render(<MemoryRouter><AgentConnection context={mockContext} /></MemoryRouter>);
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: 'Install Niu MCP' }));
+  await user.click(screen.getByRole('button', { name: 'Install MCP' }));
   await user.click(await screen.findByRole('button', { name: 'Task goal' }));
   await user.click(screen.getByRole('menuitemradio', { name: 'Configure workspace routing' }));
   const promptField = screen.getByLabelText('MCP install prompt') as HTMLTextAreaElement;

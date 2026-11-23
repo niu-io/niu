@@ -582,12 +582,12 @@ describe('dashboard route layout', () => {
     await waitFor(() => expect(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Models' }).getAttribute('data-active')).toBe('true'));
     const sidebarFooter = document.querySelector('[data-slot="sidebar-footer"]');
     expect(sidebarFooter).toBeTruthy();
-    const mcpTrigger = within(sidebarFooter as HTMLElement).getByRole('button', { name: 'Install Niu MCP', exact: true });
+    const mcpTrigger = within(sidebarFooter as HTMLElement).getByRole('button', { name: 'Install MCP', exact: true });
     expect(mcpTrigger.querySelector('[data-icon="mcp"]')).toBeTruthy();
     await user.click(mcpTrigger);
-    expect(await screen.findByRole('dialog', { name: 'Install Niu MCP' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Install MCP' })).toBeTruthy();
     await user.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Install Niu MCP' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Install MCP' })).toBeNull());
     await user.click(screen.getByRole('button', { name: 'Expand workspace navigation' }));
     expect(nav.closest('[data-slot="sidebar"]')?.getAttribute('data-state')).toBe('expanded');
   });
@@ -987,7 +987,7 @@ describe('dashboard route layout', () => {
     expect(within(adminNav).getByRole('link', { name: 'Settings', exact: true }).getAttribute('href')).toBe('/admin/settings');
     expect(screen.queryByRole('tablist', { name: 'Admin sections' })).toBeNull();
     expect(screen.queryByText('Administrator access required')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Install Niu MCP', exact: true })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Install MCP', exact: true })).toBeNull();
     const backLink = screen.getByRole('link', { name: 'Back to workspace', exact: true });
     await userEvent.click(backLink);
     await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/workspaces\//));
@@ -999,7 +999,7 @@ describe('dashboard route layout', () => {
     }
     const sidebarFooter = document.querySelector('[data-slot="sidebar-footer"]');
     expect(sidebarFooter).toBeTruthy();
-    expect(within(sidebarFooter as HTMLElement).getByRole('button', { name: 'Install Niu MCP', exact: true })).toBeTruthy();
+    expect(within(sidebarFooter as HTMLElement).getByRole('button', { name: 'Install MCP', exact: true })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Admin', exact: true })).toBeTruthy();
   });
 

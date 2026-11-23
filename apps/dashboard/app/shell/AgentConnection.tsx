@@ -91,7 +91,7 @@ export default function AgentConnection({ context, sidebar = false }: { context:
   );
 
   const keysRoute = workspaceSlug ? `/workspaces/${encodeURIComponent(workspaceSlug)}/keys` : '/workspaces';
-  const entryLabel = t('Install Niu MCP', '安装 Niu MCP');
+  const entryLabel = t('Install MCP', '安装 MCP');
 
   return (
     <Dialog

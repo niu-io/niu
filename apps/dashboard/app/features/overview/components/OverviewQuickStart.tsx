@@ -37,7 +37,7 @@ export default function OverviewQuickStart({ workspaceRoot, modelsHref, canWrite
   ];
   const title = uiT("Get started", "快速开始");
   const description = hasModels
-    ? uiT("Install Niu MCP or create a workspace API key to start using models. Requests and results appear here.", "安装 Niu MCP 或创建工作空间 API 密钥即可开始使用模型，请求与结果将显示在此处。")
+    ? uiT("Install MCP or create a workspace API key to start using models. Requests and results appear here.", "安装 MCP 或创建工作空间 API 密钥即可开始使用模型，请求与结果将显示在此处。")
     : uiT("A platform administrator must connect a Provider and publish models before this workspace can send requests.");
   return <Empty className="gateway-task-empty gateway-first-use border-0 bg-transparent">
     <EmptyHeader>

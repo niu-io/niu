@@ -33,7 +33,7 @@ describe('workspace overview quick start', () => {
   it('prioritizes Niu MCP setup while retaining manual setup and request evidence', () => {
     render(quickStart());
     expect(screen.getByRole('heading', {name: 'Get started'})).toBeTruthy();
-    expect(screen.getByRole('button', {name: 'Install Niu MCP'})).toBeTruthy();
+    expect(screen.getByRole('button', {name: 'Install MCP'})).toBeTruthy();
     expect(screen.getByRole('link', {name: 'Create an API key'}).getAttribute('href')).toBe('/workspaces/demo/keys');
     expect(screen.getByRole('link', {name: 'Read the API quickstart'}).getAttribute('href')).toBe('/docs/guides/api-quickstart/');
     expect(screen.getByRole('link', {name: 'View requests'}).getAttribute('href')).toBe('/workspaces/demo/executions');
