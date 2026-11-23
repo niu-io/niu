@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { Label } from '@/components/ui/label';
 
@@ -84,5 +85,18 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(block).toContain('display: grid');
     expect(block).toMatch(/grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(/);
     expect(block).not.toContain('flex-direction: column');
+  });
+
+  it('uses distinct brand-tinted fallback surface tokens on AvatarFallback instead of bg-muted', () => {
+    const { container } = render(
+      <Avatar>
+        <AvatarFallback>D</AvatarFallback>
+      </Avatar>,
+    );
+    const fallback = container.querySelector('[data-slot="avatar-fallback"]') as HTMLElement;
+    expect(fallback).toBeTruthy();
+    expect(fallback.className).toContain('--avatar-brand-bg');
+    expect(fallback.className).toContain('--avatar-brand-fg');
+    expect(fallback.className).not.toContain('bg-muted');
   });
 });

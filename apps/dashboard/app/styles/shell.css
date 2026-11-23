@@ -194,7 +194,7 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 /* One-time invitation acceptance uses the sign-in shell so the recipient
    reviews organization, scope and role before accepting. */
 .invitation-org { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.invitation-avatar { display: grid; flex-shrink: 0; width: 48px; height: 48px; place-items: center; overflow: hidden; border-radius: 50%; background: color-mix(in oklab, var(--primary) 14%, var(--card)); color: var(--primary-ink); font-size: 20px; font-weight: 600; }
+.invitation-avatar { display: grid; flex-shrink: 0; width: 48px; height: 48px; place-items: center; overflow: hidden; border-radius: 50%; background: var(--avatar-brand-bg); color: var(--avatar-brand-fg); box-shadow: inset 0 0 0 1px var(--avatar-brand-ring); font-size: 20px; font-weight: 600; }
 .invitation-lead { margin: 0; font-size: 15px; line-height: 1.55; }
 .invitation-facts { display: grid; gap: 10px; margin: 0; padding: 14px; border-radius: 12px; background: color-mix(in srgb, var(--muted) 65%, transparent); }
 .invitation-footnote { margin: 0; padding-top: 8px; border-top: 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.5; }
@@ -203,7 +203,7 @@ a:focus-visible:not([data-slot]), button:focus-visible:not([data-slot]), summary
 .invitation-facts > div { display: flex; align-items: center; justify-content: space-between; gap: 14px; font-size: 13px; }
 .invitation-facts dt { flex-shrink: 0; color: var(--muted-foreground); }
 .invitation-facts dd { display: flex; min-width: 0; align-items: center; gap: 5px; margin: 0; text-align: right; overflow-wrap: anywhere; }
-.dark .invitation-avatar, :root[data-theme='dark'] .invitation-avatar { color: var(--primary-ink); }
+.dark .invitation-avatar, :root[data-theme='dark'] .invitation-avatar { color: var(--avatar-brand-fg); }
 .dashboard-login-card.invitation-card { display: grid; gap: 16px; width: min(100%, 520px); padding: clamp(22px, 3vw, 30px); border: 0; border-radius: var(--radius-dialog); background: var(--popover); box-shadow: var(--shadow-overlay); }
 @media (max-width: 580px) {
   .invitation-org { align-items: flex-start; flex-wrap: wrap; }

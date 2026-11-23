@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useInRouterContext } from 'react-router';
 import { ChevronsUpDown, KeyRound } from 'lucide-react';
-import { IconCheck, IconCopy, IconPlugConnected } from '@tabler/icons-react';
+import { IconCheck, IconCopy } from '@tabler/icons-react';
+import McpIcon from '@/components/McpIcon';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -85,11 +86,12 @@ export default function AgentConnection({ context, sidebar = false }: { context:
   const loginHint = loginArgs ? ` ${loginArgs}` : '';
 
   const prompt = t(
-    `Connect to Niu at ${origin}.${workspaceUrl ? ` Workspace: ${workspaceSlug} (${workspaceUrl}).` : ''} First read ${origin}/llms.txt, ${origin}/docs/install.md, and ${origin}${selected.doc}. Goal: ${selected.taskEn} Request browser device authorization via POST ${origin}/api/v1/auth/agents${postHintEn} (or niu-login${loginHint}) and ask me to approve access at ${origin}/connect${connectParams} (pass ?code=<code>${workspaceSlug ? `&workspace=${workspaceSlug}` : ''}). After approval, inspect /v1/key and /v1/models before taking action. Do not send paid model requests without my authorization.`,
-    `请连接到位于 ${origin} 的 Niu。${workspaceUrl ? `工作空间：${workspaceSlug}（${workspaceUrl}）。` : ''}请先阅读 ${origin}/llms.txt、${origin}/docs/install.md 与 ${origin}${selected.doc}。本次目标：${selected.taskZh} 请通过 POST ${origin}/api/v1/auth/agents${postHintZh}（或 niu-login${loginHint}）发起浏览器设备授权，并引导我在 ${origin}/connect${connectParams}（附带 ?code=<code>${workspaceSlug ? `&workspace=${workspaceSlug}` : ''}）确认授权。授权后先检查 /v1/key 与 /v1/models。未经我明确授权，不要发送任何付费模型请求。`,
+    `Install and connect Niu MCP (@niu-io/mcp) for Niu at ${origin}.${workspaceUrl ? ` Workspace: ${workspaceSlug} (${workspaceUrl}).` : ''} First read ${origin}/llms.txt, ${origin}/docs/install.md, and ${origin}${selected.doc}. Goal: ${selected.taskEn} Request browser device authorization via POST ${origin}/api/v1/auth/agents${postHintEn} (or niu-login${loginHint}) and ask me to approve access at ${origin}/connect${connectParams} (pass ?code=<code>${workspaceSlug ? `&workspace=${workspaceSlug}` : ''}). After approval, inspect /v1/key and /v1/models before taking action. Do not send paid model requests without my authorization.`,
+    `请为位于 ${origin} 的 Niu 安装并连接 Niu MCP（@niu-io/mcp）。${workspaceUrl ? `工作空间：${workspaceSlug}（${workspaceUrl}）。` : ''}请先阅读 ${origin}/llms.txt、${origin}/docs/install.md 与 ${origin}${selected.doc}。本次目标：${selected.taskZh} 请通过 POST ${origin}/api/v1/auth/agents${postHintZh}（或 niu-login${loginHint}）发起浏览器设备授权，并引导我在 ${origin}/connect${connectParams}（附带 ?code=<code>${workspaceSlug ? `&workspace=${workspaceSlug}` : ''}）确认授权。授权后先检查 /v1/key 与 /v1/models。未经我明确授权，不要发送任何付费模型请求。`,
   );
 
   const keysRoute = workspaceSlug ? `/workspaces/${encodeURIComponent(workspaceSlug)}/keys` : '/workspaces';
+  const entryLabel = t('Install Niu MCP', '安装 Niu MCP');
 
   return (
     <Dialog
@@ -102,24 +104,27 @@ export default function AgentConnection({ context, sidebar = false }: { context:
     >
       <DialogTrigger asChild>
         {sidebar ? (
-          <SidebarMenuButton tooltip={t('Connect your agent', '连接你的 Agent')} aria-label={t('Connect your agent', '连接你的 Agent')}>
-            <IconPlugConnected />
-            <span>{t('Connect your agent', '连接你的 Agent')}</span>
+          <SidebarMenuButton tooltip={entryLabel} aria-label={entryLabel}>
+            <McpIcon />
+            <span className="truncate group-data-[collapsible=icon]:hidden">{entryLabel}</span>
           </SidebarMenuButton>
         ) : (
           <Button variant="secondary" className="justify-start">
-            <IconPlugConnected />
-            {t('Connect your agent', '连接你的 Agent')}
+            <McpIcon />
+            {entryLabel}
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{t('Connect your agent', '连接你的 Agent')}</DialogTitle>
+        <DialogHeader className="text-left">
+          <DialogTitle className="flex items-center gap-2">
+            <McpIcon className="size-4 shrink-0" />
+            <span>{entryLabel}</span>
+          </DialogTitle>
           <DialogDescription>
             {t(
-              'Give this request to Claude Code, Codex, DeepSeek Harness, Cursor, Windsurf, or any coding agent. It negotiates browser approval in /connect without handling your password.',
-              '将此接入请求发送给 Claude Code、Codex、DeepSeek Harness、Cursor、Windsurf 或任意编码 Agent。它会通过 /connect 发起受控浏览器授权，无需接触你的登录密码。',
+              'Install Niu MCP (@niu-io/mcp) in Claude Code, Codex, DeepSeek Harness, Cursor, Windsurf, or any MCP-compatible coding agent. It negotiates browser approval in /connect without handling your password.',
+              '在 Claude Code、Codex、DeepSeek Harness、Cursor、Windsurf 或任意支持 MCP 的编码 Agent 中安装 Niu MCP（@niu-io/mcp）。它会通过 /connect 发起受控浏览器授权，无需接触你的登录密码。',
             )}
           </DialogDescription>
         </DialogHeader>
@@ -130,7 +135,7 @@ export default function AgentConnection({ context, sidebar = false }: { context:
           <li>3. {t('Approve scope in /connect', '在浏览器中确认权限')}</li>
         </ol>
 
-        <div className="space-y-1.5">
+        <div className="grid gap-2">
           <Label>{t('Task goal', '任务目标')}</Label>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -158,18 +163,18 @@ export default function AgentConnection({ context, sidebar = false }: { context:
           </DropdownMenu>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="agent-setup-request">{t('Agent setup request', 'Agent 接入请求')}</Label>
-          <Textarea id="agent-setup-request" readOnly rows={7} className="resize-none" value={prompt} aria-label={t('Agent setup request', 'Agent 接入请求')} />
+        <div className="grid gap-2">
+          <Label htmlFor="agent-setup-request">{t('MCP install prompt', 'MCP 安装提示词')}</Label>
+          <Textarea id="agent-setup-request" readOnly rows={7} className="resize-none" value={prompt} aria-label={t('MCP install prompt', 'MCP 安装提示词')} />
         </div>
 
-        {copied && <p role="status" className="text-sm text-foreground">{t('Paste the request into your coding agent to continue.', '将接入请求粘贴到编码 Agent 中继续。')}</p>}
-        {error && <p role="alert" className="text-sm text-destructive">{t('Copy failed. Select and copy the request above.', '复制失败，请选中上方请求手动复制。')}</p>}
+        {copied && <p role="status" className="text-sm text-foreground">{t('Paste the install prompt into your coding agent to continue.', '将安装提示词粘贴到编码 Agent 中继续。')}</p>}
+        {error && <p role="alert" className="text-sm text-destructive">{t('Copy failed. Select and copy the prompt above.', '复制失败，请选中上方提示词手动复制。')}</p>}
 
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
           <div className="flex flex-wrap items-center gap-3">
             <Button asChild variant="link" className="px-0">
-              <a href={`${origin}/docs/agents/`}>{t('Setup guide', '接入指南')}</a>
+              <a href={`${origin}/docs/guides/mcp/`}>{t('MCP guide', 'MCP 指南')}</a>
             </Button>
             {inRouter ? (
               <Button asChild variant="link" className="px-0">
@@ -198,7 +203,7 @@ export default function AgentConnection({ context, sidebar = false }: { context:
             }}
           >
             {copied ? <IconCheck /> : <IconCopy />}
-            {copied ? t('Setup request copied', '已复制接入请求') : t('Copy setup request', '复制接入请求')}
+            {copied ? t('Install prompt copied', '已复制安装提示词') : t('Copy install prompt', '复制安装提示词')}
           </Button>
         </div>
       </DialogContent>

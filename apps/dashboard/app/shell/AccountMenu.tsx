@@ -39,9 +39,9 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
     if (compactNavigation) window.requestAnimationFrame(() => setOpenMobile(false));
   };
 
-  const accountAvatar = <Avatar className="size-[18px] shrink-0 text-[11px]">
+  const accountAvatar = <Avatar className="size-6 shrink-0 text-xs">
     <AvatarImage src={profile?.avatar_data_url ?? undefined} alt="" />
-    <AvatarFallback className={profile ? undefined : "bg-primary text-primary-foreground"}>{avatarInitial}</AvatarFallback>
+    <AvatarFallback>{avatarInitial}</AvatarFallback>
   </Avatar>;
 
   return <DropdownMenu open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>

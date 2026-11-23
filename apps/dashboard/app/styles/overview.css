@@ -116,7 +116,7 @@
 .operator-create-footer p { max-width: 560px; margin: 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.45; }
 .operator-create-footer button { flex: 0 0 auto; }
 .operator-directory, .operator-detail { min-width: 0; margin: 0; border-radius: var(--radius-panel); }
-.operator-detail-avatar { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 10px; color: var(--primary-ink); background: color-mix(in srgb, var(--primary) 9%, var(--card)); font-size: 14px; font-weight: 600; }
+.operator-detail-avatar { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 10px; color: var(--avatar-brand-fg); background: var(--avatar-brand-bg); box-shadow: inset 0 0 0 1px var(--avatar-brand-ring); font-size: 14px; font-weight: 600; }
 .operator-role-chip { display: inline-flex; align-items: center; width: fit-content; min-height: 21px; padding: 4px 8px; border: 0; border-radius: 999px; color: var(--muted-foreground); background: var(--muted); font-size: 12.5px; font-weight: 600; line-height: 1; white-space: nowrap; }
 .operator-role-chip.role-owner { color: var(--primary-ink); background: color-mix(in srgb, var(--primary) 10%, var(--card)); }
 .operator-role-chip.role-admin { color: var(--info); background: color-mix(in srgb, var(--info) 9%, var(--card)); }
@@ -126,7 +126,6 @@
 .operator-detail-empty p { max-width: 270px; margin: 6px 0 12px; color: var(--muted-foreground); font-size: 14px; line-height: 1.5; }
 .operator-detail { padding: 16px; }
 .operator-detail-heading { display: flex; align-items: center; gap: 10px; min-height: 44px; padding-bottom: 14px; border-bottom: 0; }
-.operator-detail-avatar { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 10px; color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, var(--card)); font-size: 14px; font-weight: 600; }
 .operator-detail-copy { flex: 1; min-width: 0; }
 .operator-detail-copy .eyebrow { margin: 0 0 3px; font-size: 14px; letter-spacing: .08em; }
 .operator-detail-copy h2 { overflow: hidden; margin: 0; font-size: 14px; font-weight: 600; letter-spacing: -.02em; text-overflow: ellipsis; white-space: nowrap; }

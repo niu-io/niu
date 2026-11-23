@@ -254,10 +254,11 @@ it('tailors AgentConnection setup prompt by selected task goal and links to API 
   } as unknown as DashboardContext;
   render(<MemoryRouter><AgentConnection context={mockContext} /></MemoryRouter>);
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: 'Connect your agent' }));
+  await user.click(screen.getByRole('button', { name: 'Install Niu MCP' }));
   await user.click(await screen.findByRole('button', { name: 'Task goal' }));
   await user.click(screen.getByRole('menuitemradio', { name: 'Configure workspace routing' }));
-  const promptField = screen.getByLabelText('Agent setup request') as HTMLTextAreaElement;
+  const promptField = screen.getByLabelText('MCP install prompt') as HTMLTextAreaElement;
+  expect(promptField.value).toContain('@niu-io/mcp');
   expect(promptField.value).toContain('/docs/routing.md');
   expect(promptField.value).toContain('--capability pools:read --capability pools:write');
   expect(promptField.value).toContain('team-workspace');
@@ -266,5 +267,5 @@ it('tailors AgentConnection setup prompt by selected task goal and links to API 
   expect(promptField.value).toContain('/docs/inference.md');
   expect(promptField.value).toContain('team-workspace');
   expect(screen.getByRole('link', { name: 'Keys' }).getAttribute('href')).toBe('/workspaces/team-workspace/keys');
-  expect(screen.getByRole('link', { name: 'Setup guide' }).getAttribute('href')).toContain('/docs/agents/');
+  expect(screen.getByRole('link', { name: 'MCP guide' }).getAttribute('href')).toContain('/docs/guides/mcp/');
 });
