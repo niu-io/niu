@@ -246,6 +246,25 @@ Content type: `application/json`.
               "advisory": {
                 "type": "boolean"
               },
+              "supply_status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "inactive",
+                  "unconfigured"
+                ],
+                "description": "Current commercial Provider supply readiness for this model alias: active (enabled route, credential and qualified offer), inactive (route configured but disabled or missing credential/offer), or unconfigured (no commercial Provider route)."
+              },
+              "active_supply_routes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "active_providers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
               "checks": {
                 "type": "array",
                 "items": {
