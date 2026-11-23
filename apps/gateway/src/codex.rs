@@ -222,6 +222,9 @@ async fn authorize(
     permission: AdminPermission,
 ) -> Result<(), ApiError> {
     let auth = state.authorize_admin_headers(headers, permission).await?;
+    if !auth.can_manage_platform() {
+        return Err(ApiError::forbidden());
+    }
     if !auth.permits_project(scope) {
         return Err(ApiError::not_found());
     }
