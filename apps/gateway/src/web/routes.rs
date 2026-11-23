@@ -3055,7 +3055,7 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
                 "billing_source": billing_source,
                 "customer_pricing": customer_pricing,
                 "customer_unit_pricing": customer_unit_pricing,
-                "generation_capabilities": configured_generation_capabilities(model, video_configuration),
+                "generation_capabilities": configured_generation_capabilities(name, model, video_configuration),
                 "capabilities": {
                     "chat_completions": video_configuration.is_none() && model.protocol().supports_chat_completions(),
                     "streaming": model.protocol().supports_streaming(),
@@ -3099,17 +3099,52 @@ struct AdminModelScope {
     include_uncallable: Option<bool>,
 }
 
+fn has_non_chat_modality_token(identifier: &str) -> bool {
+    identifier
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|segment| !segment.is_empty())
+        .any(|token| {
+            matches!(
+                token.to_ascii_lowercase().as_str(),
+                "video"
+                    | "seedance"
+                    | "wan2"
+                    | "kling"
+                    | "veo"
+                    | "sora"
+                    | "vidu"
+                    | "hailuo"
+                    | "luma"
+                    | "runway"
+                    | "seedream"
+                    | "flux"
+                    | "imagen"
+                    | "kolors"
+                    | "embedding"
+                    | "embeddings"
+                    | "embed"
+                    | "rerank"
+                    | "reranker"
+                    | "whisper"
+                    | "tts"
+                    | "asr"
+                    | "moderation"
+            )
+        })
+}
+
 /// Catalog descriptions cannot override the actual Video-only route boundary.
-/// Unknown legacy text metadata stays unknown rather than an affirmative launch.
+/// OpenAI-compatible Chat Completions routes whose `/v1/models` response omits
+/// OpenRouter-style `output_modalities` are Chat-capable unless the identifier
+/// explicitly denotes a non-chat modality (video/image/audio/embedding).
 fn configured_generation_capabilities(
+    alias: &str,
     model: &crate::config::ModelConfig,
     video: Option<bool>,
 ) -> Value {
     let chat = if video.is_some() || !model.protocol().supports_chat_completions() {
         Some(false)
-    } else if model.catalog.output_modalities.is_empty() {
-        None
-    } else {
+    } else if !model.catalog.output_modalities.is_empty() {
         Some(
             model
                 .catalog
@@ -3117,6 +3152,12 @@ fn configured_generation_capabilities(
                 .iter()
                 .any(|output| output == "text"),
         )
+    } else if has_non_chat_modality_token(alias)
+        || has_non_chat_modality_token(&model.upstream_model)
+    {
+        None
+    } else {
+        Some(true)
     };
     json!({"chat":chat,"video":video.unwrap_or(false)})
 }
@@ -3270,7 +3311,7 @@ async fn admin_models(
                 return None;
             }
             let generation_capabilities =
-                configured_generation_capabilities(model, video_configuration);
+                configured_generation_capabilities(name, model, video_configuration);
             let capabilities = json!({
                 "supports_embeddings": model.supports_embeddings,
                 "supports_embedding_dimensions": model.supports_embedding_dimensions,

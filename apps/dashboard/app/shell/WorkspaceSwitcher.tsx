@@ -292,7 +292,7 @@ export function OrganizationCreateDialog({ context, open, onOpenChange, withinSe
         </div>
         <div className="grid gap-2">
           <p id="organization-prereq-help" className="text-sm text-muted-foreground">
-            {t('New organizations start with 0 credits. Add credits in Credits settings or configure a payment method before running paid model requests.', '新组织初始余额为 0。在调用付费模型前，请在“额度与充值”中充值或完成支付配置。')}
+            {t('New organizations start with 0 credits. Add credits in Credits settings or configure a payment method before running paid model requests.', '新组织初始余额为 0。在调用付费模型前，请在“额度”中充值或完成支付配置。')}
           </p>
         </div>
         {createError && <p className="error-text" role="alert">{uiT(createError)}</p>}

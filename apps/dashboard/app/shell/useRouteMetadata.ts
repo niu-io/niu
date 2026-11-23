@@ -115,9 +115,9 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
               organization: t('Organization', '组织'),
               account: t('Account', '账户'),
               appearance: t('Appearance', '外观'),
-              billing: t('Credits', '额度与充值'),
-              payments: t('Credits', '额度与充值'),
-              members: t('Members', '成员管理'),
+              billing: t('Credits', '额度'),
+              payments: t('Credits', '额度'),
+              members: t('Members', '成员'),
               about: t('About', '关于'),
             }[location.pathname.split('/')[2] ?? 'account'] ?? t('Settings', '设置'))
           : inviteArea

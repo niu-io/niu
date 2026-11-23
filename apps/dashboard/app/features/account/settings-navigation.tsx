@@ -11,11 +11,11 @@ export function settingsNavigationEntries(context: DashboardContext, t: ReturnTy
   const canManageMembers = Boolean(context.organization && context.session?.permissions?.manage_operators);
   return [
     ...(personal ? [{path:'account',label:t('Account', '账户'),icon:IconUserCircle}] : []),
-    {path:'appearance',label:t('Appearance', '外观与语言'),icon:IconSun},
+    {path:'appearance',label:t('Appearance', '外观'),icon:IconSun},
     ...(context.organization ? [{path:'organization',label:t('Organization', '组织'),icon:IconBuildings}] : []),
-    ...(canManageMembers ? [{path:'members',label:t('Members', '成员管理'),icon:IconUsers}] : []),
-    ...(canViewBilling ? [{path:'billing',label:t('Credits', '额度与充值'),icon:IconCreditCard}] : []),
-    {path:'about',label:t('About Niu', '关于牛元'),icon:IconBook},
+    ...(canManageMembers ? [{path:'members',label:t('Members', '成员'),icon:IconUsers}] : []),
+    ...(canViewBilling ? [{path:'billing',label:t('Credits', '额度'),icon:IconCreditCard}] : []),
+    {path:'about',label:t('About Niu', '关于'),icon:IconBook},
   ];
 }
 

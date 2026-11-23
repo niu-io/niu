@@ -26,7 +26,7 @@ it('searches and opens a model without losing the catalog filter on return', asy
   expect(screen.queryByRole('link', { name: 'Model 0', exact: true })).toBeNull();
   await user.click(screen.getByRole('link', { name: 'Model 24', exact: true }));
   expect(screen.getByRole('complementary', { name: 'openai/model-24 route details' })).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'Open Generations' }).getAttribute('href')).toBe('/generations?new=1&model=openai%2Fmodel-24');
+  expect(screen.getByRole('link', { name: 'Try' }).getAttribute('href')).toBe('/generations?new=1&model=openai%2Fmodel-24');
   expect(screen.getByRole('link', { name: 'Create an API key' }).getAttribute('href')).toBe('/workspaces/default/keys/new');
   await user.click(screen.getByRole('link', { name: 'Models breadcrumb' }));
   expect((screen.getByRole('textbox', { name: 'Search models by name or ID' }) as HTMLInputElement).value).toBe('model-24');
@@ -251,19 +251,27 @@ it('filters explicit modalities and capabilities together, shows tags, and clear
   expect(screen.queryByRole('button',{name:'Remove Image input filter'})).toBeNull();
 });
 
-// Refs #104: absent metadata is not a Chat capability assertion.
+// Refs #104: absent metadata still lets users try Chat interactively without fabricating a verified curl example.
 it.each([
-  [undefined, false, false, null],
-  [[], false, false, null],
+  [undefined, true, false, null],
+  [[], true, false, null],
   [['text'], true, false, '/chat/completions'],
   [['video'], false, true, '/video/jobs'],
   [['text', 'video'], true, true, '/video/jobs'],
   [['audio'], false, false, null],
-])('offers only documented generation handoffs for outputs %s', (outputs, chat, video, endpoint) => {
+])('offers concise Try handoffs and only documented curl examples for outputs %s', (outputs, chat, video, endpoint) => {
   const model={id:'example/model', public_catalog:true, catalog:{output_modalities:outputs}};
   render(<MemoryRouter initialEntries={['/models/example/model']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]} /></SidebarProvider>} /></Routes></MemoryRouter>);
-  expect(!!screen.queryByRole('link',{name:'Open Generations'})).toBe(chat);
-  expect(!!screen.queryByRole('link',{name:'Try in Video'})).toBe(video);
+  if (chat && video) {
+    expect(screen.getByRole('link', { name: 'Try chat' }).getAttribute('href')).toContain('new=1');
+    expect(screen.getByRole('link', { name: 'Try video' }).getAttribute('href')).toContain('new=video');
+  } else if (chat) {
+    expect(screen.getByRole('link', { name: 'Try' }).getAttribute('href')).toContain('new=1');
+  } else if (video) {
+    expect(screen.getByRole('link', { name: 'Try' }).getAttribute('href')).toContain('new=video');
+  } else {
+    expect(screen.queryByRole('link', { name: 'Try' })).toBeNull();
+  }
   if (endpoint) expect(document.querySelector('pre')?.textContent).toContain(endpoint);
   else expect(document.querySelector('pre')).toBeNull();
 });
@@ -271,23 +279,21 @@ it.each([
 it('links an unknown-capability model to Chat without stamping misleading unpublished labels on callable cards', () => {
   const model = {id:'babelark/example',public_catalog:false,catalog:{output_modalities:[]}};
   const browse = render(<MemoryRouter><SidebarProvider><ModelTable models={[model]}/></SidebarProvider></MemoryRouter>);
-  expect(screen.getByRole('link', {name:'Try in Chat'}).getAttribute('href')).toContain('model=babelark%2Fexample');
+  expect(screen.getByRole('link', {name:'Try'}).getAttribute('href')).toContain('model=babelark%2Fexample');
   expect(screen.queryByText('Capabilities not published')).toBeNull();
   expect(screen.queryByText('Not published')).toBeNull();
   browse.unmount();
   render(<MemoryRouter initialEntries={['/models/babelark/example']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
-  expect(screen.getByRole('link', {name:'Try in Chat'}).getAttribute('href')).toContain('model=babelark%2Fexample');
+  expect(screen.getByRole('link', {name:'Try'}).getAttribute('href')).toContain('model=babelark%2Fexample');
   expect(screen.getByText('Upstream did not declare input or output modalities for this model.')).toBeTruthy();
-  expect(screen.queryByRole('link', {name:'Open Generations'})).toBeNull();
 });
 
 
 it('distinguishes direct Provider billing from missing platform prices without claiming availability', () => {
   const model = {...models[0], billing_source: 'own_api_key' as const};
   render(<MemoryRouter initialEntries={['/models/openai/model-0']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
-  expect(screen.getByText(/Its owning account pays the Provider directly/)).toBeTruthy();
+  expect(screen.getByText('No Niu charge')).toBeTruthy();
   expect(screen.queryByText('Not published')).toBeNull();
-  expect(screen.getByText(/Upstream balance and model permissions still apply/)).toBeTruthy();
 });
 it('keeps platform funding separate from an absent price', () => {
   const model = {...models[0], billing_source: 'niu_credits' as const};
@@ -299,8 +305,7 @@ it('keeps platform funding separate from an absent price', () => {
 it('offers the current Video workflow when catalog text metadata is stale',()=>{
  const model={id:'example/stale',public_catalog:true,catalog:{output_modalities:['text']},generation_capabilities:{chat:false,video:true}};
  render(<MemoryRouter initialEntries={['/models/example/stale']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
- expect(screen.queryByRole('link',{name:'Open Generations'})).toBeNull();
- expect(screen.getByRole('link',{name:'Try in Video'}).getAttribute('href')).toContain('new=video');
+ expect(screen.getByRole('link',{name:'Try'}).getAttribute('href')).toContain('new=video');
  expect(document.querySelector('pre')?.textContent).toContain('/video/jobs');
  expect(document.querySelector('pre')?.textContent).toContain('"model":"example/stale"');
  expect(screen.getByRole('link',{name:'All models'}).getAttribute('href')).toBe('/models');
@@ -313,7 +318,7 @@ it('explains Video estimation without presenting token prices for a Video-only m
  expect(screen.queryByText('Input price')).toBeNull();
  expect(screen.queryByText('Output price')).toBeNull();
  expect(screen.getByText(/Video cost depends on request settings/)).toBeTruthy();
- expect(screen.getByRole('link',{name:'Try in Video'})).toBeTruthy();
+ expect(screen.getByRole('link',{name:'Try'})).toBeTruthy();
 });
 
 it('restores developer, provider, and capability filters from URL parameters and preserves them on detail links',()=>{
@@ -349,12 +354,12 @@ it('renders model card titles and meta action links with default foreground colo
   const titleLink = screen.getByRole('link', { name: 'GPT-4o' });
   expect(titleLink.className).toContain('text-foreground');
   expect(titleLink.className).not.toContain('text-primary');
-  const openGenerationsLink = screen.getByRole('link', { name: 'Open Generations' });
-  expect(openGenerationsLink.className).toContain('text-foreground');
-  expect(openGenerationsLink.className).not.toContain('text-primary');
-  const tryVideoLink = screen.getByRole('link', { name: 'Try in Video' });
-  expect(tryVideoLink.className).toContain('text-foreground');
-  expect(tryVideoLink.className).not.toContain('text-primary');
+  const tryLinks = screen.getAllByRole('link', { name: 'Try' });
+  expect(tryLinks).toHaveLength(2);
+  for (const link of tryLinks) {
+    expect(link.className).toContain('text-foreground');
+    expect(link.className).not.toContain('text-primary');
+  }
 });
 
 it('hides active generation and curl CTAs for uncallable commercial models and links admins to missing pricing steps', () => {
@@ -390,17 +395,16 @@ it('hides active generation and curl CTAs for uncallable commercial models and l
   if (!uncallableCard) throw new Error('Expected uncallable model card');
   expect(within(uncallableCard).getByText('Purchase rate & selling price missing')).toBeTruthy();
   expect(within(uncallableCard).getByText('Not published')).toBeTruthy();
-  expect(within(uncallableCard).queryByRole('link', { name: 'Open Generations' })).toBeNull();
-  expect(within(uncallableCard).queryByRole('link', { name: 'Try in Chat' })).toBeNull();
+  expect(within(uncallableCard).queryByRole('link', { name: 'Try' })).toBeNull();
   expect(within(uncallableCard).queryByRole('link', { name: 'Publish selling price' })).toBeNull();
 
   const internalCard = screen.getByRole('link', { name: 'Internal Direct' }).closest('article');
   if (!internalCard) throw new Error('Expected internal model card');
-  expect(within(internalCard).getByText('Upstream-funded · no Niu charge')).toBeTruthy();
-  expect(within(internalCard).getByRole('link', { name: 'Open Generations' })).toBeTruthy();
+  expect(within(internalCard).getByText('No Niu charge')).toBeTruthy();
+  expect(within(internalCard).getByRole('link', { name: 'Try' })).toBeTruthy();
   customerList.unmount();
 
-  // Platform admin detail view: no Open Generations / API key / curl example, direct links to remedy steps.
+  // Platform admin detail view: no Try / API key / curl example, direct links to remedy steps.
   mockedContext.session = {
     kind: 'installation',
     permissions: { read: true, write: true, manage_operators: true, platform_admin: true },
@@ -413,7 +417,7 @@ it('hides active generation and curl CTAs for uncallable commercial models and l
     </MemoryRouter>,
   );
   expect(screen.getByRole('status').textContent).toContain('Purchase rate & selling price missing');
-  expect(screen.queryByRole('link', { name: 'Open Generations' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Try' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Create an API key' })).toBeNull();
   expect(document.querySelector('pre.model-route-example')).toBeNull();
   expect(screen.getByRole('link', { name: 'Complete Provider rate' }).getAttribute('href')).toBe('/admin/providers');
@@ -441,7 +445,7 @@ it('intercepts model trial when workspace has zero active API keys and offers 1-
     </MemoryRouter>,
   );
   expect(screen.getByRole('status').textContent).toContain('No active API key');
-  await user.click(screen.getByRole('button', { name: 'Open Generations' }));
+  await user.click(screen.getByRole('button', { name: 'Try' }));
   const dialog = await screen.findByRole('dialog');
   await user.click(within(dialog).getByRole('button', { name: 'Auto-create key & try' }));
   expect(await screen.findByTestId('landed-gen')).toBeTruthy();
