@@ -1,4 +1,3 @@
-import { Link } from 'react-router';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import IntegrationSettings from '@/features/providers/components/IntegrationSettings';
 import { useProviderParams } from '@/shell/provider-route';
@@ -110,7 +109,6 @@ export default function ProviderSettings() {
   }
   return <section className="supplier-settings space-y-6 py-6">
     <div className="supplier-section-heading"><h2>{uiT("Settings")}</h2><p>{uiT("Manage this provider’s identity and business information.")}</p></div>
-    {(session?.kind === 'installation' || session?.permissions.platform_admin) && <Button asChild variant="outline" size="sm"><Link to="../members" relative="path">{uiT('Provider members', '供应商成员')}</Link></Button>}
     {loading && !profile ? <FormSectionSkeleton fields={4} label={uiT("Loading provider details…")} /> : !profile ? <div><p role="alert">{uiT(error)}</p><Button variant="outline" onClick={() => setReload(value => value + 1)}>{uiT("Retry")}</Button></div> :
       <div className="space-y-5 rounded-[var(--radius-panel)] bg-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
