@@ -8,7 +8,7 @@ import {
   IconSun,
 } from '@tabler/icons-react';
 import NiuBrand from '@/components/NiuBrand';
-import { TableSkeleton } from '@/components/PageSkeletons';
+import { CardGridSkeleton } from '@/components/PageSkeletons';
 import RouterPending from '@/shell/RouterPending';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -236,7 +236,7 @@ export default function PublicModelsRoute() {
       </header>
       <main id="dashboard-content" tabIndex={-1} className="public-models-main">
         {loading ? (
-          <TableSkeleton label={t('Loading models', '正在加载模型')} rows={6} />
+          <CardGridSkeleton label={t('Loading models', '正在加载模型')} count={8} />
         ) : error ? (
           <Alert variant="destructive">
             <AlertDescription className="flex flex-wrap items-center justify-between gap-3">

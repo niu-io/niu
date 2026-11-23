@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import PageHeader from '@/components/PageHeader';
-import { TableSkeleton } from '@/components/PageSkeletons';
+import { CardGridSkeleton } from '@/components/PageSkeletons';
 import ConnectGate from '@/shell/ConnectGate';
 import ModelTable from './components/ModelTable';
 
@@ -62,7 +62,7 @@ export default function ModelsRoute() {
         </Alert>
       );
       return !models.length && (modelsLoading || modelsError)
-        ? <>{header}{failure}{modelsLoading && <TableSkeleton columns={5} rows={8} label={uiT("Loading model catalog…")} />}</>
+        ? <>{header}{failure}{modelsLoading && <CardGridSkeleton count={8} label={uiT("Loading model catalog…")} />}</>
         : <ModelTable models={models} header={<>{header}{failure}</>} />;
     }}
   </ConnectGate>;

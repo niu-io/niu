@@ -187,6 +187,46 @@ export function ListRowsSkeleton({
   );
 }
 
+export function CardGridSkeleton({
+  label,
+  count = 8,
+  className,
+}: {
+  label: string;
+  count?: number;
+  className?: string;
+}) {
+  return (
+    <div role="status" aria-busy="true" className={cn('w-full min-w-0 space-y-3', className)}>
+      {label && <span className="block text-sm text-muted-foreground">{label}</span>}
+      <div className="grid gap-3.5 [grid-template-columns:repeat(auto-fill,minmax(272px,1fr))]">
+        {Array.from({ length: count }, (_, idx) => (
+          <div key={idx} className="rounded-[14px] bg-card p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <Skeleton className="size-10 shrink-0 rounded-xl" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <div className="flex gap-1.5">
+                  <Skeleton className="h-5 w-14 rounded-md" />
+                  <Skeleton className="h-5 w-16 rounded-md" />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1.5 pt-1">
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-5/6" />
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-2">
+              <Skeleton className="h-3.5 w-28" />
+              <Skeleton className="h-3.5 w-16" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function WorkspaceShellSkeleton({ label }: { label: string }) {
   return (
     <div role="status" aria-busy="true" className="w-full space-y-6 py-2">

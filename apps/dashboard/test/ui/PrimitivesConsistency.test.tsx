@@ -77,4 +77,12 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(css).toContain(':has(> [data-slot="label"]:not(.sr-only))');
     expect(css).toContain('gap: 0.5rem');
   });
+
+  it('keeps the Models catalog as a responsive multi-column card grid instead of a single-column stack', () => {
+    const css = readFileSync(resolve(process.cwd(), 'app/features/models/models.css'), 'utf8');
+    const block = css.match(/\.models-cards\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(block).toContain('display: grid');
+    expect(block).toMatch(/grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(/);
+    expect(block).not.toContain('flex-direction: column');
+  });
 });

@@ -505,12 +505,14 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
               placeholder={uiT("Search models by name or ID…")}
             />
           </div>
-          <ModelFilterButton activeCount={activeFilterCount} />
-          <div className="models-sort-menu"><DropdownMenu><DropdownMenuTrigger asChild><Button aria-label={uiT("Sort models")} type="button" variant="outline" className="w-full justify-between font-normal">{sort === 'name' ? uiT("Name: A–Z") : sort === 'context' ? uiT("Context length") : uiT("Default order")}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={sort} onValueChange={nextSort => { const validSort = nextSort === 'name' || nextSort === 'context' ? nextSort : 'recommended'; setSort(validSort); syncCatalogUrl({ sort: validSort }); }}>
-              <DropdownMenuRadioItem value="recommended">{uiT("Default order")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="name">{uiT("Name: A–Z")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="context">{uiT("Context length")}</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup></DropdownMenuContent>
-          </DropdownMenu></div>
+          <div className="models-toolbar-controls">
+            <ModelFilterButton activeCount={activeFilterCount} />
+            <div className="models-sort-menu"><DropdownMenu><DropdownMenuTrigger asChild><Button aria-label={uiT("Sort models")} type="button" variant="outline" className="w-full justify-between font-normal">{sort === 'name' ? uiT("Name: A–Z") : sort === 'context' ? uiT("Context length") : uiT("Default order")}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={sort} onValueChange={nextSort => { const validSort = nextSort === 'name' || nextSort === 'context' ? nextSort : 'recommended'; setSort(validSort); syncCatalogUrl({ sort: validSort }); }}>
+                <DropdownMenuRadioItem value="recommended">{uiT("Default order")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="name">{uiT("Name: A–Z")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="context">{uiT("Context length")}</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup></DropdownMenuContent>
+            </DropdownMenu></div>
+          </div>
         </div>
 
         {(authorsSelected.length > 0 || providersSelected.length > 0 || sourcesSelected.length > 0 || hasCapabilities) && <div className="flex flex-wrap gap-2 pt-3" aria-label={uiT("Active model filters")}>
@@ -539,35 +541,67 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
             const issues = readinessIssues(model);
             const missingProcurement = issues.includes('procurement_pricing_missing');
             const missingSelling = issues.includes('selling_price_missing');
+            const detailHref = `${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`;
             return <article className="models-card" key={model.id}>
-            <div className="models-card-top">
-              <div className="models-card-heading"><ProviderLogo provider={modelIdentity(model)} size="small" /><div className="min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-0.5"><Link className="text-foreground hover:underline" to={`${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`}>{cardTitle}</Link>{cardTitle !== model.id && <span className="truncate font-mono text-xs text-muted-foreground">{model.id}</span>}</div></div>
-              <div className="models-card-rates">
-                {contextText && <span>{contextText}</span>}
-                {uncallable ? <span className="text-muted-foreground">{readinessBadgeText(model, uiT)}</span> : model.billing_source === 'own_api_key' ? <span>{uiT("Upstream-funded · no Niu charge")}</span> : isFreeUnit || isFreeCurrency ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}
+              <div className="models-card-header">
+                <ProviderLogo provider={modelIdentity(model)} size="default" />
+                <div className="models-card-identity">
+                  <div className="models-card-title-row">
+                    <Link className="models-card-title text-foreground hover:underline" title={cardTitle} to={detailHref}>{cardTitle}</Link>
+                    {(isFreeUnit || isFreeCurrency) && !uncallable && <Badge variant="secondary" className="models-card-tag shrink-0 font-normal">{uiT("Free")}</Badge>}
+                  </div>
+                  {tags.length > 0 ? (
+                    <div className="models-card-tags" aria-label={uiT("Model capabilities")}>
+                      {tags.map(tag => <Badge key={tag} variant="secondary" className="models-card-tag font-normal">{uiT(tag)}</Badge>)}
+                    </div>
+                  ) : cardTitle !== model.id ? (
+                    <span className="models-card-id" title={model.id}>{model.id}</span>
+                  ) : null}
+                </div>
               </div>
-            </div>
-            {showDesc && <p className="models-description">{rawDesc}</p>}
-            <div className="models-card-meta">
-              {tags.length > 0 && <div className="flex flex-wrap gap-1.5" aria-label={uiT("Model capabilities")}>{tags.map(tag => <Badge key={tag} variant="secondary" className="font-normal">{uiT(tag)}</Badge>)}</div>}
-              {uncallable ? <>
-                <span className="text-muted-foreground">{uiT("Not ready for requests")}</span>
-                {isPlatformAdmin && missingProcurement && <Link className="text-foreground underline underline-offset-2" to="/admin/providers">{uiT("Complete Provider rate")}</Link>}
-                {isPlatformAdmin && (missingSelling || !missingProcurement) && <Link className="text-foreground underline underline-offset-2" to={pricingSetupHref(model)}>{uiT("Publish selling price")}</Link>}
-              </> : <>
-                {hasChatOutput(model) && (needsApiKey
-                  ? <Button type="button" variant="link" className="h-auto p-0 font-normal text-foreground" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'chat' }); }}>{uiT("Open Generations")}</Button>
-                  : <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>)}
-                {canTryUnverifiedChat(model) && (needsApiKey
-                  ? <Button type="button" variant="link" className="h-auto p-0 font-normal text-foreground" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'chat' }); }}>{uiT("Try in Chat")}</Button>
-                  : <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Try in Chat")}</Link>)}
-                {isVideoModel(model) && (needsApiKey
-                  ? <Button type="button" variant="link" className="h-auto p-0 font-normal text-foreground" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'video' }); }}>{uiT("Try in Video")}</Button>
-                  : <Link className="text-foreground hover:underline" to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>)}
-                {!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? uiT(canTryUnverifiedChat(model) ? "Support unverified" : "Preview not supported") : uiT("Capabilities not published")}</span>}
-              </>}
-            </div>
-          </article>;
+
+              <div className="models-card-body">
+                {showDesc ? (
+                  <p className="models-description">{rawDesc}</p>
+                ) : tags.length > 0 && cardTitle !== model.id ? (
+                  <span className="models-card-id" title={model.id}>{model.id}</span>
+                ) : null}
+              </div>
+
+              <div className="models-card-footer">
+                <div className="models-card-rates">
+                  {uncallable ? <span className="text-muted-foreground">{readinessBadgeText(model, uiT)}</span> : model.billing_source === 'own_api_key' ? <span>{uiT("Upstream-funded · no Niu charge")}</span> : isFreeUnit || isFreeCurrency ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}
+                  {contextText && <span>{contextText}</span>}
+                </div>
+
+                <div className="models-card-meta">
+                  {uncallable ? <>
+                    <span className="text-muted-foreground">{uiT("Not ready for requests")}</span>
+                    <div className="models-card-actions">
+                      {isPlatformAdmin && missingProcurement && <Link className="text-foreground underline underline-offset-2" to="/admin/providers">{uiT("Complete Provider rate")}</Link>}
+                      {isPlatformAdmin && (missingSelling || !missingProcurement) && <Link className="text-foreground underline underline-offset-2" to={pricingSetupHref(model)}>{uiT("Publish selling price")}</Link>}
+                    </div>
+                  </> : <>
+                    {!hasGenerationOutput(model) ? (
+                      <span className="text-muted-foreground">{model.catalog?.output_modalities?.length ? uiT(canTryUnverifiedChat(model) ? "Support unverified" : "Preview not supported") : uiT("Capabilities not published")}</span>
+                    ) : showDesc && cardTitle !== model.id ? (
+                      <span className="models-card-id-inline" title={model.id}>{model.id}</span>
+                    ) : <span />}
+                    <div className="models-card-actions">
+                      {hasChatOutput(model) && (needsApiKey
+                        ? <Button type="button" variant="link" className="h-auto p-0 text-xs font-medium text-foreground" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'chat' }); }}>{uiT("Open Generations")}</Button>
+                        : <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>)}
+                      {canTryUnverifiedChat(model) && (needsApiKey
+                        ? <Button type="button" variant="link" className="h-auto p-0 text-xs font-medium text-foreground" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'chat' }); }}>{uiT("Try in Chat")}</Button>
+                        : <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Try in Chat")}</Link>)}
+                      {isVideoModel(model) && (needsApiKey
+                        ? <Button type="button" variant="link" className="h-auto p-0 text-xs font-medium text-foreground" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'video' }); }}>{uiT("Try in Video")}</Button>
+                        : <Link className="text-foreground hover:underline" to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>)}
+                    </div>
+                  </>}
+                </div>
+              </div>
+            </article>;
           })}
         </div>}
         {visible.length < filtered.length && <div className="models-load-more"><Button variant="outline" onClick={() => setLimit(value => value + 20)}>{uiT("Show more models")}</Button><span>{isZh ? `已显示 ${visible.length} / 共 ${filtered.length} 个` : `${visible.length} ${uiT("of")} ${filtered.length}`}</span></div>}

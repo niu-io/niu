@@ -58,6 +58,7 @@ This document defines the mandatory, product-wide UI and interaction standards f
 - Use installed shadcn primitives (`Button`, `Input`, `Textarea`, `Checkbox`, `Label`, `Dialog`, `DropdownMenu`, `Popover`, `Sidebar`, `Tabs`, `Card`, `Badge`, `Alert`, `Table`, `Tooltip`) directly without parallel wrappers.
 - Delete superseded legacy CSS classes immediately when migrating a feature to a shared component (e.g., no dead `.video-composer*` rules once unified onto `GenerationComposer`).
 - Keep full-width management canvases without page-level `max-width`; reserve readable column widths strictly for the Generations transcript and composer.
+- **Responsive multi-column catalog grids**: Full-width canvases must distribute browsable item directories (such as the public and workspace Models catalog) into a responsive multi-column card grid (`repeat(auto-fill, minmax(272px, 1fr))`) with equal-height cards and a consistent 3-tier vertical rhythm (header with icon + title + capability tags, clamped body summary, bottom-aligned pricing/context + action footer) rather than stretching individual model cards across the full desktop width. Evaluate spatial ergonomics, scan density, and visual balance across desktop, ultrawide, tablet, and mobile viewports during every review.
 
 ## 7. Delivery Verification Checklist
 
