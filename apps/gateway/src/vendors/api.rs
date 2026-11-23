@@ -757,18 +757,26 @@ pub async fn update(
     Json(input): Json<UpdateVendor>,
 ) -> Result<Json<Value>, ApiError> {
     installation(&state, &headers).await?;
-    if input.enabled
-        && state.operating_mode == crate::state::OperatingMode::Internal
-        && state
+    if input.enabled {
+        let directly_funded = state
             .store
             .personal_vendor_organization(id)
             .await
             .map_err(ApiError::from_store)?
-            .is_none()
-    {
-        return Err(ApiError::invalid_request(
-            "Internal use cannot enable shared commercial credentials",
-        ));
+            .is_some();
+        match state.operating_mode {
+            crate::state::OperatingMode::Internal if !directly_funded => {
+                return Err(ApiError::invalid_request(
+                    "Internal use cannot enable shared commercial credentials",
+                ));
+            }
+            crate::state::OperatingMode::Resale if directly_funded => {
+                return Err(ApiError::invalid_request(
+                    "Resale requires a commercial Provider connection",
+                ));
+            }
+            _ => {}
+        }
     }
 
     let current = state
