@@ -110,14 +110,19 @@ it('checks Stripe explicitly without presenting account eligibility as verified 
   expect(screen.getByRole('article',{name:'Stripe'}).textContent).toContain('Configured');
   result = 'account_disabled';
   await user.click(check);
-  expect((await screen.findByRole('alert')).textContent).toContain('Complete the account requirements in Stripe');
+  const disabledAlert = await screen.findByRole('alert');
+  expect(disabledAlert.textContent).toContain('Complete the account requirements in Stripe');
+  expect(screen.getByRole('link',{name:'Complete setup in Stripe'}).getAttribute('href')).toBe('https://dashboard.stripe.com/settings/account');
+  expect(screen.getByRole('link',{name:'Manage Stripe API keys'}).getAttribute('href')).toBe('https://dashboard.stripe.com/apikeys');
   expect(screen.queryByRole('status')).toBeNull();
   result = 'credentials_rejected';
   await user.click(check);
   expect((await screen.findByRole('alert')).textContent).toContain('update them, then check again');
+  expect(screen.getByRole('link',{name:'Open Stripe API keys'}).getAttribute('href')).toBe('https://dashboard.stripe.com/apikeys');
   result = 'check_unavailable';
   await user.click(check);
   expect((await screen.findByRole('alert')).textContent).toContain('credentials and connection');
+  expect(screen.getByRole('link',{name:'Check Stripe status'}).getAttribute('href')).toBe('https://status.stripe.com/');
   expect(check.hasAttribute('disabled')).toBe(false);
 });
 
@@ -160,6 +165,7 @@ it('shows the missing payment step, refreshes current evidence, and clears stale
  expect(card.textContent).toContain('Needs attention');
  expect(card.textContent).toContain('Not verified');
  expect(card.textContent).toContain('Payment notifications are not verified yet.');
+ expect(screen.getByRole('link',{name:'Open Stripe webhooks'}).getAttribute('href')).toBe('https://dashboard.stripe.com/webhooks');
  expect(screen.queryByRole('link',{name:'Credits'})).toBeNull();
  callback=true;
  await userEvent.click(screen.getByRole('button',{name:'Refresh verification'}));
