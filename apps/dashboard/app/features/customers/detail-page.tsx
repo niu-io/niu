@@ -76,7 +76,7 @@ export function CustomerDetail({
   const { locale, t: uiT, format: uiF } = useUILocale();
   const { currency: platformCurrency } = usePlatformCurrency();
   const [search, setSearch] = useSearchParams();
-  const location = useLocation();
+  const routeLocation = useLocation();
   const rawTab = search.get('tab');
   const activeTab: DetailTab = rawTab === 'pricing' || rawTab === 'access' ? rawTab : 'overview';
 
@@ -173,7 +173,7 @@ export function CustomerDetail({
 
   if (!company) return null;
   if (company.slug && company.slug !== customerId) {
-    return <Navigate replace to={{ pathname: `/admin/customers/${encodeURIComponent(company.slug)}`, search: location.search, hash: location.hash }} />;
+    return <Navigate replace to={{ pathname: `/admin/customers/${encodeURIComponent(company.slug)}`, search: routeLocation.search, hash: routeLocation.hash }} />;
   }
   const currentCompany: Company = company;
 
