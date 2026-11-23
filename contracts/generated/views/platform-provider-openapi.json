@@ -24927,7 +24927,7 @@
           "personal_organization_id": {
             "type": "string",
             "format": "uuid",
-            "description": "Platform-administrator-selected account paying the Provider directly. Access scope is independent. Ownership is created atomically; routes remain owner-funded and do not require resale tariffs. Omission preserves shared creation in Resale; Internal use requires an explicit access choice."
+            "description": "Internal use only: platform-administrator-selected account paying the Provider directly. Access scope is independent. Ownership is created atomically; routes remain owner-funded and do not require resale tariffs. Rejected in Resale mode."
           },
           "access_scope": {
             "type": "string",
@@ -24935,7 +24935,7 @@
               "personal",
               "internal"
             ],
-            "description": "Explicit credential access. personal restricts use to the funding account. internal shares the owner-funded credential with every organization while Internal use is active; it is rejected in Resale. Omit only for compatibility: an explicit funding account creates personal access, Resale without one creates shared commercial supply, and Internal use without either is rejected instead of silently binding to the current account."
+            "description": "Internal use only: explicit owner-funded credential access. personal restricts use to the funding account; internal shares the owner-funded credential with every organization while Internal use is active. Rejected in Resale mode, where connections are always shared commercial supply."
           },
           "create_supplier": {
             "type": "boolean",

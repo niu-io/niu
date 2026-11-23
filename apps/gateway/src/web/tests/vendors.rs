@@ -1824,8 +1824,14 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         assert_eq!(count, 0, "{table}");
     }
     let current = store.vendor(vendor_id).await.unwrap().unwrap();
-    let (status, updated) = call(&app, Method::PUT, &format!("/api/v1/admin/providers/connections/{vendor_id}"), ADMIN,
-        json!({"name":current.name,"api_base":current.api_base,"enabled":current.enabled,"expected_revision":current.revision})).await;
+    let path = format!("/api/v1/admin/providers/connections/{vendor_id}");
+    let update = json!({
+        "name":current.name,"api_base":current.api_base,
+        "enabled":true,"expected_revision":current.revision
+    });
+    let (status, _) = call(&app, Method::PUT, &path, ADMIN, update.clone()).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, updated) = call(&internal_app, Method::PUT, &path, ADMIN, update).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(updated["data"]["owner_funded"], true);
     server.abort();
