@@ -416,7 +416,14 @@ impl Store {
         }
         let alias_list: Vec<String> = aliases.into_iter().collect();
         let rows = sqlx::query(
-            "SELECT m.capabilities,m.pricing,o.organization_id,o.access_scope \
+            "SELECT m.capabilities,m.pricing,o.organization_id,o.access_scope, \
+                    EXISTS( \
+                        SELECT 1 FROM provider_offers po \
+                        JOIN provider_offer_revisions por ON por.id = po.current_revision \
+                        WHERE po.model_alias = m.alias \
+                          AND po.vendor_id = m.vendor_id \
+                          AND por.rate_kind = 'text' \
+                    ) AS has_text_offer \
              FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id \
              LEFT JOIN personal_vendor_ownership o ON o.vendor_id=v.id \
              WHERE m.alias = ANY($1) ORDER BY v.id, m.alias FOR SHARE OF v,m",
@@ -432,14 +439,16 @@ impl Store {
             let scope: Option<String> = row.get("access_scope");
             let caps: serde_json::Value = row.get("capabilities");
             let pricing: Option<serde_json::Value> = row.get("pricing");
+            let has_text_offer: bool = row.get("has_text_offer");
             // Video job recovery remains pinned to its original mapping.
-            // Shared pools require a bounded route price; personal pools never bill retail.
+            // Shared pools require either legacy route pricing or a text Provider offer;
+            // personal pools never bill retail.
             // Internal-scope routes may serve any organization's pool at admission.
             let internal_shared = scope.as_deref() == Some("internal");
             if (owner != input.organization_id
                 && !(input.organization_id.is_some() && internal_shared))
                 || caps.get("video_schema").is_some()
-                || (owner.is_none() && pricing.is_none())
+                || (owner.is_none() && pricing.is_none() && !has_text_offer)
             {
                 return Err(StoreError::InvalidVendor);
             }

@@ -187,6 +187,8 @@ pub struct RouteRegistryOffer {
     pub supplier_review: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub offer_authorization: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_kind: Option<String>,
 }
 
 /// Server-only catalog inputs from a single database snapshot.
@@ -195,6 +197,7 @@ pub struct VendorCatalogInputs {
     pub unavailable: std::collections::BTreeSet<String>,
     pub pools: Vec<crate::ModelRoutePool>,
     pub cooling_down: std::collections::BTreeSet<Uuid>,
+    pub text_offer_aliases: std::collections::BTreeSet<String>,
 }
 
 #[derive(FromRow)]
@@ -1039,7 +1042,16 @@ impl Store {
             AND (($2::uuid IS NOT NULL AND EXISTS (
                 SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id
                     AND (o.organization_id=$2 OR ($3::boolean AND o.access_scope='internal'))))
-                OR ($2::uuid IS NULL AND m.pricing IS NOT NULL
+                OR ($2::uuid IS NULL
+                    AND (m.pricing IS NOT NULL
+                        OR EXISTS (
+                            SELECT 1 FROM provider_offers po
+                            JOIN provider_offer_revisions por ON por.id = po.current_revision
+                            WHERE po.model_alias = m.alias
+                              AND po.vendor_id = m.vendor_id
+                              AND por.rate_kind = 'text'
+                              AND po.active
+                        ))
                     AND NOT EXISTS (SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id)
                     AND niu_supplier_model_route_available(m.alias)))");
         Ok(sqlx::query_as::<_, VendorRouteRow>(&query)
@@ -1176,8 +1188,16 @@ impl Store {
     /// This is a per-read snapshot, not a published registry generation.
     pub async fn vendor_catalog_inputs(&self) -> Result<VendorCatalogInputs, StoreError> {
         let mut tx = self.begin_bounded_read_snapshot().await?;
-        let RouteRegistryInputs { routes, pools, .. } =
-            Self::routing_registry_inputs_in_tx(&mut tx).await?;
+        let RouteRegistryInputs {
+            routes,
+            pools,
+            offers,
+        } = Self::routing_registry_inputs_in_tx(&mut tx).await?;
+        let text_offer_aliases = offers
+            .into_iter()
+            .filter(|offer| offer.active && offer.rate_kind.as_deref() != Some("media"))
+            .map(|offer| offer.model_alias)
+            .collect();
         let unavailable: Vec<String> = sqlx::query_scalar(
             "SELECT model_alias FROM provider_offers WHERE NOT niu_supplier_model_route_available(model_alias)",
         )
@@ -1194,6 +1214,7 @@ impl Store {
             unavailable: unavailable.into_iter().collect(),
             pools,
             cooling_down: cooling_down.into_iter().collect(),
+            text_offer_aliases,
         })
     }
 
@@ -1219,7 +1240,7 @@ impl Store {
             pools.push(pool);
         }
         let offers = sqlx::query_as::<_, RouteRegistryOffer>(
-            "SELECT o.model_alias,o.vendor_id,o.provider_id,o.id AS offer_id,o.active,o.current_revision,o.current_qualification_review AS offer_review,p.current_qualification_review AS supplier_review,o.current_authorization AS offer_authorization FROM provider_offers o JOIN provider_businesses p ON p.id=o.provider_id ORDER BY o.model_alias"
+            "SELECT o.model_alias,o.vendor_id,o.provider_id,o.id AS offer_id,o.active,o.current_revision,o.current_qualification_review AS offer_review,p.current_qualification_review AS supplier_review,o.current_authorization AS offer_authorization,r.rate_kind FROM provider_offers o JOIN provider_businesses p ON p.id=o.provider_id LEFT JOIN provider_offer_revisions r ON r.id=o.current_revision ORDER BY o.model_alias"
         ).fetch_all(&mut **tx).await?;
         Ok(RouteRegistryInputs {
             routes,

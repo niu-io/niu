@@ -1626,3 +1626,373 @@ async fn provider_offer_and_prepaid_workspace_dispatch_without_legacy_budget(poo
     .unwrap();
     assert_eq!(provider_earned_nanos, 2_000_000);
 }
+
+/// Commercial Route Pools built exclusively from 3-step Provider models
+/// (`vendor_models.pricing = NULL` + active `provider_offers`) must:
+/// 1. Pass pool creation (`PUT /api/v1/admin/routing`) and routing preview;
+/// 2. Appear as `callable: true` across `/catalog/v1/models`, `/v1/models`, and
+///    `/api/v1/models` once a pool selling price is published (without leaking
+///    provider offer rates);
+/// 3. Dispatch `POST /v1/chat/completions` to the highest-priority candidate,
+///    bill the customer at the unified pool tariff, and accrue exact provider
+///    earnings to the winning candidate's provider;
+/// 4. Fail over seamlessly to the standby candidate when the primary candidate
+///    is disabled, accruing exact earnings to the backup provider and reporting
+///    exact P&L in `GET /api/v1/admin/routing/{ref}/audit`.
+#[sqlx::test(migrator = "niu_storage::MIGRATOR")]
+#[ignore = "requires PostgreSQL"]
+async fn commercial_route_pool_with_provider_offers_dispatches_bills_and_fails_over(pool: PgPool) {
+    let upstream = axum::Router::new().route(
+        "/v1/chat/completions",
+        axum::routing::post(|Json(body): Json<Value>| async move {
+            let model = body["model"].as_str().unwrap_or("unknown").to_owned();
+            let text = if model.contains("beta") {
+                "Hello from Beta Backup"
+            } else {
+                "Hello from Acme Primary"
+            };
+            Json(json!({
+                "id": "chatcmpl-pool-reg",
+                "object": "chat.completion",
+                "created": 1_700_000_000,
+                "model": model,
+                "choices": [{
+                    "index": 0,
+                    "message": { "role": "assistant", "content": text },
+                    "finish_reason": "stop"
+                }],
+                "usage": {
+                    "prompt_tokens": 1000,
+                    "completion_tokens": 500,
+                    "total_tokens": 1500
+                }
+            }))
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+
+    let mut state = test_state(None, pool.clone());
+    Arc::make_mut(&mut state.config).models.clear();
+    let cipher = Arc::new(crate::vendors::crypto::CredentialCipher::new(MASTER_A).unwrap());
+    state.vendor_cipher = Some(cipher);
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    crate::payments::readiness::configure_test_gateway(&mut state).await;
+    let app = router(state.clone());
+
+    // 1. Onboard two Providers (Acme Primary & Beta Backup) with vendor_models.pricing = NULL.
+    let mut provider_ids = Vec::new();
+    for (pname, cname, alias, upstream_model, prompt_rate, completion_rate) in [
+        (
+            "Acme Primary",
+            "Acme Key",
+            "acme-key/fast-chat",
+            "acme/fast-chat",
+            "800000000",
+            "2400000000",
+        ),
+        (
+            "Beta Backup",
+            "Beta Key",
+            "beta-key/fast-chat",
+            "beta/fast-chat",
+            "900000000",
+            "2700000000",
+        ),
+    ] {
+        let (status, _, provider) = json_call(
+            &app,
+            Method::POST,
+            "/api/v1/admin/providers",
+            Some(ADMIN),
+            Some(json!({ "name": pname })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{provider}");
+        let pid = provider["data"]["id"].as_str().unwrap().to_owned();
+
+        let (status, _, conn) = json_call(
+            &app,
+            Method::POST,
+            "/api/v1/admin/providers/connections",
+            Some(ADMIN),
+            Some(json!({
+                "name": cname,
+                "adapter": "openai",
+                "api_base": format!("http://{addr}/v1"),
+                "api_key": "sk-upstream-pool-test",
+                "enabled": true,
+                "supplier_id": pid
+            })),
+        )
+        .await;
+        assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {conn}");
+        let cid = conn["data"]["id"].as_str().unwrap();
+
+        let (status, _, route) = json_call(
+            &app,
+            Method::POST,
+            &format!("/api/v1/admin/providers/connections/{cid}/models"),
+            Some(ADMIN),
+            Some(json!({
+                "alias": alias,
+                "upstream_model": upstream_model,
+                "public_catalog": false,
+                "enabled": true,
+                "capabilities": {}
+            })),
+        )
+        .await;
+        assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {route}");
+
+        let (status, _, offer) = json_call(
+            &app,
+            Method::POST,
+            &format!("/api/v1/admin/providers/{pid}/offers"),
+            Some(ADMIN),
+            Some(json!({
+                "model_alias": alias,
+                "currency": "USD",
+                "prompt_rate": prompt_rate,
+                "completion_rate": completion_rate,
+                "activate": true
+            })),
+        )
+        .await;
+        assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {offer}");
+        provider_ids.push(pid);
+    }
+
+    // 2. Create commercial Route Pool `smart-chat` (pool_tariff, public_catalog: true).
+    let (status, _, saved_pool) = json_call(
+        &app,
+        Method::PUT,
+        "/api/v1/admin/routing",
+        Some(ADMIN),
+        Some(json!({
+            "alias": "smart-chat",
+            "display_name": "Smart Chat Router",
+            "organization_id": null,
+            "public_catalog": true,
+            "billing_mode": "pool_tariff",
+            "enabled": true,
+            "expected_revision": 0,
+            "candidates": [
+                { "alias": "acme-key/fast-chat", "priority": 100, "weight": 1000, "enabled": true },
+                { "alias": "beta-key/fast-chat", "priority": 50, "weight": 1000, "enabled": true }
+            ]
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved_pool}");
+
+    // 3. Preview confirms both candidates are eligible and primary wins 100%.
+    let pool_ref = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode("smart-chat");
+    let (status, _, preview) = json_call(
+        &app,
+        Method::POST,
+        &format!("/api/v1/admin/routing/{pool_ref}/preview"),
+        Some(ADMIN),
+        Some(json!({ "protocol": "chat" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{preview}");
+    assert_eq!(preview["data"]["routable"], true, "{preview}");
+    assert_eq!(
+        preview["data"]["eligible_candidates"].as_array().unwrap().len(),
+        2,
+        "{preview}"
+    );
+    assert!(
+        preview["data"]["ineligible_candidates"].as_array().unwrap().is_empty(),
+        "{preview}"
+    );
+
+    // 4. Publish unified pool selling price ($1.20 / $3.60 per 1M).
+    let (status, _, retail) = json_call(
+        &app,
+        Method::POST,
+        "/api/v1/admin/pricing/standard-prices",
+        Some(ADMIN),
+        Some(json!({
+            "model_alias": "smart-chat",
+            "currency": "USD",
+            "schedule": {
+                "kind": "text",
+                "prompt_rate": "1200000000",
+                "completion_rate": "3600000000",
+                "cached_prompt_rate": null,
+                "cache_write_prompt_rate": null,
+                "reasoning_completion_rate": null,
+                "request_fee_nanos": "0",
+                "minimum_charge_nanos": "0",
+                "context_tiers": []
+            },
+            "expected_version": "0",
+            "idempotency_key": Uuid::new_v4(),
+            "reason": "Unified selling price for smart-chat pool"
+        })),
+    )
+    .await;
+    assert!(status == StatusCode::OK || status == StatusCode::CREATED, "{status} {retail}");
+
+    // 5. Onboard funded prepaid customer workspace & API key.
+    let org = state.store.create_organization("Pool Customer").await.unwrap();
+    let scope = state.store.create_project(org, "Prod").await.unwrap();
+    sqlx::query(
+        "INSERT INTO customer_balance_accounts(id, organization_id, currency) VALUES ($1, $2, 'USD')",
+    )
+    .bind(Uuid::new_v4())
+    .bind(org)
+    .execute(&pool)
+    .await
+    .unwrap();
+    state
+        .store
+        .record_settled_customer_funding(
+            org,
+            "USD",
+            10_000_000_000,
+            "pool-topup",
+            &Uuid::new_v4().to_string(),
+        )
+        .await
+        .unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "Pool Key", &["*".into()], 3600)
+        .await
+        .unwrap();
+
+    // 6. Verify smart-chat is callable across public, API, and workspace catalogs without leaking offer rates.
+    let (status, _, pub_cat) = json_call(&app, Method::GET, "/catalog/v1/models", None, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        pub_cat["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|m| m["id"] == "smart-chat" && m["callable"] == true),
+        "{pub_cat}"
+    );
+
+    let (status, _, api_cat) =
+        json_call(&app, Method::GET, "/v1/models", Some(&key.token), None).await;
+    assert_eq!(status, StatusCode::OK);
+    let pool_entry = api_cat["data"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["id"] == "smart-chat")
+        .expect("smart-chat must be listed in /v1/models");
+    assert_eq!(pool_entry["callable"], true);
+    assert_eq!(pool_entry["customer_pricing"]["prompt_rate"], "1200000000");
+    assert!(!api_cat.to_string().contains("800000000"));
+    assert!(!api_cat.to_string().contains("900000000"));
+
+    // 7. Dispatch #1 -> hits Acme Primary ($0.0030 customer charge, $0.0020 Acme earning).
+    let (status, _, reply1) = json_call(
+        &app,
+        Method::POST,
+        "/v1/chat/completions",
+        Some(&key.token),
+        Some(json!({
+            "model": "smart-chat",
+            "messages": [{ "role": "user", "content": "hello primary" }]
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reply1}");
+    assert_eq!(
+        reply1["choices"][0]["message"]["content"],
+        "Hello from Acme Primary"
+    );
+
+    // 8. Disable primary candidate -> Dispatch #2 seamlessly fails over to Beta Backup ($0.0030 charge, $0.00225 Beta earning).
+    let (status, _, updated_pool) = json_call(
+        &app,
+        Method::PUT,
+        "/api/v1/admin/routing",
+        Some(ADMIN),
+        Some(json!({
+            "alias": "smart-chat",
+            "display_name": "Smart Chat Router",
+            "organization_id": null,
+            "public_catalog": true,
+            "billing_mode": "pool_tariff",
+            "enabled": true,
+            "expected_revision": 1,
+            "candidates": [
+                { "alias": "acme-key/fast-chat", "priority": 100, "weight": 1000, "enabled": false },
+                { "alias": "beta-key/fast-chat", "priority": 50, "weight": 1000, "enabled": true }
+            ]
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{updated_pool}");
+
+    let (status, _, reply2) = json_call(
+        &app,
+        Method::POST,
+        "/v1/chat/completions",
+        Some(&key.token),
+        Some(json!({
+            "model": "smart-chat",
+            "messages": [{ "role": "user", "content": "hello backup" }]
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{reply2}");
+    assert_eq!(
+        reply2["choices"][0]["message"]["content"],
+        "Hello from Beta Backup"
+    );
+
+    // 9. Verify exact customer deduction ($0.0060 total) and per-provider accruals ($0.0020 Acme, $0.00225 Beta).
+    let balance_nanos: i64 = sqlx::query_scalar(
+        "SELECT posted_balance_nanos::bigint FROM customer_balance_accounts WHERE organization_id=$1 AND currency='USD'",
+    )
+    .bind(org)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(balance_nanos, 10_000_000_000 - 6_000_000);
+
+    let acme_earned: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(amount_nanos), 0)::bigint FROM provider_earnings WHERE provider_id=$1::uuid AND currency='USD'",
+    )
+    .bind(&provider_ids[0])
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(acme_earned, 2_000_000);
+
+    let beta_earned: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(amount_nanos), 0)::bigint FROM provider_earnings WHERE provider_id=$1::uuid AND currency='USD'",
+    )
+    .bind(&provider_ids[1])
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(beta_earned, 2_250_000);
+
+    // 10. Strategy & Billing Audit reflects exact traffic, revenue, cost, and net margin.
+    let (status, _, audit) = json_call(
+        &app,
+        Method::GET,
+        &format!("/api/v1/admin/routing/{pool_ref}/audit?days=30"),
+        Some(ADMIN),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{audit}");
+    assert_eq!(audit["data"]["totals"]["observed_attempts"], 2, "{audit}");
+    assert_eq!(audit["data"]["totals"]["customer_charge_nanos"], "6000000", "{audit}");
+    assert_eq!(audit["data"]["totals"]["supplier_cost_nanos"], "4250000", "{audit}");
+    assert_eq!(audit["data"]["totals"]["net_margin_nanos"], "1750000", "{audit}");
+}

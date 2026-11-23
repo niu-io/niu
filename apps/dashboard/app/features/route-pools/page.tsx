@@ -518,6 +518,9 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
           onSaved={message => {
             setEditing(null);
             setNotice(message);
+            invalidateQueries('/api/v1/admin/routing');
+            invalidateQueries('/api/v1/models');
+            invalidateQueries('/api/v1/admin/pricing');
             void loadPools();
           }}
         />

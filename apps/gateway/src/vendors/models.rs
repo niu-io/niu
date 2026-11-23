@@ -363,6 +363,39 @@ async fn resolve_pool(
 
     if personal {
         model.pricing = None;
+    } else if model.pricing.is_none() {
+        let fallback = match state
+            .store
+            .active_provider_offer_text_pricing(&route.model.alias)
+            .await
+            .map_err(ApiError::from_store)?
+        {
+            Some(offer) => Some(offer),
+            None => match state
+                .store
+                .platform_retail_text_pricing(&pool.alias)
+                .await
+                .map_err(ApiError::from_store)?
+            {
+                Some(price) => Some(price),
+                None => state
+                    .store
+                    .platform_retail_text_pricing(&route.model.alias)
+                    .await
+                    .map_err(ApiError::from_store)?,
+            },
+        };
+        if let Some((currency, prompt, completion)) = fallback {
+            model.pricing = Some(crate::config::RoutePricing {
+                currency,
+                api_prompt_rate: prompt,
+                api_completion_rate: completion,
+                cash_prompt_rate: prompt,
+                cash_completion_rate: completion,
+                max_input_tokens: model.catalog.context_length.unwrap_or(128_000) as i64,
+                max_output_tokens: 4_096,
+            });
+        }
     }
     let mut snapshot = niu_storage::ManagedRouteSnapshot::from(&route);
     snapshot.pool_alias = Some(pool.alias);
@@ -861,7 +894,10 @@ async fn resolve_published(
                             && pool.organization_id.is_some()
                             && metadata.is_internal_shared()))
                     && (pool.organization_id.is_some()
-                        || (route.model.pricing.is_some()
+                        || ((route.model.pricing.is_some()
+                            || registry.offers.get(&candidate.alias).is_some_and(|offer| {
+                                offer.active && offer.rate_kind.as_deref() != Some("media")
+                            }))
                             && !unavailable.contains(&candidate.alias)))
                     && protocol.is_none_or(|protocol| supports_protocol(&route.model, protocol))
                     && requirements.is_none_or(|required| required.allows(&route.model)))

@@ -1233,7 +1233,8 @@ pub async fn member_preview(
             } else if route.personal_organization_id != pool.organization_id {
                 reason = Some("ownership_mismatch");
             } else if pool.organization_id.is_none()
-                && (route.model.pricing.is_none()
+                && ((route.model.pricing.is_none()
+                    && !inputs.text_offer_aliases.contains(&route.model.alias))
                     || inputs.unavailable.contains(&route.model.alias))
             {
                 reason = Some("supplier_unavailable");

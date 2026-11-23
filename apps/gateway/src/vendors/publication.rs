@@ -226,6 +226,13 @@ pub(crate) async fn catalog_inputs(
         .route_registry_live_eligibility()
         .await
         .map_err(ApiError::from_store)?;
+    let text_offer_aliases = published
+        .registry
+        .offers
+        .values()
+        .filter(|offer| offer.active && offer.rate_kind.as_deref() != Some("media"))
+        .map(|offer| offer.model_alias.clone())
+        .collect();
     Ok((
         published.registry.static_models.clone(),
         niu_storage::VendorCatalogInputs {
@@ -238,6 +245,7 @@ pub(crate) async fn catalog_inputs(
             pools: published.registry.pools.values().cloned().collect(),
             unavailable,
             cooling_down,
+            text_offer_aliases,
         },
     ))
 }
