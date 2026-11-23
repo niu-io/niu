@@ -21,3 +21,5 @@ The reference model catalog at OpenRouter exposes model discovery, comparison an
 Screen captures of loading (frame 24), authenticated redirects to Overview (44–46), and authentication redirects during anonymous setup and connection (82, 84) establish only those states. Frame 67 separately records the populated financial report. Keyboard-only opening and Escape dismissal returned focus to the original trigger for Add Provider and Create API key. These observations cover the tested trigger paths.
 
 On a 390px anonymous viewport, the installation contract measured 941px across the body and the inference contract measured 931px. The REST index, SDK index and first-request guide measured 390px under the same conditions (frames 900–904, `niu-t4gb`). The workspace rename dialog restored focus on a repeat check after the workspace finished loading.
+
+At 1100 × 850 with administrator navigation expanded, the Provider model table occupied 994px inside an 812px table container. Availability changes appeared at the clipped edge of the viewport. Enabling and disabling used the same prominent filled treatment across the list (frame medium-3-0, `niu-ypbl`).
