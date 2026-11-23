@@ -619,7 +619,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
                 <Label htmlFor="api-key-spending-limit">{uiT("Spending limit")}{spendingCurrency ? ` (${currencySymbol(spendingCurrency)})` : ''}</Label>
                 <Input id="api-key-spending-limit" aria-describedby="api-key-spending-help api-key-spending-scope" inputMode="decimal" disabled={busy || !spendingCurrency} placeholder={uiT("Unlimited")} value={spendingAmount} onChange={event => setSpendingAmount(event.target.value)} />
                 <p id="api-key-spending-help" className="text-xs text-muted-foreground">{uiT("Lifetime spending allowance for this key. It does not reset monthly. Leave blank for unlimited spending.")}</p>
-                <p id="api-key-spending-scope" className="text-xs text-muted-foreground">{uiT("This limit covers Niu customer charges and reserved requests. It does not cover charges paid directly to a Provider using your own API key. Manage those costs with the Provider.")}</p>
+                <p id="api-key-spending-scope" className="text-xs text-muted-foreground">{uiT("This limit covers workspace charges and reserved requests.")}</p>
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">

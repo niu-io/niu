@@ -327,24 +327,17 @@ it('restores developer, provider, and capability filters from URL parameters and
  expect(detailLink.getAttribute('href')).toBe('/models/anthropic/claude-sonnet-4?input=image&dev=anthropic');
 });
 
-it('ranks verified Niu catalog models ahead of unverified own-API-key qualification routes and filters by billing source', async () => {
-  const user = userEvent.setup();
+it('shows one catalog even when an old billing-source bookmark is opened', () => {
   const mixed = [
     { id: 'qiniu-personal-qualification/z-test', billing_source: 'own_api_key' as const, public_catalog: false },
     { id: 'qiniu-personal-qualification/a-test', billing_source: 'own_api_key' as const, public_catalog: false },
     { id: 'qiniu/kimi-k3', billing_source: 'niu_credits' as const, public_catalog: true, catalog: { name: 'Kimi K3', output_modalities: ['text'] }, customer_pricing: { currency: 'USD', prompt_rate: '0', completion_rate: '0' } },
   ];
-  render(<MemoryRouter initialEntries={['/models']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={mixed}/></SidebarProvider>}/></Routes></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/models?source=own_api_key']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={mixed}/></SidebarProvider>}/></Routes></MemoryRouter>);
   const titles = screen.getAllByRole('article').map(card => within(card).getAllByRole('link')[0].textContent);
-  expect(titles).toEqual(['Kimi K3', 'Z Test', 'A Test']);
+  expect(titles.sort()).toEqual(['A Test', 'Kimi K3', 'Z Test']);
 
-  const billingFilters = within(screen.getByRole('region', { name: 'Billing source filters' }));
-  await user.click(billingFilters.getByRole('checkbox', { name: 'Niu catalog', exact: true }));
-  expect(screen.getAllByRole('article')).toHaveLength(1);
-  expect(screen.getByRole('link', { name: 'Kimi K3' })).toBeTruthy();
-
-  await user.click(screen.getByRole('button', { name: 'Clear filters' }));
-  expect(screen.getAllByRole('article')).toHaveLength(3);
+  expect(screen.queryByRole('region', { name: 'Billing source filters' })).toBeNull();
 });
 
 it('renders model card titles and meta action links with default foreground color instead of primary accent', () => {

@@ -793,10 +793,10 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
       : billingSources.some(source => !source)
         ? uiT("Billing information is unavailable for one or more selected models. Refresh the model catalog or ask your administrator before sending.")
         : billingSources.every(source => source === 'own_api_key')
-          ? uiT("Uses your own Provider API key. Usage is billed by your Provider, not deducted from Niu credits.")
+          ? uiT("No Niu charge")
           : billingSources.every(source => source === 'niu_credits')
             ? uiT("Usage is charged to your Niu credits at the applicable model prices.")
-            : uiT("This comparison uses both Niu credits and your own Provider keys. Each model is billed through its configured source.");
+            : uiT("Workspace charges vary by model.");
   const allowedModels = managedKey?.allowed_models ?? selectedKey?.allowedModels;
   const usableModels = useMemo(() => allowedModels && !allowedModels.includes('*')
     ? modelAliases.filter(model => allowedModels.includes(model))

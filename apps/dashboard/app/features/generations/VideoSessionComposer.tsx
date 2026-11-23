@@ -284,7 +284,7 @@ export default function VideoSessionComposer({context, session, onSubmitted, ava
   }
   return <><Dialog open={unquotedConfirmation !== null} onOpenChange={open => { if (!open) setUnquotedConfirmation(null); }}>
     <DialogContent  onCloseAutoFocus={event => { event.preventDefault(); generateRef.current?.focus(); }}>
-      <DialogHeader><DialogTitle>{uiT("Generate video with your Provider account")}</DialogTitle><DialogDescription>{uiT("No output estimate is available for this video configuration. Your Provider may charge your account. This sends the request once; an uncertain outcome must be checked before another submission.")}</DialogDescription></DialogHeader>
+      <DialogHeader><DialogTitle>{uiT("Generate video")}</DialogTitle><DialogDescription>{uiT("No output estimate is available for this configuration. Check the request status before retrying.")}</DialogDescription></DialogHeader>
       <p className="break-words text-sm">{model && catalogTitle({id: model.id})}</p>
       {!confirmationMatches && <p role="alert" className="text-sm text-destructive">{uiT("The request or access changed. Close this dialog and review the current request.")}</p>}
       <DialogFooter><Button variant="outline" onClick={() => setUnquotedConfirmation(null)}>{uiT("Cancel")}</Button><Button disabled={!confirmationMatches || !canWrite || busy || loading || restoringDraft || Boolean(cover)} onClick={() => { if (confirmationMatches && unquotedConfirmation) void generate(unquotedConfirmation); }}>{uiT("Generate video")}</Button></DialogFooter>

@@ -64,8 +64,8 @@ export default function WorkspaceIncidentNotice({ token, workspaceId, workspaceS
     <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0 space-y-1">
         {models.some(item => item.owner_funded) && <div>
-          <p className="break-words">{t('Your Provider connection:', '您的 Provider 连接：')} {models.filter(item => item.owner_funded).slice(0, 3).map((item, idx) => <span key={item.model}>{idx > 0 ? ', ' : ''}{catalogTitle(item.model)}{catalogTitle(item.model) !== item.model && <span className="sr-only"> {item.model}</span>}</span>)}{models.filter(item => item.owner_funded).length > 3 || more ? '…' : ''}</p>
-          {!error && <p>{t('Check your Provider account or contact the person who manages its connection. The Provider may charge for retries.', '请检查您的 Provider 账户或联系连接管理员。Provider 可能对重试收费。')}</p>}
+          <p className="break-words">{t('Affected models:', '受影响的模型：')} {models.filter(item => item.owner_funded).slice(0, 3).map((item, idx) => <span key={item.model}>{idx > 0 ? ', ' : ''}{catalogTitle(item.model)}{catalogTitle(item.model) !== item.model && <span className="sr-only"> {item.model}</span>}</span>)}{models.filter(item => item.owner_funded).length > 3 || more ? '…' : ''}</p>
+          {!error && <p>{t('Contact your platform administrator to check the upstream connection.', '请联系平台管理员检查上游连接。')}</p>}
         </div>}
         {models.some(item => !item.owner_funded) && <div>
           <p className="break-words">{t('Platform supply:', '平台供应：')} {models.filter(item => !item.owner_funded).slice(0, 3).map((item, idx) => <span key={item.model}>{idx > 0 ? ', ' : ''}{catalogTitle(item.model)}{catalogTitle(item.model) !== item.model && <span className="sr-only"> {item.model}</span>}</span>)}{models.filter(item => !item.owner_funded).length > 3 || more ? '…' : ''}</p>

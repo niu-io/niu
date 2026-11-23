@@ -135,11 +135,7 @@ export default function ChargeSummaryCard({
                   )}
                   {ownerFundedCount > 0 && (
                     <p>
-                      <strong className="font-medium text-foreground">{uiT('Own API keys:', '自有 API 密钥：')}</strong>{' '}
-                      {uiT(
-                        'Requests sent with your own Provider key aren’t billed by Niu; your Provider handles usage and any charges directly.',
-                        '使用自有 Provider API 密钥的请求不经 Niu 扣费；实际用量与费用请以对应 Provider 为准，无需在 Niu 处理。',
-                      )}
+                      {uiT('These requests did not consume workspace credits.', '这些请求未消耗工作区额度。')}
                     </p>
                   )}
                   {!hasExceptions && (
@@ -209,10 +205,10 @@ export default function ChargeSummaryCard({
             {ownerFundedCount > 0 && (
               <span>
                 {ownerFundedCount === 1
-                  ? uiF('{0} with own API key (not billed by Niu; Provider charges may still apply)', [
+                  ? uiF('{0} without a Niu charge', [
                       ownerFundedCount.toLocaleString(locale),
                     ])
-                  : uiF('{0} with own API keys (not billed by Niu; Provider charges may still apply)', [
+                  : uiF('{0} without a Niu charge', [
                       ownerFundedCount.toLocaleString(locale),
                     ])}
               </span>
