@@ -35,6 +35,7 @@ import {
   subscribeSessionSnapshot,
 } from './router-context';
 import RouterPending from './RouterPending';
+import { TabResourceContext } from '@/components/ui/tabs';
 import ShellHeader from './ShellHeader';
 import {
   AdminProviderTabs,
@@ -697,7 +698,9 @@ export default function AppLayout() {
                     <WorkspaceShellSkeleton label={t('Loading workspace…', '正在加载工作空间…')} />
                   ) : (
                     <Suspense fallback={<p role="status" className="text-sm text-muted-foreground">{t('Loading page…', '正在加载页面…')}</p>}>
-                      <Fragment key={authorityKey || 'anonymous'}>{settingsBackground.content ?? (settingsBackground.pendingReturn ? <WorkspaceShellSkeleton label={t('Opening workspace…', '正在打开工作空间…')} /> : null)}</Fragment>
+                      <TabResourceContext.Provider value={JSON.stringify([shown.location.pathname, effectiveActiveWorkspace?.id])}>
+                        <Fragment key={authorityKey || 'anonymous'}>{settingsBackground.content ?? (settingsBackground.pendingReturn ? <WorkspaceShellSkeleton label={t('Opening workspace…', '正在打开工作空间…')} /> : null)}</Fragment>
+                      </TabResourceContext.Provider>
                     </Suspense>
                   )}
                 </div>

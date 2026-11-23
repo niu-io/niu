@@ -6,7 +6,7 @@ import PageHeader, { PageHeaderTabsTargetContext } from '@/components/PageHeader
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 function collectTsxFiles(dir: string): string[] {
   const results: string[] = [];
@@ -244,4 +244,20 @@ it('keeps model mapping actions outside the scrollable advanced settings', () =>
   expect(form).not.toContain('model-form-heading');
   expect(form).toMatch(/<details[\s\S]+<\/details>\s*<\/div>\s*<DialogFooter/);
   expect(form).toContain('showVideoSettings &&');
+});
+
+it('preserves visited panel state without mounting unvisited panels', () => {
+  const view = (selected: string) => <Tabs value={selected}>
+    <TabsContent value="first"><input aria-label="First draft" /></TabsContent>
+    <TabsContent value="second"><input aria-label="Second draft" /></TabsContent>
+  </Tabs>;
+  const page = render(view('first'));
+  expect(page.queryByLabelText('Second draft')).toBeNull();
+  const draft = page.getByLabelText('First draft') as HTMLInputElement;
+  draft.value = 'unfinished';
+  page.rerender(view('second'));
+  expect(page.getByRole('tabpanel').contains(draft)).toBe(false);
+  page.rerender(view('first'));
+  expect(page.getByLabelText('First draft')).toBe(draft);
+  expect(draft.value).toBe('unfinished');
 });

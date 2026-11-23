@@ -295,6 +295,7 @@ export function loadCriticalRouteEndpoint<T = unknown>(
 function stripTransientParams(url: URL): string {
   const search = new URLSearchParams(url.search);
   search.delete('settings');
+  search.delete('tab');
   search.sort();
   const query = search.toString();
   return `${url.pathname.replace(/\/+$/, '') || '/'}${query ? `?${query}` : ''}`;
