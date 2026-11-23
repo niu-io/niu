@@ -42,7 +42,7 @@ export default function KeySpendingLimits({ projectKey }: { projectKey: ProjectK
           <div className="min-w-0"><dt className="text-muted-foreground">{uiT("Remaining allowance")}</dt><dd className="break-words">{row.remaining_nanos === null ? uiT("Unlimited") : money(row.remaining_nanos, row.currency)}</dd></div>
         </dl>
       </div>)}
-      {hasAny && <p className="text-sm text-muted-foreground">{uiT("Committed amounts include charges minus refunds and reserved requests. These limits do not add funds or reset when the key is rotated. Own API key routes do not consume this allowance.")}</p>}
+      {hasAny && <p className="text-sm text-muted-foreground">{uiT("Committed amounts include charges minus refunds and reserved requests. These limits do not add funds or reset when the key is rotated.")}</p>}
     </CardContent>
   </Card>;
 }

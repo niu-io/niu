@@ -65,7 +65,7 @@ export default function VideoBilling({billing: rawBilling}:{billing:VideoJobBill
   ? formatDisplayUnitAtoms(billing.charge_atoms,billing.unit_code,unitPrecision)
   : billing.charge_nanos != null && billing.currency
    ? money(billing.charge_nanos,billing.currency)
-   : billing.mode === 'owner_funded' ? uiT("Own Provider account"):uiT("Not settled");
+   : billing.mode === 'owner_funded' ? uiT("No Niu charge"):uiT("Not settled");
  const usage=billing.settled_usage ?? billing.usage;
  return <div className="video-output">
  {billing.state === 'reconciliation_required' && <p role="status" className="video-muted">{uiT("Billing needs reconciliation. Any posted charge below retains its original settlement quantity.")}</p>}

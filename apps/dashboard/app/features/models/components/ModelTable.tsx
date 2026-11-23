@@ -2,7 +2,7 @@ import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { generationCapability } from '../generation-capabilities';
 import '../models.css';
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { IconCpu as Boxes } from "@tabler/icons-react";
 import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import { IconCheck as Check } from "@tabler/icons-react";
@@ -115,12 +115,6 @@ export default function ModelTable(props: { models: Model[]; header?: ReactNode;
   return <SidebarProvider defaultOpen={false} className="min-h-0 min-w-0 w-full"><ModelTableContent {...props} /></SidebarProvider>;
 }
 
-type CatalogSource = 'catalog' | 'own_api_key';
-
-function modelSource(model: Model): CatalogSource {
-  return model.billing_source === 'own_api_key' ? 'own_api_key' : 'catalog';
-}
-
 function isUncallable(model: Model): boolean {
   return model.callable === false;
 }
@@ -170,9 +164,6 @@ function pricingSetupHref(model: Model): string {
 
 function catalogTier(model: Model): number {
   if (isUncallable(model)) return 4;
-  if (model.billing_source === 'own_api_key') {
-    return model.catalog ? 2 : 3;
-  }
   const documented =
     model.public_catalog !== false ||
     model.customer_pricing != null ||
@@ -214,9 +205,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [authorsSelected, setAuthorsSelected] = useState<string[]>(() => searchParams.getAll('dev').filter(Boolean));
   const [providersSelected, setProvidersSelected] = useState<string[]>(() => searchParams.getAll('provider').filter(Boolean));
-  const [sourcesSelected, setSourcesSelected] = useState<CatalogSource[]>(() =>
-    searchParams.getAll('source').filter((v): v is CatalogSource => v === 'catalog' || v === 'own_api_key'),
-  );
   const [capabilities, setCapabilities] = useState<Record<CapabilityGroup, string[]>>(() => ({
     input: searchParams.getAll('input').filter(Boolean),
     output: searchParams.getAll('output').filter(Boolean),
@@ -226,7 +214,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
   const activeFilterCount =
     authorsSelected.length +
     providersSelected.length +
-    sourcesSelected.length +
     Object.values(capabilities).reduce((sum, list) => sum + list.length, 0);
   const [allAuthors, setAllAuthors] = useState(false);
   const [sort, setSort] = useState<'recommended' | 'name' | 'context'>(() => {
@@ -238,14 +225,12 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     sort?: string;
     authors?: string[];
     providers?: string[];
-    sources?: CatalogSource[];
     capabilities?: Record<CapabilityGroup, string[]>;
   } = {}) {
     const nextQuery = overrides.query ?? query;
     const nextSort = overrides.sort ?? sort;
     const nextAuthors = overrides.authors ?? authorsSelected;
     const nextProviders = overrides.providers ?? providersSelected;
-    const nextSources = overrides.sources ?? sourcesSelected;
     const nextCapabilities = overrides.capabilities ?? capabilities;
     const next = new URLSearchParams(location.search);
     next.delete('workspace');
@@ -264,7 +249,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     next.delete('provider');
     for (const item of nextProviders) next.append('provider', item);
     next.delete('source');
-    for (const item of nextSources) next.append('source', item);
     if (next.toString() !== new URLSearchParams(location.search).toString()) {
       setSearchParams(next, { replace: true });
     }
@@ -286,16 +270,12 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     const cleared = emptyCapabilities();
     setAuthorsSelected([]);
     setProvidersSelected([]);
-    setSourcesSelected([]);
     setCapabilities(cleared);
     setQuery('');
     setLimit(20);
-    syncCatalogUrl({ query: '', authors: [], providers: [], sources: [], capabilities: cleared });
+    syncCatalogUrl({ query: '', authors: [], providers: [], capabilities: cleared });
     searchInputRef.current?.focus();
   }
-  const hasMixedSources =
-    models.some(model => modelSource(model) === 'catalog') &&
-    models.some(model => modelSource(model) === 'own_api_key');
   const availableCapabilities = capabilityGroups.map(group => ({ ...group, options: group.options.filter(([value]) => models.some(model => capabilityValues(model, group.id).includes(value))) }));
   const providers = [...new Set(models.map(modelProviderName).filter((provider): provider is string => Boolean(provider)))].sort();
   const authors = useMemo(() => [...new Map(models.flatMap(model => { const identity = modelDeveloper(model); return identity ? [[identity.id, identity] as const] : []; })).values()].sort((a, b) => a.name.localeCompare(b.name)), [models]);
@@ -317,10 +297,9 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     for (const item of capabilities.features) sp.append('cap', item);
     for (const item of authorsSelected) sp.append('dev', item);
     for (const item of providersSelected) sp.append('provider', item);
-    for (const item of sourcesSelected) sp.append('source', item);
     const serialized = sp.toString();
     return serialized ? `?${serialized}` : '';
-  }, [query, sort, capabilities, authorsSelected, providersSelected, sourcesSelected]);
+  }, [query, sort, capabilities, authorsSelected, providersSelected]);
   function generationHref(model: Model, kind: 'chat' | 'video', keyRef?: string) {
     const query = new URLSearchParams({new: kind === 'video' ? 'video' : '1', model: model.id});
     if (!publicMode && workspace) query.set('workspace', workspacePathSegment(workspace, workspaces ?? [workspace]));
@@ -365,7 +344,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
         matchesCapabilities(model, capabilities) &&
         (!authorsSelected.length || authorsSelected.includes(modelDeveloper(model)?.id ?? '')) &&
         (!providersSelected.length || providersSelected.includes(modelProviderName(model) ?? '')) &&
-        (!sourcesSelected.length || sourcesSelected.includes(modelSource(model))) &&
         (!value ||
           `${model.id} ${model.catalog?.name ?? ''} ${model.catalog?.description ?? ''} ${model.provider ?? ''} ${model.upstream_model ?? ''} ${modelIdentity(model).name}`
             .toLowerCase()
@@ -378,12 +356,8 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
       return [...matches].sort((a, b) => (b.catalog?.context_length ?? -1) - (a.catalog?.context_length ?? -1) || (a.catalog?.name || a.id).localeCompare(b.catalog?.name || b.id, 'en', {numeric:true,sensitivity:'base'}));
     }
     return [...matches].sort((a, b) => catalogTier(a) - catalogTier(b));
-  }, [popularModels, query, authorsSelected, providersSelected, sourcesSelected, capabilities, sort]);
-  const groupSources = hasMixedSources && !publicMode && sourcesSelected.length !== 1;
-  const orderedModels = groupSources
-    ? [...filtered.filter(model => modelSource(model) === 'catalog'), ...filtered.filter(model => modelSource(model) === 'own_api_key')]
-    : filtered;
-  const visible = orderedModels.slice(0, limit);
+  }, [popularModels, query, authorsSelected, providersSelected, capabilities, sort]);
+  const visible = filtered.slice(0, limit);
   const selected = models.find(model => model.id === selectedId) ?? null;
   const showOriginalDescription = Boolean(selected?.catalog?.description) && (isZh ? !/\p{Script=Han}/u.test(selected?.catalog?.description ?? '') : /\p{Script=Han}/u.test(selected?.catalog?.description ?? ''));
   const descriptionRef = useRef<HTMLDivElement>(null);
@@ -480,12 +454,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
           </div>
           {authors.length > 10 && <Button variant="ghost" size="sm" onClick={() => setAllAuthors(value => !value)}>{allAuthors ? uiT("Show fewer") : uiT("Show all developers")}</Button>}
           </CollapsibleContent></Collapsible>
-          {hasMixedSources && <Collapsible className="models-filter-group" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Billing source")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Billing source filters")}><div className="models-filter-options">
-            {(['catalog', 'own_api_key'] as const).map(sourceKey => {
-              const sourceLabel = sourceKey === 'own_api_key' ? uiT("Own API key") : uiT("Niu catalog");
-              return <Label key={sourceKey}><Checkbox aria-label={sourceLabel} checked={sourcesSelected.includes(sourceKey)} onCheckedChange={() => { setSourcesSelected(current => { const nextSources = current.includes(sourceKey) ? current.filter(id => id !== sourceKey) : [...current, sourceKey]; syncCatalogUrl({ sources: nextSources }); return nextSources; }); setLimit(20); }} />{sourceLabel}<span>{models.filter(model => modelSource(model) === sourceKey).length}</span></Label>;
-            })}
-          </div></CollapsibleContent></Collapsible>}
           {providers.length > 0 && <Collapsible className="models-filter-group" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Providers")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Provider filters")}><div className="models-filter-options">
             {providers.map(provider => <Label key={provider}><Checkbox aria-label={provider} checked={providersSelected.includes(provider)} onCheckedChange={() => { setProvidersSelected(current => { const nextProviders = current.includes(provider) ? current.filter(id => id !== provider) : [...current, provider]; syncCatalogUrl({ providers: nextProviders }); return nextProviders; }); setLimit(20); }} />{provider}<span>{models.filter(model => modelProviderName(model) === provider).length}</span></Label>)}
           </div></CollapsibleContent></Collapsible>}
@@ -519,18 +487,14 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
           </div>
         </div>
 
-        {(authorsSelected.length > 0 || providersSelected.length > 0 || sourcesSelected.length > 0 || hasCapabilities) && <div className="flex flex-wrap gap-2 pt-3" aria-label={uiT("Active model filters")}>
+        {(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities) && <div className="flex flex-wrap gap-2 pt-3" aria-label={uiT("Active model filters")}>
           {capabilityGroups.flatMap(group => group.options.filter(([value]) => capabilities[group.id].includes(value)).map(([value, label]) => <Button key={`${group.id}-${value}`} variant="secondary" size="sm" aria-label={isZh ? uiF("Remove {0} {1} filter", [uiT(label), group.id === 'input' ? '输入' : group.id === 'output' ? '输出' : '能力']) : uiF("Remove {0} {1} filter", [label, group.id])} onClick={() => toggleCapability(group.id, value)}>{group.id === 'features' ? uiT(label) : `${uiT(group.id === 'input' ? 'Input' : 'Output')}: ${uiT(label)}`}<X size={12} aria-hidden="true" /></Button>))}
-          {sourcesSelected.map(sourceKey => {
-            const sourceLabel = sourceKey === 'own_api_key' ? uiT("Own API key") : uiT("Niu catalog");
-            return <Button key={sourceKey} variant="secondary" size="sm" aria-label={uiF("Remove {0} filter", [sourceLabel])} onClick={() => { setSourcesSelected(current => { const nextSources = current.filter(value => value !== sourceKey); syncCatalogUrl({ sources: nextSources }); return nextSources; }); setLimit(20); }}>{uiT("Billing:")}{" "}{sourceLabel}<X size={12} aria-hidden="true" /></Button>;
-          })}
           {authors.filter(author => authorsSelected.includes(author.id)).map(author => <Button key={author.id} variant="secondary" size="sm" aria-label={uiF("Remove {0} developer filter", [author.name])} onClick={() => chooseAuthor(author.id)}>{uiT("Developer:")}{" "}{author.name}<X size={12} aria-hidden="true" /></Button>)}
           {providersSelected.map(provider => <Button key={provider} variant="secondary" size="sm" aria-label={uiF("Remove {0} provider filter", [provider])} onClick={() => { setProvidersSelected(current => { const nextProviders = current.filter(value => value !== provider); syncCatalogUrl({ providers: nextProviders }); return nextProviders; }); setLimit(20); }}>{uiT("Provider:")}{" "}{provider}<X size={12} aria-hidden="true" /></Button>)}
         </div>}
-        <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString(readUILocale())} {filtered.length === 1 ? uiT("model") : uiT("models")}</span>{filtered.length > 0 && (authorsSelected.length > 0 || providersSelected.length > 0 || sourcesSelected.length > 0 || hasCapabilities || query) && <Button variant="ghost" size="sm" onClick={clearAllFilters}>{uiT("Clear filters")}</Button>}</div>
-        {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle><EmptyDescription>{uiT("Try another search or remove a filter.")}</EmptyDescription></EmptyHeader>{(authorsSelected.length > 0 || providersSelected.length > 0 || sourcesSelected.length > 0 || hasCapabilities || query) && <EmptyContent><Button variant="outline" onClick={clearAllFilters}>{uiT("Clear filters")}</Button></EmptyContent>}</Empty> : <div className="models-cards">
-          {visible.map((model, index) => {
+        <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString(readUILocale())} {filtered.length === 1 ? uiT("model") : uiT("models")}</span>{filtered.length > 0 && (authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <Button variant="ghost" size="sm" onClick={clearAllFilters}>{uiT("Clear filters")}</Button>}</div>
+        {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle><EmptyDescription>{uiT("Try another search or remove a filter.")}</EmptyDescription></EmptyHeader>{(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <EmptyContent><Button variant="outline" onClick={clearAllFilters}>{uiT("Clear filters")}</Button></EmptyContent>}</Empty> : <div className="models-cards">
+          {visible.map(model => {
             const cardTitle = catalogTitle(model);
             const rawDesc = model.catalog?.description;
             const hasHanDesc = /\p{Script=Han}/u.test(rawDesc ?? '');
@@ -546,11 +510,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
             const missingProcurement = issues.includes('procurement_pricing_missing');
             const missingSelling = issues.includes('selling_price_missing');
             const detailHref = `${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`;
-            return <Fragment key={model.id}>
-              {groupSources && (index === 0 || modelSource(visible[index - 1]) !== modelSource(model)) && (
-                <h2 className="col-span-full text-sm font-medium">{modelSource(model) === 'catalog' ? uiT("Niu catalog") : uiT("Own API key")}</h2>
-              )}
-              <article className="models-card">
+            return <article key={model.id} className="models-card">
               <div className="models-card-header">
                 <ProviderLogo provider={modelIdentity(model)} size="default" />
                 <div className="models-card-identity">
@@ -578,7 +538,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
 
               <div className="models-card-footer">
                 <div className="models-card-rates">
-                  {uncallable ? <span className="text-muted-foreground">{readinessBadgeText(model, uiT)}</span> : model.billing_source === 'own_api_key' ? <span>{uiT("Upstream-funded · no Niu charge")}</span> : isFreeUnit || isFreeCurrency ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}
+                  {uncallable ? <span className="text-muted-foreground">{readinessBadgeText(model, uiT)}</span> : model.billing_source === 'own_api_key' ? <span>{uiT("No Niu charge")}</span> : isFreeUnit || isFreeCurrency ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}
                   {contextText && <span>{contextText}</span>}
                 </div>
 
@@ -609,7 +569,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
                   </>}
                 </div>
               </div>
-            </article></Fragment>;
+            </article>;
           })}
         </div>}
         {visible.length < filtered.length && <div className="models-load-more"><Button variant="outline" onClick={() => setLimit(value => value + 20)}>{uiT("Show more models")}</Button><span>{isZh ? `已显示 ${visible.length} / 共 ${filtered.length} 个` : `${visible.length} ${uiT("of")} ${filtered.length}`}</span></div>}
@@ -636,7 +596,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
         </Alert>
       ) : (
         <p className="text-sm text-muted-foreground">{selected.billing_source === 'own_api_key'
-          ? uiT("Uses an administrator-managed upstream connection. Its owning account pays the Provider directly; this does not spend Niu credits. Upstream balance and model permissions still apply.")
+          ? uiT("No Niu charge")
           : selected.billing_source === 'niu_credits'
             ? isVideoModel(selected) && !hasChatOutput(selected)
               ? uiT("Niu charges, when applicable, use workspace credits. Video cost depends on request settings. Open Video to estimate the cost before submitting; a valid estimate is required to generate.", "适用时，Niu 费用使用工作空间额度结算。视频费用取决于请求设置，请在提交前打开视频估算费用；生成需要有效估算。")

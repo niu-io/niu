@@ -205,7 +205,7 @@ export default function PlaygroundModelPickerDialog({
                       <span className="playground-model-option-meta">
                         {showBilling && (
                           <span>
-                            {billingSource === 'own_api_key' ? uiT("Billed by your Provider") : uiT("Niu credits")}
+                            {billingSource === 'own_api_key' ? uiT("No Niu charge") : uiT("Niu credits")}
                           </span>
                         )}
                         {showBilling && unverified && <span aria-hidden="true">·</span>}
