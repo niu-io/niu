@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { usePlatformCurrency } from '@/shell/platform-currency';
-import PageHeader from '@/components/PageHeader';
+import PageHeader, { PageHeaderTabsTargetContext } from '@/components/PageHeader';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -43,19 +43,22 @@ export default function PlatformSettingsRoute() {
 
   return (
     <section className="w-full min-w-0 space-y-6" aria-label={uiT('Platform settings')}>
-      <PageHeader title={uiT('Settings', '平台设置')} />
       <Tabs value={currentTab} onValueChange={value => selectTab(value as SettingsTab)}>
-        <div className="max-w-full overflow-x-auto overflow-y-hidden">
-          <TabsList variant="line" aria-label={uiT('Platform settings')}>
-            <TabsTrigger value="general">{uiT('General & currency', '基础与币种')}</TabsTrigger>
-            <TabsTrigger value="registration">{uiT('Registration policy', '注册策略')}</TabsTrigger>
-            <TabsTrigger value="branding">{uiT('Branding', '品牌定制')}</TabsTrigger>
-            {!isInternal && <TabsTrigger value="payments">{uiT('Payments', '收款配置')}</TabsTrigger>}
-            {!isInternal && <TabsTrigger value="units">{uiT('Billing mode', '计费模式')}</TabsTrigger>}
-          </TabsList>
-        </div>
+        <PageHeader
+          title={uiT('Settings', '平台设置')}
+          tabs={
+            <TabsList variant="line" aria-label={uiT('Platform settings')}>
+              <TabsTrigger value="general">{uiT('General & currency', '基础与币种')}</TabsTrigger>
+              <TabsTrigger value="registration">{uiT('Registration policy', '注册策略')}</TabsTrigger>
+              <TabsTrigger value="branding">{uiT('Branding', '品牌定制')}</TabsTrigger>
+              {!isInternal && <TabsTrigger value="payments">{uiT('Payments', '收款配置')}</TabsTrigger>}
+              {!isInternal && <TabsTrigger value="units">{uiT('Billing mode', '计费模式')}</TabsTrigger>}
+            </TabsList>
+          }
+        />
 
-        <TabsContent value="general" className="space-y-6 pt-2">
+        <PageHeaderTabsTargetContext.Provider value="">
+        <TabsContent value="general" className="space-y-6">
           <div className="space-y-1 rounded-[var(--radius-panel)] bg-card p-5">
             <p className="text-sm">
               <span className="text-muted-foreground">{uiT('Operating mode')}: </span>
@@ -91,18 +94,18 @@ export default function PlatformSettingsRoute() {
           )}
         </TabsContent>
 
-        <TabsContent value="registration" className="pt-2">
+        <TabsContent value="registration">
           <RegistrationPolicySection token={token} />
         </TabsContent>
 
-        <TabsContent value="branding" className="pt-2">
+        <TabsContent value="branding">
           <Suspense fallback={<FormSectionSkeleton fields={3} label={uiT('Loading branding…')} />}>
             <BrandingTab />
           </Suspense>
         </TabsContent>
 
         {!isInternal && (
-          <TabsContent value="payments" className="pt-2">
+          <TabsContent value="payments">
             <Suspense fallback={<FormSectionSkeleton fields={3} label={uiT('Loading payments…')} />}>
               <PaymentsTab />
             </Suspense>
@@ -110,10 +113,11 @@ export default function PlatformSettingsRoute() {
         )}
 
         {!isInternal && (
-          <TabsContent value="units" className="pt-2">
+          <TabsContent value="units">
             <PlatformUnitsSetting token={token} />
           </TabsContent>
         )}
+        </PageHeaderTabsTargetContext.Provider>
       </Tabs>
     </section>
   );

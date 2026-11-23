@@ -363,6 +363,10 @@ export default function ShellHeader({
         </Breadcrumb>
       )}
       <div
+        id="dashboard-page-tabs"
+        className="dashboard-page-tabs"
+      />
+      <div
         id="dashboard-page-actions"
         className="dashboard-page-actions"
       />

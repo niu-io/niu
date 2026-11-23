@@ -2,9 +2,11 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
+import PageHeader, { PageHeaderTabsTargetContext } from '@/components/PageHeader';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 function collectTsxFiles(dir: string): string[] {
   const results: string[] = [];
@@ -118,5 +120,66 @@ describe('Shared UI primitives layout safeguards', () => {
       }
     }
     expect(violations).toEqual([]);
+  });
+
+  it('portals top-level PageHeader tabs into #dashboard-page-tabs and falls back inline when nested', () => {
+    const host = document.createElement('div');
+    host.id = 'dashboard-page-tabs';
+    document.body.appendChild(host);
+    try {
+      const { container, unmount } = render(
+        <Tabs value="customers">
+          <PageHeader
+            title="Customers"
+            tabs={
+              <TabsList variant="line">
+                <TabsTrigger value="customers">Customers</TabsTrigger>
+                <TabsTrigger value="registrations">Registrations</TabsTrigger>
+              </TabsList>
+            }
+          />
+        </Tabs>,
+      );
+      expect(host.querySelector('[data-slot="tabs-list"]')).toBeTruthy();
+      expect(host.textContent).toContain('Registrations');
+      expect(container.querySelector('[data-slot="tabs-list"]')).toBeNull();
+      unmount();
+
+      const nested = render(
+        <PageHeaderTabsTargetContext.Provider value="">
+          <Tabs value="gateways">
+            <PageHeader
+              title="Payments"
+              tabs={
+                <TabsList variant="line">
+                  <TabsTrigger value="gateways">Payment gateways</TabsTrigger>
+                  <TabsTrigger value="bank">Bank transfer</TabsTrigger>
+                </TabsList>
+              }
+            />
+          </Tabs>
+        </PageHeaderTabsTargetContext.Provider>,
+      );
+      expect(host.querySelector('[data-slot="tabs-list"]')).toBeNull();
+      expect(nested.container.querySelector('[data-slot="tabs-list"]')).toBeTruthy();
+      nested.unmount();
+    } finally {
+      host.remove();
+    }
+  });
+
+  it('replaces redundant static header titles with PageHeader tabs on top-level tabbed Admin pages', () => {
+    const css = readFileSync(resolve(process.cwd(), 'app/styles/surfaces.css'), 'utf8');
+    expect(css).toContain('.dashboard-page-header:has(.dashboard-page-tabs:not(:empty)) .breadcrumbs');
+    for (const rel of [
+      'features/customers/page.tsx',
+      'features/platform-settings/page.tsx',
+      'features/incidents/page.tsx',
+      'features/platform/page.tsx',
+      'features/retail-pricing/page.tsx',
+    ]) {
+      const source = readFileSync(join(appDir, rel), 'utf8');
+      expect(source, `${rel} should pass primary section tabs into PageHeader`).toMatch(/<PageHeader[\s\S]*?tabs=/);
+    }
   });
 });

@@ -364,7 +364,6 @@ function PaymentConfiguration({ token }: { token: string }) {
 
   return (
     <section className="@container space-y-5">
-      <PageHeader title={uiT("Payments", "收款配置")} />
       <Tabs
         value={activeTab}
         onValueChange={value => {
@@ -374,12 +373,17 @@ function PaymentConfiguration({ token }: { token: string }) {
           setSearch(next, { replace: true });
         }}
       >
-        <TabsList variant="line" aria-label={uiT("Payment sections", "收款配置分区")}>
-          <TabsTrigger value="gateways">{uiT("Payment gateways", "支付网关")}</TabsTrigger>
-          <TabsTrigger value="bank">{uiT("Bank transfer", "对公转账")}</TabsTrigger>
-        </TabsList>
+        <PageHeader
+          title={uiT("Payments", "收款配置")}
+          tabs={
+            <TabsList variant="line" aria-label={uiT("Payment sections", "收款配置分区")}>
+              <TabsTrigger value="gateways">{uiT("Payment gateways", "支付网关")}</TabsTrigger>
+              <TabsTrigger value="bank">{uiT("Bank transfer", "对公转账")}</TabsTrigger>
+            </TabsList>
+          }
+        />
 
-        <TabsContent value="gateways" className="space-y-5 pt-2">
+        <TabsContent value="gateways" className="space-y-5">
           {configuration && (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-muted-foreground">{uiT("Verify payment setup before offering a gateway to customers.")}</p>

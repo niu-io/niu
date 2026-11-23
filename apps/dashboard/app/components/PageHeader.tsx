@@ -2,20 +2,31 @@ import { createContext, useContext, useLayoutEffect, useState, type ReactNode } 
 import { createPortal } from 'react-dom';
 
 export const PageHeaderActionsTargetContext = createContext('dashboard-page-actions');
+export const PageHeaderTabsTargetContext = createContext('dashboard-page-tabs');
 
-export default function PageHeader({ title, syncRouteTitle, routeTitleKey, action, className }: {
+export default function PageHeader({ title, syncRouteTitle, routeTitleKey, tabs, action, className }: {
   title: string;
   syncRouteTitle?: boolean;
   routeTitleKey?: string;
   eyebrow?: string;
+  tabs?: ReactNode;
   action?: ReactNode;
   className?: string;
 }) {
-  const targetId = useContext(PageHeaderActionsTargetContext);
-  const [target, setTarget] = useState<HTMLElement | null>(() =>
-    typeof document !== 'undefined' ? document.getElementById(targetId) : null,
+  const actionsTargetId = useContext(PageHeaderActionsTargetContext);
+  const tabsTargetId = useContext(PageHeaderTabsTargetContext);
+  const [actionsTarget, setActionsTarget] = useState<HTMLElement | null>(() =>
+    typeof document !== 'undefined' && actionsTargetId ? document.getElementById(actionsTargetId) : null,
   );
-  useLayoutEffect(() => { setTarget(document.getElementById(targetId)); }, [targetId]);
+  const [tabsTarget, setTabsTarget] = useState<HTMLElement | null>(() =>
+    typeof document !== 'undefined' && tabsTargetId ? document.getElementById(tabsTargetId) : null,
+  );
+  useLayoutEffect(() => {
+    setActionsTarget(actionsTargetId ? document.getElementById(actionsTargetId) : null);
+  }, [actionsTargetId]);
+  useLayoutEffect(() => {
+    setTabsTarget(tabsTargetId ? document.getElementById(tabsTargetId) : null);
+  }, [tabsTargetId]);
   useLayoutEffect(() => {
     if (!syncRouteTitle || !title) return;
     const headerTitle = document.querySelector<HTMLElement>('.dashboard-page-header .dashboard-route-title');
@@ -25,7 +36,25 @@ export default function PageHeader({ title, syncRouteTitle, routeTitleKey, actio
     headerTitle.textContent = title;
     return () => { headerTitle.textContent = previous; };
   }, [routeTitleKey, syncRouteTitle, title]);
-  if (!action) return null;
-  const actions = <div className={`page-heading-action${className ? ` ${className}` : ''}`}>{action}</div>;
-  return target ? createPortal(actions, target) : <div className="page-heading page-actions">{actions}</div>;
+
+  const renderedTabs = tabs
+    ? tabsTarget
+      ? createPortal(<div className="dashboard-header-tabs-slot">{tabs}</div>, tabsTarget)
+      : <div className="max-w-full overflow-x-auto overflow-y-hidden">{tabs}</div>
+    : null;
+
+  const renderedActions = action
+    ? (() => {
+        const actions = <div className={`page-heading-action${className ? ` ${className}` : ''}`}>{action}</div>;
+        return actionsTarget ? createPortal(actions, actionsTarget) : <div className="page-heading page-actions">{actions}</div>;
+      })()
+    : null;
+
+  if (!renderedTabs && !renderedActions) return null;
+  return (
+    <>
+      {renderedTabs}
+      {renderedActions}
+    </>
+  );
 }

@@ -358,73 +358,72 @@ export function Customers({
 
   return (
     <section className="empty-region min-w-0 space-y-5" aria-label={uiT("Customers")}>
-      <PageHeader
-        title={uiT("Customers")}
-        action={
-          activeTab === 'customers' ? (
-            <>
-              {companies.length > 0 && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      ref={searchTriggerRef}
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={uiT("Search customers", "搜索客户")}
-                      title={uiT("Search customers", "搜索客户")}
-                      className={query ? "text-primary bg-accent" : undefined}
-                    >
-                      <IconSearch size={17} />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-2">
-                    <Input
-                      autoFocus
-                      type="search"
-                      aria-label={uiT("Search customers", "搜索客户")}
-                      placeholder={uiT("Search by company, owner, or email…", "按公司名称、负责人或邮箱搜索…")}
-                      value={query}
-                      onChange={event => setQuery(event.target.value)}
-                    />
-                    {query && (
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setQuery('')}>
-                        {uiT("Reset search")}
-                      </Button>
-                    )}
-                  </PopoverContent>
-                </Popover>
-              )}
-              <Button variant="ghost" size="icon-sm" disabled={loading} aria-label={uiT("Refresh customers")} title={uiT("Refresh customers")} onClick={refresh}>
-                <IconRefresh size={16} className={loading ? 'animate-spin' : undefined} aria-hidden="true" />
-              </Button>
-              {canSetup && (
-                <Button aria-label={uiT("New customer")} onClick={event => { opener.current = event.currentTarget; setCreate(true); }}>
-                  <IconPlus size={16} />
-                  <span className="hidden sm:inline">{uiT("New customer")}</span>
-                </Button>
-              )}
-            </>
-          ) : undefined
-        }
-      />
-
       <Tabs value={activeTab} onValueChange={value => selectTab(value === 'registrations' ? 'registrations' : 'customers')}>
-        <div className="max-w-full overflow-x-auto overflow-y-hidden">
-          <TabsList variant="line" aria-label={uiT("Customer sections", "客户管理分区")}>
-            <TabsTrigger value="customers">{uiT("Customers", "客户列表")}</TabsTrigger>
-            <TabsTrigger value="registrations" className="gap-1.5">
-              <span>{uiT("Registrations", "注册审批")}</span>
-              {pendingRegistrations > 0 && (
-                <Badge variant="default" className="px-1.5 py-0 text-[11px]">
-                  {pendingRegistrations}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-        </div>
+        <PageHeader
+          title={uiT("Customers")}
+          tabs={
+            <TabsList variant="line" aria-label={uiT("Customer sections", "客户管理分区")}>
+              <TabsTrigger value="customers">{uiT("Customers", "客户列表")}</TabsTrigger>
+              <TabsTrigger value="registrations" className="gap-1.5">
+                <span>{uiT("Registrations", "注册审批")}</span>
+                {pendingRegistrations > 0 && (
+                  <Badge variant="default" className="px-1.5 py-0 text-[11px]">
+                    {pendingRegistrations}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          }
+          action={
+            activeTab === 'customers' ? (
+              <>
+                {companies.length > 0 && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        ref={searchTriggerRef}
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={uiT("Search customers", "搜索客户")}
+                        title={uiT("Search customers", "搜索客户")}
+                        className={query ? "text-primary bg-accent" : undefined}
+                      >
+                        <IconSearch size={17} />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-2">
+                      <Input
+                        autoFocus
+                        type="search"
+                        aria-label={uiT("Search customers", "搜索客户")}
+                        placeholder={uiT("Search by company, owner, or email…", "按公司名称、负责人或邮箱搜索…")}
+                        value={query}
+                        onChange={event => setQuery(event.target.value)}
+                      />
+                      {query && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setQuery('')}>
+                          {uiT("Reset search")}
+                        </Button>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                )}
+                <Button variant="ghost" size="icon-sm" disabled={loading} aria-label={uiT("Refresh customers")} title={uiT("Refresh customers")} onClick={refresh}>
+                  <IconRefresh size={16} className={loading ? 'animate-spin' : undefined} aria-hidden="true" />
+                </Button>
+                {canSetup && (
+                  <Button aria-label={uiT("New customer")} onClick={event => { opener.current = event.currentTarget; setCreate(true); }}>
+                    <IconPlus size={16} />
+                    <span className="hidden sm:inline">{uiT("New customer")}</span>
+                  </Button>
+                )}
+              </>
+            ) : undefined
+          }
+        />
 
-        <TabsContent value="customers" className="space-y-4 pt-2">
+        <TabsContent value="customers" className="space-y-4">
           {pendingRegistrations > 0 && (
             <Alert>
               <AlertDescription className="flex flex-wrap items-center justify-between gap-3">

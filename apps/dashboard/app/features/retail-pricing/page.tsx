@@ -135,8 +135,7 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
       <Button ref={publishButton} size="sm" disabled={!currency || (loading && !rows.length) || !!error || !!editor} onClick={event => { dialogOpener.current = event.currentTarget; setEditor({ kind: 'text', previous: null }); setEditorOpen(true); }}>{uiT("Publish text price")}</Button>
     </>
   ) : undefined;
-  return <div className="empty-region space-y-6"><PageHeader title={uiT("Standard pricing", "标准售价")} action={currencyHeaderActions} /><p className="text-sm text-muted-foreground">{uiT("Default list prices charged across workspaces. To set a discount for a specific customer, open", "面向所有工作空间的默认公开售价。如需为单个客户设置专属折扣，请前往")}{" "}<Link to="/admin/customers" className="underline underline-offset-4">{uiT("Customers")}</Link>{uiT(". ", "。")}<Link to="/admin/settings" className="underline underline-offset-4">{uiT("Manage the platform billing mode", "管理平台计费模式")}</Link></p>
-    {editor && !editorOpen && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("A price publication is awaiting confirmation. Reopen it to check or retry before leaving this page.")}</span><Button type="button" variant="outline" onClick={event => { dialogOpener.current = event.currentTarget; setEditorOpen(true); }}>{uiT("Return to publication")}</Button></AlertDescription></Alert>}
+  return <div className="empty-region space-y-5">
     <Tabs value={mode} onValueChange={value => {
       const nextMode = value as BillingMode;
       setViewMode(nextMode);
@@ -144,12 +143,21 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
       next.set('tab', nextMode);
       setSearch(next, { replace: true });
     }}>
+      <PageHeader
+        title={uiT("Standard pricing", "标准售价")}
+        tabs={showModeTabs ? (
+          <TabsList variant="line" aria-label={uiT("Pricing mode")}>
+            <TabsTrigger value="currency">{uiT("Settlement Currency")}</TabsTrigger>
+            <TabsTrigger value="credits">{uiT("Branded Credits")}</TabsTrigger>
+          </TabsList>
+        ) : undefined}
+        action={currencyHeaderActions}
+      />
+      <p className="text-sm text-muted-foreground">{uiT("Default list prices charged across workspaces. To set a discount for a specific customer, open", "面向所有工作空间的默认公开售价。如需为单个客户设置专属折扣，请前往")}{" "}<Link to="/admin/customers" className="underline underline-offset-4">{uiT("Customers")}</Link>{uiT(". ", "。")}<Link to="/admin/settings" className="underline underline-offset-4">{uiT("Manage the platform billing mode", "管理平台计费模式")}</Link></p>
+      {editor && !editorOpen && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("A price publication is awaiting confirmation. Reopen it to check or retry before leaving this page.")}</span><Button type="button" variant="outline" onClick={event => { dialogOpener.current = event.currentTarget; setEditorOpen(true); }}>{uiT("Return to publication")}</Button></AlertDescription></Alert>}
       {showModeTabs && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
-            <div className="max-w-full overflow-x-auto overflow-y-hidden"><TabsList variant="line" aria-label={uiT("Pricing mode")}><TabsTrigger value="currency">{uiT("Settlement Currency")}</TabsTrigger><TabsTrigger value="credits">{uiT("Branded Credits")}</TabsTrigger></TabsList></div>
-            <Badge variant={mode === activeMode ? 'secondary' : 'outline'}>{mode === activeMode ? uiF("Active billing mode: {0}", [modeLabel]) : uiF("Preparing prices for {0}", [modeLabel])}</Badge>
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <Badge variant={mode === activeMode ? 'secondary' : 'outline'}>{mode === activeMode ? uiF("Active billing mode: {0}", [modeLabel]) : uiF("Preparing prices for {0}", [modeLabel])}</Badge>
           <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
         </div>
       )}
