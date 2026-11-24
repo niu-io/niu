@@ -94,3 +94,5 @@ Tab navigation must preserve already available data within the same authorizatio
 Workspace users discover models in one catalog. Platform administrators manage upstream Provider credentials. Never present internal funding classifications as model sources or imply that workspace users supply upstream keys. Workspace API keys authorize access to Niu.
 
 Verify the customer catalog after staging supply qualification. Temporary upstream connections must be inactive after the review, and their test aliases must be absent when the customer reloads the model list. Retain historical request attribution.
+
+Keep the MCP installation dialog focused on installing the server in the current client. Put task examples in the host plugin usage guide and request authorization only when the user starts a task that needs it.

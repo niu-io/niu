@@ -4,7 +4,6 @@ import { MemoryRouter } from 'react-router';
 import { expect, it, vi } from 'vitest';
 import ConnectAgent from '@/features/connect/page';
 import AgentConnection from '@/shell/AgentConnection';
-import type { DashboardContext } from '@/shell/dashboard-context';
 
 const { signOut } = vi.hoisted(() => ({ signOut: vi.fn() }));
 vi.mock('@/shell/dashboard-context', () => ({
@@ -247,25 +246,14 @@ it('preselects hinted workspace, applies selected duration, narrows requested ca
   });
 });
 
-it('tailors AgentConnection setup prompt by selected task goal and links to API keys', async () => {
-  const mockContext = {
-    workspace: { id: 'workspace-one', organization_id: 'organization-one', organization_name: 'Org', name: 'Team workspace', slug: 'team-workspace' },
-    workspaces: [{ id: 'workspace-one', organization_id: 'organization-one', organization_name: 'Org', name: 'Team workspace', slug: 'team-workspace' }],
-  } as unknown as DashboardContext;
-  render(<MemoryRouter><AgentConnection context={mockContext} /></MemoryRouter>);
+it('copies deployment-specific MCP installation instructions without starting a task', async () => {
   const user = userEvent.setup();
+  render(<AgentConnection />);
   await user.click(screen.getByRole('button', { name: 'Install MCP' }));
-  await user.click(await screen.findByRole('button', { name: 'Task goal' }));
-  await user.click(screen.getByRole('menuitemradio', { name: 'Configure workspace routing' }));
-  const promptField = screen.getByLabelText('MCP install prompt') as HTMLTextAreaElement;
-  expect(promptField.value).toContain('@niu-io/mcp');
-  expect(promptField.value).toContain('/docs/routing.md');
-  expect(promptField.value).toContain('--capability pools:read --capability pools:write');
-  expect(promptField.value).toContain('team-workspace');
-  await user.click(await screen.findByRole('button', { name: 'Task goal' }));
-  await user.click(screen.getByRole('menuitemradio', { name: 'Wire inference into my app' }));
-  expect(promptField.value).toContain('/docs/inference.md');
-  expect(promptField.value).toContain('team-workspace');
-  expect(screen.getByRole('link', { name: 'Keys' }).getAttribute('href')).toBe('/workspaces/team-workspace/keys');
-  expect(screen.getByRole('link', { name: 'MCP guide' }).getAttribute('href')).toContain('/docs/guides/mcp/');
+  await user.click(screen.getByRole('button', { name: 'Copy instructions' }));
+  const text = await navigator.clipboard.readText();
+  expect(text).toContain('niu-mcp');
+  expect(text).toContain(window.location.origin);
+  expect(text).not.toMatch(/connect\?|authorize|llms\.txt|capability|workspace=/);
+  expect(screen.queryByRole('link')).toBeNull();
 });

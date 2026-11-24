@@ -12,6 +12,8 @@ Niu provides machine-readable contracts and task workflows for coding agents. Us
 - **Track 1 — Universal Device-Auth + HTTP/MCP**: Any coding agent (`Cursor`, `Windsurf`, `Zed`, `OpenCode`, `Cline`, `Aider`, `Claude Code`, `Codex`, `DeepSeek Harness`, or custom harness) can connect against any Niu deployment using `POST /api/v1/auth/agents`, browser `/connect` approval, and standard HTTP or `@niu-io/mcp`.
 - **Track 2 — Native Host Bundles**: Prepackaged `v0.3.2` host bundles (verify `SHA256SUMS` and `SOURCE_COMMIT` before installation) for `Claude Code`, `Codex` (`niu-agent-marketplace.tar.gz`), and `DeepSeek Harness` (`niu-deepseek-harness.tar.gz`).
 
+With the Niu plugin installed in Codex, invoke its skill explicitly, for example `$niu check my balance`. The skill uses the permissions of the connected account.
+
 ## Universal Bootstrap Prompt
 
 import { OriginPrompt } from '../../components/OriginPrompt';
@@ -48,6 +50,8 @@ Niu 牛元为接入的 coding agent 提供机器可读的规范契约与任务�
 
 - **路径 1 — 通用设备授权 + HTTP/MCP**：任何具备 HTTP 能力的 coding agent（`Cursor`、`Windsurf`、`Zed`、`OpenCode`、`Cline`、`Aider`、`Claude Code`、`Codex`、`DeepSeek Harness` 或自研 Agent）均可通过 `POST /api/v1/auth/agents`、浏览器 `/connect` 审批与标准 HTTP 或 `@niu-io/mcp` 接入任意 Niu 部署。
 - **路径 2 — 原生宿主扩展包**：面向 `Claude Code`、`Codex`（`niu-agent-marketplace.tar.gz`）与 `DeepSeek Harness`（`niu-deepseek-harness.tar.gz`）的 `v0.3.2` 预打包原生集成（安装前须核验 `SHA256SUMS` 与 `SOURCE_COMMIT`）。
+
+在 Codex 安装牛元插件后，可以显式调用技能，例如 `$niu 检查余额`。技能使用已连接账户的权限。
 
 ## 通用引导提示词
 

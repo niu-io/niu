@@ -155,3 +155,5 @@ Model mapping dialogs show a single title, the editable mapping fields and visib
 Tab navigation must preserve already available data within the same authorization and resource scope. A presentation-only tab change must not revalidate unrelated route loaders. Keep slow first reads and errors local to the affected panel. Verify both cold activation and return visits with browser frames.
 
 Workspace users discover models in one catalog. Platform administrators manage upstream Provider credentials. Never present internal funding classifications as model sources or imply that workspace users supply upstream keys. Workspace API keys authorize access to Niu.
+
+Keep the MCP installation dialog focused on installing the server in the current client. Put task examples in the host plugin usage guide and request authorization only when the user starts a task that needs it.
