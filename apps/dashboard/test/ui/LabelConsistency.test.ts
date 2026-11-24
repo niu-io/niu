@@ -86,9 +86,12 @@ describe('Concise Chinese product labels', () => {
     expect(localeMessages).toContain('"Try": "试用"');
     expect(localeMessages).toContain('"Try chat": "试用对话"');
     expect(localeMessages).toContain('"Try video": "试用视频"');
+    expect(localeMessages).toContain('"Open Generations": "打开生成"');
+    expect(localeMessages).not.toContain('打开多模态生成');
     expect(modelTable).toContain('uiT("Try chat")');
     expect(modelTable).toContain('uiT("Try video")');
     expect(modelTable).not.toContain('uiT("Open Generations")');
     expect(modelTable).not.toContain('uiT("Try in Chat")');
+    expect(keysView).toContain('uiT("Open Generations", "试用")');
   });
 });

@@ -1973,7 +1973,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "/M input tokens": "／百万输入 Token",
   "/M output tokens": "／百万输出 Token",
   "via": "通过",
-  "Open Generations": "打开多模态生成",
+  "Open Generations": "打开生成",
   "Try video": "试用视频",
   "Show more models": "显示更多模型",
   "Input price": "输入价格",
