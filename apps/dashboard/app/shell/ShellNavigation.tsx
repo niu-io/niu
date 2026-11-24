@@ -216,7 +216,7 @@ export function ShellAccount() {
       : [];
   return <SidebarFooter className="gap-2 p-3 group-data-[collapsible=icon]:px-0">
     <SidebarMenu>
-      {workspaceAreas && !adminScope && <SidebarMenuItem><AgentConnection context={value.context} sidebar /></SidebarMenuItem>}
+      {workspaceAreas && !adminScope && <SidebarMenuItem><AgentConnection sidebar /></SidebarMenuItem>}
       <SidebarMenuItem>
         <SidebarMenuButton asChild tooltip={docsLinkLabel}>
           <a href={`${import.meta.env.BASE_URL}docs/`} target="_blank" rel="noopener" aria-label={docsLinkLabel}>

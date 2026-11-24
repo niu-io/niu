@@ -3,7 +3,6 @@ import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import AgentConnection from '@/shell/AgentConnection';
-import { useDashboardContext } from '@/shell/dashboard-context';
 import { useLocale } from '@/shell/ui-locale';
 
 type Step = { to: string; label: string; detail: string };
@@ -22,7 +21,6 @@ export default function OverviewQuickStart({ workspaceRoot, modelsHref, canWrite
   onCreateKey?: () => void;
 }) {
   const { t: uiT } = useLocale();
-  const context = useDashboardContext();
   const firstStep: Step & { onClick?: () => void } = hasModels
     ? canWrite
       ? { to: `${workspaceRoot}/keys`, label: uiT("Create an API key"), detail: needsApiKey ? uiT("Auto-create a Playground key or configure custom access.", "一键创建试用密钥或自定义模型权限。") : uiT("Choose the models this workspace may call."), onClick: onCreateKey }
@@ -37,7 +35,7 @@ export default function OverviewQuickStart({ workspaceRoot, modelsHref, canWrite
   ];
   const title = uiT("Get started", "快速开始");
   const description = hasModels
-    ? uiT("Install MCP or create a workspace API key to start using models. Requests and results appear here.", "安装 MCP 或创建工作空间 API 密钥即可开始使用模型，请求与结果将显示在此处。")
+    ? uiT("Your first model request will appear here.", "首次调用模型后，可在这里查看请求。")
     : uiT("A platform administrator must connect a Provider and publish models before this workspace can send requests.");
   return <Empty className="gateway-task-empty gateway-first-use border-0 bg-transparent">
     <EmptyHeader>
@@ -45,7 +43,7 @@ export default function OverviewQuickStart({ workspaceRoot, modelsHref, canWrite
       <EmptyTitle role="heading" aria-level={3}>{title}</EmptyTitle>
       <EmptyDescription>{description}</EmptyDescription>
     </EmptyHeader>
-    <AgentConnection context={context} />
+    <AgentConnection />
     <div className="gateway-first-use-steps">
       {steps.map((step, index) => step.onClick ? (
         <Button key={step.to} type="button" variant="ghost" className="h-auto whitespace-normal" onClick={step.onClick} aria-label={step.label}>
