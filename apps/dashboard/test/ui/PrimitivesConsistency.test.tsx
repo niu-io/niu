@@ -102,12 +102,16 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(css).toContain('gap: 0.5rem');
   });
 
-  it('keeps the Models catalog as a responsive multi-column card grid instead of a single-column stack', () => {
+  it('keeps the Models catalog as a spacious responsive multi-column card grid instead of cramped cards or a single-column stack', () => {
     const css = readFileSync(resolve(process.cwd(), 'app/features/models/models.css'), 'utf8');
     const block = css.match(/\.models-cards\s*\{[^}]*\}/)?.[0] ?? '';
     expect(block).toContain('display: grid');
     expect(block).toMatch(/grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(/);
+    const minPxMatch = block.match(/(\d+)px/);
+    expect(Number(minPxMatch?.[1] ?? 0)).toBeGreaterThanOrEqual(340);
     expect(block).not.toContain('flex-direction: column');
+    const skeletons = readFileSync(join(appDir, 'components/PageSkeletons.tsx'), 'utf8');
+    expect(skeletons).toContain('minmax(min(100%,352px),1fr)');
   });
 
   it('uses distinct brand-tinted fallback surface tokens on AvatarFallback instead of bg-muted', () => {
@@ -199,7 +203,7 @@ describe('Shared UI primitives layout safeguards', () => {
     const css = readFileSync(resolve(process.cwd(), 'app/styles/surfaces.css'), 'utf8');
     expect(css).toContain('.dashboard-page-header:has(.dashboard-page-tabs:not(:empty)) .breadcrumbs');
     for (const rel of [
-      'features/customers/page.tsx',
+      'features/customers/customer-directory.tsx',
       'features/platform-settings/page.tsx',
       'features/incidents/page.tsx',
       'features/retail-pricing/page.tsx',
@@ -259,7 +263,7 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(button).toContain('aria-[pressed=true]:border-[var(--choice-active-border)]');
     expect(button).toContain('aria-[pressed=true]:bg-[var(--choice-active-bg)]');
     expect(button).toContain('aria-[pressed=true]:text-[var(--choice-active-fg)]');
-    const customerShared = readFileSync(join(appDir, 'features/customers/customer-shared.tsx'), 'utf8');
+    const customerShared = readFileSync(join(appDir, 'features/customers/create-company.tsx'), 'utf8');
     expect(customerShared).toContain('aria-pressed={!trimmedTrial}');
     expect(customerShared).toContain('aria-pressed={trimmedTrial === preset}');
     expect(customerShared).not.toContain("variant={!trialAmount.trim() ? 'secondary' : 'outline'}");

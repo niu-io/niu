@@ -199,7 +199,7 @@ export function CardGridSkeleton({
   return (
     <div role="status" aria-busy="true" className={cn('w-full min-w-0 space-y-3', className)}>
       {label && <span className="block text-sm text-muted-foreground">{label}</span>}
-      <div className="grid gap-3.5 [grid-template-columns:repeat(auto-fill,minmax(272px,1fr))]">
+      <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,352px),1fr))]">
         {Array.from({ length: count }, (_, idx) => (
           <div key={idx} className="rounded-[14px] bg-card p-4 space-y-3">
             <div className="flex items-start gap-3">

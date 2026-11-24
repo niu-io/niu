@@ -22,15 +22,15 @@
 .models-results-heading { display: flex; align-items: center; justify-content: space-between; min-height: 40px; padding-block: 4px; color: var(--muted-foreground); font-size: 13px; border-bottom: 0; }
 .models-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 352px), 1fr));
+  gap: 16px;
   align-items: stretch;
 }
 .models-card {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 16px;
+  padding: 18px;
   border: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
   border-radius: 14px;
   background: var(--card);
