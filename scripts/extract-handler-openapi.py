@@ -226,7 +226,7 @@ def main():
     descriptions.extend(['## Authentication schemes', ''])
     for name, scheme in SECURITY_SCHEMES.items():
         descriptions.extend([f'### {name}', '', *schema_block(scheme)])
-    spec = {'openapi': '3.1.0', 'info': {'title': 'Niu annotated handler operations', 'version': '0.1.0'},
+    spec = {'openapi': '3.1.0', 'info': {'title': 'Niu annotated handler operations', 'version': (ROOT / 'VERSION').read_text().strip()},
             'paths': paths, 'components': {'schemas': schemas, 'securitySchemes': SECURITY_SCHEMES}}
     validate_local_references(spec, spec)
     outputs = {

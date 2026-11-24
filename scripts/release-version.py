@@ -446,6 +446,13 @@ def _update_json_package_version(path: Path, version: str) -> None:
 def set_version(raw_version: str, create_tag: bool, update_changelog: bool, root: Path = ROOT) -> int:
     version = parse_version(raw_version)
     _resolve_path(root, "VERSION").write_text(f"{version}\n", encoding="utf-8")
+    contract = _resolve_path(root, "contracts/openapi.yaml")
+    if contract.exists():
+        updated, count = re.subn(r"(?m)^  version: [^\n]+$", f"  version: {version}", contract.read_text(), count=1)
+        if count != 1:
+            raise RuntimeError("could not locate root OpenAPI info.version")
+        contract.write_text(updated)
+
 
     cargo_toml = _resolve_path(root, "Cargo.toml")
     cargo_text = cargo_toml.read_text(encoding="utf-8")
