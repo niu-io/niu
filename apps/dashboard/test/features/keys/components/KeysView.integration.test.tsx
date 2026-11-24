@@ -98,7 +98,7 @@ it('does not present a runnable request example before the workspace has a model
 });
 
 it('shows recorded last use separately from absent and unavailable activity without leaking key references', async () => {
-  const lastUsed = 1_800_000_000_000;
+  const lastUsed = Date.now() - 5 * 60_000;
   const keys = [
     {id: 'observed-reference', name: 'Observed key', last_used_at_ms: lastUsed},
     {id: 'unused-reference', name: 'Unused key', last_used_at_ms: null},
@@ -107,8 +107,8 @@ it('shows recorded last use separately from absent and unavailable activity with
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({data: keys})));
   render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="viewer" models={['fast']} canWrite={false} initialScope={{organizationId: 'org-1', projectId: 'project-1'}} /></MemoryRouter>);
   const observed = await screen.findByRole('listitem', {name: /Observed key/});
-  expect(within(observed).getByText(new Intl.DateTimeFormat(undefined, {dateStyle: 'medium', timeStyle: 'short'}).format(new Date(lastUsed)))).toBeTruthy();
-  expect(within(screen.getByRole('listitem', {name: /Unused key/})).getByText('No recorded requests')).toBeTruthy();
+  expect(within(observed).getByText('5 minutes ago')).toBeTruthy();
+  expect(within(screen.getByRole('listitem', {name: /Unused key/})).getByText('Never used')).toBeTruthy();
   expect(within(screen.getByRole('listitem', {name: /Legacy gateway key/})).getByText('Unavailable')).toBeTruthy();
   for (const key of keys) expect(document.body.textContent).not.toContain(key.id);
 });

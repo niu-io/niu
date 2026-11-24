@@ -159,3 +159,5 @@ Tab navigation must preserve already available data within the same authorizatio
 Workspace users discover models in one catalog. Platform administrators manage upstream Provider credentials. Never present internal funding classifications as model sources or imply that workspace users supply upstream keys. Workspace API keys authorize access to Niu.
 
 Keep the MCP installation dialog focused on installing the server in the current client. Put task examples in the host plugin usage guide and request authorization only when the user starts a task that needs it.
+
+Display API key last use as localized relative time in the directory and detail view. A recorded null displays “Never used” (从未使用). An omitted timestamp displays “Unavailable”.
