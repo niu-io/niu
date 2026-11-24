@@ -106,10 +106,10 @@ it('shows recorded last use separately from absent and unavailable activity with
   ].map(item => ({allowed_models: ['fast'], expires_at_ms: 2_000_000_000_000, revoked: false, expired: false, ...item}));
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({data: keys})));
   render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="viewer" models={['fast']} canWrite={false} initialScope={{organizationId: 'org-1', projectId: 'project-1'}} /></MemoryRouter>);
-  const observed = await screen.findByRole('row', {name: /Observed key/});
+  const observed = await screen.findByRole('listitem', {name: /Observed key/});
   expect(within(observed).getByText(new Intl.DateTimeFormat(undefined, {dateStyle: 'medium', timeStyle: 'short'}).format(new Date(lastUsed)))).toBeTruthy();
-  expect(within(screen.getByRole('row', {name: /Unused key/})).getByText('No recorded requests')).toBeTruthy();
-  expect(within(screen.getByRole('row', {name: /Legacy gateway key/})).getByText('Unavailable')).toBeTruthy();
+  expect(within(screen.getByRole('listitem', {name: /Unused key/})).getByText('No recorded requests')).toBeTruthy();
+  expect(within(screen.getByRole('listitem', {name: /Legacy gateway key/})).getByText('Unavailable')).toBeTruthy();
   for (const key of keys) expect(document.body.textContent).not.toContain(key.id);
 });
 

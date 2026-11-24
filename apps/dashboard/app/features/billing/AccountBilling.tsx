@@ -241,15 +241,15 @@ export default function AccountBilling({token, organization, canConfigure = fals
             </div>;
           })()}
           {(unitSnapshot?.billing_mode ?? platformBillingMode) !== 'credits' && accounts?.map(account => <div className="billing-account" key={account.currency}>
-            <span className="text-muted-foreground">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? t(`Preserved monetary balance (${account.currency})`, `保留的货币余额（${account.currency}）`) : account.currency === platformCurrency ? t("Available to spend", "可用") : t("Recorded balance (original currency)")}</span>
+            <span className="text-muted-foreground">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? t(`Preserved monetary balance (${account.currency})`, `保留的货币余额（${account.currency}）`) : account.currency === platformCurrency ? t("Available to spend", "可用余额") : t("Recorded balance (original currency)")}</span>
             <strong className="billing-available">{money(account.available_nanos, account.currency)}</strong>
             {(account.balance_nanos !== account.available_nanos || BigInt(account.credit_limit_nanos) > 0n || BigInt(account.reserved_nanos) > 0n) && <dl className="billing-account-details">
-              {account.balance_nanos !== account.available_nanos && <div><dt>{t("Balance", "总额")}</dt><dd>{money(account.balance_nanos, account.currency)}</dd></div>}
+              {account.balance_nanos !== account.available_nanos && <div><dt>{t("Balance", "账面余额")}</dt><dd>{money(account.balance_nanos, account.currency)}</dd></div>}
               {BigInt(account.credit_limit_nanos) > 0n && <div><dt>{t("Approved credit")}</dt><dd>{money(account.credit_limit_nanos, account.currency)}</dd></div>}
-              {BigInt(account.reserved_nanos) > 0n && <div><dt>{t("Reserved for requests", "预留")}</dt><dd>{money(account.reserved_nanos, account.currency)}</dd></div>}
+              {BigInt(account.reserved_nanos) > 0n && <div><dt>{t("Reserved for requests", "请求预留")}</dt><dd>{money(account.reserved_nanos, account.currency)}</dd></div>}
             </dl>}
             <div className="flex items-center justify-between gap-3 py-3">
-              <div><h3 className="font-medium">{t("Low balance warning", "余额提醒")}</h3><p className="text-sm text-muted-foreground">{account.warning_threshold_nanos === null ? t("Disabled", "关闭") : t(`Below ${money(account.warning_threshold_nanos,account.currency)} · In app`, `低于 ${money(account.warning_threshold_nanos,account.currency)}`)}</p></div>
+              <div><h3 className="font-medium">{t("Low balance warning", "余额提醒")}</h3><p className="text-sm text-muted-foreground">{account.warning_threshold_nanos === null ? t("Disabled", "已关闭") : t(`Below ${money(account.warning_threshold_nanos,account.currency)} · In app`, `低于 ${money(account.warning_threshold_nanos,account.currency)}`)}</p></div>
               {canConfigure && account.currency === platformCurrency && <Button variant="outline" size="sm" className="shrink-0" aria-label={t(`Configure ${account.currency} low balance warning`, `设置 ${account.currency} 余额提醒`)} onClick={event=>{warningOpener.current=event.currentTarget;editWarning(account);}}>{t("Configure")}</Button>}
             </div>
             {(unitSnapshot?.billing_mode ?? platformBillingMode) !== 'credits' && account.currency === platformCurrency && (BigInt(account.available_nanos) <= 0n

@@ -123,9 +123,15 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(fallback.className).not.toContain('bg-muted');
   });
 
-  it('locks key-table column geometry with table-layout: fixed so secret reveal never shifts columns', () => {
+  it('keeps the key directory as a responsive list instead of a fixed-width table', () => {
     const css = readFileSync(resolve(process.cwd(), 'app/styles/operations.css'), 'utf8');
-    expect(css).toMatch(/\.key-table\s*\{[^}]*table-layout:\s*fixed/);
+    const keys = readFileSync(join(appDir, 'features/keys/components/KeysView.tsx'), 'utf8');
+    expect(css).toContain('.key-rows {');
+    expect(css).toContain('.key-row-facts {');
+    expect(css).toContain('@media (max-width: 900px)');
+    expect(css).not.toContain('.key-table');
+    expect(keys).toContain('<ul className="key-rows">');
+    expect(keys).not.toContain('key-table');
   });
 
   it('caps bar width across every Recharts Bar in the dashboard so single-bucket data never fills the canvas', () => {
@@ -270,16 +276,10 @@ describe('Shared UI primitives layout safeguards', () => {
   });
   it('prevents fixed-layout table cells from bleeding text over adjacent columns and keeps bare table rules inside @layer base', () => {
     const foundation = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
-    expect(foundation).toContain(':where(table.table-fixed, .key-table, .billing-transactions, .billing-invoices, .gateway-request-table, .activity-charge-breakdown table, .operator-session-table table) :where(th, td)');
+    expect(foundation).toContain(':where(table.table-fixed, .billing-transactions, .billing-invoices, .gateway-request-table, .activity-charge-breakdown table, .operator-session-table table) :where(th, td)');
     expect(foundation).toContain('text-overflow: ellipsis');
     const shell = readFileSync(resolve(process.cwd(), 'app/styles/shell.css'), 'utf8');
     expect(shell).not.toMatch(/^\s*(?:th|td)\s*\{/m);
-    const ops = readFileSync(resolve(process.cwd(), 'app/styles/operations.css'), 'utf8');
-    expect(ops).toContain('.key-table :is(th, td) { overflow: hidden; text-overflow: ellipsis; }');
-    const usageWidthMatch = ops.match(/\.key-table\s+:is\(th,\s*td\)\.key-table-col-usage\s*\{\s*width:\s*(\d+)px;/);
-    expect(Number(usageWidthMatch?.[1] ?? 0)).toBeGreaterThanOrEqual(190);
-    const expiresWidthMatch = ops.match(/\.key-table\s+:is\(th,\s*td\)\.key-table-col-expires\s*\{\s*width:\s*(\d+)px;/);
-    expect(Number(expiresWidthMatch?.[1] ?? 0)).toBeGreaterThanOrEqual(132);
   });
   it('enforces vertical rhythm on flex-column detail surfaces, CJK-safe title leading, and zero negative top margins on global intros/alerts', () => {
     const catalog = readFileSync(resolve(process.cwd(), 'app/styles/catalog.css'), 'utf8');

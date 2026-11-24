@@ -27,6 +27,14 @@ export default function SettingsDialog({context, children, pendingSection}: {con
   const canonical = canonicalSettingsSection(section, context.session);
   const entries = settingsNavigationEntries(context, t);
   const selected = entries.find(item => item.path === canonical);
+  const sectionLead = {
+    organization: t('Manage organization details, workspaces, and how members join.', '管理组织资料、工作空间和成员加入方式。'),
+    account: t('Manage your profile and sign-in security.', '管理个人资料和登录安全。'),
+    appearance: t('Set the color mode and interface language.', '设置颜色模式和界面语言。'),
+    billing: t('Manage shared funds, top-ups, and payment orders.', '管理共享资金、充值和支付订单。'),
+    members: t('Manage members, roles, and workspace access.', '管理成员、角色和工作空间访问权限。'),
+    about: t('Version, license, and product resources.', '版本、许可和产品资源。'),
+  }[canonical];
   const close = () => {
     setOpen(false);
     const target = originalReturn.current ?? origin?.path ?? (context.workspace ? `/workspaces/${encodeURIComponent(workspacePathSegment(context.workspace, context.workspaces))}` : '/workspaces');
@@ -53,7 +61,16 @@ export default function SettingsDialog({context, children, pendingSection}: {con
       <div className="px-4 pb-3 sm:hidden"><DropdownMenu open={navigationOpen} onOpenChange={setNavigationOpen}><DropdownMenuTrigger asChild><Button ref={sectionTrigger} variant="outline" className="w-full justify-between" data-settings-section-trigger aria-label={t('Settings section', '设置分类')}>{selected?.label}<IconChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent className="w-64" align="start" onCloseAutoFocus={event => {event.preventDefault();sectionTrigger.current?.focus();}}><DropdownMenuRadioGroup value={canonical} onValueChange={value => { setNavigationOpen(false); navigate(settingsHref(value as Parameters<typeof settingsHref>[0]), {state:location.state,replace:true}); }}>{entries.map(item => <DropdownMenuRadioItem key={item.path} value={item.path}><item.icon />{item.label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
       <SidebarProvider className="min-h-0 flex-1 overflow-hidden" style={{'--sidebar-width':'12rem'} as CSSProperties}>
         <Sidebar collapsible="none" className="hidden bg-muted/40 sm:flex"><SettingsNavigation context={context} section={canonical} /></Sidebar>
-        <div className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6"><div className="mb-5 flex flex-wrap items-center gap-3"><h2 className="text-lg font-semibold">{selected?.label}</h2><div id="settings-page-actions" className="dashboard-page-actions" /></div><PageHeaderActionsTargetContext.Provider value="settings-page-actions">{children}</PageHeaderActionsTargetContext.Provider></div>
+        <div className="settings-content min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="settings-content-toolbar">
+            <div className="min-w-0">
+              <h2 className="sr-only">{selected?.label}</h2>
+              <p className="settings-content-lead">{sectionLead}</p>
+            </div>
+            <div id="settings-page-actions" className="dashboard-page-actions" />
+          </div>
+          <PageHeaderActionsTargetContext.Provider value="settings-page-actions">{children}</PageHeaderActionsTargetContext.Provider>
+        </div>
       </SidebarProvider>
     </DialogContent>
   </Dialog>;

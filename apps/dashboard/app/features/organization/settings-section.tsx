@@ -92,7 +92,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
     }
   }
 
-  return <div className="organization-settings w-full min-w-0 space-y-4">
+  return <div className="organization-settings w-full min-w-0">
     <PageHeader
       title={t('Organization', '组织')}
       action={!subview && context.createOrganization ? (
@@ -102,11 +102,11 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
         </Button>
       ) : undefined}
     />
-    <div hidden={Boolean(subview)} className="space-y-4">
+    <div hidden={Boolean(subview)}>
     {!organization && context.workspaceLoading ? <FormSectionSkeleton fields={2} label={t('Loading organization…', '加载组织…')} /> : !organization ? <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No organization is available. Create a workspace to get started.")}</EmptyDescription></EmptyHeader></Empty> : <>
-      <section className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5" aria-labelledby="organization-details-title">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="organization-details-title" className="text-base font-semibold">{t('General', '常规')}</h2>
+      <section className="settings-section" aria-labelledby="organization-details-title">
+        <div className="settings-section-heading flex flex-wrap items-center justify-between gap-3">
+          <h3 id="organization-details-title">{t('General', '常规')}</h3>
           {canCreate && context.renameOrganization && (
             <Button
               type="button"
@@ -131,15 +131,16 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
         </dl>
         {renameSaved ? <p role="status" className="text-sm text-muted-foreground">{t('Organization name saved.', '已保存。')}</p> : null}
       </section>
-      <section className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5" aria-labelledby="organization-workspaces-title">
-        <div className="organization-section-heading"><div><h2 id="organization-workspaces-title" className="text-base font-semibold">{uiT("Workspaces")}</h2></div>{canCreate && entries.length > 0 && <Button variant="outline" size="sm" onClick={event => { subviewTrigger.current = event.currentTarget; setSubview('workspace'); }}><IconPlus size={16} />{t('Create workspace', '新建工作空间')}</Button>}</div>
+      <section className="settings-section" aria-labelledby="organization-workspaces-title">
+        <div className="organization-section-heading settings-section-heading"><div><h3 id="organization-workspaces-title">{t('Workspaces', '工作空间')}</h3></div>{canCreate && entries.length > 0 && <Button variant="outline" size="sm" onClick={event => { subviewTrigger.current = event.currentTarget; setSubview('workspace'); }}><IconPlus size={16} />{t('Create workspace', '新建工作空间')}</Button>}</div>
         {entries.length ? <ul className="organization-workspaces">{entries.map(item => { const seg = workspacePathSegment(item, workspaces); const overviewTo = `/workspaces/${seg}`; const settingsTo = `/workspaces/${seg}/settings`; const membersTo = `${settingsHref('members')}?workspace=${encodeURIComponent(seg)}`; return <li key={item.id} className="flex items-center gap-2"><Link className="min-w-0 flex-1" to={overviewTo} onMouseEnter={() => prefetchRouteIntent(overviewTo)} onFocus={() => prefetchRouteIntent(overviewTo)}><span>{workspaceDisplayName(item.name)}</span></Link><Button asChild variant="ghost" size="icon"><Link to={settingsTo} onMouseEnter={() => prefetchRouteIntent(settingsTo)} onFocus={() => prefetchRouteIntent(settingsTo)} aria-label={uiF("Settings for {0}", [workspaceDisplayName(item.name)])} title={uiF("Settings for {0}", [workspaceDisplayName(item.name)])}><IconSettings size={16}/></Link></Button>{canManageMembers && <Button asChild variant="ghost" size="icon"><Link replace to={membersTo} onMouseEnter={() => prefetchRouteIntent(membersTo)} onFocus={() => prefetchRouteIntent(membersTo)} aria-label={uiF("Members for {0}", [workspaceDisplayName(item.name)])} title={uiF("Members for {0}", [workspaceDisplayName(item.name)])}><IconUsers size={16} /></Link></Button>}</li>; })}</ul> : <Empty className="min-h-36 py-6"><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No workspaces yet.")}</EmptyDescription></EmptyHeader>{canCreate && <EmptyContent><Button variant="outline" onClick={event => { subviewTrigger.current = event.currentTarget; setSubview('workspace'); }}><IconPlus size={16} />{t('Create workspace', '新建工作空间')}</Button></EmptyContent>}</Empty>}
       </section>
       {session?.kind === 'operator' && context.joinOrganization && (
-        <section className="flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius-panel)] bg-card p-5" aria-labelledby="organization-join-title">
+        <section className="settings-section" aria-labelledby="organization-join-title">
+          <div className="settings-section-heading flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0 space-y-1">
-            <h2 id="organization-join-title" className="text-base font-semibold">{t('Join an existing organization', '加入组织')}</h2>
-            <p className="text-sm text-muted-foreground">
+            <h3 id="organization-join-title">{t('Join an existing organization', '加入组织')}</h3>
+            <p>
               {t(
                 'Standard invitation links open directly without a token. Use a member access token only when issued directly by an organization owner.',
                 '邀请链接无需令牌；仅在所有者签发访问令牌时使用。',
@@ -159,6 +160,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
           >
             {t('Join with token', '令牌加入')}
           </Button>
+          </div>
         </section>
       )}
     </>}
@@ -170,7 +172,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
           {t('Back to Organization', '返回组织')}
         </Button>
         <header className="space-y-1">
-          <h3 id="organization-rename-title" className="text-base font-semibold">{t('Rename organization', '重命名')}</h3>
+          <h3 id="organization-rename-title">{t('Rename organization', '重命名')}</h3>
           <p className="text-sm text-muted-foreground">{t('Update the display name for this organization. Its URL slug remains unchanged.', '名称会更新，路径标识不变。')}</p>
         </header>
         <form className="grid max-w-md gap-4" onSubmit={handleRename}>
@@ -211,7 +213,7 @@ export function OrganizationSettings({ context }: { context: DashboardContext })
           {t('Back to Organization', '返回组织')}
         </Button>
         <header className="space-y-1">
-          <h3 id="organization-join-subview-title" className="text-base font-semibold">{t('Join an existing organization', '加入组织')}</h3>
+          <h3 id="organization-join-subview-title">{t('Join an existing organization', '加入组织')}</h3>
           <p className="text-sm text-muted-foreground">
             {t(
               'Paste the member access token issued directly by an organization owner to link that organization to your account.',

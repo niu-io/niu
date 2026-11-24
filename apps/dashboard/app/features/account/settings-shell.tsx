@@ -44,21 +44,25 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
   return <div className="settings-page w-full min-w-0 space-y-8">
     {section === 'organization' && <OrganizationSettings key={context.organization?.id} context={context} />}
     {personal ? <div hidden={section !== 'account'}>
-      <div hidden={passwordEditing}>
+      <div hidden={passwordEditing} className="settings-section">
+        <header className="settings-section-heading">
+          <h3>{t('Profile', '个人资料')}</h3>
+          <p>{t('Your name, photo, and email as shown to your organization.', '向组织展示的名称、头像和邮箱。')}</p>
+        </header>
         <AccountProfile key={'profile-' + identity} token={context.token} initialProfile={profile} onSaved={value => {setProfileState({identity,value});context.updateProfile?.(value);}}/>
       </div>
-      <PasswordSettings key={`password-${identity}`} token={context.token} hasPassword={Boolean(profile?.email)} onEditingChange={editing => setPasswordEditingState({ identity, editing })} onChanged={async () => { await context.signOut(); navigate('/login', {replace:true,state:{passwordChanged:true}}); }}/>
+      <div className="settings-section">
+        <PasswordSettings key={`password-${identity}`} token={context.token} hasPassword={Boolean(profile?.email)} onEditingChange={editing => setPasswordEditingState({ identity, editing })} onChanged={async () => { await context.signOut(); navigate('/login', {replace:true,state:{passwordChanged:true}}); }}/>
+      </div>
     </div> : null}
     {section === 'members' && <section aria-label={scopedWorkspace ? t('Workspace members', '工作空间成员') : t('Organization members', '组织成员')} className="space-y-6">
-      <header className="space-y-2">
-        <h2 className={scopedWorkspace ? "text-base font-semibold" : "sr-only"}>{scopedWorkspace ? t('Workspace members', '工作空间成员') : t('Members', '成员')}</h2>
-        <p className="text-sm text-muted-foreground">{scopedWorkspace
-          ? t(
-            'Members with access to {0}. Organization-wide access is shown as All workspaces.',
-            '可访问{0}的成员。组织范围访问权限显示为“全部工作空间”。',
-          ).replace('{0}', workspaceDisplayName(scopedWorkspace.name))
-          : t('Manage organization members, roles, and workspace access.', '管理成员、角色与工作空间权限。')}</p>
-      </header>
+      {scopedWorkspace && <header className="space-y-2">
+        <h2 className="text-base font-semibold">{t('Workspace members', '工作空间成员')}</h2>
+        <p className="text-sm text-muted-foreground">{t(
+          'Members with access to {0}. Organization-wide access is shown as All workspaces.',
+          '可访问{0}的成员。组织范围访问权限显示为“全部工作空间”。',
+        ).replace('{0}', workspaceDisplayName(scopedWorkspace.name))}</p>
+      </header>}
       {requestedWorkspace && !scopedWorkspace ? (
         context.workspaceLoading
           ? <MetricStripSkeleton count={2} label={t('Loading workspace members…', '加载成员…')} />
@@ -85,50 +89,60 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
         <MetricStripSkeleton count={2} label={t('Loading organization members…', '加载成员…')} />
       )}
     </section>}
-    {section === 'about' && <section aria-label={uiT("About Niu")} className="space-y-8">
-      <header className="flex items-center gap-4">
-        <div className="min-w-0"><h2 aria-label={t('About Niu', '关于')}><NiuBrand locale={locale} /></h2><p className="mt-1 text-sm text-muted-foreground">{import.meta.env.VITE_NIU_VERSION ? `${t('Version', '版本')} ${import.meta.env.VITE_NIU_VERSION}` : t('Development build', '开发版')}</p></div>
-      </header>
-      <dl className="space-y-3 text-sm">
-        {import.meta.env.VITE_NIU_RELEASE_DATE && <div className="flex flex-wrap justify-between gap-x-4 gap-y-1"><dt className="text-muted-foreground">{t('Release date', '日期')}</dt><dd>{import.meta.env.VITE_NIU_RELEASE_DATE}</dd></div>}
-        <div className="flex flex-wrap justify-between gap-x-4 gap-y-1"><dt className="text-muted-foreground">{t('License', '许可')}</dt><dd>MIT</dd></div>
-      </dl>
-      <nav aria-label={uiT("Product resources")} className="grid gap-1 sm:grid-cols-2">
-        <Button asChild variant="ghost" className="justify-start"><a href={`${import.meta.env.BASE_URL}docs/`} target="_blank" rel="noopener" aria-label={t('Docs (opens in a new tab)', '文档（新标签页）')}><IconBook aria-hidden="true"/>{t('Docs', '文档')}<IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
-        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/releases" target="_blank" rel="noopener noreferrer"><IconVersions aria-hidden="true"/>{t('Release notes', '发布说明')}<IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
-        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu" target="_blank" rel="noopener noreferrer"><IconBrandGithub aria-hidden="true"/>GitHub<IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
-        <Button asChild variant="ghost" className="justify-start"><a href="https://github.com/niu-io/niu/issues" target="_blank" rel="noopener noreferrer"><IconBug aria-hidden="true"/>{t('Report an issue', '反馈')}<IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
-      </nav>
-      <nav aria-label={uiT("Legal resources")} className="flex flex-wrap gap-x-5 gap-y-3 text-xs text-muted-foreground">
-        <a href="https://github.com/niu-io/niu/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 underline underline-offset-4"><IconLicense size={14} aria-hidden="true"/>{t('License', '许可')}</a>
-        <a href="https://github.com/niu-io/niu/blob/main/THIRD-PARTY-NOTICES.md" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 underline underline-offset-4"><IconCopyright size={14} aria-hidden="true"/>{t('Third-party notices', '第三方声明')}</a>
-      </nav>
+    {section === 'about' && <section aria-label={uiT("About Niu")} className="settings-about">
+      <section className="settings-about-identity">
+        <div className="settings-about-brand"><NiuBrand locale={locale} /></div>
+        <p className="settings-about-summary">{t('Niu is the model platform for agents: trustworthy model information and authorized model management.', 'Niu 是面向 Agent 的模型平台，提供可信的模型信息与授权的模型管理能力。')}</p>
+        <p className="text-sm text-muted-foreground">
+          {import.meta.env.VITE_NIU_VERSION ? `${t('Version', '版本')} ${import.meta.env.VITE_NIU_VERSION}` : t('Development build', '开发版')}
+          {import.meta.env.VITE_NIU_VERSION && ` · ${t('Development build', '开发版')}`}
+        </p>
+        <dl className="settings-about-facts">
+          {import.meta.env.VITE_NIU_RELEASE_DATE && <div><dt>{t('Release date', '发布日期')}</dt><dd>{import.meta.env.VITE_NIU_RELEASE_DATE}</dd></div>}
+          <div><dt><IconLicense size={14} aria-hidden="true" />{t('License', '许可证')}</dt><dd><a href="https://github.com/niu-io/niu/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT</a></dd></div>
+        </dl>
+      </section>
+      <section className="settings-section settings-about-resources">
+        <header className="settings-section-heading">
+          <h3>{t('Resources', '资源')}</h3>
+          <p>{t('Documentation, releases, source, and support.', '文档、发布说明、源码与支持。')}</p>
+        </header>
+        <nav aria-label={uiT("Product resources")} className="settings-about-links">
+          <Button asChild variant="ghost" className="settings-about-link"><a href={`${import.meta.env.BASE_URL}docs/`} target="_blank" rel="noopener" aria-label={t('Docs (opens in a new tab)', '文档（新标签页）')}><IconBook aria-hidden="true"/><span className="settings-about-link-label">{t('Docs', '文档')}</span><IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
+          <Button asChild variant="ghost" className="settings-about-link"><a href="https://github.com/niu-io/niu/releases" target="_blank" rel="noopener noreferrer"><IconVersions aria-hidden="true"/><span className="settings-about-link-label">{t('Release notes', '发布说明')}</span><IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
+          <Button asChild variant="ghost" className="settings-about-link"><a href="https://github.com/niu-io/niu" target="_blank" rel="noopener noreferrer"><IconBrandGithub aria-hidden="true"/><span className="settings-about-link-label">GitHub</span><IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
+          <Button asChild variant="ghost" className="settings-about-link"><a href="https://github.com/niu-io/niu/issues" target="_blank" rel="noopener noreferrer"><IconBug aria-hidden="true"/><span className="settings-about-link-label">{t('Report an issue', '反馈')}</span><IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
+        </nav>
+      </section>
+      <footer className="settings-about-legal">
+        <a href="https://github.com/niu-io/niu/blob/main/THIRD-PARTY-NOTICES.md" target="_blank" rel="noopener noreferrer"><IconCopyright size={14} aria-hidden="true"/>{t('Third-party notices', '第三方声明')}</a>
+      </footer>
     </section>}
-    {section === 'appearance' && <section aria-label={uiT("Appearance preferences")} className="space-y-3">
-      <div className="flex max-w-xl flex-wrap items-center justify-between gap-4 py-4">
-        <div><h2 className="text-sm font-medium">{t('Color mode', '颜色模式')}</h2><p className="text-sm text-muted-foreground">{personal ? t('Saved to your account. System follows your device’s appearance.', '保存到账户；系统模式跟随设备。') : t('System follows your device’s appearance.', '系统模式跟随设备。')}</p></div>
-        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label={uiT("Color mode")} disabled={context.appearance?.ready === false}>{theme === 'light' ? <IconSun/> : theme === 'dark' ? <IconMoon/> : <IconDeviceDesktop/>}{themeLabel}<IconChevronDown/></Button></DropdownMenuTrigger>
-          <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={theme} onValueChange={value => saveTheme(value as Theme)}>
-            <DropdownMenuRadioItem value="system"><IconDeviceDesktop/>{t('System', '系统')}</DropdownMenuRadioItem><DropdownMenuRadioItem value="light"><IconSun/>{t('Light', '浅色')}</DropdownMenuRadioItem><DropdownMenuRadioItem value="dark"><IconMoon/>{t('Dark', '深色')}</DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup></DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      <div className="flex max-w-xl flex-wrap items-center justify-between gap-4 py-4">
-        <div><h2 className="text-sm font-medium">{t('Language', '语言')}</h2><p className="text-sm text-muted-foreground">{t('Choose the interface language for this browser.', '仅用于此浏览器。')}</p></div>
-        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label={uiT("Language")}><IconLanguage/>{locale === 'zh-CN' ? '简体中文' : 'English'}<IconChevronDown/></Button></DropdownMenuTrigger>
-          <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={locale} onValueChange={value => setLocale(value as Locale)}>
-            <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup></DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+    {section === 'appearance' && <section aria-label={uiT("Appearance preferences")} className="settings-section-group">
+      <section className="settings-section">
+        <div className="settings-row">
+          <div><h3>{t('Color mode', '颜色模式')}</h3><p>{personal ? t('Saved to your account. System follows your device’s appearance.', '保存到账户；系统模式跟随设备。') : t('System follows your device’s appearance.', '系统模式跟随设备。')}</p></div>
+          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label={uiT("Color mode")} disabled={context.appearance?.ready === false}>{theme === 'light' ? <IconSun/> : theme === 'dark' ? <IconMoon/> : <IconDeviceDesktop/>}{themeLabel}<IconChevronDown/></Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={theme} onValueChange={value => saveTheme(value as Theme)}>
+              <DropdownMenuRadioItem value="system"><IconDeviceDesktop/>{t('System', '系统')}</DropdownMenuRadioItem><DropdownMenuRadioItem value="light"><IconSun/>{t('Light', '浅色')}</DropdownMenuRadioItem><DropdownMenuRadioItem value="dark"><IconMoon/>{t('Dark', '深色')}</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup></DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </section>
+      <section className="settings-section">
+        <div className="settings-row">
+          <div><h3>{t('Language', '语言')}</h3><p>{t('Choose the interface language for this browser.', '仅用于此浏览器。')}</p></div>
+          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label={uiT("Language")}><IconLanguage/>{locale === 'zh-CN' ? '简体中文' : 'English'}<IconChevronDown/></Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={locale} onValueChange={value => setLocale(value as Locale)}>
+              <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="zh-CN">简体中文</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup></DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </section>
       {context.appearance?.saving && <p role="status">{t('Saving color mode…', '保存中…')}</p>}
       {context.appearance?.error && <div role="alert" className="grid justify-items-start gap-2"><p>{uiT(context.appearance.error)}</p><Button variant="outline" onClick={context.appearance.reload}>{t('Reload color mode', '重新加载')}</Button></div>}
     </section>}
-    {['billing', 'payments'].includes(section) && <header className="space-y-2">
-      <h2 className="sr-only">{t('Credits', '额度')}</h2>
-      <p className="text-sm text-muted-foreground">{t('Manage shared funds, add money, and review payment orders and balance activity.', '管理共享资金、充值与订单。')}</p>
-    </header>}
     {['billing', 'payments'].includes(section) && context.organization && <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>{organizationDisplayName(context.organization.name)} · {t('Shared across workspaces', '跨工作空间共享')}</span>{context.workspace && <Link className="underline underline-offset-4 hover:text-foreground" to={`/workspaces/${encodeURIComponent(workspacePathSegment(context.workspace, context.workspaces))}/billing`}>{t('View workspace billing', '工作空间计费')}</Link>}</p>}
     {['billing', 'payments'].includes(section) && (canViewBilling
       ? context.organization

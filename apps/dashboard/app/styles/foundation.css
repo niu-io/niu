@@ -149,7 +149,7 @@ button:disabled { cursor: not-allowed; }
 /* DialogContent uses CSS grid; prevent direct-child utility buttons (e.g. Refresh, Load more) from stretching full dialog width by default. */
 :where([data-slot="dialog-content"]) > :where([data-slot="button"]:not([data-slot="dialog-close"])) { justify-self: start; width: auto; }
 /* Fixed-layout tables must never paint overflowing nowrap cell text on top of adjacent columns. */
-:where(table.table-fixed, .key-table, .billing-transactions, .billing-invoices, .gateway-request-table, .activity-charge-breakdown table, .operator-session-table table) :where(th, td) { overflow: hidden; text-overflow: ellipsis; }
+:where(table.table-fixed, .billing-transactions, .billing-invoices, .gateway-request-table, .activity-charge-breakdown table, .operator-session-table table) :where(th, td) { overflow: hidden; text-overflow: ellipsis; }
 /* Prevent prose paragraphs from colliding with immediately following buttons in unstyled non-gapped block containers. */
 :where(div:not([class*="flex"]):not([class*="grid"]):not([class*="space-y-"]):not([class*="gap-"]):not([data-slot]), section:not([class*="flex"]):not([class*="grid"]):not([class*="space-y-"]):not([class*="gap-"]):not([data-slot])) > :where(p) + :where([data-slot="button"]) { margin-top: 0.75rem; }
 .niu-modal-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; margin-top: 8px; padding-top: 12px; border-top: 0; }
@@ -162,12 +162,8 @@ button:disabled { cursor: not-allowed; }
 .keys-scope-line strong { color: var(--foreground); font-weight: 600; }
 .keys-scope-line > span { padding-left: 0; }
 .keys-scope-line > button:last-child { margin-left: auto; }
-.key-list { min-width: 0; overflow: hidden; border: 0; border-radius: 0; background: transparent; }
-.key-list .table-wrap { border: 0; }
-.key-table th, .key-table td { padding-inline: 12px; }
-.key-table td:first-child { min-width: 170px; }
+.key-list { min-width: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; }
 .key-name-link { display: inline-flex; align-items: center; gap: 9px; color: var(--foreground); font-weight: 600; text-decoration: none; }
-.key-model-summary { display: block; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .page-content:has(.keys-page .key-empty) { display: flex; flex-direction: column; }
 .keys-page:has(.key-empty) { display: flex; flex: 1 0 auto; flex-direction: column; }
 .key-list:has(> .key-empty) { display: flex; flex: 1 0 auto; flex-direction: column; }
