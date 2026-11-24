@@ -58,7 +58,10 @@ describe('Concise Chinese product labels', () => {
 
   it('keeps the redesigned Settings frame stable and grouped', () => {
     expect(settingsDialog).toContain('h-[min(760px,calc(100dvh-2rem))]');
-    expect(settingsDialog).toContain('settings-content-toolbar');
+    expect(settingsDialog).toContain('settings-content-actions');
+    expect(settingsDialog).toContain('<DialogHeader className="sr-only">');
+    expect(settingsDialog).not.toContain('settings-content-toolbar');
+    expect(settingsDialog).not.toContain('settings-content-lead');
     expect(settingsDialog).toContain('<h2 className="sr-only">{selected?.label}</h2>');
     expect(settingsDialog).not.toContain('<h2 className="text-lg font-semibold">');
     expect(settingsShell).toContain('settings-section');

@@ -12,7 +12,7 @@ This document defines the mandatory, product-wide UI and interaction standards f
 
 ## 2. Stable Dialog Frames & In-Control Loading
 
-- **Stable modal frame across sections**: A global Settings dialog must keep the same outer size across every section. Never measure the active section and resize the dialog (the frame will jump when users switch tabs); group sparse content with dividers and section headings inside the fixed frame, keep the lead/action row stable, and scroll only the content region.
+- **Stable modal frame across sections**: A global Settings dialog must keep the same outer size across every section. Never measure the active section and resize the dialog (the frame will jump when users switch tabs); group sparse content with dividers and section headings inside the fixed frame, and scroll only the content region. Never render a visible global title bar or lead strip inside the modal; keep the dialog title screen-reader-only, reserve top space for the floating close control, and render section-specific actions only when present.
 - **Never collapse a dialog while loading secondary data**: When a dialog opens and needs to fetch choice options, saved roles, or secondary metadata, keep `DialogHeader`, form/detail structure, helper slots, and `DialogFooter` stably mounted (`0px` frame jump).
 - **Show loading in place**:
   - For dropdown/choice fields whose options are loading, keep the field and trigger mounted with `aria-busy="true"`, a spinner icon (`IconLoader2` with `animate-spin`), and a clear loading label inside the trigger and/or menu.

@@ -387,11 +387,9 @@
 /* Global Settings dialog: a stable frame with grouped, scannable sections. */
 .settings-content { display: flex; min-height: 0; flex-direction: column; }
 .settings-page { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; }
-.settings-content-toolbar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 18px; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
-.settings-content-lead { max-width: 62ch; margin: 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.55; text-wrap: pretty; }
-.settings-content-toolbar .dashboard-page-actions { flex: 0 0 auto; }
-.settings-content-lead { flex: 1 1 360px; }
-@media (max-width: 560px) { .settings-content-lead { flex-basis: 100%; } .settings-content-toolbar .dashboard-page-actions { margin-left: auto; } }
+.settings-content-actions { display: flex; justify-content: flex-end; padding: 6px 2.5rem 12px 0; }
+.settings-content-actions:has(#settings-page-actions:empty) { display: none; }
+.settings-content-actions .dashboard-page-actions { flex: 0 0 auto; }
 .settings-section { display: grid; gap: 14px; padding-top: 22px; }
 .settings-section + .settings-section { border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
 .settings-section-heading h3 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
