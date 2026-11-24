@@ -264,8 +264,9 @@ export function ModelDiscountDialog({
           )}
 
           {hasExistingCustomerPrice && (
-            <label className="flex items-start gap-2 text-xs text-muted-foreground">
+            <Label htmlFor="update-customer-selling-price" className="flex items-start gap-2 text-xs text-muted-foreground">
               <Checkbox
+                id="update-customer-selling-price"
                 checked={updateCustomerPrice}
                 disabled={busy}
                 onCheckedChange={value => setUpdateCustomerPrice(value === true)}
@@ -276,7 +277,7 @@ export function ModelDiscountDialog({
                   '同时将平台客户售价更新为此上游标准价',
                 )}
               </span>
-            </label>
+            </Label>
           )}
 
           {(validationError || error) && (

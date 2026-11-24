@@ -14,8 +14,13 @@ impl Store {
         currency: &str,
         key_sha256: Option<&[u8]>,
     ) -> Result<Uuid, StoreError> {
-        self.create_prepaid_organization_with_key_and_kind(name, currency, "organization", key_sha256)
-            .await
+        self.create_prepaid_organization_with_key_and_kind(
+            name,
+            currency,
+            "organization",
+            key_sha256,
+        )
+        .await
     }
 
     pub async fn create_prepaid_organization_with_key_and_kind(

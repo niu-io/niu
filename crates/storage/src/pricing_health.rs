@@ -21,21 +21,15 @@ impl Store {
                 .iter()
                 .filter(|c| c["model_alias"] == row["model_alias"])
                 .collect();
-            row["pricing_health"] = build_pricing_health(
-                &schedule,
-                row["currency"].as_str().unwrap_or(""),
-                &matching,
-            );
+            row["pricing_health"] =
+                build_pricing_health(&schedule, row["currency"].as_str().unwrap_or(""), &matching);
         }
         Ok(())
     }
 }
 
 fn build_pricing_health(schedule: &Value, currency: &str, matching: &[&Value]) -> Value {
-    let configured_routes = matching
-        .iter()
-        .filter(|c| c["configured"] == true)
-        .count();
+    let configured_routes = matching.iter().filter(|c| c["configured"] == true).count();
     let ready: Vec<&&Value> = matching
         .iter()
         .filter(|c| c["supply_ready"] == true)
@@ -43,7 +37,12 @@ fn build_pricing_health(schedule: &Value, currency: &str, matching: &[&Value]) -
     let active_supply_routes = ready.len();
     let active_providers: Vec<String> = ready
         .iter()
-        .filter_map(|c| c["provider"].as_str().map(str::trim).filter(|s| !s.is_empty()))
+        .filter_map(|c| {
+            c["provider"]
+                .as_str()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+        })
         .map(ToOwned::to_owned)
         .collect::<BTreeSet<_>>()
         .into_iter()

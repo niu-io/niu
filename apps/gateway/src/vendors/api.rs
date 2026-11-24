@@ -2974,7 +2974,11 @@ fn resolve_import_prefix(supplier: Option<&Value>, vendor_name: &str) -> String 
             owner["slug"]
                 .as_str()
                 .filter(|slug| !slug.trim().is_empty())
-                .or_else(|| owner["name"].as_str().filter(|name| !name.trim().is_empty()))
+                .or_else(|| {
+                    owner["name"]
+                        .as_str()
+                        .filter(|name| !name.trim().is_empty())
+                })
         })
         .unwrap_or(vendor_name);
     vendor_alias_prefix(source)

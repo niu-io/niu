@@ -1582,8 +1582,14 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         StatusCode::CONFLICT
     );
     for _ in 0..2 {
-        let (status, assigned) =
-            call(&internal_app, Method::PUT, &owner_path, ADMIN, owner_input.clone()).await;
+        let (status, assigned) = call(
+            &internal_app,
+            Method::PUT,
+            &owner_path,
+            ADMIN,
+            owner_input.clone(),
+        )
+        .await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(assigned, json!({"assigned":true}));
     }
