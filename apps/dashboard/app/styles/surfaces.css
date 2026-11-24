@@ -406,27 +406,22 @@
 .organization-workspaces > li > a:first-child { flex: 1 1 auto; min-width: 0; padding: 10px 4px; border-radius: 8px; background: transparent; justify-content: flex-start; }
 .organization-workspaces > li > a:first-child:hover { background: color-mix(in srgb, var(--muted) 70%, transparent); }
 
-/* About: identity and resources share the frame instead of trailing off one edge. */
-.settings-about { display: grid; flex: 1 1 auto; gap: 24px; align-content: start; }
-.settings-about-identity { display: grid; gap: 12px; align-content: start; }
-.settings-about-brand { display: flex; align-items: center; min-height: 42px; }
-.settings-about-summary { max-width: 36ch; margin: 0; color: var(--muted-foreground); font-size: 13px; line-height: 1.55; text-wrap: pretty; }
-.settings-about-facts { display: grid; gap: 0; width: 100%; max-width: 420px; margin: 4px 0 0; font-size: 13px; }
-.settings-about-facts > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding-block: 9px; border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
-.settings-about-facts dt { display: inline-flex; align-items: center; gap: 6px; color: var(--muted-foreground); }
-.settings-about-facts dd { margin: 0; text-align: right; }
-.settings-about-facts a { color: var(--foreground); text-decoration: underline; text-underline-offset: 3px; }
-.settings-about-resources { padding-top: 0; }
-.settings-about-links { display: grid; gap: 4px; }
-.settings-about-link { height: auto; min-height: 38px; justify-content: flex-start; gap: 9px; padding-inline: 10px; font-weight: 400; }
+/* About: a centered identity and resource composition that uses the frame deliberately. */
+.settings-about { display: flex; width: min(100%, 560px); margin: auto; flex-direction: column; gap: 24px; text-align: center; }
+.settings-about-hero { display: grid; justify-items: center; gap: 14px; }
+.settings-about-brand { display: flex; align-items: center; min-height: 48px; }
+.settings-about-summary { max-width: 46ch; margin: 0; color: var(--muted-foreground); font-size: 13.5px; line-height: 1.6; text-wrap: pretty; }
+.settings-about-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 8px; margin: 0; color: var(--muted-foreground); font-size: 12.5px; line-height: 1.5; }
+.settings-about-meta > span { display: inline-flex; align-items: center; gap: 5px; }
+.settings-about-meta a { color: var(--foreground); text-decoration: underline; text-underline-offset: 3px; }
+.settings-about-resources { display: grid; width: 100%; gap: 12px; text-align: left; }
+.settings-about-resources-heading { text-align: center; }
+.settings-about-resources-heading h3 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+.settings-about-resources-heading p { max-width: 48ch; margin: 4px auto 0; color: var(--muted-foreground); font-size: 13px; line-height: 1.5; text-wrap: pretty; }
+.settings-about-links { display: grid; width: 100%; border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+.settings-about-link { height: auto; min-height: 44px; justify-content: flex-start; gap: 10px; padding-inline: 6px; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); border-radius: 0; font-weight: 400; }
+.settings-about-link:hover { background: color-mix(in srgb, var(--muted) 65%, transparent); }
 .settings-about-link-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.settings-about-legal { display: flex; flex-wrap: wrap; align-self: end; gap: 16px; padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); color: var(--muted-foreground); font-size: 12px; }
+.settings-about-legal { display: flex; flex-wrap: wrap; justify-content: center; width: 100%; color: var(--muted-foreground); font-size: 12px; }
 .settings-about-legal a { display: inline-flex; align-items: center; gap: 6px; text-decoration: underline; text-underline-offset: 3px; }
 .settings-about-legal a:hover { color: var(--foreground); }
-@media (min-width: 560px) {
-  .settings-about-links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (min-width: 640px) {
-  .settings-about { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); grid-template-rows: auto 1fr; align-items: start; }
-  .settings-about-legal { grid-column: 1 / -1; }
-}

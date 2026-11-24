@@ -90,21 +90,19 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
       )}
     </section>}
     {section === 'about' && <section aria-label={uiT("About Niu")} className="settings-about">
-      <section className="settings-about-identity">
+      <header className="settings-about-hero">
         <div className="settings-about-brand"><NiuBrand locale={locale} /></div>
         <p className="settings-about-summary">{t('Niu is the model platform for agents: trustworthy model information and authorized model management.', 'Niu 是面向 Agent 的模型平台，提供可信的模型信息与授权的模型管理能力。')}</p>
-        <p className="text-sm text-muted-foreground">
-          {import.meta.env.VITE_NIU_VERSION ? `${t('Version', '版本')} ${import.meta.env.VITE_NIU_VERSION}` : t('Development build', '开发版')}
-          {import.meta.env.VITE_NIU_VERSION && ` · ${t('Development build', '开发版')}`}
+        <p className="settings-about-meta">
+          <span>{import.meta.env.VITE_NIU_VERSION ? `${t('Version', '版本')} ${import.meta.env.VITE_NIU_VERSION}` : t('Development build', '开发版')}</span>
+          {import.meta.env.VITE_NIU_RELEASE_DATE && <><span aria-hidden="true">·</span><span>{t('Released', '发布')} {import.meta.env.VITE_NIU_RELEASE_DATE}</span></>}
+          <span aria-hidden="true">·</span>
+          <span><IconLicense size={14} aria-hidden="true" />{t('License', '许可证')} <a href="https://github.com/niu-io/niu/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT</a></span>
         </p>
-        <dl className="settings-about-facts">
-          {import.meta.env.VITE_NIU_RELEASE_DATE && <div><dt>{t('Release date', '发布日期')}</dt><dd>{import.meta.env.VITE_NIU_RELEASE_DATE}</dd></div>}
-          <div><dt><IconLicense size={14} aria-hidden="true" />{t('License', '许可证')}</dt><dd><a href="https://github.com/niu-io/niu/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT</a></dd></div>
-        </dl>
-      </section>
-      <section className="settings-section settings-about-resources">
-        <header className="settings-section-heading">
-          <h3>{t('Resources', '资源')}</h3>
+      </header>
+      <section className="settings-about-resources" aria-labelledby="settings-about-resources-title">
+        <header className="settings-about-resources-heading">
+          <h3 id="settings-about-resources-title">{t('Resources', '资源')}</h3>
           <p>{t('Documentation, releases, source, and support.', '文档、发布说明、源码与支持。')}</p>
         </header>
         <nav aria-label={uiT("Product resources")} className="settings-about-links">

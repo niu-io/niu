@@ -66,6 +66,9 @@ describe('Concise Chinese product labels', () => {
     expect(settingsDialog).not.toContain('<h2 className="text-lg font-semibold">');
     expect(settingsShell).toContain('settings-section');
     expect(settingsShell).toContain('settings-about-summary');
+    expect(settingsShell).toContain('settings-about-hero');
+    expect(settingsShell).toContain('settings-about-resources');
+    expect(settingsShell).not.toContain('settings-about-facts');
     expect(settingsShell).toContain('settings-about-legal');
     expect(settingsShell.match(/许可证/g)?.length).toBe(1);
   });
