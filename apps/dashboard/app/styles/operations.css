@@ -212,45 +212,35 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
   .gateway-task-feed.is-compact .gateway-task-feed-heading h2 { font-size: 15px; }
   .gateway-task-feed.is-compact .gateway-feed-actions { font-size: 12px; }}
 
-/* Searchable key directory follows the shared compact table layout with
-   fixed column geometry so revealing a full API key never shifts columns. */
-.key-table { table-layout: fixed; width: 100%; }
-.key-table :is(th, td) { overflow: hidden; text-overflow: ellipsis; }
-.key-table :is(th, td).key-table-col-key { width: auto; }
-.key-table :is(th, td).key-table-col-models { width: 13%; }
-.key-table :is(th, td).key-table-col-limits { width: 11%; }
-.key-table :is(th, td).key-table-col-expires { width: 136px; }
-.key-table :is(th, td).key-table-col-usage { width: 196px; }
-.key-table :is(th, td).key-table-col-status { width: 100px; }
-.key-table :is(th, td).key-table-col-actions { width: 56px; padding-inline: 8px; text-overflow: clip; }
-.key-table .key-name-link { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
-.key-table .key-name-link svg { flex-shrink: 0; }
-.key-table .key-model-summary { max-width: 100%; }
+/* Key directory: readable rows, no fixed table and no horizontal scrolling. */
 .key-list { container-type: inline-size; }
-/* Adapt to the available canvas, including expanded navigation.
-   Keep expiry and last use; model access and limits move to the key detail page first. */
-@container (max-width: 980px) {
-  .key-table { min-width: 0; width: 100%; }
-  .key-table :is(th, td).key-table-col-key { width: auto; }
-  .key-table :is(th, td):nth-child(2),
-  .key-table :is(th, td):nth-child(3) { display: none; }
-  .key-table .key-model-summary { max-width: 180px; white-space: normal; overflow-wrap: anywhere; }}
-@container (max-width: 760px) {
-  .key-table { min-width: 0; width: 100%; }
-  .key-table :is(th, td).key-table-col-key { width: auto; }
-  .key-table .key-table-metadata { display: none; }
-  .key-table td:first-child { min-width: 0; }
-  .key-table .key-name-link { max-width: none; }}
-@media (max-width: 640px) {
-  .key-table { min-width: 0; width: 100%; }
-  .key-table :is(th, td).key-table-col-key { width: auto; }
-  .key-table .key-table-metadata, .key-table .key-table-usage { display: none; }
-  .key-table td:first-child { min-width: 0; }
-  .key-table .key-name-link { max-width: none; }
-  .key-table th, .key-table td { padding: 12px 8px; }
-  .key-table :is(th, td).key-table-col-status { width: 84px; }
-  .key-table :is(th, td).key-table-col-actions { width: 48px; }
-  .key-table td:not(:first-child) { white-space: nowrap; }}
+.key-rows { display: grid; margin: 0; padding: 0; list-style: none; border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+.key-row { display: grid; min-width: 0; gap: 10px; padding: 14px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+.key-row-main { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) auto auto; align-items: start; gap: 12px; }
+.key-row-identity { display: grid; min-width: 0; gap: 4px; }
+.key-row-identity .key-name-link { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.key-row-identity .key-name-link svg { flex-shrink: 0; }
+.key-row-note { margin: 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.key-row-secret { display: flex; width: fit-content; max-width: min(100%, 460px); align-items: center; gap: 2px; margin-top: 2px; }
+.key-row-secret code { min-width: 0; max-width: 100%; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 6px; background: var(--muted); padding: 1px 6px; color: var(--muted-foreground); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.key-row-status { display: flex; justify-content: flex-end; }
+.key-row-actions { display: flex; justify-content: flex-end; }
+.key-row-facts { display: grid; min-width: 0; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); gap: 10px 24px; margin: 0; }
+.key-row-facts > div { display: grid; min-width: 0; gap: 3px; }
+.key-row-facts dt { color: var(--muted-foreground); font-size: 12px; }
+.key-row-facts dd { margin: 0; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.key-access-trigger { height: auto; padding: 0; color: var(--foreground); font-size: 13px; font-weight: 500; }
+.key-access-list { display: grid; max-height: 240px; gap: 4px; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.key-access-list li { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.45; }
+@media (max-width: 900px) {
+  .key-row-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .key-fact-models { grid-column: 1 / -1; }}
+@media (max-width: 560px) {
+  .key-row-main { grid-template-columns: minmax(0, 1fr) auto; }
+  .key-row-identity { grid-column: 1 / -1; }
+  .key-row-status { justify-self: start; }
+  .key-row-actions { justify-self: end; }
+  .key-row-facts { gap: 12px 16px; }}
 
 @media (max-width: 680px) {
   .dashboard-page-actions .operator-page-actions { width: auto; }

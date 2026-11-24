@@ -119,7 +119,7 @@ export default function PasswordSettings({ token, hasPassword = true, onChanged,
       </section>
     );
   }
-  return <section className="mt-6" aria-labelledby="password-settings-title">
+  return <section aria-labelledby="password-settings-title">
     <div className="flex flex-wrap items-center justify-between gap-4 py-4">
       <div className="space-y-0.5">
         <h3 id="password-settings-title" className="text-sm font-medium">{t('Password', '密码')}</h3>

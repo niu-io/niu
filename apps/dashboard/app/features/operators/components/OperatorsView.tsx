@@ -4,9 +4,12 @@ import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import { DialogFooter } from '@/components/ui/dialog';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconPlus as Plus } from "@tabler/icons-react";
+import { IconSearch } from "@tabler/icons-react";
 import { IconRefresh as RefreshCw } from "@tabler/icons-react";
 import { IconShieldCheck as ShieldCheck } from "@tabler/icons-react";
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import PageHeader from '@/components/PageHeader';
 import type { AdminSession } from '@/shell/dashboard-context';
 import {
@@ -68,6 +71,8 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   const [error, setError] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const createButtonRef = useRef<HTMLButtonElement>(null);
+  const [memberSearch, setMemberSearch] = useState('');
+  const memberSearchTrigger = useRef<HTMLButtonElement>(null);
   const createEmailRef = useRef<HTMLInputElement>(null);
   const [invitations, setInvitations] = useState<MemberInvitation[]>([]);
   const [invitationsLoading, setInvitationsLoading] = useState(false);
@@ -581,6 +586,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
           : <InviteMemberForm emailInputRef={createEmailRef} onCancel={closeMemberView} disabled={busy || loading || !organization} projects={projects} defaultProjectId={project || null} canChooseOrganizationScope={!lockedProject} onCreate={onCreateInvitation} />}</>;
 
   const actions = <div className="operator-page-actions">
+    <Popover><PopoverTrigger asChild><Button ref={memberSearchTrigger} type="button" variant="ghost" size="icon-sm" aria-label={uiT("Search members", "搜索成员")} title={uiT("Search members", "搜索成员")} className={memberSearch ? "text-primary bg-accent" : undefined}><IconSearch size={16} /></Button></PopoverTrigger><PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-2"><Input autoFocus type="search" aria-label={uiT("Search members", "搜索成员")} placeholder={uiT("Search members…", "搜索成员…")} value={memberSearch} onChange={event => setMemberSearch(event.target.value)} />{memberSearch && <Button variant="ghost" size="sm" onClick={() => setMemberSearch('')}>{uiT("Reset search")}</Button>}</PopoverContent></Popover>
     <Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh members", "刷新成员")} title={uiT("Refresh members", "刷新成员")} disabled={loading || busy} onClick={() => void perform(() => loadOperators())}><RefreshCw size={15} className={loading ? 'animate-spin' : undefined} /></Button>
     <Button ref={createButtonRef} type="button" className="header-icon-action" aria-label={uiT("Invite member", "邀请成员")} title={uiT("Invite member", "邀请成员")} disabled={loading || busy || !organization || Boolean(lockedProject && !project)} onClick={() => { returnTrigger.current = null; setIssuedInvitation(null); setCreateOpen(true); }}><Plus size={16} /><span>{uiT("Invite member", "邀请成员")}</span></Button>
   </div>;
@@ -599,6 +605,9 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
         loading={loading}
         disabled={busy}
         projectScope={Boolean(project)}
+        search={memberSearch}
+        onSearchChange={setMemberSearch}
+        searchTriggerRef={memberSearchTrigger}
         onSelect={(id, trigger) => {
           returnTrigger.current = null;
           detailTriggerRef.current = trigger ?? null;

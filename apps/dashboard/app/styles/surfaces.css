@@ -246,7 +246,6 @@
 .playground-history [data-slot="sidebar-content"], .niu-workspace-sidebar-mobile .playground-history-list { padding: 0 12px 12px; display: flex; }
 .playground-history { max-height: none; border-bottom: 0; }
 .playground-chat-layout > [data-slot="sidebar"] { min-width: 0; }
-.key-table { min-width: 620px; }
 .key-detail-card { padding: 22px; }
 .key-page-error { margin: 0 0 14px; color: var(--destructive-ink); font-size: 14px; }
 .key-revoke-notice { display: flex; align-items: center; gap: 7px; color: var(--success); font-size: 13px; }
@@ -383,4 +382,53 @@
   .standard-price-directory tbody td[data-label] { display: grid; grid-template-columns: minmax(6rem, 32%) minmax(0, 1fr); gap: .6rem; align-items: baseline; }
   .standard-price-directory td[data-label]::before { content: attr(data-label); color: var(--muted-foreground); font-size: .8rem; }
   .standard-price-directory td:last-child { margin-top: .3rem; }
+}
+
+/* Global Settings dialog: a stable frame with grouped, scannable sections. */
+.settings-content { display: flex; min-height: 0; flex-direction: column; }
+.settings-page { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; }
+.settings-content-toolbar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 18px; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+.settings-content-lead { max-width: 62ch; margin: 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.55; text-wrap: pretty; }
+.settings-content-toolbar .dashboard-page-actions { flex: 0 0 auto; }
+.settings-content-lead { flex: 1 1 360px; }
+@media (max-width: 560px) { .settings-content-lead { flex-basis: 100%; } .settings-content-toolbar .dashboard-page-actions { margin-left: auto; } }
+.settings-section { display: grid; gap: 14px; padding-top: 22px; }
+.settings-section + .settings-section { border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+.settings-section-heading h3 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+.settings-section-heading p { max-width: 60ch; margin: 4px 0 0; color: var(--muted-foreground); font-size: 13px; line-height: 1.5; text-wrap: pretty; }
+.settings-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; max-width: 680px; }
+.settings-row h3 { margin: 0; font-size: 14px; font-weight: 500; }
+.settings-row p { max-width: 52ch; margin: 4px 0 0; color: var(--muted-foreground); font-size: 13px; line-height: 1.5; }
+.settings-section-group { display: flex; flex-direction: column; }
+
+/* Organization settings use divided rows instead of nested card slabs. */
+.organization-workspaces { gap: 0; margin: 10px 0 0; }
+.organization-workspaces > li { display: flex; min-height: 44px; align-items: center; gap: 4px; border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+.organization-workspaces > li:first-child { border-top: 0; }
+.organization-workspaces > li > a:first-child { flex: 1 1 auto; min-width: 0; padding: 10px 4px; border-radius: 8px; background: transparent; justify-content: flex-start; }
+.organization-workspaces > li > a:first-child:hover { background: color-mix(in srgb, var(--muted) 70%, transparent); }
+
+/* About: identity and resources share the frame instead of trailing off one edge. */
+.settings-about { display: grid; flex: 1 1 auto; gap: 24px; align-content: start; }
+.settings-about-identity { display: grid; gap: 12px; align-content: start; }
+.settings-about-brand { display: flex; align-items: center; min-height: 42px; }
+.settings-about-summary { max-width: 36ch; margin: 0; color: var(--muted-foreground); font-size: 13px; line-height: 1.55; text-wrap: pretty; }
+.settings-about-facts { display: grid; gap: 0; width: 100%; max-width: 420px; margin: 4px 0 0; font-size: 13px; }
+.settings-about-facts > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding-block: 9px; border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+.settings-about-facts dt { display: inline-flex; align-items: center; gap: 6px; color: var(--muted-foreground); }
+.settings-about-facts dd { margin: 0; text-align: right; }
+.settings-about-facts a { color: var(--foreground); text-decoration: underline; text-underline-offset: 3px; }
+.settings-about-resources { padding-top: 0; }
+.settings-about-links { display: grid; gap: 4px; }
+.settings-about-link { height: auto; min-height: 38px; justify-content: flex-start; gap: 9px; padding-inline: 10px; font-weight: 400; }
+.settings-about-link-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-about-legal { display: flex; flex-wrap: wrap; align-self: end; gap: 16px; padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); color: var(--muted-foreground); font-size: 12px; }
+.settings-about-legal a { display: inline-flex; align-items: center; gap: 6px; text-decoration: underline; text-underline-offset: 3px; }
+.settings-about-legal a:hover { color: var(--foreground); }
+@media (min-width: 560px) {
+  .settings-about-links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 640px) {
+  .settings-about { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); grid-template-rows: auto 1fr; align-items: start; }
+  .settings-about-legal { grid-column: 1 / -1; }
 }

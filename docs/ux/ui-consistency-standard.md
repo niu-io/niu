@@ -8,10 +8,11 @@ This document defines the mandatory, product-wide UI and interaction standards f
 - **Brand primary & contrast**: Primary actions use burnt orange-brown (`#B3471A` light / `#B84B1C` dark) with warm near-white foreground (`#FFFBF7`) for crisp readability. On dark surfaces, text links and inline error copy use `--primary-ink` and `--destructive-ink` rather than low-contrast button fill tones.
 - **Warm-stone surfaces & subtle separation**: Follow Manus-style surface restraint — separate navigation, canvas, and sections with subtle solid background tones and spacing (`#FAF9F7` / `#F3F1ED` light, `#191716` / `#221F1D` dark) rather than repeated bordered cards or decorative shadows. Reserve elevation (`--shadow-composer`, `--shadow-panel`) for floating composers, popovers, menus, and dialogs.
 - **Sidebar hierarchy**: Active navigation items use a clear, unmistakable fill (`#E8E3DC` light / `#2F2A26` dark) with medium-semibold ink (`--sidebar-accent-foreground`).
-- **Concise Chinese labels**: Use the shortest unambiguous Chinese noun or verb for navigation, buttons, field labels, statuses, and headings. Do not retain qualifier phrases already established by the section, icon, or entity name (`在对话中试用` → `试用`; `外观与语言` → `外观`; `成员管理` → `成员`; `额度与充值` → `额度`; `保存更改` → `保存`; `版本发布说明` → `发布说明`). Keep entity, authorization, scope, and financial terms intact, and keep the English label coherent with the Chinese action.
+- **Concise Chinese labels**: Use the shortest unambiguous Chinese noun or verb for navigation, buttons, field labels, statuses, and headings. Do not retain qualifier phrases already established by the section, icon, or entity name (`在对话中试用` → `试用`; `外观与语言` → `外观`; `成员管理` → `成员`; `额度与充值` → `额度`; `保存更改` → `保存`; `版本发布说明` → `发布说明`). Keep entity, authorization, scope, and financial terms intact, and keep the English label coherent with the Chinese action. Explanatory and metric labels stay complete when the short form would be ambiguous (`可用余额`, `账面余额`, `请求预留`, `已关闭`).
 
 ## 2. Stable Dialog Frames & In-Control Loading
 
+- **Stable modal frame across sections**: A global Settings dialog must keep the same outer size across every section. Never measure the active section and resize the dialog (the frame will jump when users switch tabs); group sparse content with dividers and section headings inside the fixed frame, keep the lead/action row stable, and scroll only the content region.
 - **Never collapse a dialog while loading secondary data**: When a dialog opens and needs to fetch choice options, saved roles, or secondary metadata, keep `DialogHeader`, form/detail structure, helper slots, and `DialogFooter` stably mounted (`0px` frame jump).
 - **Show loading in place**:
   - For dropdown/choice fields whose options are loading, keep the field and trigger mounted with `aria-busy="true"`, a spinner icon (`IconLoader2` with `animate-spin`), and a clear loading label inside the trigger and/or menu.
@@ -35,6 +36,8 @@ This document defines the mandatory, product-wide UI and interaction standards f
 - **Identical toolbar actions share one component**: Sibling modes MUST use the exact same component and interaction pattern for equivalent toolbar controls.
   - Across Generations (`Chat`, `New Video`, and `Video Session`), the top-right API key selector MUST use [`GenerationKeyPicker`](../../apps/dashboard/app/features/generations/GenerationKeyPicker.tsx) (`DropdownMenu`-based, immediate single-click switching, in-place loading indicator, cross-workspace switching, and `Manage keys` / `Create API key` actions).
 - **No premature primary CTA flashing**: Toolbar selectors and recovery buttons MUST stay neutral (`variant="outline"`) while initial data is loading. Only apply primary emphasis (`variant="default"`) after a missing or invalid state is confirmed (`!loading`).
+
+- **List readability and action affordance**: Management lists must not hide a decision-critical field in a truncated fixed column. API key rows expose model access, limits, expiry, status, and last use in a responsive row/list with no horizontal scrolling; multi-model access may use a keyboard-accessible popover, and model trial actions must look like actions (button/link with affordance), not metadata text.
 
 ## 4. Unified Input & Composer Controls
 
