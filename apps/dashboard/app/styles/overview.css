@@ -252,7 +252,6 @@
 .vendor-access-mark { color: var(--warning); background: color-mix(in srgb, var(--warning) 8%, var(--card)); }
 .vendor-access-denied h2 { margin: 1px 0 0; font-size: 14px; font-weight: 600; }
 .vendor-access-denied p { max-width: 600px; margin: 5px 0 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.5; }
-.vendor-loading { display: grid; min-height: 70px; place-items: center; color: var(--muted-foreground); font-size: 14px; text-align: center; }
 @media (max-width: 880px) {
   .vendor-editor-heading, .vendor-editor-form { padding-inline: 13px; }
   .model-capability-grid { grid-template-columns: 1fr; }}

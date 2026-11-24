@@ -34,7 +34,11 @@ change scope; never remove requirements merely to manufacture GREEN.
 
 The [v0.2.29 architecture hardening record](releases/architecture-hardening-2026-10-30.md) documents the later patch candidate, current-input checks and deployment evidence. The generated v0.2.26 evidence below remains historical; its GREEN result does not qualify a different candidate.
 
-## Current 0.3 acceptance scope (2026-11-18)
+## 0.4 acceptance scope
+
+The release owner confirmed that 0.4 changes the API design and retains the 0.3 product scope. Gate `niu-qe6b` carries the same eleven required cases and their evidence requirements from `niu-nrcn`. Run `python3 scripts/release-checklist.py --parent niu-qe6b --check` to inspect current evidence. Qualify existing clients and the upgrade path against the new API contract on the pinned candidate.
+
+## 0.3 acceptance scope (2026-11-18)
 
 The explicit release-readiness goal is tracked by `niu-nrcn`. Its current
 acceptance cases cover immutable deployment/build provenance, new-user onboarding,

@@ -1155,7 +1155,11 @@ async fn provider_model_policy_defaults_validation_and_discovery_filtering(pool:
                 name: profile.name.clone(),
                 model_access_mode: Some("blocklist".into()),
                 default_discount_bps: Some(8500),
-                allowlisted_models: Some(vec![" z-model ".into(), "a-model".into(), "a-model".into()]),
+                allowlisted_models: Some(vec![
+                    " z-model ".into(),
+                    "a-model".into(),
+                    "a-model".into(),
+                ]),
                 blocklisted_models: Some(vec!["blocked/model".into()]),
                 expected_revision: Some(profile.revision),
                 ..Default::default()

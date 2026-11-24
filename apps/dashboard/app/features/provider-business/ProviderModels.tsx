@@ -572,7 +572,7 @@ function ScopedModels({
   }
 
   const discountTarget = discountDialog ? resolveModelRow(discountDialog.alias) : null;
-  if (withinDialog && Boolean((discountDialog && discountTarget) || batchDiscountOpen || editor)) {
+  if (withinDialog && ((discountDialog && discountTarget) || batchDiscountOpen || editor)) {
     return (
       <ProviderModelsInlineView
         token={token}
@@ -632,7 +632,7 @@ function ScopedModels({
               }}
             />
           </div>
-          <div className="inline-flex flex-wrap items-center gap-1" role="group" aria-label={uiT('Filter by status', '按状态筛选')}>
+          <fieldset className="inline-flex flex-wrap items-center gap-1" aria-label={uiT('Filter by status', '按状态筛选')}>
             {([
               ['all', uiF('All ({0})', [counts.total])],
               ['active', uiF('Active ({0})', [counts.active])],
@@ -640,7 +640,7 @@ function ScopedModels({
             ] as const).map(([key, label]) => (
             <Button key={key} type="button" size="sm" variant="ghost" aria-pressed={statusFilter === key} onClick={() => { setStatusFilter(key); setLimit(40); }}>{label}</Button>
           ))}
-        </div>
+        </fieldset>
       </div>}
       <div className="flex flex-wrap items-center gap-2 shrink-0">
         {commercialEnabled && selectedAliases.size > 0 && (

@@ -232,13 +232,21 @@ pub async fn list(
     Query(page): Query<AccountPage>,
 ) -> Result<Json<Value>, ApiError> {
     state.authorize_platform_headers(&headers).await?;
-    let query = page.q.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    let query = page
+        .q
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
     if query.is_some_and(|value| value.chars().count() > 120) {
         return Err(ApiError::invalid_request(
             "Search query must be at most 120 characters",
         ));
     }
-    let kind = page.kind.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    let kind = page
+        .kind
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
     if let Some(value) = kind
         && !matches!(value, "personal" | "organization")
     {
