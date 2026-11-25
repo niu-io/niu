@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { cachedGet, peekCachedGet, ProviderRequestError, request, integrationLabels, type ProviderIntegration, type ProviderIntegrationType } from '../api';
+import { cachedGet, gatewayIntegrationTypes, integrationLabels, isBuiltinBrandIntegration, peekCachedGet, ProviderRequestError, request, type ProviderIntegration, type ProviderIntegrationType } from '../api';
 
 /** Niu's revision-checked Provider default and connection inheritance workflow. */
-export default function IntegrationSettings({ token, resource, id, compact = false, onSaved }: {
-  token: string; resource: 'providers' | 'vendors'; id: string; compact?: boolean; onSaved?: () => void;
+export default function IntegrationSettings({ token, resource, id, providerSlug, compact = false, onSaved }: {
+  token: string; resource: 'providers' | 'vendors'; id: string; providerSlug?: string | null; compact?: boolean; onSaved?: () => void;
 }) {
-  const { t: uiT } = useUILocale();
+  const { t: uiT, format: uiF } = useUILocale();
   const controlId = useId();
   const editBtnRef = useRef<HTMLButtonElement>(null);
   const connection = resource === 'vendors';
@@ -59,14 +59,27 @@ export default function IntegrationSettings({ token, resource, id, compact = fal
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => { controller.abort(); pending.current?.abort(); pending.current = null; };
   }, [token, path, reload]);
+
+  const normalizedSlug = providerSlug?.trim().toLowerCase() ?? '';
+  const lockedBrand = !connection
+    ? isBuiltinBrandIntegration(normalizedSlug)
+      ? normalizedSlug
+      : !normalizedSlug && current?.source === 'provider' && isBuiltinBrandIntegration(current.effective_type)
+        ? current.effective_type
+        : null
+    : null;
+  const brandMismatch = Boolean(
+    lockedBrand && current && current.source === 'provider' && current.effective_type !== lockedBrand,
+  );
+
   const dirty = current !== null && selection !== (current.integration_type ?? '');
-  async function save() {
-    if (!current || !dirty || loading || pending.current || needsReload) return;
+  async function saveType(nextType: string | null) {
+    if (!current || loading || pending.current || needsReload) return;
     const controller = new AbortController(); pending.current = controller;
     setBusy(true); setError(''); setSaved(false);
     try {
       const { data } = await request<{ data: ProviderIntegration }>(token, path, 'PUT', {
-        integration_type: selection || null, expected_revision: current.revision,
+        integration_type: nextType, expected_revision: current.revision,
       }, controller.signal);
       if (!controller.signal.aborted) {
         setCurrent(data); setSelection(data.integration_type ?? ''); setEditOpen(false); setSaved(true); onSaved?.();
@@ -80,6 +93,14 @@ export default function IntegrationSettings({ token, resource, id, compact = fal
       }
     } finally { if (!controller.signal.aborted) { pending.current = null; setBusy(false); } }
   }
+  async function save() {
+    if (!dirty) return;
+    await saveType(selection || null);
+  }
+
+  const editableIntegrationChoices: ProviderIntegrationType[] = lockedBrand
+    ? [lockedBrand]
+    : gatewayIntegrationTypes;
 
   const integrationControls = current && (
     <>
@@ -95,7 +116,7 @@ export default function IntegrationSettings({ token, resource, id, compact = fal
           <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
             <DropdownMenuRadioGroup value={selection} onValueChange={value => { setSelection(value); setSaved(false); }}>
               {connection && <DropdownMenuRadioItem value="">{uiT("Use Provider default")}</DropdownMenuRadioItem>}
-              {Object.entries(integrationLabels).map(([value, label]) => <DropdownMenuRadioItem key={value} value={value}>{label}</DropdownMenuRadioItem>)}
+              {editableIntegrationChoices.map(value => <DropdownMenuRadioItem key={value} value={value}>{integrationLabels[value]}</DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -131,6 +152,12 @@ export default function IntegrationSettings({ token, resource, id, compact = fal
     </section>;
   }
 
+  const displayedIntegrationSummary = current
+    ? lockedBrand && !brandMismatch
+      ? `${integrationLabels[lockedBrand]} · ${uiT("Built-in preset", "内置预设")}`
+      : `${integrationLabels[current.effective_type]} · ${current.source === 'provider' ? uiT("Provider default") : uiT("Not configured; manual setup available")}`
+    : '';
+
   return <section className={compact ? 'border-t border-border/60 pt-4 space-y-3' : 'space-y-4'} aria-labelledby={`${controlId}-heading`}>
     {loading && !current ? <FormSectionSkeleton fields={2} label={uiT("Loading integration…")} /> : !current ? (
       error && <div className="space-y-2"><p role="alert" className="text-destructive">{error}</p><Button type="button" variant="outline" disabled={busy} onClick={() => setReload(value => value + 1)}>{uiT("Reload saved integration")}</Button></div>
@@ -139,34 +166,33 @@ export default function IntegrationSettings({ token, resource, id, compact = fal
         <div className="min-w-0 space-y-0.5 text-sm">
           <div className="flex flex-wrap items-center gap-2">
             <span id={`${controlId}-heading`} className="text-xs text-muted-foreground">{uiT("Default integration")}</span>
-            <span className="font-medium">
-              {integrationLabels[current.effective_type]} · {current.source === 'provider' ? uiT("Provider default") : uiT("Not configured; manual setup available")}
-            </span>
+            <span className="font-medium">{displayedIntegrationSummary}</span>
           </div>
           {saved && <p role="status" className="text-xs text-muted-foreground">{uiT("Integration saved.")}</p>}
+          {error && (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <p role="alert" className="text-xs text-destructive">{error}</p>
+              {needsReload && (
+                <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setReload(value => value + 1)}>
+                  {uiT("Reload saved integration")}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
-        <Button
-          ref={editBtnRef}
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setSelection(current.integration_type ?? '');
-            if (!needsReload) setError('');
-            setSaved(false);
-            setEditOpen(true);
-          }}
-        >
-          {uiT('Edit integration', '编辑集成')}
-        </Button>
-      </div>
-    ) : (
-      <div className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1">
-            <h3 id={`${controlId}-heading`} className="font-medium">{uiT("Default integration")}</h3>
-            <p className="text-sm text-muted-foreground">{uiT("Choose the upstream service used by connections that inherit this Provider default.")}{" "}{uiT("API format, endpoint and credentials are configured separately.")}</p>
-          </div>
+        {lockedBrand ? (
+          brandMismatch ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={busy || needsReload}
+              onClick={() => void saveType(lockedBrand)}
+            >
+              {busy ? uiT("Saving…") : uiF("Restore {0} default", [integrationLabels[lockedBrand]])}
+            </Button>
+          ) : null
+        ) : (
           <Button
             ref={editBtnRef}
             type="button"
@@ -181,19 +207,54 @@ export default function IntegrationSettings({ token, resource, id, compact = fal
           >
             {uiT('Edit integration', '编辑集成')}
           </Button>
+        )}
+      </div>
+    ) : (
+      <div className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h3 id={`${controlId}-heading`} className="font-medium">{uiT("Default integration")}</h3>
+            <p className="text-sm text-muted-foreground">{uiT("Choose the upstream service used by connections that inherit this Provider default.")}{" "}{uiT("API format, endpoint and credentials are configured separately.")}</p>
+          </div>
+          {lockedBrand ? (
+            brandMismatch ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy || needsReload}
+                onClick={() => void saveType(lockedBrand)}
+              >
+                {busy ? uiT("Saving…") : uiF("Restore {0} default", [integrationLabels[lockedBrand]])}
+              </Button>
+            ) : null
+          ) : (
+            <Button
+              ref={editBtnRef}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelection(current.integration_type ?? '');
+                if (!needsReload) setError('');
+                setSaved(false);
+                setEditOpen(true);
+              }}
+            >
+              {uiT('Edit integration', '编辑集成')}
+            </Button>
+          )}
         </div>
         <dl className="text-sm">
           <dt className="text-xs text-muted-foreground">{uiT("Saved integration:")}</dt>
-          <dd className="mt-1 font-medium">
-            {integrationLabels[current.effective_type]} · {current.source === 'provider' ? uiT("Provider default") : uiT("Not configured; manual setup available")}
-          </dd>
+          <dd className="mt-1 font-medium">{displayedIntegrationSummary}</dd>
         </dl>
         {guidanceText}
         {saved && <p role="status" className="text-sm text-muted-foreground">{uiT("Integration saved.")}</p>}
       </div>
     )}
     <Dialog
-      open={editOpen && Boolean(current)}
+      open={!lockedBrand && editOpen && Boolean(current)}
       onOpenChange={open => {
         if (!busy && current) {
           setEditOpen(open);

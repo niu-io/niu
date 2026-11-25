@@ -5207,4 +5207,6 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "All configured API keys are disabled. Enable an API key above to serve models.": "已配置的 API 密钥处于停用状态，请先在上方启用 API 密钥。",
   "API key not configured. Configure an API key before enabling models.": "API 密钥未配置，请先配置 API 密钥。",
   "All configured API keys are disabled. Enable an API key first.": "已配置的 API 密钥处于停用状态，请先启用 API 密钥。",
+  "Built-in preset": "内置预设",
+  "Restore {0} default": "恢复为 {0} 默认集成",
 };

@@ -8,8 +8,6 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import ProviderLogo from '@/components/ProviderLogo';
-import { connectionIdentity } from '@/lib/providers';
 import { pooledConnectionsFor } from '@/features/provider-business/provider-model-actions';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import PageHeader from '@/components/PageHeader';
@@ -22,11 +20,12 @@ import ProviderEditor, { type ProviderConnectionCreate } from './ProviderEditor'
 import CredentialRequestLimit from './CredentialRequestLimit';
 import CredentialCooldown from './CredentialCooldown';
 
-export default function ProvidersView({ token, session, refreshWorkspace, catalogPath: _catalogPath = '/workspaces', providerSlug, fixedConnectionId, organizationId, embedded = false }: {
+export default function ProvidersView({ token, session, refreshWorkspace, catalogPath: _catalogPath = '/workspaces', providerId: explicitProviderId, providerSlug, fixedConnectionId, organizationId, embedded = false }: {
   catalogPath?: string;
   embedded?: boolean;
   fixedConnectionId?: string;
   organizationId?: string;
+  providerId?: string;
   providerSlug?: string;
   token: string;
   session: AdminSession;
@@ -36,7 +35,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   const [search] = useSearchParams();
   const { providerId: routeProviderId, supplierId: routeSupplierId } = useProviderParams();
   const routeScopedId = routeProviderId ?? routeSupplierId;
-  const providerId = routeScopedId ?? search.get('provider') ?? search.get('supplier');
+  const providerId = explicitProviderId ?? routeScopedId ?? search.get('provider') ?? search.get('supplier');
   const connectionsPath = '/api/v1/admin/providers/connections' + (providerId ? '?supplier=' + encodeURIComponent(providerId) : '');
   const canManage = Boolean(session.permissions?.platform_admin || (session.kind === 'installation' && session.permissions?.manage_operators !== false));
   const cachedConnections = canManage && token ? peekCachedGet<{ data: ProviderConnection[] }>(token, connectionsPath)?.data ?? null : null;
@@ -413,7 +412,9 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
             <li key={connection.id} className="rounded-[var(--radius-panel)] bg-card p-5 space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3">
-                  <ProviderLogo provider={connectionIdentity(connection)} size="large" />
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground" aria-hidden="true">
+                    <IconKey size={18} />
+                  </span>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="font-semibold break-words">{connection.name}</h2>
@@ -427,7 +428,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
                       )}
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {providerAdapterApiLabels[connection.adapter]} · <span className="font-mono break-all">{connection.api_base}</span>
+                      {uiT(providerAdapterApiLabels[connection.adapter])} · <span className="font-mono break-all">{connection.api_base}</span>
                     </p>
                   </div>
                 </div>
@@ -606,6 +607,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
             key="new-vendor"
             token={token}
             initialProviderId={providerId}
+            providerSlug={providerSlug}
             connection={null}
             existingConnections={connections}
             operatingMode={session.operating_mode}
@@ -619,6 +621,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
             key={`${activeConnection.id}:${activeConnection.revision}`}
             token={token}
             initialProviderId={providerId}
+            providerSlug={providerSlug}
             connection={activeConnection}
             existingConnections={connections}
             operatingMode={session.operating_mode}

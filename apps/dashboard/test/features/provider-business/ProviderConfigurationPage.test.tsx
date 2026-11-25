@@ -163,7 +163,7 @@ function setupUnifiedProvider(initialEntry = '/admin/providers/qiniu') {
       }
       if (path.endsWith('/integration')) {
         return Response.json({
-          data: { integration_type: 'openrouter', effective_type: 'openrouter', source: 'provider', revision: 1 },
+          data: { integration_type: 'qiniu', effective_type: 'qiniu', source: 'provider', revision: 1 },
         });
       }
       if (path.startsWith('/api/v1/admin/providers/connections') && method === 'GET' && !path.endsWith('/models')) {
@@ -274,6 +274,9 @@ describe('Unified single-page Provider configuration', () => {
     await screen.findByRole('heading', { name: 'Business profile' });
     await screen.findByText('Qiniu Primary Key');
     await screen.findByRole('heading', { name: 'Models & discounts' });
+    // Built-in brand Providers lock their integration and never offer Edit integration to rival brands
+    expect(await screen.findByText(/Qiniu · Built-in preset/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Edit integration' })).toBeNull();
 
     // Models are NOT listed on the page by default when All models is selected
     expect(screen.queryByText('qiniu/deepseek-v3')).toBeNull();
@@ -342,5 +345,80 @@ describe('Unified single-page Provider configuration', () => {
   ])('redirects legacy subroute %s to %s', async (from, expected) => {
     const { router } = setupUnifiedProvider(from);
     await waitFor(() => expect(router.state.location.pathname).toBe(expected));
+  });
+
+  it('restricts custom Provider integration options to gateway types (Custom, New API, LiteLLM) and excludes rival commercial brands', async () => {
+    const customId = 'cccccccc-dddd-eeee-ffff-000000000000';
+    const session = {
+      kind: 'installation' as const,
+      operating_mode: 'resale',
+      permissions: { read: true, write: true, manage_operators: true, platform_admin: true },
+    };
+    mockContext.value = {
+      token: `test-token-custom-${Math.random()}`,
+      session,
+      providerDirectory: [{ id: customId, slug: 'my-gateway', name: 'My Gateway' }],
+      providerDirectoryLoading: false,
+      providerDirectoryError: '',
+      workspace: { id: 'ws-default', slug: 'default', name: 'Default' },
+      workspaces: [{ id: 'ws-default', slug: 'default', name: 'Default' }],
+      organization: { id: 'org-1', name: 'Org' },
+      refreshWorkspace: async () => {},
+      refreshModels: async () => {},
+    } as unknown as DashboardContext;
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const path = String(input);
+        if (path === '/api/v1/session') return Response.json({ data: session });
+        if (path === '/api/v1/admin/providers') {
+          return Response.json({ data: [{ id: customId, slug: 'my-gateway', name: 'My Gateway', api_keys: 0, models: 0 }] });
+        }
+        if (path === `/api/v1/admin/providers/${customId}`) {
+          return Response.json({
+            data: {
+              id: customId,
+              slug: 'my-gateway',
+              name: 'My Gateway',
+              description: '',
+              website_url: '',
+              logo_url: '',
+              model_access_mode: 'all',
+              default_discount_bps: 10000,
+              allowlisted_models: [],
+              blocklisted_models: [],
+              revision: 1,
+            },
+          });
+        }
+        if (path.endsWith('/integration')) {
+          return Response.json({
+            data: { integration_type: null, effective_type: 'custom', source: 'unspecified', revision: 0 },
+          });
+        }
+        return Response.json({ data: [] });
+      }),
+    );
+
+    const router = createMemoryRouter(
+      [{ path: '/admin/providers/:providerId', element: <ProvidersRoute /> }],
+      { initialEntries: ['/admin/providers/my-gateway'] },
+    );
+    render(<RouterProvider router={router} />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Edit integration' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit integration' });
+    await user.click(within(dialog).getByLabelText('Integration'));
+
+    expect(screen.getByRole('menuitemradio', { name: 'Custom' })).toBeTruthy();
+    expect(screen.getByRole('menuitemradio', { name: 'New API' })).toBeTruthy();
+    expect(screen.getByRole('menuitemradio', { name: 'LiteLLM' })).toBeTruthy();
+    expect(screen.queryByRole('menuitemradio', { name: 'OpenRouter' })).toBeNull();
+    expect(screen.queryByRole('menuitemradio', { name: 'Qiniu' })).toBeNull();
+    expect(screen.queryByRole('menuitemradio', { name: 'DeepSeek' })).toBeNull();
+    expect(screen.queryByRole('menuitemradio', { name: 'BabelArk' })).toBeNull();
+    expect(screen.queryByRole('menuitemradio', { name: 'FastRouter' })).toBeNull();
   });
 });

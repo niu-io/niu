@@ -1,7 +1,8 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import IntegrationSettings from '@/features/providers/components/IntegrationSettings';
-import { useProviderParams } from '@/shell/provider-route';
+import { resolveProvider, useProviderParams } from '@/shell/provider-route';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useParams } from 'react-router';
 import { ChevronDown } from 'lucide-react';
 import { providerLogoPresets, providerLogoSource, providerLogoIsMonochrome } from '@/features/providers/provider-logos';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
@@ -15,14 +16,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cachedGet, peekCachedGet, ProviderRequestError, request } from '@/features/providers/api';
 
-type Profile = { name: string; description: string; website_url: string; logo_url: string; revision: number };
+type Profile = { slug?: string; name: string; description: string; website_url: string; logo_url: string; revision: number };
 const empty = { name: '', description: '', website_url: '', logo_url: '' };
 const conflictMessage = 'These details changed since you opened this page. Reload the saved details before saving again.';
 export default function ProviderSettings() {
   const { t: uiT } = useUILocale();
+  const rawParams = useParams<'providerId' | 'supplierId'>();
   const { providerId, supplierId } = useProviderParams();
   const activeProviderId = providerId ?? supplierId ?? '';
-  const { token, session } = useDashboardContext();
+  const { token, session, providerDirectory } = useDashboardContext();
+  const directoryEntry = providerDirectory ? resolveProvider(activeProviderId, providerDirectory) : undefined;
+  const rawSegment = rawParams.providerId ?? rawParams.supplierId ?? '';
   const canManageIntegration = Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session.permissions?.manage_operators !== false));
   const path = `/api/v1/admin/providers/${encodeURIComponent(activeProviderId)}`;
   const initialProfile = token && activeProviderId ? peekCachedGet<{ data: Profile }>(token, path)?.data ?? null : null;
@@ -143,7 +147,20 @@ export default function ProviderSettings() {
           </dl>
         </div>
         {saved && <p role="status" className="text-sm text-muted-foreground">{uiT("Provider details saved.")}</p>}
-        {canManageIntegration && <IntegrationSettings compact key={`${token}:${activeProviderId}`} token={token} resource="providers" id={activeProviderId} />}
+        {canManageIntegration && (
+          <IntegrationSettings
+            compact
+            key={`${token}:${activeProviderId}`}
+            token={token}
+            resource="providers"
+            id={activeProviderId}
+            providerSlug={
+              profile.slug ||
+              directoryEntry?.slug ||
+              (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawSegment) ? rawSegment : '')
+            }
+          />
+        )}
       </div>}
     <Dialog open={editOpen && Boolean(profile)} onOpenChange={open => { if (!open) closeEditDialog(); }}>
       <DialogContent

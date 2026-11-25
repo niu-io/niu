@@ -1,9 +1,10 @@
 import { IconShieldCheck as ShieldCheck } from '@tabler/icons-react';
+import { useParams } from 'react-router';
 import PageHeader from '@/components/PageHeader';
 import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import ConnectGate from '@/shell/ConnectGate';
 import { useDashboardContext } from '@/shell/dashboard-context';
-import { useProviderParams } from '@/shell/provider-route';
+import { resolveProvider, useProviderParams } from '@/shell/provider-route';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { workspaceModelsHref } from '@/shell/workspace-route';
 import ProvidersView from '@/features/providers/components/ProvidersView';
@@ -17,9 +18,17 @@ export default function ProviderConfigurationPage({
 }) {
   const { t: uiT } = useUILocale();
   const context = useDashboardContext();
+  const rawParams = useParams<'providerId' | 'supplierId'>();
   const { providerId, supplierId } = useProviderParams();
   const activeSlugOrId = providerId ?? supplierId ?? '';
   const canonicalId = resolvedProviderId || activeSlugOrId;
+  const resolvedProvider = context.providerDirectory
+    ? resolveProvider(canonicalId, context.providerDirectory)
+    : undefined;
+  const rawSegment = rawParams.providerId ?? rawParams.supplierId ?? '';
+  const activeSlug =
+    resolvedProvider?.slug ||
+    (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawSegment) ? rawSegment : '');
 
   if (!(context.session?.kind === 'installation' || context.session?.permissions?.platform_admin)) {
     return (
@@ -48,7 +57,8 @@ export default function ProviderConfigurationPage({
               session={session}
               refreshWorkspace={refreshWorkspace}
               catalogPath={workspaceModelsHref(context.workspace, context.workspaces)}
-              providerSlug={activeSlugOrId}
+              providerId={canonicalId}
+              providerSlug={activeSlug || canonicalId}
               organizationId={context.organization?.id}
             />
           ) : (
@@ -62,7 +72,7 @@ export default function ProviderConfigurationPage({
       <ProviderModelPolicySection
         key={`policy:${canonicalId}`}
         providerId={canonicalId}
-        providerSlug={activeSlugOrId}
+        providerSlug={activeSlug || canonicalId}
       />
     </div>
   );

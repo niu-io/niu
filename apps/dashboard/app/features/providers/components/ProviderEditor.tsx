@@ -1,5 +1,6 @@
+import type { ProviderServiceDescriptor } from '@niu-io/sdk';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { IconKey as KeyRound } from "@tabler/icons-react";
 import { IconPlus as Plus } from "@tabler/icons-react";
@@ -10,17 +11,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { request, defaultApiBase, providerAdapterApiLabels, type ProviderConnection, type ProviderAdapter, type ProviderConnectionWrite } from '../api';
+import { cachedGet, defaultApiBase, isBuiltinBrandIntegration, peekCachedGet, providerAdapterApiLabels, request, type ProviderAdapter, type ProviderConnection, type ProviderConnectionWrite } from '../api';
 import { normalizeApiBase, pooledConnectionsFor } from '@/features/provider-business/provider-model-actions';
-import IntegrationSettings from './IntegrationSettings';
 
 export type ProviderConnectionCreate = { name: string; adapter: ProviderAdapter; api_base: string; api_key: string; enabled: true; create_supplier?: true; supplier_id?: string; access_scope?: 'internal' | 'personal'; personal_organization_id?: string };
 export type VendorCreate = ProviderConnectionCreate;
 
-export default function ProviderEditor({ token, initialProviderId, initialSupplierId, connection, vendor, existingConnections = [], operatingMode, organizationId, disabled, onCreate, onSave }: {
+export default function ProviderEditor({ token, initialProviderId, initialSupplierId, providerSlug, connection, vendor, existingConnections = [], operatingMode, organizationId, disabled, onCreate, onSave }: {
   token: string;
   initialProviderId?: string | null;
   initialSupplierId?: string | null;
+  providerSlug?: string | null;
   connection?: ProviderConnection | null;
   vendor?: ProviderConnection | null;
   existingConnections?: ProviderConnection[];
@@ -33,42 +34,122 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
   const { t: uiT, format: uiF } = useUILocale();
   const activeConnection = connection ?? vendor ?? null;
   const defaultProviderId = initialProviderId ?? initialSupplierId ?? '';
-  const [providers, setProviders] = useState<Array<{ id: string; name: string }>>([]);
+  const isScopedToProvider = Boolean(defaultProviderId);
+  const isCanonicalUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(defaultProviderId);
+  const cachedProviders = token ? peekCachedGet<{ data: Array<{ id: string; slug?: string; name: string }> }>(token, '/api/v1/admin/providers')?.data ?? null : null;
+  const [providers, setProviders] = useState<Array<{ id: string; slug?: string; name: string }>>(() => cachedProviders ?? []);
   const [providerId, setProviderId] = useState(defaultProviderId);
   const [providerError, setProviderError] = useState('');
-  const [providerLoading, setProviderLoading] = useState(!activeConnection);
+  const [providerLoading, setProviderLoading] = useState(!activeConnection && !isScopedToProvider);
   const [providerRetry, setProviderRetry] = useState(0);
   useEffect(() => {
-    if (activeConnection) return;
+    if (activeConnection || (isScopedToProvider && isCanonicalUuid && cachedProviders)) return;
+    if (isScopedToProvider && isCanonicalUuid && providerSlug) return;
     const controller = new AbortController();
-    setProviderLoading(true);
+    if (!isScopedToProvider) setProviderLoading(true);
     setProviderError('');
-    void request<{ data: Array<{ id: string; name: string }> }>(token, '/api/v1/admin/providers', 'GET', undefined, controller.signal)
+    void request<{ data: Array<{ id: string; slug?: string; name: string }> }>(token, '/api/v1/admin/providers', 'GET', undefined, controller.signal)
       .then(result => { if (!controller.signal.aborted) setProviders(result.data); })
-      .catch(() => { if (!controller.signal.aborted) setProviderError('Provider list could not be loaded.'); })
+      .catch(() => { if (!controller.signal.aborted && !isScopedToProvider) setProviderError('Provider list could not be loaded.'); })
       .finally(() => { if (!controller.signal.aborted) setProviderLoading(false); });
     return () => controller.abort();
-  }, [token, activeConnection?.id, providerRetry]);
-  const selectedProvider = providers.find(provider => provider.id === providerId);
-  const ownershipUnavailable = !activeConnection && Boolean(providerId) && (providerLoading || Boolean(providerError) || !selectedProvider);
+  }, [token, activeConnection?.id, isScopedToProvider, isCanonicalUuid, providerSlug, providerRetry]);
+  const selectedProvider = providers.find(provider => provider.id === providerId || provider.slug === providerId);
+  const targetSupplierId = selectedProvider?.id ?? providerId;
+  const ownershipUnavailable = !activeConnection && !isScopedToProvider && Boolean(providerId) && (providerLoading || Boolean(providerError) || !selectedProvider);
+
+  const scopedConnections = providerId
+    ? existingConnections.filter(candidate => {
+        const ownerId = candidate.provider?.id ?? candidate.supplier?.id;
+        return !ownerId || ownerId === providerId || ownerId === targetSupplierId;
+      })
+    : [];
+  const inheritedConnection =
+    scopedConnections.find(candidate => candidate.enabled && candidate.has_credential) ??
+    scopedConnections[0] ??
+    null;
+  const resolvedSlug = (
+    providerSlug ||
+    selectedProvider?.slug ||
+    (isBuiltinBrandIntegration(defaultProviderId) ? defaultProviderId : '')
+  )
+    .trim()
+    .toLowerCase();
+  const cachedPresets =
+    isScopedToProvider && !activeConnection && token
+      ? peekCachedGet<{ data: ProviderServiceDescriptor[] }>(token, '/api/v1/admin/providers/presets')?.data ?? null
+      : null;
+  const initialPreset = resolvedSlug
+    ? cachedPresets?.find(item => item.id.toLowerCase() === resolvedSlug) ?? null
+    : null;
+  const defaultScopedAdapter: ProviderAdapter =
+    inheritedConnection?.adapter ??
+    initialPreset?.protocol ??
+    (resolvedSlug === 'openrouter' ? 'openrouter' : 'openai');
+  const defaultScopedApiBase =
+    inheritedConnection?.api_base ??
+    initialPreset?.api_base ??
+    (isScopedToProvider
+      ? resolvedSlug === 'openrouter'
+        ? defaultApiBase('openrouter')
+        : ''
+      : defaultApiBase(defaultScopedAdapter));
+
+  const userEditedEndpointRef = useRef(false);
   const [name, setName] = useState(activeConnection?.name ?? '');
-  const [adapter, setAdapter] = useState<ProviderAdapter>(activeConnection?.adapter ?? 'openrouter');
-  const [apiBase, setApiBase] = useState(activeConnection?.api_base ?? defaultApiBase('openrouter'));
+  const [adapter, setAdapter] = useState<ProviderAdapter>(activeConnection?.adapter ?? defaultScopedAdapter);
+  const [apiBase, setApiBase] = useState(activeConnection?.api_base ?? defaultScopedApiBase);
   const [apiKey, setApiKey] = useState('');
   const [enabled, setEnabled] = useState(activeConnection?.enabled ?? true);
   const [confirmDisable, setConfirmDisable] = useState(false);
 
   useEffect(() => {
+    userEditedEndpointRef.current = false;
     setName(activeConnection?.name ?? '');
-    setAdapter(activeConnection?.adapter ?? 'openrouter');
-    setApiBase(activeConnection?.api_base ?? defaultApiBase('openrouter'));
+    setAdapter(activeConnection?.adapter ?? defaultScopedAdapter);
+    setApiBase(activeConnection?.api_base ?? defaultScopedApiBase);
     setApiKey('');
     setEnabled(activeConnection?.enabled ?? true);
     setConfirmDisable(false);
   }, [activeConnection?.id, activeConnection?.revision]);
 
+  const inheritedAdapter = inheritedConnection?.adapter;
+  const inheritedApiBase = inheritedConnection?.api_base;
+  const hasInheritedConnection = Boolean(inheritedConnection);
+  const hasInitialPreset = Boolean(initialPreset);
+
+  useEffect(() => {
+    if (Boolean(activeConnection) || userEditedEndpointRef.current || !inheritedAdapter || inheritedApiBase === undefined) return;
+    setAdapter(inheritedAdapter);
+    setApiBase(inheritedApiBase);
+  }, [activeConnection, inheritedAdapter, inheritedApiBase]);
+
+  useEffect(() => {
+    if (Boolean(activeConnection) || !isScopedToProvider || hasInheritedConnection || !resolvedSlug || hasInitialPreset || !token) return;
+    const controller = new AbortController();
+    void cachedGet<{ data: ProviderServiceDescriptor[] }>(token, '/api/v1/admin/providers/presets', { signal: controller.signal })
+      .then(result => {
+        if (controller.signal.aborted || userEditedEndpointRef.current) return;
+        const matched = result.data?.find(item => item.id.toLowerCase() === resolvedSlug);
+        if (matched) {
+          setAdapter(matched.protocol);
+          setApiBase(matched.api_base);
+        }
+      })
+      .catch(() => {
+        // Preset lookup is an ergonomic prefill only; custom entry remains editable.
+      });
+    return () => controller.abort();
+  }, [activeConnection, isScopedToProvider, hasInheritedConnection, resolvedSlug, hasInitialPreset, token]);
+
   function changeAdapter(next: ProviderAdapter) {
-    setApiBase(current => current === defaultApiBase(adapter) ? defaultApiBase(next) : current);
+    userEditedEndpointRef.current = true;
+    setApiBase(current => {
+      if (!current || current === defaultApiBase(adapter)) {
+        return isScopedToProvider && next !== 'openrouter' ? '' : defaultApiBase(next);
+      }
+      return current;
+    });
     setAdapter(next);
   }
 
@@ -82,7 +163,7 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
         api_base: apiBase.trim(),
         api_key: apiKey,
         enabled: true,
-        ...(providerId ? { supplier_id: providerId } : { create_supplier: true }),
+        ...(targetSupplierId ? { supplier_id: targetSupplierId } : { create_supplier: true }),
         ...(operatingMode === 'internal' && organizationId ? { access_scope: 'internal', personal_organization_id: organizationId } : {}),
       });
       setName('');
@@ -109,14 +190,20 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
     void save().catch(() => { /* Parent onSave mutate handler records and displays the error. */ });
   }
 
-  const matchingActivePoolCount = !activeConnection && providerId
+  const allowOpenRouterAdapter =
+    !isScopedToProvider ||
+    resolvedSlug === 'openrouter' ||
+    activeConnection?.adapter === 'openrouter' ||
+    inheritedConnection?.adapter === 'openrouter';
+
+  const matchingActivePoolCount = !activeConnection && targetSupplierId
     ? existingConnections.filter(
         candidate =>
           candidate.enabled &&
           candidate.has_credential &&
           candidate.adapter === adapter &&
           normalizeApiBase(candidate.api_base) === normalizeApiBase(apiBase) &&
-          (candidate.provider?.id ?? candidate.supplier?.id ?? '') === providerId,
+          (candidate.provider?.id ?? candidate.supplier?.id ?? targetSupplierId) === targetSupplierId,
       ).length
     : 0;
   const remainingActiveSiblings = activeConnection
@@ -139,10 +226,10 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
 
     <form className="vendor-editor-form" onSubmit={submit}>
       <div className="vendor-editor-fields">
-        {!activeConnection && <div className="space-y-2">
+        {!activeConnection && !isScopedToProvider && <div className="space-y-2">
           <Label htmlFor="vendor-provider">{uiT("Provider")}</Label>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button id="vendor-provider" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(defaultProviderId) || providerLoading || Boolean(providerError)}>{providerLoading ? uiT("Loading providers…") : providerId ? selectedProvider?.name ?? uiT("Provider unavailable") : uiT("New provider")}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button id="vendor-provider" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || providerLoading || Boolean(providerError)}>{providerLoading ? uiT("Loading providers…") : providerId ? selectedProvider?.name ?? uiT("Provider unavailable") : uiT("New provider")}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={providerId} onValueChange={setProviderId}>
               <DropdownMenuRadioItem value="">{uiT("New provider")}</DropdownMenuRadioItem>
               {providers.map(provider => <DropdownMenuRadioItem key={provider.id} value={provider.id}>{provider.name}</DropdownMenuRadioItem>)}
@@ -157,9 +244,9 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
         <div className="space-y-2">
           <Label htmlFor="vendor-adapter">{uiT("API format")}</Label>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button id="vendor-adapter" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(activeConnection)}>{providerAdapterApiLabels[adapter]}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button id="vendor-adapter" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(activeConnection)}>{uiT(providerAdapterApiLabels[adapter])}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={adapter} onValueChange={value => changeAdapter(value as ProviderAdapter)}>
-              <DropdownMenuRadioItem value="openrouter">{uiT("OpenRouter API")}</DropdownMenuRadioItem>
+              {allowOpenRouterAdapter && <DropdownMenuRadioItem value="openrouter">{uiT("OpenRouter API")}</DropdownMenuRadioItem>}
               <DropdownMenuRadioItem value="openai">{uiT("OpenAI-compatible API")}</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="anthropic">{uiT("Anthropic Messages API")}</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="gemini">{uiT("Google Gemini API")}</DropdownMenuRadioItem>
@@ -169,7 +256,7 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
         </div>
         <div className="space-y-2">
           <Label htmlFor="vendor-api-base">{uiT("API base URL")}</Label>
-          <Input id="vendor-api-base" type="url" inputMode="url" value={apiBase} onChange={event => setApiBase(event.target.value)} maxLength={2048} autoComplete="url" placeholder={adapter === 'ark' ? 'https://fastrouter.wecitytech.com/doubao/api/v3' : defaultApiBase(adapter)} required disabled={disabled} />
+          <Input id="vendor-api-base" type="url" inputMode="url" value={apiBase} onChange={event => { userEditedEndpointRef.current = true; setApiBase(event.target.value); }} maxLength={2048} autoComplete="url" placeholder={adapter === 'ark' ? 'https://fastrouter.wecitytech.com/doubao/api/v3' : defaultApiBase(adapter)} required disabled={disabled} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="vendor-api-key">{activeConnection ? uiT("Replace provider API key (optional)") : uiT("Provider API key")}</Label>
@@ -218,6 +305,5 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
         </Button>
       </div>
     </form>
-    {activeConnection && <IntegrationSettings token={token} resource="vendors" id={activeConnection.id} />}
   </section>;
 }

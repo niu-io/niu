@@ -10,6 +10,12 @@ export type ProviderIntegration = {
 export const integrationLabels: Record<ProviderIntegrationType, string> = {
   openrouter: 'OpenRouter', newapi: 'New API', litellm: 'LiteLLM', custom: 'Custom', fastrouter: 'FastRouter', babelark: 'BabelArk', qiniu: 'Qiniu', deepseek: 'DeepSeek',
 };
+export const builtinBrandIntegrations = ['openrouter', 'qiniu', 'deepseek', 'babelark', 'fastrouter'] as const;
+export type BuiltinBrandIntegrationType = (typeof builtinBrandIntegrations)[number];
+export const gatewayIntegrationTypes: ProviderIntegrationType[] = ['custom', 'newapi', 'litellm'];
+export function isBuiltinBrandIntegration(value: string | null | undefined): value is BuiltinBrandIntegrationType {
+  return Boolean(value && (builtinBrandIntegrations as readonly string[]).includes(value));
+}
 export type ProviderAdapter = 'openrouter' | 'openai' | 'anthropic' | 'gemini' | 'ark';
 export type VendorAdapter = ProviderAdapter;
 

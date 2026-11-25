@@ -383,6 +383,21 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(billing).not.toContain('hasShellHeaderTabs');
     expect(billing).not.toContain('<TabsList');
   });
+
+  it('scopes Provider API key forms, icons, and integrations without cross-brand OpenRouter defaults', () => {
+    const providerEditor = readFileSync(join(appDir, 'features/providers/components/ProviderEditor.tsx'), 'utf8');
+    const providersView = readFileSync(join(appDir, 'features/providers/components/ProvidersView.tsx'), 'utf8');
+    const integrationSettings = readFileSync(join(appDir, 'features/providers/components/IntegrationSettings.tsx'), 'utf8');
+
+    expect(providerEditor).not.toContain("activeConnection?.adapter ?? 'openrouter'");
+    expect(providerEditor).not.toContain('<IntegrationSettings');
+    expect(providerEditor).toContain('!activeConnection && !isScopedToProvider');
+    expect(providerEditor).toContain('allowOpenRouterAdapter');
+    expect(providersView).not.toContain('<ProviderLogo');
+    expect(providersView).toContain('<IconKey');
+    expect(integrationSettings).toContain('gatewayIntegrationTypes');
+    expect(integrationSettings).not.toContain('Object.entries(integrationLabels).map');
+  });
 });
 
 it('keeps model mapping actions outside the scrollable advanced settings', () => {

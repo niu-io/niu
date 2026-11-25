@@ -188,20 +188,20 @@ describe('provider API key administration workflow', () => {
     render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={refreshWorkspace} />);
 
     const dialog = await openNewKeyDialog(user);
-    await user.type(within(dialog).getByLabelText('Provider name'), 'OpenRouter primary');
-    expect(within(dialog).getByLabelText('API format').textContent).toBe('OpenRouter API');
-    expect((within(dialog).getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://openrouter.ai/api/v1');
+    await user.type(within(dialog).getByLabelText('Provider name'), 'OpenAI primary');
+    expect(within(dialog).getByLabelText('API format').textContent).toBe('OpenAI-compatible API');
+    expect((within(dialog).getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://api.openai.com/v1');
     await user.type(within(dialog).getByLabelText('Provider API key'), 'vendor-secret-once');
     await user.click(within(dialog).getByRole('button', { name: 'Create provider' }));
 
-    expect(await screen.findByRole('heading', { name: 'OpenRouter primary' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'OpenAI primary' })).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.queryByRole('heading', { name: 'OpenRouter primary routes' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'OpenAI primary routes' })).toBeNull();
     const createVendor = api.calls.find(call => call.path === '/api/v1/admin/providers/connections' && call.method === 'POST');
     expect(createVendor?.body).toEqual({
-      name: 'OpenRouter primary',
-      adapter: 'openrouter',
-      api_base: 'https://openrouter.ai/api/v1',
+      name: 'OpenAI primary',
+      adapter: 'openai',
+      api_base: 'https://api.openai.com/v1',
       api_key: 'vendor-secret-once',
       enabled: true,
       create_supplier: true,
@@ -526,5 +526,141 @@ describe('provider API key administration workflow', () => {
     expect(
       await screen.findByText(/This is the last enabled key for this endpoint/),
     ).toBeTruthy();
+  });
+
+  it('scopes API key forms strictly to the owning Provider: inherits endpoint, hides Provider selector & OpenRouter adapter, uses neutral key icons, and omits vendor integration overrides', async () => {
+    const qiniuUuid = '9cc6b65a-0b19-4f18-8828-89d6038973f0';
+    const qiniuKey: ProviderConnection = {
+      id: 'qiniu-key-1',
+      name: 'Qiniu Primary',
+      adapter: 'openai',
+      api_base: 'https://api.qnaigc.com/v1',
+      enabled: true,
+      revision: 1,
+      has_credential: true,
+      provider: { id: qiniuUuid, name: 'Qiniu' },
+      supplier: { id: qiniuUuid, name: 'Qiniu' },
+    };
+    const api = stubVendorApi({ existing: [qiniuKey] });
+    const user = userEvent.setup();
+    const { container } = renderView(
+      <MemoryRouter initialEntries={['/admin/providers/qiniu']}>
+        <ProvidersView
+          embedded
+          token="installation-token-qiniu"
+          session={installationSession}
+          refreshWorkspace={async () => {}}
+          providerId={qiniuUuid}
+          providerSlug="qiniu"
+        />
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('heading', { name: 'Qiniu Primary' });
+    // Key rows render neutral key icons, never foreign brand logos
+    const keyList = screen.getByRole('list', { name: 'Provider API keys' });
+    expect(keyList.querySelectorAll('img')).toHaveLength(0);
+
+    // Edit key dialog omits per-key Connection integration overrides
+    await user.click(screen.getByRole('button', { name: 'Edit key' }));
+    const editDialog = await screen.findByRole('dialog');
+    expect(within(editDialog).queryByText('Connection integration')).toBeNull();
+    expect(api.calls.some(call => call.path.endsWith('/integration'))).toBe(false);
+    await user.click(within(editDialog).getByRole('button', { name: 'Close dialog' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    // Add API key dialog hides Provider selector, pre-fills Qiniu's adapter + api_base, and hides OpenRouter API
+    await user.click(screen.getByRole('button', { name: 'Add API key' }));
+    const addDialog = await screen.findByRole('dialog');
+    expect(within(addDialog).queryByLabelText('Provider')).toBeNull();
+    expect(within(addDialog).getByLabelText('API format').textContent).toBe('OpenAI-compatible API');
+    expect((within(addDialog).getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://api.qnaigc.com/v1');
+
+    await user.click(within(addDialog).getByLabelText('API format'));
+    expect(screen.queryByRole('menuitemradio', { name: 'OpenRouter API' })).toBeNull();
+    expect(screen.getByRole('menuitemradio', { name: 'OpenAI-compatible API' })).toBeTruthy();
+    await user.keyboard('{Escape}');
+
+    await user.type(within(addDialog).getByLabelText('API key name'), 'Qiniu Backup');
+    await user.type(within(addDialog).getByLabelText('Provider API key'), 'qiniu-secret-2');
+    await user.click(within(addDialog).getByRole('button', { name: 'Add API key' }));
+
+    await waitFor(() => {
+      const post = api.calls.find(c => c.path === '/api/v1/admin/providers/connections' && c.method === 'POST');
+      expect(post?.body).toEqual({
+        name: 'Qiniu Backup',
+        adapter: 'openai',
+        api_base: 'https://api.qnaigc.com/v1',
+        api_key: 'qiniu-secret-2',
+        enabled: true,
+        supplier_id: qiniuUuid,
+      });
+    });
+    expect(container).toBeTruthy();
+  });
+
+  it('prefills backend preset endpoint for a 0-key built-in Provider and leaves custom 0-key Provider api_base blank rather than OpenRouter', async () => {
+    const deepseekUuid = '11111111-2222-3333-4444-555555555555';
+    const customUuid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    const fetchMock = vi.fn<typeof fetch>(async input => {
+      const path = String(input);
+      if (path.startsWith('/api/v1/admin/providers/connections')) return jsonResponse({ data: [] });
+      if (path === '/api/v1/admin/providers/presets') {
+        return jsonResponse({
+          data: [
+            {
+              id: 'deepseek',
+              name: 'DeepSeek',
+              protocol: 'openai',
+              api_base: 'https://api.deepseek.com',
+              website: 'https://platform.deepseek.com/api_keys',
+            },
+          ],
+        });
+      }
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+
+    const view = renderView(
+      <MemoryRouter initialEntries={['/admin/providers/deepseek']}>
+        <ProvidersView
+          embedded
+          token="preset-token"
+          session={installationSession}
+          refreshWorkspace={async () => {}}
+          providerId={deepseekUuid}
+          providerSlug="deepseek"
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Configure API key' }));
+    const deepseekDialog = await screen.findByRole('dialog');
+    await waitFor(() => {
+      expect((within(deepseekDialog).getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://api.deepseek.com');
+    });
+    expect(within(deepseekDialog).getByLabelText('API format').textContent).toBe('OpenAI-compatible API');
+    expect(within(deepseekDialog).queryByLabelText('Provider')).toBeNull();
+    view.unmount();
+
+    renderView(
+      <MemoryRouter initialEntries={['/admin/providers/custom-gateway']}>
+        <ProvidersView
+          embedded
+          token="custom-token"
+          session={installationSession}
+          refreshWorkspace={async () => {}}
+          providerId={customUuid}
+          providerSlug="custom-gateway"
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Configure API key' }));
+    const customDialog = await screen.findByRole('dialog');
+    expect(within(customDialog).getByLabelText('API format').textContent).toBe('OpenAI-compatible API');
+    expect((within(customDialog).getByLabelText('API base URL') as HTMLInputElement).value).toBe('');
   });
 });
