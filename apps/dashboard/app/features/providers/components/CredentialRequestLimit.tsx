@@ -13,14 +13,15 @@ function valid(policy: VendorRequestRateLimit) {
   return typeof policy.revision === 'string' && /^(0|[1-9]\d*)$/.test(policy.revision) &&
     (policy.requests_per_minute === null || Number.isSafeInteger(policy.requests_per_minute) && policy.requests_per_minute >= 0 && policy.requests_per_minute <= 1_000_000);
 }
-export default function CredentialRequestLimit({ token, vendorId }: { token: string; vendorId: string }) {
+export default function CredentialRequestLimit({ token, vendorId, withinDialog = false }: { token: string; vendorId: string; withinDialog?: boolean }) {
   const { t: uiT } = useUILocale();
-  const endpoint = `/api/v1/vendors/${encodeURIComponent(vendorId)}/request-rate-limit`;
+  const endpoint = `/api/v1/admin/providers/connections/${encodeURIComponent(vendorId)}/request-rate-limit`;
   const [policy, setPolicy] = useState<VendorRequestRateLimit | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
   const [open, setOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState(false);
@@ -54,9 +55,37 @@ export default function CredentialRequestLimit({ token, vendorId }: { token: str
       setConflict(stale);setEditError(stale ? 'This limit changed. Reload the saved limit before trying again.' : cause instanceof Error ? cause.message : 'Could not save this limit.');
     }} finally {if (!controller.signal.aborted) setSaving(false);}
   }
-  return <div className="mt-3 rounded-xl bg-muted/55 p-3.5">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-sm font-medium">{uiT("Requests per minute")}</h3><p className="mt-1 text-sm text-muted-foreground">{loading ? uiT("Loading…") : error || !policy ? uiT("Unavailable") : policy.requests_per_minute === null ? uiT("Unlimited") : policy.requests_per_minute === 0 ? uiT("0 · New requests blocked") : policy.requests_per_minute.toLocaleString(readUILocale())}</p></div><div className="flex gap-1"><KeyPolicyHistory token={token} endpoint={endpoint} label={uiT("Requests per minute")} field="requests_per_minute" />{policy && !loading && !error && <Button variant="outline" onClick={() => {setDraft(policy.requests_per_minute === null ? '' : String(policy.requests_per_minute));if (!conflict) setEditError('');setOpen(true);}}>{uiT("Edit limit")}</Button>}{error && <Button variant="outline" onClick={() => setReload(value => value + 1)}>{uiT("Retry limit")}</Button>}</div></div>
+  const editorForm = (
+    <form className="grid gap-4" onSubmit={event => {event.preventDefault();void save();}}>
+      <div className="grid gap-2">
+        <Label htmlFor="credential-request-limit">{uiT("Limit")}</Label>
+        <Input id="credential-request-limit" inputMode="numeric" placeholder={uiT("Unlimited")} value={draft} disabled={saving || conflict || loading || Boolean(error)} onChange={event => setDraft(event.target.value)} />
+        <p className="text-sm text-muted-foreground">{uiT("Leave blank for unlimited. Zero blocks new requests. Maximum 1,000,000.")}</p>
+      </div>
+      {parsed === undefined && <p role="alert" className="text-sm text-destructive">{uiT("Enter a whole number from 0 to 1,000,000, or leave blank.")}</p>}
+      {editError && <p role="alert" className="text-sm text-destructive">{uiT(editError)}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      <DialogFooter>
+        <Button type="button" variant="outline" disabled={saving} onClick={() => setOpen(false)}>{uiT("Cancel")}</Button>
+        {conflict || error ? <Button type="button" disabled={loading} onClick={() => setReload(value => value + 1)}>{uiT("Reload limit")}</Button> : <Button type="submit" disabled={!changed || saving || loading}>{uiT("Save limit")}</Button>}
+      </DialogFooter>
+    </form>
+  );
+  return <div className="rounded-xl bg-muted/55 p-3.5">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-sm font-medium">{uiT("Requests per minute")}</h3><p className="mt-1 text-sm text-muted-foreground">{loading ? uiT("Loading…") : error || !policy ? uiT("Unavailable") : policy.requests_per_minute === null ? uiT("Unlimited") : policy.requests_per_minute === 0 ? uiT("0 · New requests blocked") : policy.requests_per_minute.toLocaleString(readUILocale())}</p></div><div className="flex flex-wrap items-center gap-1">{withinDialog ? <KeyPolicyHistory withinDialog triggerOnly inlineOpen={historyOpen} onInlineOpenChange={setHistoryOpen} token={token} endpoint={endpoint} label={uiT("Requests per minute")} field="requests_per_minute" /> : <KeyPolicyHistory token={token} endpoint={endpoint} label={uiT("Requests per minute")} field="requests_per_minute" />}{policy && !loading && !error && !open && <Button size="sm" variant="outline" onClick={() => {setDraft(policy.requests_per_minute === null ? '' : String(policy.requests_per_minute));if (!conflict) setEditError('');setOpen(true);}}>{uiT("Edit limit")}</Button>}{error && <Button size="sm" variant="outline" onClick={() => setReload(value => value + 1)}>{uiT("Retry limit")}</Button>}</div></div>
+    {withinDialog && (
+      <KeyPolicyHistory withinDialog contentOnly inlineOpen={historyOpen} onInlineOpenChange={setHistoryOpen} token={token} endpoint={endpoint} label={uiT("Requests per minute")} field="requests_per_minute" />
+    )}
     {error && <p role="alert" className="mt-2 text-sm text-destructive">{uiT(error)}</p>}
-    <Dialog open={open} onOpenChange={next => {if (!saving) setOpen(next);}}><DialogContent className="max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{uiT("Requests per minute")}</DialogTitle><DialogDescription>{uiT("Counts dispatched requests through this Provider API key across workspaces in a rolling 60-second window, including failed requests.")}</DialogDescription></DialogHeader><form className="grid gap-4" onSubmit={event => {event.preventDefault();void save();}}><div className="grid gap-2"><Label htmlFor="credential-request-limit">{uiT("Limit")}</Label><Input id="credential-request-limit" inputMode="numeric" placeholder={uiT("Unlimited")} value={draft} disabled={saving || conflict || loading || Boolean(error)} onChange={event => setDraft(event.target.value)} /><p className="text-sm text-muted-foreground">{uiT("Leave blank for unlimited. Zero blocks new requests. Maximum 1,000,000.")}</p></div>{parsed === undefined && <p role="alert" className="text-sm text-destructive">{uiT("Enter a whole number from 0 to 1,000,000, or leave blank.")}</p>}{editError && <p role="alert" className="text-sm text-destructive">{uiT(editError)}</p>}{error && <p role="alert" className="text-sm text-destructive">{error}</p>}<DialogFooter><Button type="button" variant="outline" disabled={saving} onClick={() => setOpen(false)}>{uiT("Cancel")}</Button>{conflict || error ? <Button type="button" disabled={loading} onClick={() => setReload(value => value + 1)}>{uiT("Reload limit")}</Button> : <Button type="submit" disabled={!changed || saving || loading}>{uiT("Save limit")}</Button>}</DialogFooter></form></DialogContent></Dialog>
+    {withinDialog ? (
+      open && (
+        <div className="mt-4 space-y-3 border-t pt-4">
+          <p className="text-xs text-muted-foreground">{uiT("Counts dispatched requests through this Provider API key across workspaces in a rolling 60-second window, including failed requests.")}</p>
+          {editorForm}
+        </div>
+      )
+    ) : (
+      <Dialog open={open} onOpenChange={next => {if (!saving) setOpen(next);}}><DialogContent><DialogHeader><DialogTitle>{uiT("Requests per minute")}</DialogTitle><DialogDescription>{uiT("Counts dispatched requests through this Provider API key across workspaces in a rolling 60-second window, including failed requests.")}</DialogDescription></DialogHeader>{editorForm}</DialogContent></Dialog>
+    )}
   </div>;
 }

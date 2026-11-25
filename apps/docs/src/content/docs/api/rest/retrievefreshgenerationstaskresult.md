@@ -1,11 +1,11 @@
 ---
 title: "Retrieve fresh output from the original Video task"
-description: "POST /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh"
+description: "POST /api/v1/workspaces/{workspace}/tasks/{task}/results/{kind}/refresh"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`POST /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh`
+`POST /api/v1/workspaces/{workspace}/tasks/{task}/results/{kind}/refresh`
 
 Explicit workspace Write action. Derives the original inference key and immutable Provider/account/model/channel binding from the actor-visible saved task; clients cannot choose replacements. Current original key grants and source policy remain required; revoked or expired keys never regain action authority through history. No generation, automatic retry or composer configuration is used. Rechecks actor visibility and grants after upstream work. Saved GET, cached artifact content, upstream refresh and fresh delivery remain distinct. Queries the original task once, then performs bounded authorized binary retrieval. Does not rewrite expired/deleted cached references. A fresh URL does not prove durable media availability; missing result404, Provider gone/unavailable502 and timeout504 remain explicit.
 
@@ -28,24 +28,13 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/workspaces/{workspace}/tasks/{task}/results/{kind}/refresh" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

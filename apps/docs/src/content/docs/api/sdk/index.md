@@ -3,7 +3,7 @@ title: "JavaScript / TypeScript SDK"
 description: "Generated public client methods, signatures and types."
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 The reference is emitted from the TypeScript SDK source, including inferred return types. Import the public exports from `@niu-io/sdk`.
 
@@ -320,6 +320,7 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [ProviderMembership](/docs/api/sdk/providermembership/)
 - [ProviderMemberUpdate](/docs/api/sdk/providermemberupdate/)
 - [ProviderModel](/docs/api/sdk/providermodel/)
+- [ProviderModelAccessMode](/docs/api/sdk/providermodelaccessmode/)
 - [ProviderModelAvailability](/docs/api/sdk/providermodelavailability/)
 - [ProviderModelCheck](/docs/api/sdk/providermodelcheck/)
 - [ProviderModelInput](/docs/api/sdk/providermodelinput/)

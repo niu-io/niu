@@ -1,11 +1,11 @@
 ---
 title: "List current media pricing configuration choices"
-description: "GET /api/v1/providers/{provider}/media-rate-models"
+description: "GET /api/v1/admin/providers/{provider}/media-rate-models"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/providers/{provider}/media-rate-models`
+`GET /api/v1/admin/providers/{provider}/media-rate-models`
 
 Installation read authority only. Named model and API-key choices include current authorized active offer bindings and syntactically validated media-schema constraints, including the billing unit derived from a validated output estimator. This does not establish dispatch availability or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Providers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/media-rate-models" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/{provider}/media-rate-models" \
   -H "Authorization: Bearer $NIU_MEMBER_TOKEN"
 ```
 

@@ -367,21 +367,16 @@ pub async fn login(
     let runtime = runtime(&state)?;
     runtime.check_origin(&headers)?;
     let Json(input) = input.map_err(|_| ApiError::invalid_request("Invalid sign-in request"))?;
-    if input.email.len() > 254 || input.password.len() > 1024 {
+    if input.email.len() > 254
+        || input.password.len() > 1024
+        || !niu_storage::is_valid_email_address(&input.email)
+    {
         return Err(ApiError::invalid_request("Invalid sign-in request"));
     }
-    if let Some(ip) = crate::request_source::current_ip()
-        && !state
-            .store
-            .admit_member_password_login(&format!("ip-{ip}@niu.internal"))
-            .await
-            .map_err(ApiError::from_store)?
-    {
-        return Err(ApiError::sign_in_limited());
-    }
+    let client_ip = crate::request_source::current_ip().map(|ip| ip.to_string());
     if !state
         .store
-        .admit_member_password_login(&input.email)
+        .admit_member_password_login_with_ip(&input.email, client_ip.as_deref())
         .await
         .map_err(ApiError::from_store)?
     {
@@ -585,6 +580,10 @@ pub async fn logout(
 ///                 "demo_login": {
 ///                   "type": "boolean"
 ///                 },
+///                 "setup_required": {
+///                   "type": "boolean",
+///                   "description": "Live deployment state: true when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /setup is required."
+///                 },
 ///                 "registration_mode": {
 ///                   "type": "string",
 ///                   "enum": [
@@ -604,22 +603,299 @@ pub async fn logout(
 /// ```
 pub async fn configuration(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
     let password_login = state.password_auth.is_some();
-    let registration_mode = if password_login {
-        state
+    let (setup_required, registration_mode) = if password_login {
+        let has_admin = state
+            .store
+            .has_platform_admin_password_account()
+            .await
+            .map_err(ApiError::from_store)?;
+        let registration_mode = state
             .store
             .registration_policy()
             .await
             .map_err(ApiError::from_store)?
-            .mode
+            .mode;
+        (!has_admin, registration_mode)
     } else {
-        niu_storage::RegistrationMode::Disabled
+        (false, niu_storage::RegistrationMode::Disabled)
     };
     Ok(Json(json!({
         "password_login": password_login,
         "browser_token_login": password_login,
         "demo_login": state.password_auth.as_ref().is_some_and(|auth| auth.demo_login.is_some()),
+        "setup_required": setup_required,
         "registration_mode": registration_mode.as_str(),
     })))
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/public/config",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getPublicConfig",
+///     "summary": "Read public instance configuration, branding, currency, and sign-in capabilities",
+///     "description": "Public safe projection combining authentication capabilities, initial setup state, registration mode, branding defaults, and configured platform currency in a single request. No credentials, actors, or commercial rates are exposed.",
+///     "security": [],
+///     "x-niu-implementation": "implemented",
+///     "responses": {
+///       "200": {
+///         "description": "Public instance configuration in data.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": ["data"],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "password_login",
+///                     "browser_token_login",
+///                     "demo_login",
+///                     "setup_required",
+///                     "registration_mode",
+///                     "branding",
+///                     "currency",
+///                     "billing_mode",
+///                     "unit"
+///                   ],
+///                   "properties": {
+///                     "password_login": { "type": "boolean" },
+///                     "browser_token_login": { "type": "boolean" },
+///                     "demo_login": { "type": "boolean" },
+///                     "setup_required": { "type": "boolean" },
+///                     "registration_mode": { "type": "string", "enum": ["disabled", "approval_required"] },
+///                     "branding": {
+///                       "type": "object",
+///                       "required": ["revision", "settings"],
+///                       "properties": {
+///                         "revision": { "type": "string" },
+///                         "settings": { "$ref": "#/components/schemas/BrandingSettings" }
+///                       }
+///                     },
+///                     "currency": { "type": ["string", "null"] },
+///                     "billing_mode": { "type": "string" },
+///                     "unit": { "type": ["object", "null"] }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "503": {
+///         "description": "Durable storage unavailable."
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn public_config(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
+    let password_login = state.password_auth.is_some();
+    let (setup_required, registration_mode) = if password_login {
+        let has_admin = state
+            .store
+            .has_platform_admin_password_account()
+            .await
+            .map_err(ApiError::from_store)?;
+        let registration_mode = state
+            .store
+            .registration_policy()
+            .await
+            .map_err(ApiError::from_store)?
+            .mode;
+        (!has_admin, registration_mode)
+    } else {
+        (false, niu_storage::RegistrationMode::Disabled)
+    };
+    let (branding_revision, branding_settings) = state
+        .store
+        .branding_configuration_snapshot()
+        .await
+        .map_err(ApiError::from_store)?;
+    let (currency, billing_mode, unit) = state
+        .store
+        .platform_billing_summary()
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({
+        "data": {
+            "password_login": password_login,
+            "browser_token_login": password_login,
+            "demo_login": state.password_auth.as_ref().is_some_and(|auth| auth.demo_login.is_some()),
+            "setup_required": setup_required,
+            "registration_mode": registration_mode.as_str(),
+            "branding": {
+                "revision": branding_revision.to_string(),
+                "settings": branding_settings.as_ref(),
+            },
+            "currency": currency,
+            "billing_mode": billing_mode,
+            "unit": unit,
+        }
+    })))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InstallationSetupInput {
+    email: String,
+    password: String,
+    #[serde(default)]
+    name: Option<String>,
+}
+
+/// # OpenAPI
+/// ```openapi
+/// {
+///   "path": "/api/v1/setup",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "completeSetup",
+///     "tags": ["Authentication"],
+///     "summary": "Create the first platform administrator account during initial setup",
+///     "description": "One-time first-run bootstrap for a blank deployment where password authentication is configured and no active password-enabled platform administrator exists yet. Checks initialization state first and immediately returns 409 Conflict once initialized. Authenticates the deployment's NIU_ADMIN_TOKENS credential via Authorization: Bearer. Creates the first owner account with platform administration enabled in the default workspace, establishes an eight-hour HttpOnly browser cookie when called from the trusted browser Origin, and also supports headless CLI/automation callers without an Origin header. Responses are not cached.",
+///     "security": [{"bearerAuth": []}],
+///     "x-niu-implementation": "implemented",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "required": ["email", "password"],
+///             "additionalProperties": false,
+///             "properties": {
+///               "name": {
+///                 "type": "string",
+///                 "maxLength": 100,
+///                 "description": "Optional display name for the initial platform administrator."
+///               },
+///               "email": {
+///                 "type": "string",
+///                 "format": "email"
+///               },
+///               "password": {
+///                 "type": "string",
+///                 "minLength": 15,
+///                 "description": "Account password (at least 15 characters and at most 1024 bytes)."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "201": {
+///         "description": "Initial platform administrator created and browser session established.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": ["data"],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": ["session"],
+///                   "properties": {
+///                     "session": {
+///                       "type": "object",
+///                       "required": ["id", "operator_id", "expires_at_unix", "revoked"],
+///                       "properties": {
+///                         "id": { "type": "string", "format": "uuid" },
+///                         "operator_id": { "type": "string", "format": "uuid" },
+///                         "expires_at_unix": { "type": "integer", "format": "int64" },
+///                         "revoked": { "type": "boolean" }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {"description": "Invalid email, display name, or password policy violation."},
+///       "401": {"description": "Configured NIU_ADMIN_TOKENS Bearer credential did not match."},
+///       "403": {"description": "Cross-origin browser request rejected."},
+///       "409": {"description": "Initial administrator setup has already been completed or the email is already in use."},
+///       "429": {"description": "Setup admission limit reached."},
+///       "501": {"description": "Password authentication is not configured."}
+///     }
+///   }
+/// }
+/// ```
+pub async fn complete_installation_setup(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    input: Result<Json<InstallationSetupInput>, JsonRejection>,
+) -> Result<Response, ApiError> {
+    let auth = runtime(&state)?;
+    auth.check_origin(&headers)?;
+    let client_ip = crate::request_source::current_ip().map(|ip| ip.to_string());
+    if !state
+        .store
+        .admit_member_password_login_with_ip("installation-setup@niu.local", client_ip.as_deref())
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::sign_in_limited());
+    }
+    // Check initialization state BEFORE verifying NIU_ADMIN_TOKENS so completed
+    // deployments never act as a token-validation oracle.
+    if state
+        .store
+        .has_platform_admin_password_account()
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::installation_already_initialized());
+    }
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim);
+    if !state.admin_tokens.matches(auth_header) {
+        return Err(ApiError::invalid_installation_token());
+    }
+    let Json(input) =
+        input.map_err(|_| ApiError::invalid_request("Invalid installation setup request"))?;
+    if input.email.len() > 254 || !niu_storage::is_valid_email_address(&input.email) {
+        return Err(ApiError::invalid_request("Enter a valid email address"));
+    }
+    if let Some(name) = input.name.as_deref().map(str::trim)
+        && (name.chars().count() > 100 || name.chars().any(char::is_control))
+    {
+        return Err(ApiError::invalid_request(
+            "Display name must be at most 100 characters without control characters",
+        ));
+    }
+    let hash = auth.hash_password_bounded(input.password).await?;
+    let issued = state
+        .store
+        .complete_initial_installation(&input.email, input.name.as_deref(), &hash)
+        .await
+        .map_err(|error| match error {
+            niu_storage::StoreError::Conflict => ApiError::installation_already_initialized(),
+            niu_storage::StoreError::RegistrationEmailExists => {
+                ApiError::registration_email_exists()
+            }
+            niu_storage::StoreError::InvalidOperator => {
+                ApiError::invalid_request("Invalid installation setup request")
+            }
+            other => ApiError::from_store(other),
+        })?;
+    let mut response = (
+        StatusCode::CREATED,
+        Json(json!({ "data": { "session": issued.session } })),
+    )
+        .into_response();
+    if headers.contains_key("origin") {
+        let cookie = auth.cookie_header(&issued.token, 28800)?;
+        response.headers_mut().insert("set-cookie", cookie);
+    }
+    Ok(response)
 }
 
 #[derive(Deserialize)]

@@ -782,6 +782,7 @@ pub(super) async fn draft_route(
             niu_storage::VendorRoute {
                 vendor: metadata.vendor.clone(),
                 model: metadata.model.clone(),
+                provider_id: metadata.provider_id,
                 personal_organization_id: metadata.personal_organization_id,
                 access_scope: live.route.access_scope,
                 credential_ciphertext: live.route.credential_ciphertext,

@@ -1,6 +1,7 @@
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { IconPaperclip, IconX, IconChevronDown, IconLoader2, IconPhoto } from '@tabler/icons-react';
 import type { VideoModel } from '@niu-io/sdk';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import type { ImageReference,SavedVideoReferences } from './request';
 export type NamedImageReference = ImageReference & { name: string };
 
 /** Pending request attachments. Saved video data remains owned by the backend. */
-export type ImageReferencesProps={model:VideoModel;images:NamedImageReference[];onChange:(images:NamedImageReference[])=>void;disabled:boolean;onReadingChange?:(reading:boolean,failed?:boolean)=>void;client?:NiuAdminClient;scope?:TenantScope;references?:SavedVideoReferences;onReferencesChange?:(references:SavedVideoReferences)=>void};
+export type ImageReferencesProps={model:VideoModel;images:NamedImageReference[];onChange:(images:NamedImageReference[])=>void;disabled:boolean;onReadingChange?:(reading:boolean,failed?:boolean)=>void;client?:NiuAdminClient;scope?:TenantScope;references?:SavedVideoReferences;onReferencesChange?:(references:SavedVideoReferences)=>void;toolbarSlot?:HTMLElement|null};
 export default function ImageReferences(props:ImageReferencesProps) {
   const { t: uiT } = useUILocale();
   if(props.model.workspace_asset || props.references?.some(reference=>reference.type==='workspace_asset')){
@@ -22,7 +23,7 @@ export default function ImageReferences(props:ImageReferencesProps) {
   }
   return <InlineImageReferences {...props}/>;
 }
-function InlineImageReferences({model,images,onChange,disabled,onReadingChange}:ImageReferencesProps) {
+function InlineImageReferences({model,images,onChange,disabled,onReadingChange,toolbarSlot}:ImageReferencesProps) {
   const { t: uiT, format: uiF } = useUILocale();
   const input=useRef<HTMLInputElement>(null);
   const sequence=useRef(0);
@@ -65,14 +66,17 @@ function InlineImageReferences({model,images,onChange,disabled,onReadingChange}:
     } catch(error) {failed=true;if(ticket === sequence.current && current.current.model === selectedModel)setError(error instanceof Error ? error.message:'Could not attach the image.');}
     finally {if(ticket === sequence.current){setReading(false);onReadingChange?.(false,failed);}if(input.current)input.current.value='';}
   }
-  return <div className="video-references">
+  const attachLabel = reading ? uiT("Reading image…") : uiT("Attach image");
+  const triggerButton = <Button type="button" variant="ghost" size={toolbarSlot ? "sm" : "sm"} aria-label={attachLabel} title={attachLabel} className={toolbarSlot ? "h-9 gap-1.5 px-2" : "h-9 gap-1.5 px-2.5"} onClick={()=>input.current?.click()} disabled={disabled || reading || images.length>=rule.maximum_items}><IconPaperclip size={17}/><span className={toolbarSlot ? "hidden sm:inline" : undefined}>{attachLabel}</span></Button>;
+  const hasVisibleBody = images.length > 0 || Boolean(error);
+  return <div className={hasVisibleBody ? "video-references" : "video-references is-empty"}>
     <Input ref={input} type="file" className="hidden" aria-label={uiT("Upload video reference images")} multiple={rule.maximum_items>1} accept={rule.data_mime_types.join(',')} onChange={event=>void attach(event.target.files)} disabled={disabled || reading}/>
     {images.map((image,index)=><div className="video-reference" key={index}>
       <img src={image.url} alt=""/><span className="video-reference-name">{image.name}</span>
       {rule.roles.length>0 && <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" aria-label={uiF("Role for {0}", [image.name])} disabled={disabled || reading}>{image.role ? uiT(image.role.replaceAll('_',' ')):uiT("Choose role")}<IconChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={image.role ?? ''} onValueChange={role=>onChange(images.map((item,i)=>i === index ? {...item,role}:item))}>{!rule.role_required && <DropdownMenuRadioItem value="">{uiT("No role")}</DropdownMenuRadioItem>}{rule.roles.map(role=><DropdownMenuRadioItem key={role} value={role}>{uiT(role.replaceAll('_',' '))}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
       <Button type="button" variant="ghost" size="icon" aria-label={uiF("Remove {0}", [image.name])} disabled={disabled || reading} onClick={()=>onChange(images.filter((_,i)=>i !== index))}><IconX size={16}/></Button>
     </div>)}
-    <Button type="button" variant="ghost" onClick={()=>input.current?.click()} disabled={disabled || reading || images.length>=rule.maximum_items}><IconPaperclip size={16}/>{reading ? uiT("Reading image…"):uiT("Attach image")}</Button>
+    {toolbarSlot ? createPortal(triggerButton, toolbarSlot) : <div className="video-reference-actions">{triggerButton}</div>}
     {error && <p role="alert" className="video-error">{uiT(error)}</p>}
   </div>;
 }
@@ -90,7 +94,7 @@ function defaultImageRole(roles:string[],used:readonly string[],required:boolean
  * Adding an image is the single processing-consent action; the saved request
  * still carries explicit `consent_to_process: true`, which the server validates.
  */
-function SavedImageReferences({model,client,scope,references,onReferencesChange,disabled,onReadingChange}:SavedProps){
+function SavedImageReferences({model,client,scope,references,onReferencesChange,disabled,onReadingChange,toolbarSlot}:SavedProps){
  const { t: uiT, format: uiF } = useUILocale();
  const input=useRef<HTMLInputElement>(null);
  const [uploading,setUploading]=useState(false),[uploadFailed,setUploadFailed]=useState(false),[progress,setProgress]=useState<{done:number;total:number}|null>(null),[uncertain,setUncertain]=useState(false),[error,setError]=useState('');
@@ -211,7 +215,13 @@ function SavedImageReferences({model,client,scope,references,onReferencesChange,
    if(controller.signal.aborted||sequence.current!==ticket)return;if(after)throw new Error('Saved image discovery is incomplete.');setLibrary(rows);
   }catch{if(!controller.signal.aborted)setError('Saved images could not be reviewed. Uploads remain unconfirmed.');}finally{requests.current.delete(controller);if(sequence.current===ticket)setLibraryLoading(false);}
  }
- return <div className="video-references">
+ const savedAttachLabel = uploading ? uiT("Saving image…") : uiT("Attach image");
+ const toolbarTriggers = model.workspace_asset && rule ? <>
+  <Button type="button" variant="ghost" size="sm" aria-label={savedAttachLabel} title={savedAttachLabel} className={toolbarSlot ? "h-9 gap-1.5 px-2" : "h-9 gap-1.5 px-2.5"} disabled={disabled||uploading||uncertain||hasProvider||!rule||workspaceReferences.length>=maximum} onClick={()=>input.current?.click()}><IconPaperclip size={17}/><span className={toolbarSlot ? "hidden sm:inline" : undefined}>{savedAttachLabel}</span></Button>
+  <DropdownMenu open={libraryOpen} onOpenChange={open=>{setLibraryOpen(open);if(open)void review();}}><DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="sm" className="h-9 px-2.5" disabled={disabled||uploading||hasProvider||!model.workspace_asset||workspaceReferences.length>=maximum}>{libraryLoading?uiT("Loading saved images…"):uncertain?uiT("Review saved images"):uiT("Use saved image")}</Button></DropdownMenuTrigger><DropdownMenuContent align="start" collisionPadding={16} className="max-w-[calc(100vw-2rem)]">{libraryLoading&&<DropdownMenuItem disabled>{uiT("Loading saved images…")}</DropdownMenuItem>}{!libraryLoading&&!library.length&&<DropdownMenuItem disabled>{error?uiT("Saved images unavailable. Close and retry."):uiT("No saved images")}</DropdownMenuItem>}{library.map(asset=><DropdownMenuItem key={asset.id} onSelect={()=>choose(asset)}><span className="min-w-0 whitespace-normal break-words">{asset.name} · {new Date(asset.created_at_ms).toLocaleString(readUILocale())}</span></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
+ </> : null;
+ const hasVisibleBody = workspaceReferences.length > 0 || Boolean(progress) || hasProvider || Boolean(error) || (!toolbarSlot && Boolean(toolbarTriggers));
+ return <div className={hasVisibleBody ? "video-references" : "video-references is-empty"}>
   <Input ref={input} type="file" className="hidden" aria-label={uiT("Upload saved video reference images")} multiple={maximum>1} accept="image/png,image/jpeg,image/webp" onChange={event=>void upload(event.target.files)} disabled={disabled||uploading||uncertain||hasProvider||!model.workspace_asset}/>
   {workspaceReferences.map(reference=>{const id=reference.workspace_asset.asset_id,asset=metadata[id],name=asset?.name??uiT("Saved image");return <div className="video-reference" key={id}>
    <span className="video-reference-preview" aria-hidden="true">{previews[id]?<img src={previews[id]} alt=""/>:previewing[id]?<IconLoader2 size={16} className="animate-spin"/>:<IconPhoto size={16}/>}</span>
@@ -222,11 +232,8 @@ function SavedImageReferences({model,client,scope,references,onReferencesChange,
    {metadataErrors[id]&&<p role="alert" className="video-error">{uiT(metadataErrors[id])}</p>}
   </div>;})}
   {progress&&<p role="status" className="video-muted">{uiF("Saving image {0} of {1}…",[progress.done,progress.total])}</p>}
-  {model.workspace_asset&&rule&&<>
-  <Button type="button" variant="ghost" disabled={disabled||uploading||uncertain||hasProvider||!rule||workspaceReferences.length>=maximum} onClick={()=>input.current?.click()}><IconPaperclip size={16}/>{uploading?uiT("Saving image…"):uiT("Attach image")}</Button>
-  <DropdownMenu open={libraryOpen} onOpenChange={open=>{setLibraryOpen(open);if(open)void review();}}><DropdownMenuTrigger asChild><Button type="button" variant="ghost" disabled={disabled||uploading||hasProvider||!model.workspace_asset||workspaceReferences.length>=maximum}>{libraryLoading?uiT("Loading saved images…"):uncertain?uiT("Review saved images"):uiT("Use saved image")}</Button></DropdownMenuTrigger><DropdownMenuContent align="start" collisionPadding={16} className="max-w-[calc(100vw-2rem)]">{libraryLoading&&<DropdownMenuItem disabled>{uiT("Loading saved images…")}</DropdownMenuItem>}{!libraryLoading&&!library.length&&<DropdownMenuItem disabled>{error?uiT("Saved images unavailable. Close and retry."):uiT("No saved images")}</DropdownMenuItem>}{library.map(asset=><DropdownMenuItem key={asset.id} onSelect={()=>choose(asset)}><span className="min-w-0 whitespace-normal break-words">{asset.name} · {new Date(asset.created_at_ms).toLocaleString(readUILocale())}</span></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
-  <p className="video-muted">{uiT("Adding an image allows Niu to inspect and process it for this video request.")}</p>
-  </>}
+  {toolbarTriggers && (toolbarSlot ? createPortal(toolbarTriggers, toolbarSlot) : <div className="video-reference-actions">{toolbarTriggers}</div>)}
+  {workspaceReferences.length > 0 && <p className="video-muted">{uiT("Adding an image allows Niu to inspect and process it for this video request.")}</p>}
   {hasProvider&&<p className="video-muted">{uiT("Provider materials and workspace images cannot be mixed in one request.")}</p>}
   {error&&<p role="alert" className="video-error">{uiT(error)}</p>}
  </div>;

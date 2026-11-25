@@ -3,9 +3,9 @@ title: "NiuClient"
 description: "Generated TypeScript declaration for NiuClient"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/index.ts). [All SDK types](/docs/api/sdk/).
+[SDK source](https://github.com/niu-io/niu/blob/release/0.4/sdks/javascript/src/index.ts). [All SDK types](/docs/api/sdk/).
 
 ## Constructor and members
 
@@ -265,6 +265,15 @@ getPublicBranding(options?: RequestOptions): Promise<import('./admin.js').Brandi
 /** Inspect the current API key's label, model grants, limits, and 60s usage window. */
 getKey(options?: RequestOptions): Promise<{
     data: KeyIntrospection;
+}>;
+```
+
+### getCredits
+
+```typescript
+/** Read customer-facing balance summary for the authenticated API key's organization. */
+getCredits(options?: RequestOptions): Promise<{
+    data: import('./admin.js').CustomerBalance[];
 }>;
 ```
 

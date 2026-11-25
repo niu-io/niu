@@ -648,9 +648,9 @@ export function invalidateForMutation(token: string, path: string, method: strin
   }
   if (cleanPath.includes('/payments')) {
     substrings.add('/payments');
-    substrings.add('/platform/configuration');
+    substrings.add('/admin/configuration');
   }
-  if (cleanPath.includes('/providers') || cleanPath.includes('/suppliers') || cleanPath.includes('/vendors')) {
+  if (cleanPath.includes('/providers') || cleanPath.includes('/suppliers') || cleanPath.includes('/connections')) {
     substrings.add('/providers');
     substrings.add('/models');
     substrings.add('/routing');
@@ -661,7 +661,7 @@ export function invalidateForMutation(token: string, path: string, method: strin
     substrings.add('/keys');
     substrings.add('workspace-video');
   }
-  if (cleanPath.includes('/workspaces') || cleanPath.includes('/projects') || cleanPath.includes('/organizations')) {
+  if (cleanPath.includes('/workspaces') || cleanPath.includes('/organizations')) {
     substrings.add('/workspaces');
     substrings.add('/organizations');
   }
@@ -681,7 +681,7 @@ export function invalidateForMutation(token: string, path: string, method: strin
   if (cleanPath.includes('/billing') || cleanPath.includes('/grants') || cleanPath.includes('/balances')) {
     substrings.add('/billing');
     substrings.add('/balances');
-    substrings.add('/customer-accounts');
+    substrings.add('/admin/customers');
     substrings.add('/payments/readiness');
   }
   if (cleanPath.includes('/routing') || cleanPath.includes('/pools') || cleanPath.includes('/route-pools')) {

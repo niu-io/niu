@@ -40,7 +40,7 @@ export function PlatformCurrencySetting({ token }: { token: string }) {
     setSaving(true);
     setError('');
     try {
-      await request(token, '/api/v1/platform/currency', 'PUT', { currency: draft });
+      await request(token, '/api/v1/admin/currency', 'PUT', { currency: draft });
       setSaved(draft);
       setOpen(false);
       reload();
@@ -52,10 +52,10 @@ export function PlatformCurrencySetting({ token }: { token: string }) {
   }
 
   return (
-    <section className="space-y-4" aria-label={uiT('Platform currency')}>
+    <section className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5" aria-label={uiT('Platform currency')}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">{uiT('Platform currency')}</h2>
+          <h2 className="text-base font-semibold">{uiT('Platform currency')}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {uiT('The currency for pricing, balances, spending limits, and reports across all workspaces.')}
           </p>
@@ -80,14 +80,14 @@ export function PlatformCurrencySetting({ token }: { token: string }) {
       {ready === false ? (
         <FormSectionSkeleton fields={1} label={uiT('Loading currency…')} />
       ) : failed && !current ? (
-        <div role="alert" className="space-y-2">
-          <p>{uiT('Could not load the platform currency.')}</p>
-          <Button variant="outline" onClick={reload}>
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/60 px-4 py-3 text-sm">
+          <p className="text-muted-foreground">{uiT('Could not load the platform currency.')}</p>
+          <Button variant="outline" size="sm" onClick={reload}>
             {uiT('Retry')}
           </Button>
         </div>
       ) : current ? (
-        <div className="space-y-2 rounded-[var(--radius-panel)] bg-card p-5">
+        <div className="space-y-1.5 border-t border-border/50 pt-4">
           <p className="font-medium">{description(current)}</p>
           <p className="text-sm text-muted-foreground">
             {uiT('Configured for this installation. Changing currency requires a data migration; existing amounts are never converted automatically.')}
@@ -99,9 +99,9 @@ export function PlatformCurrencySetting({ token }: { token: string }) {
           )}
         </div>
       ) : (
-        <div className="rounded-[var(--radius-panel)] bg-card p-5 text-sm text-muted-foreground">
+        <p className="border-t border-border/50 pt-4 text-sm text-muted-foreground">
           {uiT('Choose once during setup. All workspaces inherit this currency. Historical amounts keep their original currency.')}
-        </div>
+        </p>
       )}
       <Dialog
         open={open && !current}
@@ -116,7 +116,6 @@ export function PlatformCurrencySetting({ token }: { token: string }) {
         }}
       >
         <DialogContent
-          className="max-h-[90dvh] overflow-y-auto"
           onCloseAutoFocus={event => {
             if (triggerRef.current?.isConnected) {
               event.preventDefault();

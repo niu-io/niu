@@ -308,6 +308,7 @@ impl AppState {
             vendor_cipher.as_deref(),
         )
         .await?;
+        crate::admin::validate_saved_api_key_secrets(&store, vendor_cipher.as_deref()).await?;
         crate::vendors::validate_retained_content(&store, vendor_cipher.as_deref()).await?;
         let admin_tokens = TokenSet::parse(
             "NIU_ADMIN_TOKENS",

@@ -1,11 +1,11 @@
 ---
 title: "Append one retained video instruction"
-description: "PUT /api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}"
+description: "PUT /api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`PUT /api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}`
+`PUT /api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}`
 
 Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. New writes use video category only; legacy Chat writes remain unchanged, while category=chat reads use a compatible projection. Revisions and sequences are decimal strings. Instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing. At most 100 turns per session and 60 KiB prompt. Changed instruction creates a new client-generated turn UUID. Identical UUID/instruction retry is idempotent even after a lost response or content expiry; a changed instruction conflicts. No client execution state, output URL or arbitrary input object is accepted.
 
@@ -28,26 +28,16 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/generations/{session}/turns/{turn}" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/workspaces/{workspace}/sessions/{session}/turns/{turn}" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
+  --url-query 'category=<CATEGORY>' \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 
@@ -77,6 +67,19 @@ Location: **path**. **Required.**
 {
   "type": "string",
   "format": "uuid"
+}
+```
+
+### category
+
+Location: **query**. **Required.**
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "video"
+  ]
 }
 ```
 

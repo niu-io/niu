@@ -1,11 +1,11 @@
 ---
 title: "Create an encrypted Provider API-key configuration"
-description: "POST /api/v1/vendors"
+description: "POST /api/v1/admin/providers/connections"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`POST /api/v1/vendors`
+`POST /api/v1/admin/providers/connections`
 
  Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/vendors" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/connections" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
@@ -96,7 +96,7 @@ No path, query, or header parameters are declared.
     "personal_organization_id": {
       "type": "string",
       "format": "uuid",
-      "description": "Platform-administrator-selected account paying the Provider directly. Access scope is independent. Ownership is created atomically; routes remain owner-funded and do not require resale tariffs. Omission preserves shared creation in Resale; Internal use requires an explicit access choice."
+      "description": "Internal use only: platform-administrator-selected account paying the Provider directly. Access scope is independent. Ownership is created atomically; routes remain owner-funded and do not require resale tariffs. Rejected in Resale mode."
     },
     "access_scope": {
       "type": "string",
@@ -104,7 +104,7 @@ No path, query, or header parameters are declared.
         "personal",
         "internal"
       ],
-      "description": "Explicit credential access. personal restricts use to the funding account. internal shares the owner-funded credential with every organization while Internal use is active; it is rejected in Resale. Omit only for compatibility: an explicit funding account creates personal access, Resale without one creates shared commercial supply, and Internal use without either is rejected instead of silently binding to the current account."
+      "description": "Internal use only: explicit owner-funded credential access. personal restricts use to the funding account; internal shares the owner-funded credential with every organization while Internal use is active. Rejected in Resale mode, where connections are always shared commercial supply."
     },
     "create_supplier": {
       "type": "boolean",

@@ -1,11 +1,11 @@
 ---
 title: "Save encrypted EPay configuration with platform administrator write access"
-description: "PUT /api/v1/platform/payments/epay"
+description: "PUT /api/v1/admin/payments/epay"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`PUT /api/v1/platform/payments/epay`
+`PUT /api/v1/admin/payments/epay`
 
 Validates enabled checkout configuration before persistence. An empty key retains the stored credential. Exact expected_revision prevents overwriting concurrent edits. Pending EPay orders prevent credential and checkout-field changes; enabling or disabling unchanged settings remains available and existing orders can still settle. Saves an append-only audit event and takes effect without restarting the gateway. This configures the classic EPay protocol; it does not establish merchant eligibility or live payment qualification. Supported method names and uniqueness are validated even when disabled; a disabled draft may use an empty methods list.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/platform/payments/epay" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/admin/payments/epay" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

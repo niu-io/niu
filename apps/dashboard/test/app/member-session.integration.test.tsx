@@ -57,4 +57,35 @@ describe('production member browser sessions', () => {
     expect(calls.filter(call=>call.path==='/api/v1/auth/browser/logout')).toHaveLength(2);
     expect(calls.filter(call=>call.path==='/api/v1/auth/browser/logout').every(call=>!call.init?.headers)).toBe(true);
   });
+
+  it('recovers from a transient 502 on /api/v1/session during reload without kicking the signed-in user to /login', async () => {
+    let sessionReads = 0;
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input) => {
+      const path = String(input);
+      if (path === '/api/v1/auth/config') return Response.json({ password_login: true });
+      if (path === '/api/v1/auth/preferences') return Response.json({ data: { color_mode: 'system' } });
+      if (path === '/healthz') return Response.json({ status: 'ok', model_count: 1 });
+      if (path === '/api/v1/session') {
+        sessionReads += 1;
+        if (sessionReads === 1) return new Response(null, { status: 502 });
+        return Response.json({
+          data: {
+            kind: 'operator',
+            operator: { id: 'member', role: 'viewer', organization_id: 'org', project_id: 'default' },
+            permissions: { read: true, write: false, manage_operators: false },
+            provider_memberships: [],
+          },
+        });
+      }
+      if (path === '/api/v1/workspaces') return Response.json({ data: [{ id: 'default', name: 'Default', organization_id: 'org', organization_name: 'Company' }] });
+      if (path === '/api/v1/organizations') return Response.json({ data: [{ id: 'org', name: 'Company' }] });
+      return Response.json({ data: [] });
+    }));
+    const router = createMemoryRouter(appRoutes, { initialEntries: ['/workspaces/default/models'] });
+    render(<RouterProvider router={router} />);
+    await screen.findByRole('button', { name: 'Account menu' });
+    expect(router.state.location.pathname).toBe('/workspaces/default/models');
+    expect(sessionReads).toBe(2);
+    expect(screen.queryByText('Could not sign in. Try again.')).toBeNull();
+  });
 });

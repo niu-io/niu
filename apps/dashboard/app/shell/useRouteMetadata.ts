@@ -1,24 +1,18 @@
-import { useEffect, useMemo } from 'react';
-import { useLocation, useMatches } from 'react-router';
+import { useContext, useEffect, useMemo } from 'react';
+import { useLocation, UNSAFE_DataRouterStateContext, UNSAFE_DataRouterDataContext, type UIMatch } from 'react-router';
 import { catalogTitle } from '@/lib/providers';
 import { canManagePlatform, type AdminSession } from './dashboard-context';
 import { navigation, type NavItem } from './navigation';
 import type { RouteHandle } from './router-context';
 import { useLocale } from './ui-locale';
 
-const EMPTY_MATCHES: ReturnType<typeof useMatches> = [];
-
-function useSafeMatches() {
-  try {
-    return useMatches();
-  } catch {
-    return EMPTY_MATCHES;
-  }
-}
-
 export function useRouteMetadata(session: AdminSession | null, brandingDisplayName: string) {
   const location = useLocation();
-  const matches = useSafeMatches();
+  const routes = useContext(UNSAFE_DataRouterStateContext)?.matches;
+  const data = useContext(UNSAFE_DataRouterDataContext)?.loaderData;
+  const matches = useMemo<UIMatch[]>(() => (routes ?? []).map(({route, params, pathname}) => ({
+    id: route.id, params, pathname, handle: route.handle, loaderData: data?.[route.id],
+  })), [routes, data]);
   const { isZh, t } = useLocale();
 
   const matchedHandles = useMemo(() => {
@@ -66,7 +60,7 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
     settingsArea ||
     supplierArea;
   const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
-  const loginArea = normalizedPath === '/login' || normalizedPath === '/register' || normalizedPath === '/installation';
+  const loginArea = normalizedPath === '/login' || normalizedPath === '/register' || normalizedPath === '/setup';
   const publicModelsArea = normalizedPath === '/models' || normalizedPath.startsWith('/models/');
   const inviteArea = location.pathname === '/invite' || location.pathname.startsWith('/invite/');
   const activityArea = location.pathname === '/activity' || location.pathname.startsWith('/activity/');
@@ -121,42 +115,51 @@ export function useRouteMetadata(session: AdminSession | null, brandingDisplayNa
               organization: t('Organization', '组织'),
               account: t('Account', '账户'),
               appearance: t('Appearance', '外观'),
-              billing: t('Credits', '额度与充值'),
-              payments: t('Credits', '额度与充值'),
-              members: t('Members', '成员管理'),
+              billing: t('Credits', '额度'),
+              payments: t('Credits', '额度'),
+              members: t('Members', '成员'),
               about: t('About', '关于'),
             }[location.pathname.split('/')[2] ?? 'account'] ?? t('Settings', '设置'))
           : inviteArea
             ? t('Accept invitation', '接受邀请')
             : loginArea
-            ? location.pathname === '/installation'
-              ? t('Installation administration', '实例管理')
-              : t('Sign in', '登录')
+            ? normalizedPath === '/setup'
+              ? t('Initial setup', '初始化设置')
+              : normalizedPath === '/register'
+                ? t('Request account', '申请注册账号')
+                : t('Sign in', '登录')
               : supplierArea
-                ? ({
-                    customers: t('Customers', '客户管理'),
-                    reports: t('Financial reports', '财务报表'),
-                    oauth: t('OAuth providers', 'OAuth 服务商'),
-                    payments: t('Payment gateways', '支付网关'),
-                    pricing: t('Pricing', '定价配置'),
-                    branding: t('Branding', '品牌定制'),
-                    audit: t('Audit logs', '审计日志'),
-                    incidents: t('Incidents', '事故'),
-                    pools: t('Routing', '模型路由'),
-                    routing: t('Routing', '模型路由'),
-                    overview: t('Overview', '概览'),
-                    keys: t('Keys', '密钥'),
-                    models: t('Models', '模型'),
-                    usage: t('Usage', '调用量'),
-                    settlements: t('Settlements', '结算账单'),
-                    members: t('Members', '成员'),
-                    settings: location.pathname === '/admin/settings' ? t('Settings', '实例设置') : t('Settings', '设置'),
-                  }[location.pathname.split('/').pop() ?? ''] ??
-                  (location.pathname === '/admin/providers' || location.pathname === '/admin/suppliers'
-                    ? t('Providers', '模型供应商')
-                    : supplierManagement
-                      ? t('Overview', '概览')
-                      : t('Providers', '模型供应商')))
+                ? normalizedPath === '/admin'
+                  ? t('Overview', '总览')
+                  : normalizedPath === '/admin/settings/registration'
+                    ? t('Registration policy', '注册策略')
+                    : ({
+                        customers: t('Customers', '客户管理'),
+                        registrations: t('Registrations', '注册审批'),
+                        reports: t('Reports', '财务与用量'),
+                        oauth: t('OAuth providers', 'OAuth 服务商'),
+                        payments: t('Payments', '收款配置'),
+                        pricing: t('Standard pricing', '标准售价'),
+                        branding: t('Branding', '品牌定制'),
+                        audit: t('Audit logs', '审计日志'),
+                        incidents: t('Incidents', '连接事故'),
+                        pools: t('Custom models', '自定义模型'),
+                        routing: t('Custom models', '自定义模型'),
+                        overview: t('Overview', '概览'),
+                        keys: adminSupplierId ? t('API keys', 'API 密钥') : t('Connections', '上游连接'),
+                        connections: t('Connections', '上游连接'),
+                        models: t('Models', '模型'),
+                        usage: adminSupplierId ? t('Analytics', '统计') : t('Usage', '调用量'),
+                        settlements: adminSupplierId ? t('Analytics', '统计') : t('Settlements', '结算账单'),
+                        settings: adminSupplierId ? t('Configuration', '配置') : t('Settings', '平台设置'),
+                      }[normalizedPath.split('/').pop() ?? ''] ??
+                      (normalizedPath.startsWith('/admin/customers/')
+                        ? t('Customer', '客户详情')
+                        : normalizedPath === '/admin/providers' || normalizedPath === '/admin/suppliers'
+                        ? t('Providers', '模型供应商')
+                        : supplierManagement
+                          ? t('Overview', '概览')
+                          : t('Providers', '模型供应商')))
                 : activePath === 'keys/new'
                   ? t('New key', '新建密钥')
                   : activePath.startsWith('keys/')

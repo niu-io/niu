@@ -127,7 +127,7 @@ const sampleSummary = {
 it('renders a structured financial statement with period comparisons, active model filtering, and PDF export', async () => {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
-    if (url.includes('/api/v1/commercial-position')) {
+    if (url.includes('/api/v1/admin/finance/position')) {
       return Response.json(samplePosition);
     }
     return Response.json(sampleSummary);
@@ -201,7 +201,7 @@ it('guides initial setup without requesting a report in an empty currency',()=>{
 it('localizes generated report periods and missing amounts in Chinese', async()=>{
  const {saveLocale}=await import('@/shell/locale');saveLocale('zh-CN');
  currencyState.currency='USD';currencyState.ready=true;
- vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL)=>Response.json(String(input).includes('/commercial-position') ? samplePosition : sampleSummary)));
+ vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL)=>Response.json(String(input).includes('/finance/position') ? samplePosition : sampleSummary)));
  try {
   const view=render(<MemoryRouter initialEntries={['/admin/reports?mode=rolling&days=7']}><CommercialPositionPage/></MemoryRouter>);
   expect(await screen.findAllByText('最近 7 天')).not.toHaveLength(0);
@@ -220,7 +220,7 @@ it('keeps current-period totals visible when the comparison period fails and ret
       priorFailures += 1;
       return Response.json({error:{message:'Comparison unavailable'}},{status:503});
     }
-    return Response.json(url.pathname.includes('/commercial-position') ? samplePosition : sampleSummary);
+    return Response.json(url.pathname.includes('/finance/position') ? samplePosition : sampleSummary);
   });
   vi.stubGlobal('fetch', fetchMock);
   const user = userEvent.setup();
@@ -281,7 +281,7 @@ it('compacts sub-cent-hundredth figures and single-nanounit quotes while surfaci
     ],
   };
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) =>
-    Response.json(String(input).includes('/commercial-position') ? microPosition : microSummary)));
+    Response.json(String(input).includes('/finance/position') ? microPosition : microSummary)));
   const user = userEvent.setup();
 
   render(

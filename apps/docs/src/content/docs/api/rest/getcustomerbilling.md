@@ -1,11 +1,11 @@
 ---
 title: "Read workspace customer charges, tariffs and latest 100 invoices"
-description: "GET /api/v1/organizations/{organization}/projects/{project}/billing"
+description: "GET /api/v1/workspaces/{workspace}/billing"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/organizations/{organization}/projects/{project}/billing`
+`GET /api/v1/workspaces/{workspace}/billing`
 
 Requires workspace read access. Balances cover the full ledger per currency. Tariffs are current effective customer selling prices using the same workspace/standard enrollment and customer/global promotion selection as model discovery, within the billing read snapshot. Enabled personally funded routes are excluded. Rates are informational and do not establish route availability or spending authorization. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store.
 
@@ -28,24 +28,13 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/billing" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/billing" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

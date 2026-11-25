@@ -1,10 +1,17 @@
 # @niu-io/agent-connect
 
-Niu Agent Connect provides workspace-scoped connectors for coding agents. This
-package contains an Aider route-mode prototype and a Claude Code OpenTelemetry
-collection prototype. Neither connector is release qualified until its tested
-version and end-to-end evidence are recorded. The package is not published yet;
-use it from a Niu source checkout while these integrations remain in preview.
+Niu Agent Connect provides the browser-approval login command (`niu-login`) for
+Niu 0.3 coding agents alongside prototype connectors (`aider route` and legacy
+`claude collect`).
+
+## Browser login (`niu-login`)
+
+`niu-login` completes the Niu 0.3 `/connect` device-authorization flow and saves
+the granted credential to a private local file. By default it uses
+`NIU_CREDENTIAL_FILE` when set, falling back to `~/.config/niu/credential.json`;
+passing `--credentials <path>` overrides both. See
+[Niu agent installation](https://niu.io/docs/install.md) for the full coding-agent
+setup contract.
 
 ## Aider route prototype
 
@@ -37,7 +44,15 @@ Aider or model-provider subscription. Agent tool calls, retries, validation,
 and accepted outcomes are not captured by the route connector; Niu's gateway
 request activity remains the source for routed model requests.
 
-## Claude Code collection prototype
+## Claude Code collection prototype (legacy pre-0.3 compatibility boundary)
+
+> **Niu 0.3 compatibility notice:** `claude collect` posts sanitized OTLP records
+> to the legacy `/admin/v1/organizations/{organization}/projects/{project}/executions`
+> ingestion endpoint, which is **not exposed by Niu 0.3 gateways** and returns
+> HTTP 404. Do not use `claude collect` against a Niu 0.3 deployment. For Niu 0.3
+> coding-agent integration with Claude Code, Codex, or DeepSeek Harness, use
+> `niu-login` with `@niu-io/mcp` or the native plugin archives documented at
+> [https://niu.io/docs/install.md](https://niu.io/docs/install.md).
 
 Claude Code documents opt-in OpenTelemetry logs for request and tool metadata.
 The connector starts a loopback-only OTLP/HTTP JSON receiver for the wrapped

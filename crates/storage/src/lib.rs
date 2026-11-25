@@ -92,6 +92,7 @@ pub use encrypted_content::{EncryptedContent, EncryptedContentDomain};
 pub use encryption_rotation::{
     EncryptionRewrapTarget, EncryptionRotation, EncryptionRotationLease,
 };
+pub use password_logins::is_valid_email_address;
 mod branding;
 mod route_publication;
 pub use route_publication::{RouteRegistryCompiler, RouteRegistryPublication};
@@ -231,9 +232,9 @@ pub use operators::{
     OperatorSessionView, OperatorView,
 };
 pub use vendors::{
-    RouteRegistryInputs, RouteRegistryOffer, SharedVendorRoute, VendorAccessScope,
-    VendorCatalogInputs, VendorCatalogRoute, VendorInput, VendorModelInput, VendorModelView,
-    VendorRoute, VendorUpdate, VendorView,
+    PooledRouteSelection, RouteRegistryInputs, RouteRegistryOffer, SharedVendorRoute,
+    VendorAccessScope, VendorCatalogInputs, VendorCatalogRoute, VendorInput, VendorModelInput,
+    VendorModelView, VendorPoolMember, VendorRoute, VendorUpdate, VendorView,
 };
 mod context_pricing;
 pub use context_pricing::{
@@ -266,7 +267,8 @@ mod retail_selection;
 mod retail_text_bindings;
 pub use retail_media_enrollment::RetailMediaEnrollmentPublication;
 pub use retail_publication::{
-    RetailPromotionPublication, RetailPromotionRetirement, RetailStandardPublication,
+    CustomerPricingItemInput, RetailPromotionPublication, RetailPromotionRetirement,
+    RetailStandardPublication,
 };
 pub use retail_selection::RetailSelection;
 pub use retail_text_bindings::RetailTextEnrollmentPublication;
@@ -342,7 +344,9 @@ pub use codex_report::{
     CodexRateOverride, CodexRateSnapshot, CodexUsageImportFinish, CodexUsageImportStart,
     CodexUsageResponseInput, CodexUsageTokens,
 };
-pub use keys::{IssuedKey, KeyMutationResult, KeyMutationStatus, KeyView, Principal};
+pub use keys::{
+    IssuedKey, KeyMutationResult, KeyMutationStatus, KeySecretSealer, KeyView, Principal,
+};
 pub use pricing::{PriceInput, TokenRates};
 pub use provider_integrations::ProviderIntegration;
 pub use providers::{
@@ -385,6 +389,9 @@ pub struct NamedResource {
     #[sqlx(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub slug: Option<String>,
+    #[sqlx(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_kind: Option<String>,
 }
 
 /// Minimal authorized organization identity for restoring a canonical route.
@@ -784,7 +791,10 @@ impl Store {
                 .any(|((version, success, checksum), migration)| {
                     !success
                         || *version != migration.version
-                        || checksum.as_slice() != migration.checksum.as_ref()
+                        || !migration_compatibility::accepted_migration_checksum(
+                            *version,
+                            checksum.as_slice(),
+                        )
                 })
         {
             return Err(StoreError::Conflict);
@@ -864,18 +874,29 @@ impl Store {
     }
 
     /// Resolve in the database with scope predicates, independent of list limits.
+    /// Accepts canonical slug, alias, or UUID.
     pub async fn workspace_route(
         &self,
         route_slug: &str,
         organization_id: Option<Uuid>,
         project_id: Option<Uuid>,
     ) -> Result<Option<WorkspaceRoute>, StoreError> {
-        Ok(sqlx::query_as("SELECT p.id,p.organization_id,p.name,p.route_slug,p.route_slug AS slug,ARRAY(SELECT a.slug FROM workspace_slug_aliases a WHERE a.project_id=p.id) AS slug_aliases FROM projects p WHERE (p.route_slug=$1 OR EXISTS(SELECT 1 FROM workspace_slug_aliases a WHERE a.project_id=p.id AND a.slug=$1)) AND ($2::uuid IS NULL OR p.organization_id=$2) AND ($3::uuid IS NULL OR p.id=$3)")
-            .bind(route_slug)
-            .bind(organization_id)
-            .bind(project_id)
-            .fetch_optional(&self.pool)
-            .await?)
+        let trimmed = route_slug.trim();
+        let parsed_id = Uuid::parse_str(trimmed).ok();
+        Ok(sqlx::query_as(
+            "SELECT p.id,p.organization_id,p.name,p.route_slug,p.route_slug AS slug,\
+             ARRAY(SELECT a.slug FROM workspace_slug_aliases a WHERE a.project_id=p.id) AS slug_aliases \
+             FROM projects p \
+             WHERE (p.route_slug=$1 OR EXISTS(SELECT 1 FROM workspace_slug_aliases a WHERE a.project_id=p.id AND a.slug=$1) OR ($2::uuid IS NOT NULL AND p.id=$2)) \
+               AND ($3::uuid IS NULL OR p.organization_id=$3) \
+               AND ($4::uuid IS NULL OR p.id=$4)",
+        )
+        .bind(trimmed)
+        .bind(parsed_id)
+        .bind(organization_id)
+        .bind(project_id)
+        .fetch_optional(&self.pool)
+        .await?)
     }
 
     /// Resolve the owning organization of a workspace by ID with optional member scope.
@@ -966,7 +987,7 @@ impl Store {
             None => {
                 let organization_id = Uuid::new_v4();
                 let project_id = Uuid::new_v4();
-                sqlx::query("INSERT INTO organizations (id,name) VALUES ($1,'Personal workspace')")
+                sqlx::query("INSERT INTO organizations (id,name,account_kind) VALUES ($1,'Personal workspace','personal')")
                     .bind(organization_id)
                     .execute(&mut *tx)
                     .await?;

@@ -3,7 +3,7 @@ title: "Check process health"
 description: "GET /healthz"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /healthz`
 

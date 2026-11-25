@@ -6,7 +6,7 @@ import MediaRatePublisher from '../../../app/features/provider-business/MediaRat
 import type { SupplierMediaRateRecord } from '@niu-io/sdk/admin';
 
 const offer = '9c9d4c10-710e-447f-a37b-ae4894a606d4';
-const endpoint = '/api/v1/providers/supplier-a';
+const endpoint = '/api/v1/admin/providers/supplier-a';
 const model = {model_alias:'fixture-video',api_key_name:'Video credential',offer_revision:offer,vendor_revision:'4',model_revision:'2',schema_revision:'schema-2',channel:'ark-direct-v1',resolutions:['720p'],reference_video:false,meter:'video_tokens'};
 const q = (value:string) => ({numerator:value,denominator:'1'});
 async function fillNew(user: ReturnType<typeof userEvent.setup>) {
@@ -259,9 +259,9 @@ describe('configured video model purchase-rate setup', () => {
     await user.click(screen.getByRole('button', {name:'Publish rate and enable offer'}));
     await waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
     expect(calls.filter(call => call.method !== 'GET').map(call => `${call.method} ${call.path}`)).toEqual([
-      'POST /api/v1/providers/supplier-a/media-offers',
-      'PUT /api/v1/providers/supplier-a/offers/first-offer-id/authorization',
-      'POST /api/v1/providers/supplier-a/media-rates',
+      'POST /api/v1/admin/providers/supplier-a/media-offers',
+      'PUT /api/v1/admin/providers/supplier-a/offers/first-offer-id/authorization',
+      'POST /api/v1/admin/providers/supplier-a/media-rates',
     ]);
     expect(calls.find(call => call.path.endsWith('/media-offers'))?.body).toMatchObject({
       model_alias:'fixture-video', vendor_id:draft.vendor_id, vendor_revision:'4', model_revision:'2',
@@ -337,5 +337,23 @@ describe('configured video model purchase-rate setup', () => {
     await fillConfigured(user);
     expect((screen.getByRole('button', {name:'Publish rate and enable offer'}) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/Provider connection is unavailable/)).toBeTruthy();
+  });
+
+  it('keeps the form frame stably mounted while loading model choices in the Model selector', async () => {
+    let resolveModels!: (response: Response) => void;
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(resolve => { resolveModels = resolve; })));
+    const user = userEvent.setup();
+    render(<MediaRatePublisher token="fixture" supplier="supplier-a" onClose={vi.fn()} onSaved={vi.fn()} />);
+    const modelTrigger = screen.getByLabelText('Model') as HTMLButtonElement;
+    expect(modelTrigger.getAttribute('aria-busy')).toBe('true');
+    expect(modelTrigger.textContent).toContain('Loading model choices…');
+    expect(screen.getByLabelText('Price')).toBeTruthy();
+    expect((screen.getByRole('button', {name:'Publish rate'}) as HTMLButtonElement).disabled).toBe(true);
+
+    resolveModels(Response.json({data:[model], has_more:false, next_after:null}));
+    await waitFor(() => expect(modelTrigger.getAttribute('aria-busy')).toBeNull());
+    expect(modelTrigger.isConnected).toBe(true);
+    await user.click(modelTrigger);
+    expect(await screen.findByRole('menuitemradio', {name:'fixture-video · Video credential'})).toBeTruthy();
   });
 });

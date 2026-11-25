@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { ProviderNav } from '@/shell/AppLayout';
+import { ShellAccount, ShellNavigationContext } from '@/shell/ShellNavigation';
 import type { DashboardContext } from '@/shell/dashboard-context';
 
 it('keeps Admin sections independent of the Provider directory', () => {
@@ -11,7 +12,14 @@ it('keeps Admin sections independent of the Provider directory', () => {
   const context = {token:'test',session:{kind:'installation',operator:null}} as unknown as DashboardContext;
   render(<MemoryRouter initialEntries={['/admin/providers']}><SidebarProvider><ProviderNav context={context}/></SidebarProvider></MemoryRouter>);
   expect(screen.queryByRole('button', {name:'Switch provider'})).toBeNull();
-  for (const [name, href] of [['Providers','/admin/providers'],['Routing','/admin/routing'],['Customers','/admin/customers'],['Financial reports','/admin/reports'],['Pricing','/admin/pricing'],['Payment gateways','/admin/payments'],['Branding','/admin/branding']]) {
+  for (const [name, href] of [
+    ['Providers', '/admin/providers'],
+    ['Standard pricing', '/admin/pricing'],
+    ['Customers', '/admin/customers'],
+    ['Reports', '/admin/reports'],
+    ['Audit logs', '/admin/audit'],
+    ['Settings', '/admin/settings'],
+  ]) {
     expect(screen.getByRole('link', {name}).getAttribute('href')).toBe(href);
   }
 });
@@ -26,11 +34,11 @@ it('keeps Admin navigation available on Provider detail routes', () => {
   expect(screen.queryByText('Example provider')).toBeNull();
   expect(screen.getByRole('link', {name:'Providers'}).getAttribute('href')).toBe('/admin/providers');
   expect(screen.getByRole('link', {name:'Providers'}).getAttribute('aria-current')).toBe('page');
-  expect(screen.getByRole('link', {name:'Payment gateways'}).getAttribute('href')).toBe('/admin/payments');
-  expect(screen.getByRole('link', {name:'Payment gateways'}).hasAttribute('aria-current')).toBe(false);
+  expect(screen.getByRole('link', {name:'Standard pricing'}).getAttribute('href')).toBe('/admin/pricing');
+  expect(screen.getByRole('link', {name:'Standard pricing'}).hasAttribute('aria-current')).toBe(false);
   const adminLinks=screen.getByRole('navigation',{name:'Admin navigation'}).querySelectorAll('a');
   expect(adminLinks[adminLinks.length-1].getAttribute('href')).toBe('/admin/settings');
-  for (const name of ['All providers','Overview','Keys','Models','Usage','Settlements','Members']) {
+  for (const name of ['All providers','Connections','Keys','Models','Usage','Settlements','Members']) {
     expect(screen.queryByRole('link', {name})).toBeNull();
   }
 });
@@ -50,4 +58,63 @@ it('lets Provider members switch provider without losing the section or carrying
   expect(screen.getByRole('button', {name:'Switch provider'}).textContent).toContain('Second provider');
   expect(screen.getByRole('link', {name:'Overview'}).getAttribute('href')).toBe('/providers/supplier-b');
   expect(screen.queryByRole('menu')).toBeNull();
+});
+
+it('keeps Settings as the final Admin navigation link in both resale and internal modes', () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({data:[]})));
+  const internalContext = {token:'test',session:{kind:'installation',operating_mode:'internal',operator:null}} as unknown as DashboardContext;
+  render(
+    <MemoryRouter initialEntries={['/admin/providers']}>
+      <SidebarProvider>
+        <ProviderNav context={internalContext}/>
+      </SidebarProvider>
+    </MemoryRouter>
+  );
+  const links = screen.getByRole('navigation', { name: 'Admin navigation' }).querySelectorAll('a');
+  expect([...links].map(a => a.getAttribute('href'))).toEqual(['/admin/providers', '/admin/audit', '/admin/settings']);
+});
+
+function PathEcho() {
+  const { pathname } = useLocation();
+  return <div data-testid="path-echo">{pathname}</div>;
+}
+
+it('lets a platform administrator signed in as a normal user activate Admin from the sidebar footer in one click', async () => {
+  const setRole = vi.fn(async () => true);
+  const context = {
+    token: 'niu-browser-member-session',
+    session: {
+      kind: 'operator',
+      operator: { id: 'op-1', name: 'Founder', role: 'owner', organization_id: 'org-1', project_id: null },
+      permissions: { read: true, write: true, manage_operators: true, platform_admin: false },
+      admin_mode: { available: true, enabled: false },
+      roles: { active: 'user', available: ['user', 'admin'], switchable: true },
+      profile: { name: 'Founder', email: 'founder@example.test', avatar_data_url: null, revision: 0 },
+    },
+    workspace: { id: 'ws-1', name: 'Default' },
+    workspaces: [{ id: 'ws-1', name: 'Default' }],
+    organizations: [],
+    organization: null,
+    roleSwitch: { available: ['user', 'admin'], active: 'user', saving: false, error: '', setRole },
+    signOut: vi.fn(),
+    selectOrganization: vi.fn(),
+  } as unknown as DashboardContext;
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter initialEntries={['/workspaces/default/']}>
+      <SidebarProvider>
+        <ShellNavigationContext.Provider value={{ context, workspacePath: '/workspaces/default/', modelsHref: '/workspaces/default/models', generationsHref: '/generations' }}>
+          <ShellAccount />
+          <Routes>
+            <Route path="*" element={<PathEcho />} />
+          </Routes>
+        </ShellNavigationContext.Provider>
+      </SidebarProvider>
+    </MemoryRouter>,
+  );
+
+  const adminButton = screen.getByRole('button', { name: 'Admin' });
+  await user.click(adminButton);
+  expect(setRole).toHaveBeenCalledWith('admin');
+  expect(await screen.findByText('/admin')).toBeTruthy();
 });

@@ -2,7 +2,7 @@ use std::env;
 
 use axum::{
     Router, middleware,
-    response::{Redirect, Response},
+    response::{Html, IntoResponse, Redirect, Response},
     routing::get,
 };
 use tower_http::{
@@ -81,10 +81,8 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         "/login",
         "/register",
         "/connect",
-        "/installation",
+        "/setup",
         "/admin",
-        "/admin/customers",
-        "/admin/settings",
         "/admin/reports",
         "/admin/balances",
         "/admin/routing",
@@ -111,6 +109,9 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
             .route_service(&slash_path, ServeFile::new(dashboard_index.clone()));
     }
     for prefix in [
+        "/admin/customers",
+        "/admin/registrations",
+        "/admin/settings",
         "/admin/providers",
         "/admin/suppliers",
         "/generations",
@@ -241,9 +242,52 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
                 ServeFile::new(format!("{catalog_dir}/favicon.ico")),
             ),
     };
-    app.layer(middleware::from_fn(static_cache_headers)).layer(
-        CompressionLayer::new().compress_when(NotForContentType::const_new("text/event-stream")),
-    )
+    app.fallback(missing_page)
+        .layer(middleware::from_fn(static_cache_headers))
+        .layer(
+            CompressionLayer::new()
+                .compress_when(NotForContentType::const_new("text/event-stream")),
+        )
+}
+
+async fn missing_page(request: axum::extract::Request) -> Response {
+    use axum::http::{Method, StatusCode, header};
+    let accepts_html = request
+        .headers()
+        .get_all(header::ACCEPT)
+        .iter()
+        .any(|value| {
+            value.to_str().unwrap_or_default().split(',').any(|entry| {
+                entry
+                    .split(';')
+                    .next()
+                    .is_some_and(|mime| mime.trim().eq_ignore_ascii_case("text/html"))
+            })
+        });
+    let path = request.uri().path();
+    let namespace = path
+        .trim_start_matches('/')
+        .split('/')
+        .next()
+        .unwrap_or_default();
+    let machine_route = matches!(
+        namespace,
+        "api" | "admin-api" | "v1" | "v1beta" | "enterprise" | "plugins" | "assets"
+    );
+    if request.method() == Method::GET
+        && accepts_html
+        && !machine_route
+        && std::path::Path::new(path).extension().is_none()
+    {
+        (
+            StatusCode::NOT_FOUND,
+            [(header::VARY, "Accept")],
+            Html(include_str!("static_site/not-found.html")),
+        )
+            .into_response()
+    } else {
+        (StatusCode::NOT_FOUND, [(header::VARY, "Accept")]).into_response()
+    }
 }
 
 fn is_known_workspace_subpath(path: &str) -> bool {

@@ -183,11 +183,10 @@ export function ShellSidebar({
 
 export function AdminProviderTabs({
   adminSupplierId,
-  operatingMode,
   gatewayStatus,
 }: {
   adminSupplierId: string;
-  operatingMode: string | undefined;
+  operatingMode?: string | undefined;
   gatewayStatus: GatewayStatus;
 }) {
   const { t } = useLocale();
@@ -208,13 +207,16 @@ export function AdminProviderTabs({
     return () => observer.disconnect();
   }, [location.pathname, gatewayStatus]);
 
+  const rawSection = location.pathname.split('/')[4] || 'config';
+  const activeTab = rawSection === 'usage' || rawSection === 'settlements' ? 'usage' : 'config';
+
   return (
     <Tabs
-      value={location.pathname.split('/')[4] || 'overview'}
+      value={activeTab}
       onValueChange={section =>
         navigate(
           `/admin/providers/${encodeURIComponent(adminSupplierId)}${
-            section === 'overview' ? '' : '/' + section
+            section === 'config' ? '' : '/' + section
           }`,
         )
       }
@@ -223,30 +225,23 @@ export function AdminProviderTabs({
       <div ref={supplierTabsRef} className="max-w-full overflow-x-auto overflow-y-hidden">
         <TabsList variant="line" aria-label={t('Provider sections', '供应商详情分区')}>
           {[
-            ['overview', t('Overview', '概览')],
-            ['keys', t('Keys', '密钥')],
-            ['models', t('Models', '模型')],
-            ['usage', t('Usage', '调用量')],
-            ['settlements', t('Settlements', '结算账单')],
-            ['members', t('Members', '成员')],
-            ['settings', t('Settings', '设置')],
-          ]
-            .filter(([value]) => operatingMode !== 'internal' || !['settlements', 'members'].includes(value))
-            .map(([value, label]) => {
-              const tabPath = `/admin/providers/${encodeURIComponent(adminSupplierId)}${
-                value === 'overview' ? '' : '/' + value
-              }`;
-              return (
-                <TabsTrigger
-                  key={value}
-                  value={value}
-                  onPointerEnter={() => prefetchRouteIntent(tabPath)}
-                  onFocus={() => prefetchRouteIntent(tabPath)}
-                >
-                  {label}
-                </TabsTrigger>
-              );
-            })}
+            ['config', t('Configuration', '配置')],
+            ['usage', t('Analytics', '统计')],
+          ].map(([value, label]) => {
+            const tabPath = `/admin/providers/${encodeURIComponent(adminSupplierId)}${
+              value === 'config' ? '' : '/' + value
+            }`;
+            return (
+              <TabsTrigger
+                key={value}
+                value={value}
+                onPointerEnter={() => prefetchRouteIntent(tabPath)}
+                onFocus={() => prefetchRouteIntent(tabPath)}
+              >
+                {label}
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
       </div>
     </Tabs>

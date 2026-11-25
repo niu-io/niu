@@ -1,12 +1,11 @@
 import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { Empty, EmptyHeader, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
-import { IconVideo, IconKey, IconRefresh } from '@tabler/icons-react';
+import { IconVideo, IconRefresh } from '@tabler/icons-react';
 import { fetchQuery, isQueryFresh, peekQuery } from '@/lib/query-cache';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { ListRowsSkeleton } from '@/components/PageSkeletons';
 import type { DashboardContext } from '@/shell/dashboard-context';
@@ -17,6 +16,7 @@ import type { VideoGenerationsSession } from '@niu-io/sdk/generations-sessions';
 import { catalogTitle } from '@/lib/providers';
 import { translateUI } from '@/shell/ui-locale';
 import { GenerationSessionBindings } from './GenerationsLayout';
+import GenerationKeyPicker from './GenerationKeyPicker';
 import type { GenerationContextRunState, GenerationsContextPanelData } from './GenerationsContextPanel';
 import VideoTurnResult from './VideoTurnResult';
 import VideoSessionComposer from './VideoSessionComposer';
@@ -184,8 +184,10 @@ export default function VideoSessionView({context,id,run}:{context:DashboardCont
     }),
     initialRunId: run ?? null,
   };
+  const selectedSessionKey = keys.find(key => key.id === activeComposerKey);
+  const workspacePath = workspace ? `/workspaces/${workspacePathSegment(workspace, context.workspaces ?? [workspace])}` : undefined;
   return <div className="video-shell">
-    <GenerationSessionBindings trigger={trigger} sessionKey={session?.id ?? id} contextPanel={contextPanel} title={session?.title??uiT("Video session")} actions={<div className="playground-toolbar-actions"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="playground-key-trigger video-key-choice" aria-label={uiT("Video API key")} disabled={Boolean(session?.archived)||!keySelectionReady}><IconKey size={16}/><span className="truncate">{keys.find(key=>key.id===activeComposerKey)?.name ?? uiT("Choose API key")}</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={activeComposerKey} onValueChange={value=>{if(!keySelectionReady)return;setComposerKey(value);setKeyEditRevision(revision=>revision+1);}}>{keys.map(key=><DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>{!keys.length&&<DropdownMenuLabel>{uiT(availableKeys.loading?"Loading keys…":"No active API key")}</DropdownMenuLabel>}</DropdownMenuContent></DropdownMenu><Button variant="ghost" size="icon" aria-label={uiT("Refresh session")} onClick={bumpRevision}><IconRefresh size={16}/></Button></div>} history={{context,activeVideoSession:session?.reference??session?.id??id}}/>
+    <GenerationSessionBindings trigger={trigger} sessionKey={session?.id ?? id} contextPanel={contextPanel} title={session?.title??uiT("Video session")} actions={<div className="playground-toolbar-actions"><GenerationKeyPicker ariaLabel={uiT("Video API key")} className="video-key-choice" hasSelection={Boolean(selectedSessionKey)} emphasizeMissing={false} loading={availableKeys.loading} disabled={Boolean(session?.archived)||!keySelectionReady} triggerLabel={selectedSessionKey?.name ?? (availableKeys.loading ? uiT("Loading keys…") : uiT("Choose API key"))} selectedKeyId={activeComposerKey} keyOptions={keys} currentWorkspaceId={workspace?.id} errorText={availableKeys.error ? uiT("Some API keys could not be loaded.") : ''} manageKeysHref={workspacePath ? `${workspacePath}/keys` : undefined} onSelectKey={value=>{if(!keySelectionReady)return;setComposerKey(value);setKeyEditRevision(revision=>revision+1);}} /><Button variant="ghost" size="icon" aria-label={uiT("Refresh session")} onClick={bumpRevision}><IconRefresh size={16}/></Button></div>} history={{context,activeVideoSession:session?.reference??session?.id??id}}/>
     <section className="video-main playground-chat-main" aria-label={uiT("Saved Video session")}><div className="video-content"><div className="video-conversation playground-transcript">
       {error?<p role="alert" className="video-error">{uiT(error)}</p>:!session?<ListRowsSkeleton rows={3} label={uiT("Loading Video session…")}/>:<>
         {session.archived&&<p className="video-muted"><Badge variant="secondary">{uiT("Archived")}</Badge>{" "}{uiT("Restore this session from Archived sessions to return it to history.")}</p>}

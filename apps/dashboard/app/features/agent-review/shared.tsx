@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { IconArrowLeft, IconRefresh, IconSparkles } from '@tabler/icons-react';
+import { IconArrowLeft, IconCheck, IconCopy, IconExternalLink, IconRefresh, IconSparkles } from '@tabler/icons-react';
 import PageHeader from '@/components/PageHeader';
+import { ListRowsSkeleton } from '@/components/PageSkeletons';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -59,15 +60,20 @@ export function agentHandoffPrompt(routeWorkspace: string, task: string) {
 export function CopyAgentPrompt({
   prompt,
   onError,
+  variant = 'outline',
+  size = 'default',
 }: {
   prompt: string;
   onError: (message: string) => void;
+  variant?: 'default' | 'outline';
+  size?: 'default' | 'sm';
 }) {
   const { t: uiT } = useUILocale();
   const [copied, setCopied] = useState(false);
   return (
     <Button
-      variant="outline"
+      variant={variant}
+      size={size}
       onClick={() => {
         void navigator.clipboard
           .writeText(prompt)
@@ -77,7 +83,8 @@ export function CopyAgentPrompt({
           );
       }}
     >
-      {copied ? uiT('Copied') : uiT('Copy agent prompt')}
+      {copied ? <IconCheck size={15} aria-hidden="true" /> : <IconCopy size={15} aria-hidden="true" />}
+      <span>{copied ? uiT('Copied') : uiT('Copy agent prompt')}</span>
     </Button>
   );
 }
@@ -102,18 +109,21 @@ export function ReviewEmptyState({
     <Empty>
       <EmptyHeader>
         <EmptyMedia variant="icon">
-          {icon ?? <IconSparkles size={20} aria-hidden="true" />}
+          {icon ?? <IconSparkles aria-hidden="true" />}
         </EmptyMedia>
         <EmptyTitle role="heading" aria-level={2}>
           {title}
         </EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
-      <EmptyContent className="flex-row flex-wrap justify-center">
+      <EmptyContent className="flex-row flex-wrap justify-center gap-2.5">
+        <CopyAgentPrompt prompt={prompt} onError={onError} variant="default" />
         {actions}
-        <CopyAgentPrompt prompt={prompt} onError={onError} />
-        <Button variant="outline" asChild>
-          <a href={`${import.meta.env.BASE_URL}docs/agents/`} target="_blank" rel="noopener">{uiT('Agent setup guide')}</a>
+        <Button variant="ghost" asChild>
+          <a href={`${import.meta.env.BASE_URL}docs/agents/`} target="_blank" rel="noopener">
+            <IconExternalLink size={15} aria-hidden="true" />
+            <span>{uiT('Agent setup guide')}</span>
+          </a>
         </Button>
       </EmptyContent>
     </Empty>
@@ -193,9 +203,7 @@ export function ReviewPageShell({
         </Alert>
       )}
       {loading ? (
-        <p role="status" className="py-8 text-muted-foreground">
-          {uiT('Loading workspace evidence…')}
-        </p>
+        <ListRowsSkeleton rows={4} label={uiT('Loading workspace evidence…')} />
       ) : (
         !error && children
       )}

@@ -1308,8 +1308,8 @@ async fn buffered_output_withholds_content_but_preserves_incurred_charges(pool: 
     let response = router(state.clone())
         .oneshot(
             Request::get(format!(
-                "/admin/v1/organizations/{}/projects/{}/requests?status=output_withheld&limit=1",
-                scope.organization_id, scope.project_id
+                "/api/v1/workspaces/{}/requests?status=output_withheld&limit=1",
+                scope.project_id
             ))
             .header(
                 "authorization",
@@ -1654,9 +1654,9 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
         identities.push((actor.token, expected));
     }
     let app = router(state.clone());
-    let funding_path = format!("/admin/v1/organizations/{org}/billing/funding/settled");
-    let balance_path = format!("/admin/v1/organizations/{org}/billing/balance");
-    let policy_path = format!("/admin/v1/organizations/{org}/billing/accounts/CNY/policy");
+    let funding_path = format!("/api/v1/organizations/{org}/billing/funding/settled");
+    let balance_path = format!("/api/v1/organizations/{org}/billing/balance");
+    let policy_path = format!("/api/v1/organizations/{org}/billing/accounts/CNY/policy");
     let policy = json!({"credit_limit_nanos":"0","warning_threshold_nanos":"2000000000","expected_revision":"0"});
     let funding = json!({"currency":"CNY","amount_nanos":"1000000000","channel":"test-bank-settlement","payment_reference":"verified-fixture"});
     for (token, expected) in &identities {
@@ -1674,12 +1674,10 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
         let response = app
             .clone()
             .oneshot(
-                Request::get(format!(
-                    "/admin/v1/organizations/{org}/billing/transactions"
-                ))
-                .header("authorization", format!("Bearer {token}"))
-                .body(axum::body::Body::empty())
-                .unwrap(),
+                Request::get(format!("/api/v1/organizations/{org}/billing/transactions"))
+                    .header("authorization", format!("Bearer {token}"))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
             )
             .await
             .unwrap();
@@ -1701,7 +1699,7 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
             .clone()
             .oneshot(
                 Request::post(format!(
-                    "/admin/v1/organizations/{org}/billing/entries/{}/reversal",
+                    "/api/v1/organizations/{org}/billing/entries/{}/reversal",
                     uuid::Uuid::new_v4()
                 ))
                 .header("authorization", format!("Bearer {token}"))
@@ -1801,7 +1799,7 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
             .clone()
             .oneshot(
                 Request::get(format!(
-                    "/admin/v1/organizations/{org}/billing/transactions?before={foreign_cursor}"
+                    "/api/v1/organizations/{org}/billing/transactions?before={foreign_cursor}"
                 ))
                 .header("authorization", format!("Bearer {token}"))
                 .body(axum::body::Body::empty())
@@ -1816,7 +1814,7 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
             .clone()
             .oneshot(
                 Request::get(format!(
-                    "/admin/v1/organizations/{org}/billing/transactions?{query}"
+                    "/api/v1/organizations/{org}/billing/transactions?{query}"
                 ))
                 .header("authorization", format!("Bearer {}", identities[0].0))
                 .body(axum::body::Body::empty())
@@ -1829,12 +1827,10 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
     let response = app
         .clone()
         .oneshot(
-            Request::get(format!(
-                "/admin/v1/organizations/{org}/billing/transactions"
-            ))
-            .header("authorization", format!("Bearer {}", identities[0].0))
-            .body(axum::body::Body::empty())
-            .unwrap(),
+            Request::get(format!("/api/v1/organizations/{org}/billing/transactions"))
+                .header("authorization", format!("Bearer {}", identities[0].0))
+                .body(axum::body::Body::empty())
+                .unwrap(),
         )
         .await
         .unwrap();
@@ -1856,7 +1852,7 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
         .await
         .unwrap();
     let reversal_path = format!(
-        "/admin/v1/organizations/{org}/billing/entries/{}/reversal",
+        "/api/v1/organizations/{org}/billing/entries/{}/reversal",
         entries[0]["id"].as_str().unwrap()
     );
     let reversal = json!({"amount_nanos":"100000000","idempotency_key":uuid::Uuid::new_v4()});
@@ -1882,7 +1878,7 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
         "900000000"
     );
     let warning_path =
-        format!("/admin/v1/organizations/{org}/billing/accounts/CNY/warning-threshold");
+        format!("/api/v1/organizations/{org}/billing/accounts/CNY/warning-threshold");
     for (index, (token, _)) in identities.iter().enumerate() {
         let expected = match index {
             0 | 1 => StatusCode::OK,
@@ -1928,7 +1924,7 @@ async fn shared_balance_api_requires_company_access_and_trusted_funding(pool: sq
     );
 
     let foreign = format!(
-        "/admin/v1/organizations/{}/billing/balance",
+        "/api/v1/organizations/{}/billing/balance",
         uuid::Uuid::new_v4()
     );
     let response = app
@@ -1967,6 +1963,11 @@ async fn output_observation_preserves_original_and_cannot_weaken_enforcement(poo
     let address = listener.local_addr().unwrap();
     let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
     let mut state = test_state(Some(format!("http://{address}/v1")), pool.clone());
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
     Arc::make_mut(&mut state.config)
         .models
         .get_mut("fast")
@@ -2107,5 +2108,470 @@ async fn output_observation_preserves_original_and_cannot_weaken_enforcement(poo
         .unwrap()
         .contains("sensitive-observation-fixture")
     );
+    server.abort();
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn admin_topup_credit_limit_overdraft_and_repayment_end_to_end(pool: sqlx::PgPool) {
+    let captured = Captured::default();
+    let upstream = Router::new()
+        .route("/v1/chat/completions", post(provider))
+        .with_state(captured.clone());
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+    let mut state = test_state(Some(format!("http://{address}/v1")), pool.clone());
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    Arc::make_mut(&mut state.config)
+        .models
+        .get_mut("fast")
+        .unwrap()
+        .pricing = Some(crate::config::RoutePricing {
+        currency: "USD".into(),
+        api_prompt_rate: 2_000_000,
+        api_completion_rate: 4_000_000,
+        cash_prompt_rate: 1_000_000,
+        cash_completion_rate: 2_000_000,
+        max_input_tokens: PRICED_INPUT_BOUND,
+        max_output_tokens: 10,
+    });
+    let org = state
+        .store
+        .create_prepaid_organization("Overdraft customer", "USD")
+        .await
+        .unwrap();
+    let scope = state
+        .store
+        .create_project(org, "Overdraft workspace")
+        .await
+        .unwrap();
+    state
+        .store
+        .create_budget(scope, "USD", 1_000_000)
+        .await
+        .unwrap();
+    state
+        .store
+        .publish_customer_tariff(
+            scope,
+            &niu_storage::ProviderOfferInput {
+                model_alias: "fast".into(),
+                currency: "USD".into(),
+                prompt_rate: "1000000".into(),
+                completion_rate: "2000000".into(),
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "overdraft client", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    // Create a platform_admin member to verify Platform Admin top-up & credit approval.
+    let platform_admin = state
+        .store
+        .create_operator(
+            niu_storage::OperatorScope {
+                organization_id: org,
+                project_id: None,
+            },
+            "Platform billing admin",
+            niu_storage::OperatorRole::Owner,
+            3600,
+            niu_storage::OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    sqlx::query("UPDATE admin_operators SET platform_admin=true WHERE id=$1")
+        .bind(platform_admin.operator_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let app = router(state.clone());
+
+    // 1. Zero balance + zero credit limit (with no online merchant) must fail closed before dispatch.
+    let blocked = app
+        .clone()
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","messages":[{"role":"user","content":"hi"}]}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(
+        matches!(
+            blocked.status(),
+            StatusCode::PAYMENT_REQUIRED | StatusCode::SERVICE_UNAVAILABLE
+        ),
+        "zero-balance zero-credit request must be blocked, got {}",
+        blocked.status()
+    );
+    assert!(captured.0.lock().unwrap().is_none());
+
+    // 2. Platform Admin sets credit limit allowing overdraft while balance is 0.
+    // Two requests can be reserved if credit_limit >= PRICED_RESERVATION + actual_charge_of_first.
+    let credit_limit = PRICED_RESERVATION + 20;
+    let policy_resp = app
+        .clone()
+        .oneshot(
+            Request::put(format!(
+                "/api/v1/organizations/{org}/billing/accounts/USD/policy"
+            ))
+            .header("authorization", format!("Bearer {}", platform_admin.token))
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(
+                json!({
+                    "credit_limit_nanos": credit_limit.to_string(),
+                    "warning_threshold_nanos": null,
+                    "expected_revision": "0"
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(policy_resp.status(), StatusCode::OK);
+
+    // 3. First inference succeeds on credit, driving posted_balance_nanos negative.
+    let first = app
+        .clone()
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","messages":[{"role":"user","content":"hi"}]}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first.status(), StatusCode::OK);
+    let _ = first.into_body().collect().await.unwrap();
+    let after_first = state.store.customer_balance_summary(org).await.unwrap();
+    let balance_after_first: i64 = after_first[0]["balance_nanos"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(
+        balance_after_first < 0,
+        "expected negative arrears balance, got {balance_after_first}"
+    );
+    let available_after_first: i64 = after_first[0]["available_nanos"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(available_after_first >= PRICED_RESERVATION);
+
+    // 4. Second inference continues seamlessly while in arrears within credit limit.
+    let second = app
+        .clone()
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","messages":[{"role":"user","content":"hi"}]}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(second.status(), StatusCode::OK);
+    let _ = second.into_body().collect().await.unwrap();
+
+    // 5. Lower credit limit below remaining reservation requirement (still >0 so readiness passes):
+    //    arrears remain and further calls are rejected specifically with 402 Payment Required.
+    let revoke_credit = app
+        .clone()
+        .oneshot(
+            Request::put(format!(
+                "/api/v1/organizations/{org}/billing/accounts/USD/policy"
+            ))
+            .header("authorization", format!("Bearer {}", platform_admin.token))
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(
+                json!({
+                    "credit_limit_nanos": "1",
+                    "warning_threshold_nanos": null,
+                    "expected_revision": "1"
+                })
+                .to_string(),
+            ))
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(revoke_credit.status(), StatusCode::OK);
+    let denied_in_arrears = app
+        .clone()
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","messages":[{"role":"user","content":"hi"}]}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(denied_in_arrears.status(), StatusCode::PAYMENT_REQUIRED);
+
+    // 6. Platform Admin tops up customer via POST .../funding/settled (idempotent on retry).
+    let topup_body = json!({
+        "currency": "USD",
+        "amount_nanos": "50000000000",
+        "channel": "test_topup",
+        "payment_reference": "overdraft-repay-01"
+    });
+    for _ in 0..2 {
+        let topup = app
+            .clone()
+            .oneshot(
+                Request::post(format!(
+                    "/api/v1/organizations/{org}/billing/funding/settled"
+                ))
+                .header("authorization", format!("Bearer {}", platform_admin.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(topup_body.to_string()))
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(topup.status(), StatusCode::OK);
+    }
+    let after_topup = state.store.customer_balance_summary(org).await.unwrap();
+    let balance_after_topup: i64 = after_topup[0]["balance_nanos"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(
+        balance_after_topup > 49_000_000_000 && balance_after_topup < 50_000_000_000,
+        "idempotent top-up should credit once and repay arrears, got {balance_after_topup}"
+    );
+    let resumed = app
+        .clone()
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","messages":[{"role":"user","content":"hi"}]}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resumed.status(), StatusCode::OK);
+    let _ = resumed.into_body().collect().await.unwrap();
+    server.abort();
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn fail_closed_billing_rejects_unpriced_and_zero_tariff_paid_models(pool: sqlx::PgPool) {
+    let captured = Captured::default();
+    let upstream = Router::new()
+        .route("/v1/chat/completions", post(provider))
+        .with_state(captured.clone());
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+    let mut state = test_state(Some(format!("http://{address}/v1")), pool.clone());
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    // Route A: has provider pricing (paid), initially NO customer tariff.
+    Arc::make_mut(&mut state.config)
+        .models
+        .get_mut("fast")
+        .unwrap()
+        .pricing = Some(crate::config::RoutePricing {
+        currency: "USD".into(),
+        api_prompt_rate: 2_000_000,
+        api_completion_rate: 4_000_000,
+        cash_prompt_rate: 1_000_000,
+        cash_completion_rate: 2_000_000,
+        max_input_tokens: PRICED_INPUT_BOUND,
+        max_output_tokens: 10,
+    });
+    // Route B: NO procurement pricing at all.
+    let mut unpriced_route = state.config.models.get("fast").unwrap().clone();
+    unpriced_route.pricing = None;
+    Arc::make_mut(&mut state.config)
+        .models
+        .insert("unpriced-model".into(), unpriced_route);
+
+    let org = state
+        .store
+        .create_prepaid_organization("Fail-closed customer", "USD")
+        .await
+        .unwrap();
+    let scope = state
+        .store
+        .create_project(org, "Fail-closed workspace")
+        .await
+        .unwrap();
+    state
+        .store
+        .create_budget(scope, "USD", 1_000_000)
+        .await
+        .unwrap();
+    state
+        .store
+        .record_settled_customer_funding(
+            org,
+            "USD",
+            50_000_000_000,
+            "test_topup",
+            "fail-closed-ref",
+        )
+        .await
+        .unwrap();
+    let key = state
+        .store
+        .issue_key(
+            scope,
+            "fail-closed client",
+            &["fast".into(), "unpriced-model".into()],
+            3600,
+        )
+        .await
+        .unwrap();
+    let app = router(state.clone());
+
+    // 1. Model with NO procurement pricing must be rejected before dispatch.
+    let no_proc = app
+        .clone()
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"unpriced-model","messages":[{"role":"user","content":"hi"}]})
+                        .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(no_proc.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let no_proc_body: Value =
+        serde_json::from_slice(&no_proc.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(no_proc_body["error"]["type"], "service_not_ready");
+    assert!(captured.0.lock().unwrap().is_none());
+
+    // 2. Model with provider pricing but NO customer tariff must be rejected before dispatch.
+    let no_tariff = app
+        .clone()
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","messages":[{"role":"user","content":"hi"}]}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(no_tariff.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let no_tariff_body: Value =
+        serde_json::from_slice(&no_tariff.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(no_tariff_body["error"]["type"], "service_not_ready");
+    assert!(captured.0.lock().unwrap().is_none());
+
+    // 3. Accidentally setting a $0 customer tariff on a paid provider route must fail closed.
+    let zero_rev = state
+        .store
+        .publish_customer_tariff(
+            scope,
+            &niu_storage::ProviderOfferInput {
+                model_alias: "fast".into(),
+                currency: "USD".into(),
+                prompt_rate: "0".into(),
+                completion_rate: "0".into(),
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    let zero_on_paid = app
+        .clone()
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","messages":[{"role":"user","content":"hi"}]}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        zero_on_paid.status(),
+        StatusCode::SERVICE_UNAVAILABLE,
+        "zero customer tariff on a paid provider route must fail closed"
+    );
+    let zero_body: Value =
+        serde_json::from_slice(&zero_on_paid.into_body().collect().await.unwrap().to_bytes())
+            .unwrap();
+    assert_eq!(zero_body["error"]["type"], "service_not_ready");
+    assert!(
+        captured.0.lock().unwrap().is_none(),
+        "upstream provider must never be contacted for a zero-tariff paid route"
+    );
+
+    // 4. Publishing a positive customer tariff unblocks the exact same request cleanly.
+    state
+        .store
+        .publish_customer_tariff(
+            scope,
+            &niu_storage::ProviderOfferInput {
+                model_alias: "fast".into(),
+                currency: "USD".into(),
+                prompt_rate: "1000000".into(),
+                completion_rate: "2000000".into(),
+                expected_revision: Some(zero_rev),
+            },
+        )
+        .await
+        .unwrap();
+    let priced_ok = app
+        .clone()
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","messages":[{"role":"user","content":"hi"}]}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(priced_ok.status(), StatusCode::OK);
+    let _ = priced_ok.into_body().collect().await.unwrap();
+    assert!(captured.0.lock().unwrap().is_some());
     server.abort();
 }

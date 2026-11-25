@@ -671,6 +671,127 @@ fn require_owner_for_policy(auth: AdminAuthorization) -> Result<(), ApiError> {
 ///         }
 ///       }
 ///     },
+///     "WorkspaceKey": {
+///       "type": "object",
+///       "required": [
+///         "id",
+///         "revision",
+///         "name",
+///         "allowed_models",
+///         "invocation_allowed",
+///         "invocation_protocols",
+///         "expires_at_ms",
+///         "last_used_at_ms",
+///         "revoked",
+///         "expired",
+///         "slug"
+///       ],
+///       "properties": {
+///         "id": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "revision": {
+///           "type": "integer",
+///           "format": "int64",
+///           "minimum": 1
+///         },
+///         "name": {
+///           "type": "string"
+///         },
+///         "allowed_models": {
+///           "type": "array",
+///           "items": {
+///             "type": "string"
+///           }
+///         },
+///         "invocation_allowed": {
+///           "type": "boolean",
+///           "description": "Whether this key may invoke models; false identifies a management-only key. Model grants do not override this flag."
+///         },
+///         "invocation_protocols": {
+///           "type": "array",
+///           "items": {
+///             "type": "string",
+///             "enum": [
+///               "chat",
+///               "responses",
+///               "messages",
+///               "content",
+///               "decisions",
+///               "embeddings",
+///               "video"
+///             ]
+///           },
+///           "description": "Exact approved model interfaces; an interface outside this list remains denied regardless of the model grant."
+///         },
+///         "expires_at_ms": {
+///           "type": [
+///             "integer",
+///             "null"
+///           ],
+///           "format": "int64",
+///           "description": "Unix milliseconds for finite expiration. Null means no automatic expiration, not an invalid or unknown timestamp. Rotation preserves this state."
+///         },
+///         "last_used_at_ms": {
+///           "type": [
+///             "integer",
+///             "null"
+///           ],
+///           "format": "int64",
+///           "description": "Latest durable dispatch intent in Unix milliseconds. Null means no attributed dispatch is recorded, not that the credential was never authenticated. Rotation preserves the old key's history; its replacement starts without a dispatch record."
+///         },
+///         "revoked": {
+///           "type": "boolean"
+///         },
+///         "expired": {
+///           "type": "boolean"
+///         },
+///         "slug": {
+///           "type": "string",
+///           "maxLength": 48,
+///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+///           "description": "Stable readable slug for product URLs. Renaming preserves it."
+///         }
+///       }
+///     },
+///     "ApiErrorResponse": {
+///       "type": "object",
+///       "required": [
+///         "error"
+///       ],
+///       "description": "Gateway application error envelope. This does not describe framework body/path parsing failures or a proxy-generated response. Branch on error.type and HTTP status rather than matching message text.",
+///       "properties": {
+///         "error": {
+///           "type": "object",
+///           "required": [
+///             "message",
+///             "type",
+///             "param",
+///             "code"
+///           ],
+///           "properties": {
+///             "message": {
+///               "type": "string",
+///               "description": "Safe human-readable explanation; not a stable programmatic identifier."
+///             },
+///             "type": {
+///               "type": "string",
+///               "description": "Machine-readable failure category; new categories may be added."
+///             },
+///             "param": {
+///               "type": "null"
+///             },
+///             "code": {
+///               "type": "integer",
+///               "minimum": 400,
+///               "maximum": 599,
+///               "description": "HTTP status code, not a separate application error number."
+///             }
+///           }
+///         }
+///       }
+///     },
 ///     "WorkspaceKeyDetail": {
 ///       "description": "Workspace management key metadata and customer policies. Never contains the API secret or Provider procurement information.",
 ///       "allOf": [
@@ -781,18 +902,13 @@ pub async fn list_keys(
     headers: HeaderMap,
     axum::extract::Query(query): axum::extract::Query<super::KeyListQuery>,
 ) -> Result<Json<Value>, ApiError> {
-    let reveal = query.reveal == Some(true);
-    let (_, scope) = authorize_workspace(
-        &state,
-        &headers,
-        workspace,
-        if reveal {
-            AdminPermission::Write
-        } else {
-            AdminPermission::Read
-        },
-    )
-    .await?;
+    if query.reveal == Some(true) {
+        return Err(ApiError::invalid_request(
+            "API key secrets can only be revealed when retrieving a single key",
+        ));
+    }
+    let (_, scope) =
+        authorize_workspace(&state, &headers, workspace, AdminPermission::Read).await?;
     if query.limit.is_some() || query.after.is_some() || query.status.is_some() {
         let limit = query.limit.unwrap_or(50);
         if !(1..=100).contains(&limit) {
@@ -800,7 +916,7 @@ pub async fn list_keys(
                 "Key page limit must be between 1 and 100",
             ));
         }
-        let (mut data, next_cursor) = state
+        let (data, next_cursor) = state
             .store
             .key_detail_directory_page(
                 scope,
@@ -812,29 +928,15 @@ pub async fn list_keys(
             )
             .await
             .map_err(ApiError::from_store)?;
-        if reveal {
-            state
-                .store
-                .attach_key_secrets(scope, &mut data)
-                .await
-                .map_err(ApiError::from_store)?;
-        }
         return Ok(Json(
             serde_json::json!({"data": data, "next_cursor": next_cursor}),
         ));
     }
-    let mut data = state
+    let data = state
         .store
         .list_key_details(scope)
         .await
         .map_err(ApiError::from_store)?;
-    if reveal {
-        state
-            .store
-            .attach_key_secrets(scope, &mut data)
-            .await
-            .map_err(ApiError::from_store)?;
-    }
     Ok(Json(serde_json::json!({"data": data})))
 }
 
@@ -1145,10 +1247,11 @@ pub async fn create_key(
         ip_policy: input.allowed_cidrs.map(|cidrs| (Some(cidrs), 0)),
     };
     let request = key_mutation_request(&headers)?;
+    let sealer = super::key_secret_sealer(&state, scope);
     let issued = if let Some(request) = request {
         state
             .store
-            .issue_key_request(
+            .issue_key_request_with_sealer(
                 scope,
                 request,
                 &input.name,
@@ -1156,19 +1259,21 @@ pub async fn create_key(
                 input.ttl_seconds,
                 policies,
                 actor,
+                sealer.as_deref(),
             )
             .await
             .map_err(ApiError::from_store)?
     } else {
         let issued = state
             .store
-            .issue_key_with_policies(
+            .issue_key_with_policies_and_sealer(
                 scope,
                 &input.name,
                 &input.allowed_models,
                 input.ttl_seconds,
                 policies,
                 actor,
+                sealer.as_deref(),
             )
             .await
             .map_err(ApiError::from_store)?;
@@ -1308,9 +1413,15 @@ pub async fn get_key(
     Path((workspace, key)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
     axum::extract::Query(query): axum::extract::Query<super::KeyListQuery>,
-) -> Result<Json<Value>, ApiError> {
+) -> Result<
+    (
+        [(axum::http::header::HeaderName, &'static str); 1],
+        Json<Value>,
+    ),
+    ApiError,
+> {
     let reveal = query.reveal == Some(true);
-    let (_, scope) = authorize_workspace(
+    let (auth, scope) = authorize_workspace(
         &state,
         &headers,
         workspace,
@@ -1327,14 +1438,32 @@ pub async fn get_key(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
-    if reveal {
-        state
+    if reveal && let Some(cipher) = state.vendor_cipher.as_deref() {
+        let actor = super::key_audit_actor(auth);
+        let secrets = state
             .store
-            .attach_key_secrets(scope, std::slice::from_mut(&mut detail))
+            .reveal_key_secrets(scope, &[key], &actor)
             .await
             .map_err(ApiError::from_store)?;
+        if let Some(ciphertext) = secrets.get(&key) {
+            let secret = cipher
+                .open_api_key_secret(scope, key, ciphertext)
+                .map_err(|_| ApiError::unavailable())?;
+            let preview = if secret.len() >= 12 {
+                format!("{}••••••••{}", &secret[..8], &secret[secret.len() - 4..])
+            } else {
+                "niu_••••••••".to_string()
+            };
+            if let Some(obj) = detail.as_object_mut() {
+                obj.insert("token".to_string(), Value::String(secret));
+                obj.insert("token_preview".to_string(), Value::String(preview));
+            }
+        }
     }
-    Ok(Json(detail))
+    Ok((
+        [(axum::http::header::CACHE_CONTROL, "no-store")],
+        Json(detail),
+    ))
 }
 
 /// ```openapi
@@ -1947,16 +2076,17 @@ pub async fn rotate_key(
 ) -> Result<(StatusCode, [(String, String); 1], Json<Value>), ApiError> {
     let (_, scope) =
         authorize_workspace(&state, &headers, workspace, AdminPermission::Write).await?;
+    let sealer = super::key_secret_sealer(&state, scope);
     let issued = if let Some(request) = key_mutation_request(&headers)? {
         state
             .store
-            .rotate_key_request(scope, request, key)
+            .rotate_key_request_with_sealer(scope, request, key, sealer.as_deref())
             .await
             .map_err(ApiError::from_store)?
     } else {
         let issued = state
             .store
-            .rotate_key(scope, key)
+            .rotate_key_with_sealer(scope, key, sealer.as_deref())
             .await
             .map_err(ApiError::from_store)?;
         niu_storage::KeyMutationResult {

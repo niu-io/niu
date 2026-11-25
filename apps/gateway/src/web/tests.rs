@@ -355,12 +355,12 @@ async fn external_agent_ingestion_routes_are_not_available() {
         .connect_lazy("postgres://unused:unused@127.0.0.1:1/unused")
         .unwrap();
     let app = router(test_state(None, pool));
-    let scope = "/admin/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002";
+    let scope = "/api/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002";
     for path in [
-        "/admin/v1/agent-observability/connections".to_string(),
-        "/admin/v1/agent-observability/traces".to_string(),
-        "/admin/v1/agent-observability/observations".to_string(),
-        "/admin/v1/benchmarks/compare".to_string(),
+        "/api/v1/agent-observability/connections".to_string(),
+        "/api/v1/agent-observability/traces".to_string(),
+        "/api/v1/agent-observability/observations".to_string(),
+        "/api/v1/benchmarks/compare".to_string(),
         format!("{scope}/codex-usage/imports"),
         format!("{scope}/execution-imports"),
         format!("{scope}/executions"),
@@ -391,7 +391,7 @@ async fn three_plane_routes_enforce_boundaries_and_remove_cloned_dashboard_infer
         .connect_lazy("postgres://unused:unused@127.0.0.1:1/unused")
         .unwrap();
     let app = router(test_state(None, pool));
-    let key_scope = "/admin/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002/keys/00000000-0000-0000-0000-000000000003";
+    let key_scope = "/api/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002/keys/00000000-0000-0000-0000-000000000003";
     for (method, path) in [
         ("POST", format!("{key_scope}/chat/completions")),
         ("POST", format!("{key_scope}/video/jobs")),
@@ -430,29 +430,29 @@ async fn three_plane_routes_enforce_boundaries_and_remove_cloned_dashboard_infer
         ),
         ("GET", "/api/v1/session"),
         ("GET", "/api/v1/workspaces"),
-        ("GET", "/api/v1/routing/index"),
+        ("GET", "/api/v1/admin/routing/index"),
         ("GET", "/v1/media/groups"),
         ("GET", "/v1/media/operations"),
         ("POST", "/v1/media/verifications"),
         (
             "GET",
-            "/api/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002/chats",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/chats",
         ),
         (
             "GET",
-            "/api/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002/generations",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/sessions?category=video",
         ),
         (
             "GET",
-            "/api/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002/generations/00000000-0000-0000-0000-000000000003",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/sessions/00000000-0000-0000-0000-000000000003?category=video",
         ),
         (
             "GET",
-            "/api/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002/generations/tasks",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/tasks",
         ),
         (
             "GET",
-            "/api/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002/generations/artifacts",
+            "/api/v1/workspaces/00000000-0000-0000-0000-000000000002/artifacts",
         ),
         (
             "GET",
@@ -500,6 +500,7 @@ async fn three_plane_routes_enforce_boundaries_and_remove_cloned_dashboard_infer
 }
 
 mod branding;
+mod release_031_fixes;
 // Completion evidence is queued after the provider response. Tests must observe
 // the committed result rather than assume the background writer has run already.
 async fn wait_for_attempt_evidence(

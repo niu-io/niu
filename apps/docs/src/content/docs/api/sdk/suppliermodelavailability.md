@@ -3,9 +3,11 @@ title: "SupplierModelAvailability"
 description: "Generated TypeScript declaration for SupplierModelAvailability"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
+See [ProviderModelAvailability](/docs/api/sdk/providermodelavailability/) for the underlying declaration.
+
+[SDK source](https://github.com/niu-io/niu/blob/release/0.4/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
 export type SupplierModelAvailability = ProviderModelAvailability;

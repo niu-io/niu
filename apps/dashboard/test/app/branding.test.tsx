@@ -32,9 +32,9 @@ describe('deployment branding',()=>{
   });
   it('resolves preview defaults independently of the current page mode and ignores invalid drafts',()=>{
     document.documentElement.classList.add('dark');
-    expect(previewPalette(defaultBranding,'light')['--background']).toBe('oklch(0.985 0.001 255)');
-    expect(previewPalette(defaultBranding,'dark')['--background']).toBe('oklch(0.19 0.003 255)');
-    expect(previewPalette({...defaultBranding,light:{primary:'url(x)'}},'light')['--primary']).toBe('oklch(0.34 0.035 255)');
+    expect(previewPalette(defaultBranding,'light')['--background']).toBe('#EEEDEA');
+    expect(previewPalette(defaultBranding,'dark')['--background']).toBe('#141312');
+    expect(previewPalette({...defaultBranding,light:{primary:'url(x)'}},'light')['--primary']).toBe('#B3471A');
   });
   it('keeps a draft on save failure, reloads current revisions and saves via dialogs',async()=>{
     let revision='0';let fail=true;const writes:unknown[]=[];
@@ -57,7 +57,7 @@ describe('deployment branding',()=>{
     await user.click(screen.getByRole('button',{name:'Save changes'}));
     await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
     await screen.findByText('Changes saved.');
-    await user.click(screen.getByRole('tab',{name:'Theme',exact:true}));
+    expect(screen.queryByRole('tablist')).toBeNull();
     await user.click(screen.getByRole('button',{name:'Edit theme'}));
     await user.click(screen.getByRole('button',{name:'Default appearance',exact:true}));await user.click(screen.getByRole('menuitemradio',{name:'Dark',exact:true}));
     await user.click(screen.getByRole('button',{name:'Save changes'}));
@@ -72,6 +72,15 @@ describe('deployment branding',()=>{
     await user.click(screen.getByRole('button',{name:'Reset defaults'}));
     await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
     expect(writes.at(-1)).toEqual({expected_revision:'3',settings:{...defaultBranding}});
+  });
+  it('shows both Branding and Theme sections on one scannable page without nested tabs when embedded inside /admin/settings',async()=>{
+    vi.stubGlobal('fetch',vi.fn(async()=>Response.json(configuration('0'))));
+    const router=createMemoryRouter([{element:<Outlet context={{token:'member'}}/>,children:[{path:'/admin/settings',element:<BrandingPage/>}]}],{initialEntries:['/admin/settings?tab=branding']});
+    render(<RouterProvider router={router}/>);
+    await screen.findByText('Niu');
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.getByRole('button',{name:'Edit branding'})).toBeTruthy();
+    expect(screen.getByRole('button',{name:'Edit theme'})).toBeTruthy();
   });
   it('does not overwrite a cached member appearance when public branding loads',async()=>{
     localStorage.setItem('niu-dashboard-theme-owner','member');localStorage.setItem('niu-dashboard-theme','light');

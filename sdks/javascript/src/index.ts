@@ -1044,13 +1044,29 @@ export class NiuClient {
     return this.request('/decisions', request, options);
   }
   /** Public branding projection; the regular client credential does not expand it. */
-  getPublicBranding(options?: RequestOptions): Promise<import('./admin.js').BrandingConfiguration> {
-    return this.request('/branding', undefined, options);
+  async getPublicBranding(options?: RequestOptions): Promise<import('./admin.js').BrandingConfiguration> {
+    const base = this.baseURL.endsWith('/v1') ? `${this.baseURL.slice(0, -3)}/api/v1` : this.baseURL;
+    const response = await this.requestFetch(`${base}/public/branding`, {
+      method: 'GET',
+      headers: { accept: 'application/json' },
+      signal: options?.signal,
+      redirect: 'error',
+    });
+    await notifyResponse(response, options ?? {});
+    if (!response.ok) {
+      throw NiuAPIError.fromResponse(response, await readPayload(response));
+    }
+    return await readPayload(response) as import('./admin.js').BrandingConfiguration;
   }
 
   /** Inspect the current API key's label, model grants, limits, and 60s usage window. */
   getKey(options?: RequestOptions): Promise<{ data: KeyIntrospection }> {
     return this.request('/key', undefined, options);
+  }
+
+  /** Read customer-facing balance summary for the authenticated API key's organization. */
+  getCredits(options?: RequestOptions): Promise<{ data: import('./admin.js').CustomerBalance[] }> {
+    return this.request('/credits', undefined, options);
   }
 
   /** Retrieve token breakdown, timings, and customer charge for one generation attempt. */
@@ -1343,8 +1359,9 @@ export class NiuClient {
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: options.signal,
+      redirect: 'error',
     });
-    await notifyResponse(response, options);
+    await notifyResponse(response, options ?? {});
     if (!response.ok) {
       throw NiuAPIError.fromResponse(response, await readPayload(response));
     }
@@ -1654,7 +1671,7 @@ export type { ContextPriceTier, CustomerInvoiceInput, CustomerInvoiceLine } from
 export type { WorkspaceSpendingAccount, WorkspaceSpendingLimit, WorkspaceSpendingLimitRevision } from './admin.js';
 export type { ProviderMediaOfferInput, ProviderMediaOfferModel, ProviderMediaRateModel, ProviderMediaRateRecord, ProviderMediaRateCard, SupplierMediaOfferInput, SupplierMediaOfferModel, SupplierMediaRateModel, SupplierMediaRateRecord, SupplierMediaRateCard, CustomerMediaRateCard, CustomerMediaRateRecord, CustomerMediaRateModel, VideoOutputSchema, ExactMediaQuantity, MediaBillingDimensions } from './admin.js';
 export type { GuardrailPreparationDenial } from './admin.js';
-export type { ProviderCatalogMetadata, ProviderCatalogModel, ProviderModelCheck, ProviderModelInput, ProviderModel, ProviderModelAvailability, ProviderCredentialCreateInput, ProviderCredentialUpdateInput, ProviderMember, ProviderMemberUpdate, ProviderBusiness, ProviderBusinessCreate, ProviderProfile, ProviderProfileUpdate, ProviderCredential, ProviderCooldown, ProviderRequestRateLimit, ProviderRequestRateLimitRevision, ProviderRateInput, ProviderOffer, ProviderOfferRevision, ProviderOfferHistory, ProviderSettlement, ProviderSettlementPage, ProviderSettlementInput, ProviderSettlementPreview, SupplierSettlementPreview, ProviderEarning, ProviderEarningPage, ProviderSettlementQuery, ProviderAccountInput, ProviderAccount, SupplierCatalogMetadata, SupplierCatalogModel, SupplierModelCheck, SupplierModelInput, SupplierModel, SupplierModelAvailability, SupplierCredentialCreateInput, SupplierCredentialUpdateInput, SupplierMember, SupplierMemberUpdate, SupplierBusiness, SupplierProfile, SupplierProfileUpdate, SupplierCredential, RequestUsageReconciliation, VendorCooldown, VendorRequestRateLimit, VendorRequestRateLimitRevision, WorkspaceKey, WorkspaceKeyPage, WorkspaceKeyDetail, WorkspaceKeyDetailPage, WorkspaceKeyUpdateInput, WorkspaceKeySpendingLimitPatch, WorkspaceKeyRequestRateLimitPatch, WorkspaceKeyTokenRateLimitPatch, WorkspaceKeyConcurrencyLimitPatch, WorkspaceKeyIpPolicyPatch, NiuAdminOptions, CustomerTariffInput, CustomerTariff, CustomerTariffHistory, CustomerTariffHistoryEntry, CustomerBalance, CustomerBalanceReservation, CustomerBalanceReservationQuery, CustomerChargeReconciliation, CustomerTopupInput, CustomerTopup, CustomerPaymentMethods, CustomerBalanceTransaction, CustomerBalanceReversalInput, RetailTextEnrollmentPublication, RetailTextEnrollment, RetailSchedule, RetailStandardPublication, RetailPromotionPublication, RetailPromotionRetirement, RetailPublicationResult, RetailPriceRecord, RetailSelection, RetailPriceHistory, RetailPromotionPage, CustomerFinancialSummary, PreparedCustomerBalanceGrant, CustomerBalanceGrantInput, CustomerBalanceGiftCorrectionInput, IssuedCustomerBalanceGrant, CustomerBalancePolicyInput, CustomerBalancePolicyHistory, CustomerBilling, CustomerInvoicePage, LedgerHistoryQuery, SupplierRateInput, SupplierOffer, SupplierOfferRevision, SupplierOfferHistory, SupplierSettlement, SupplierSettlementPage, SupplierSettlementInput, SupplierEarning, SupplierEarningPage, SupplierSettlementQuery, TenantScope, WorkspaceScope, MediaOperationHistoryContext, MediaOperationHistoryQuery, ChatResult, ChatTurn, ChatSession, ChatSessionPage, ChatSessionPageQuery, ChatExport, ChatAttachment, GuardrailAccessRule, KeyGuardrailMode, WorkspaceDetectorDescription, WorkspaceImageDetectorDescription, WorkspaceMediaDetectorDescription, ImageDetectorPreviewInput, ImageDetectorPreviewResult, GuardrailPolicy, GuardrailPreview, GuardrailInputTest, GuardrailInputTestResult, GuardrailOutputTest, GuardrailOutputTestResult, RequestGuardrailDecision, SupplierAccountInput, SupplierAccount, GatewayActivityOutcome, GatewayTaskEvidence, GatewayActivityEntry, GatewayAdmissionDenial, GatewayActivityPage, GatewayActivityQuery, GatewayActivityExportQuery, GatewayActivitySummary, GatewayChargeSummary, GatewayUsageSummary, RequestTiming, RequestFailure, RequestPayload } from './admin.js';
+export type { ProviderModelAccessMode, ProviderCatalogMetadata, ProviderCatalogModel, ProviderModelCheck, ProviderModelInput, ProviderModel, ProviderModelAvailability, ProviderCredentialCreateInput, ProviderCredentialUpdateInput, ProviderMember, ProviderMemberUpdate, ProviderBusiness, ProviderBusinessCreate, ProviderProfile, ProviderProfileUpdate, ProviderCredential, ProviderCooldown, ProviderRequestRateLimit, ProviderRequestRateLimitRevision, ProviderRateInput, ProviderOffer, ProviderOfferRevision, ProviderOfferHistory, ProviderSettlement, ProviderSettlementPage, ProviderSettlementInput, ProviderSettlementPreview, SupplierSettlementPreview, ProviderEarning, ProviderEarningPage, ProviderSettlementQuery, ProviderAccountInput, ProviderAccount, SupplierCatalogMetadata, SupplierCatalogModel, SupplierModelCheck, SupplierModelInput, SupplierModel, SupplierModelAvailability, SupplierCredentialCreateInput, SupplierCredentialUpdateInput, SupplierMember, SupplierMemberUpdate, SupplierBusiness, SupplierProfile, SupplierProfileUpdate, SupplierCredential, RequestUsageReconciliation, VendorCooldown, VendorRequestRateLimit, VendorRequestRateLimitRevision, WorkspaceKey, WorkspaceKeyPage, WorkspaceKeyDetail, WorkspaceKeyDetailPage, WorkspaceKeyUpdateInput, WorkspaceKeySpendingLimitPatch, WorkspaceKeyRequestRateLimitPatch, WorkspaceKeyTokenRateLimitPatch, WorkspaceKeyConcurrencyLimitPatch, WorkspaceKeyIpPolicyPatch, NiuAdminOptions, CustomerTariffInput, CustomerTariff, CustomerTariffHistory, CustomerTariffHistoryEntry, CustomerBalance, CustomerBalanceReservation, CustomerBalanceReservationQuery, CustomerChargeReconciliation, CustomerTopupInput, CustomerTopup, CustomerPaymentMethods, CustomerBalanceTransaction, CustomerBalanceReversalInput, RetailTextEnrollmentPublication, RetailTextEnrollment, RetailSchedule, RetailStandardPublication, RetailPromotionPublication, RetailPromotionRetirement, RetailPublicationResult, RetailPriceRecord, RetailSelection, RetailPriceHistory, RetailPromotionPage, CustomerFinancialSummary, PreparedCustomerBalanceGrant, CustomerBalanceGrantInput, CustomerBalanceGiftCorrectionInput, IssuedCustomerBalanceGrant, CustomerBalancePolicyInput, CustomerBalancePolicyHistory, CustomerBilling, CustomerInvoicePage, LedgerHistoryQuery, SupplierRateInput, SupplierOffer, SupplierOfferRevision, SupplierOfferHistory, SupplierSettlement, SupplierSettlementPage, SupplierSettlementInput, SupplierEarning, SupplierEarningPage, SupplierSettlementQuery, TenantScope, WorkspaceScope, MediaOperationHistoryContext, MediaOperationHistoryQuery, ChatResult, ChatTurn, ChatSession, ChatSessionPage, ChatSessionPageQuery, ChatExport, ChatAttachment, GuardrailAccessRule, KeyGuardrailMode, WorkspaceDetectorDescription, WorkspaceImageDetectorDescription, WorkspaceMediaDetectorDescription, ImageDetectorPreviewInput, ImageDetectorPreviewResult, GuardrailPolicy, GuardrailPreview, GuardrailInputTest, GuardrailInputTestResult, GuardrailOutputTest, GuardrailOutputTestResult, RequestGuardrailDecision, SupplierAccountInput, SupplierAccount, GatewayActivityOutcome, GatewayTaskEvidence, GatewayActivityEntry, GatewayAdmissionDenial, GatewayActivityPage, GatewayActivityQuery, GatewayActivityExportQuery, GatewayActivitySummary, GatewayChargeSummary, GatewayUsageSummary, RequestTiming, RequestFailure, RequestPayload } from './admin.js';
 
 export { NiuAuthClient } from './auth.js';
 export type {

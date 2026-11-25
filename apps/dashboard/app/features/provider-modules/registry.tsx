@@ -127,6 +127,7 @@ const PROVIDER_MODULE_REGISTRY: ReadonlyMap<string, ProviderModuleRegistration> 
           workspaceName={workspaceName}
           model={modelId}
           nativeContext={{ keyId, model: modelId }}
+          withinModal
         />
       ),
     },

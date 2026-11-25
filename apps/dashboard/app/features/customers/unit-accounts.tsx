@@ -186,7 +186,7 @@ export function CompanyBrandedUnitsDialog({
   const [actionError, setActionError] = useState('');
   const [conflict, setConflict] = useState(false);
 
-  // Grant state. Noncash grants are promotional: purchase credits only come
+  // Grant state. Noncash grant history are promotional: purchase credits only come
   // from a completed, independently verified payment.
   const [grantAmount, setGrantAmount] = useState('50');
   const [grantReason, setGrantReason] = useState('');
@@ -551,7 +551,7 @@ export function CompanyBrandedUnitsDialog({
   return (
     <Dialog open onOpenChange={open => { if (!open && !busy) closeDialog(); }}>
       <DialogContent
-        className="w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[90dvh] overflow-y-auto"
+        className="w-[calc(100vw-2rem)] sm:max-w-2xl"
         showCloseButton={!busy}
         onCloseAutoFocus={event => {
           if (openerRef.current?.isConnected) {

@@ -67,7 +67,7 @@ import type {
   ModelRoutePoolRuleConditions,
 } from '@niu-io/sdk/admin';
 
-const POOLS_INDEX_PATH = '/api/v1/routing/index?limit=50';
+const POOLS_INDEX_PATH = '/api/v1/admin/routing/index?limit=50';
 
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ snapshot }) => ({
@@ -121,7 +121,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
     setFailedCursor(undefined);
     const query = new URLSearchParams({ limit: '50' });
     if (after) query.set('after', after);
-    const path = '/api/v1/routing/index?' + query.toString();
+    const path = '/api/v1/admin/routing/index?' + query.toString();
     try {
       const result = after
         ? await request<PoolsIndexPage>(token, path, 'GET', undefined, controller.signal)
@@ -174,7 +174,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
   return (
     <div className="empty-region space-y-6">
       <PageHeader
-        title={t('Routing', '模型路由')}
+        title={t('Custom models', '自定义模型')}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="outline">
@@ -197,8 +197,8 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
       />
       <p className="text-sm text-muted-foreground">
         {t(
-          'Combine multiple Provider model routes into one callable model alias with conditional routing rules, priority/weight failover, unified custom-model pricing or per-candidate pass-through billing, and strategy auditing.',
-          '将多个 Provider 模型路由组合为一个可直接调用的模型别名，支持条件分流规则、优先级与权重容灾、自定义模型统一定价或按命中模型分别计费，以及路由策略审计。',
+          'Optional: combine multiple Provider model routes into one callable custom model alias with conditional routing rules, priority/weight failover, unified or pass-through billing, and strategy auditing. Direct Provider models work without creating custom models.',
+          '可选能力：将多个 Provider 模型路由组合为一个可直接调用的自定义模型别名，支持条件分流规则、优先级与权重容灾、统一定价或按命中模型计费以及策略审计。若只需直连单个模型，可跳过此页。',
         )}
       </p>
 
@@ -518,6 +518,9 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
           onSaved={message => {
             setEditing(null);
             setNotice(message);
+            invalidateQueries('/api/v1/admin/routing');
+            invalidateQueries('/api/v1/models');
+            invalidateQueries('/api/v1/admin/pricing');
             void loadPools();
           }}
         />
@@ -584,7 +587,7 @@ function RoutePoolEditorDialog({
   const [displayName, setDisplayName] = useState(base?.display_name ?? '');
   const [description, setDescription] = useState(base?.description ?? '');
   const [organizationId, setOrganizationId] = useState<string | null>(base?.organization_id ?? null);
-  const [publicCatalog, setPublicCatalog] = useState(base ? Boolean(base.public_catalog) : true);
+  const [publicCatalog, setPublicCatalog] = useState(base ? Boolean(base.public_catalog) : false);
   const [billingMode, setBillingMode] = useState<ModelRoutePoolBillingMode>(base?.billing_mode ?? 'pool_tariff');
   const [enabled, setEnabled] = useState(base?.enabled ?? true);
   const [candidates, setCandidates] = useState<ModelRoutePoolCandidate[]>(
@@ -621,7 +624,7 @@ function RoutePoolEditorDialog({
     setDiscovering(true);
     void (async () => {
       try {
-        const providerResult = await request<{ data: ProviderConnection[] }>(token, '/api/v1/vendors', 'GET', undefined, controller.signal);
+        const providerResult = await request<{ data: ProviderConnection[] }>(token, '/api/v1/admin/providers/connections', 'GET', undefined, controller.signal);
         if (controller.signal.aborted) return;
         if (!Array.isArray(providerResult.data)) throw new Error('Invalid Provider list');
         const modelLists: DiscoveredRoute[][] = [];
@@ -633,7 +636,7 @@ function RoutePoolEditorDialog({
             try {
               const models = await request<{ data: ProviderModel[] }>(
                 token,
-                `/api/v1/vendors/${encodeURIComponent(provider.id)}/models`,
+                `/api/v1/admin/providers/connections/${encodeURIComponent(provider.id)}/models`,
                 'GET',
                 undefined,
                 controller.signal,
@@ -899,7 +902,7 @@ function RoutePoolEditorDialog({
     pendingAlias.current = trimmedAlias;
     attemptedPayload.current = payload;
     try {
-      await request<{ data: { revision: number } }>(token, '/api/v1/routing', 'PUT', payload);
+      await request<{ data: { revision: number } }>(token, '/api/v1/admin/routing', 'PUT', payload);
       onSaved(
         t(
           `Saved custom model "${trimmedAlias}".`,
@@ -942,7 +945,7 @@ function RoutePoolEditorDialog({
     try {
       let current: ModelRoutePool | null;
       try {
-        const result = await request<{data: ModelRoutePool}>(token, `/api/v1/routing/${encodePoolReference(pendingAlias.current)}`, 'GET');
+        const result = await request<{data: ModelRoutePool}>(token, `/api/v1/admin/routing/${encodePoolReference(pendingAlias.current)}`, 'GET');
         current = result.data;
         if (!current || current.alias !== pendingAlias.current || !Number.isSafeInteger(current.revision) || !Array.isArray(current.candidates) || (current.rules !== undefined && !Array.isArray(current.rules))) throw new Error('Invalid saved state');
       } catch (reason) {
@@ -1002,8 +1005,7 @@ function RoutePoolEditorDialog({
         if (!open && !busy) onClose();
       }}
     >
-      <DialogContent
-        className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[90dvh] overflow-x-hidden overflow-y-auto"
+      <DialogContent className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-4xl overflow-x-hidden"
         onCloseAutoFocus={event => {
           if (triggerRef.current?.isConnected) {
             event.preventDefault();
@@ -1718,7 +1720,7 @@ function RoutePoolPreviewDialog({
     try {
       const response = await request<{ data: ModelRoutePoolPreviewResult }>(
         token,
-        `/api/v1/routing/${encodePoolReference(pool.alias)}/preview`,
+        `/api/v1/admin/routing/${encodePoolReference(pool.alias)}/preview`,
         'POST',
         {
           protocol,
@@ -1753,8 +1755,7 @@ function RoutePoolPreviewDialog({
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent
-        className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90dvh] overflow-x-hidden overflow-y-auto"
+      <DialogContent className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-3xl overflow-x-hidden"
         onCloseAutoFocus={event => {
           if (triggerRef.current?.isConnected) {
             event.preventDefault();
@@ -1952,7 +1953,7 @@ function RoutePoolAuditDialog({
     try {
       const response = await request<{ data: ModelRoutePoolAudit }>(
         token,
-        `/api/v1/routing/${encodePoolReference(pool.alias)}/audit?days=${windowDays}`,
+        `/api/v1/admin/routing/${encodePoolReference(pool.alias)}/audit?days=${windowDays}`,
         'GET',
       );
       setAudit(response.data);
@@ -1975,8 +1976,7 @@ function RoutePoolAuditDialog({
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent
-        className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[90dvh] overflow-x-hidden overflow-y-auto"
+      <DialogContent className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-4xl overflow-x-hidden"
         onCloseAutoFocus={event => {
           if (triggerRef.current?.isConnected) {
             event.preventDefault();
@@ -2139,7 +2139,7 @@ function RoutePoolAuditDialog({
                           </Badge>
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          {t('Supplier min:', '上游最低：')}{' '}
+                          {t('Provider min:', '上游最低：')}{' '}
                           {formatRatePerMillion(cand.min_supplier_prompt_rate, cand.retail_currency ?? audit.pool_tariff.currency)} /{' '}
                           {formatRatePerMillion(cand.min_supplier_completion_rate, cand.retail_currency ?? audit.pool_tariff.currency)}
                         </div>
@@ -2213,7 +2213,7 @@ function RoutePoolHistoryDialog({
       if (beforeRevision !== undefined) query.set('before_revision', String(beforeRevision));
       const result = await request<{ data: ModelRoutePoolRevision[] }>(
         token,
-        '/api/v1/routing/history?' + query.toString(),
+        '/api/v1/admin/routing/history?' + query.toString(),
         'GET',
         undefined,
         controller.signal,
@@ -2242,8 +2242,7 @@ function RoutePoolHistoryDialog({
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent
-        className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90dvh] overflow-x-hidden overflow-y-auto"
+      <DialogContent className="grid-cols-1 w-[calc(100vw-2rem)] sm:max-w-3xl overflow-x-hidden"
         onCloseAutoFocus={event => {
           if (triggerRef.current?.isConnected) {
             event.preventDefault();

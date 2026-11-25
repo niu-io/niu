@@ -1,11 +1,11 @@
 ---
 title: "Create an operator and issue its first session token"
-description: "POST /api/v1/operators"
+description: "POST /api/v1/members"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`POST /api/v1/operators`
+`POST /api/v1/members`
 
 Requires a permitted owner or installation administrator. Every user belongs to a company and may be workspace-scoped. By default a temporary session is issued once and expires_in_seconds is required. For recoverable onboarding, pass issue_session false with Idempotency-Key and omit expires_in_seconds. The identity and receipt commit together; matching retries return current metadata for the original identity with null session/token. Changed input, revoked or deleted identities return 409; replay never restores access or issues a credential. The receipt namespace is company-scoped, distinct from company/workspace creation. Authorization is checked before receipt lookup.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/operators" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/members" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

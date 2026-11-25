@@ -1,24 +1,34 @@
+import { useEffect } from 'react';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { FormSectionSkeleton, WorkspaceShellSkeleton } from '@/components/PageSkeletons';
+import { WorkspaceShellSkeleton } from '@/components/PageSkeletons';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { canManagePlatform, useDashboardContext } from '@/shell/dashboard-context';
-import { resolveProvider } from '@/shell/provider-route';
-import { workspaceModelsHref } from '@/shell/workspace-route';
+import { providerPathSegment, resolveProvider } from '@/shell/provider-route';
 import ProviderAdministration from '@/features/provider-business/admin';
-import { Navigate, useLocation, useParams, useSearchParams, type LoaderFunctionArgs } from 'react-router';
+import ProviderConfigurationPage from '@/features/provider-business/ProviderConfigurationPage';
+import { useLocation, useNavigate, useNavigation, useParams, useRevalidator, useSearchParams, type LoaderFunctionArgs } from 'react-router';
 import ProviderList from './ProviderList';
-import ProviderSettings from '@/features/provider-business/ProviderSettings';
-import ConnectGate from '@/shell/ConnectGate';
-import ProvidersView from './components/ProvidersView';
 
-const validSections = new Set(["overview", "keys", "models", "usage", "settlements", "members", "settings"]);
+const validSections = new Set(["usage"]);
+
+function CanonicalProviderRedirect({ to }: { to: string }) {
+  const navigate = useNavigate();
+  const navigation = useNavigation();
+  const revalidator = useRevalidator();
+  const location = useLocation();
+  useEffect(() => {
+    if (navigation.state !== 'idle' || revalidator.state !== 'idle') return;
+    navigate(to, { replace: true });
+  }, [location.pathname, location.search, navigate, navigation.state, revalidator.state, to]);
+  return null;
+}
 
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ snapshot }) => ({
     authorized: canManagePlatform(snapshot.session),
-    endpoint: '/api/v1/providers',
+    endpoint: '/api/v1/admin/providers',
     persist: true,
   }));
 }
@@ -34,8 +44,10 @@ export default function ProvidersRoute() {
   const [search] = useSearchParams();
   const location = useLocation();
   if (!activeProviderId) return <ProviderList />;
-  if (context.providerDirectory && !resolveProvider(activeProviderId, context.providerDirectory)) {
-    if (context.providerDirectoryLoading) {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeProviderId);
+  const resolvedProvider = context.providerDirectory ? resolveProvider(activeProviderId, context.providerDirectory) : undefined;
+  if (context.providerDirectory ? !resolvedProvider : (!isUuid && context.providerDirectoryLoading)) {
+    if (context.providerDirectoryLoading || (!context.providerDirectory && !isUuid)) {
       return <WorkspaceShellSkeleton label={uiT("Loading Provider…")} />;
     }
     if (context.providerDirectoryError) {
@@ -50,27 +62,33 @@ export default function ProvidersRoute() {
     }
     return <p role="status">{uiT("Provider unavailable.")}</p>;
   }
+  const canonicalSegment = resolvedProvider ? providerPathSegment(resolvedProvider) : activeProviderId;
   if (search.get("properties") === "supplier" || search.get("properties") === "provider") {
     const query = new URLSearchParams(search);
     query.delete('properties');
-    return <Navigate replace to={`/admin/providers/${encodeURIComponent(activeProviderId)}/settings${query.size ? '?' + query.toString() : ''}${location.hash}`} />;
+    return (
+      <>
+        <CanonicalProviderRedirect to={`/admin/providers/${encodeURIComponent(canonicalSegment)}${query.size ? '?' + query.toString() : ''}${location.hash}`} />
+        <ProviderConfigurationPage key={resolvedProvider?.id ?? activeProviderId} resolvedProviderId={resolvedProvider?.id} />
+      </>
+    );
   }
   if (section && !validSections.has(section)) {
-    if (section === "offers") {
-      const query = new URLSearchParams(location.search);
-      if (!query.has("view")) query.set("view", "text");
-      return <Navigate replace to={`/admin/providers/${encodeURIComponent(activeProviderId)}/models?${query.toString()}${location.hash}`} />;
+    if (section === "settlements" && context.session?.operating_mode !== 'internal') {
+      return (
+        <>
+          <CanonicalProviderRedirect to={`/admin/providers/${encodeURIComponent(canonicalSegment)}/usage${location.search}${location.hash}`} />
+          <ProviderAdministration />
+        </>
+      );
     }
-    return <Navigate replace to={`/admin/providers/${encodeURIComponent(activeProviderId)}${location.search}${location.hash}`} />;
+    return (
+      <>
+        <CanonicalProviderRedirect to={`/admin/providers/${encodeURIComponent(canonicalSegment)}${location.search}${location.hash}`} />
+        <ProviderConfigurationPage key={resolvedProvider?.id ?? activeProviderId} resolvedProviderId={resolvedProvider?.id} />
+      </>
+    );
   }
-  if (context.session?.operating_mode === 'internal' && (section === 'settlements' || section === 'members')) {
-    return <Navigate replace to={`/admin/providers/${encodeURIComponent(activeProviderId)}`} />;
-  }
-  if (section === "settings") return <ProviderSettings key={activeProviderId} />;
-  if (section !== "keys") return <ProviderAdministration />;
-  return <ConnectGate>
-    {({ token, session, refreshWorkspace }) => session
-      ? <ProvidersView key={`${token}:${activeProviderId}`} token={token} session={session} refreshWorkspace={refreshWorkspace} catalogPath={workspaceModelsHref(context.workspace, context.workspaces)} providerSlug={activeProviderId} organizationId={context.organization?.id} />
-      : <section className="panel vendor-loading"><FormSectionSkeleton fields={2} label={uiT("Checking session permissions…")} /></section>}
-  </ConnectGate>;
+  if (section === "usage") return <ProviderAdministration />;
+  return <ProviderConfigurationPage key={resolvedProvider?.id ?? activeProviderId} resolvedProviderId={resolvedProvider?.id} />;
 }

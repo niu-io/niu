@@ -1,11 +1,11 @@
 ---
 title: "Save an owned Chat session in a workspace"
-description: "PUT /api/v1/organizations/{organization}/projects/{project}/chats/{id}"
+description: "PUT /api/v1/workspaces/{workspace}/chats/{id}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`PUT /api/v1/organizations/{organization}/projects/{project}/chats/{id}`
+`PUT /api/v1/workspaces/{workspace}/chats/{id}`
 
 Requires workspace write access. Stores conversation content separately from accounting. Only supported top-level and nested fields are retained. Client-supplied accounting fields are discarded. Numeric timestamps, durations and token counts must be nonnegative JavaScript-safe integers; token counts may be null. Settings and attachment shapes are validated. This endpoint does not establish authoritative request charges or detect secrets embedded in conversation text. Omit expectedRevision for a compatibility write only while the owned record has not enabled guarded writes. Explicit null creates only if no owned row exists; a canonical positive decimal revision updates only that exact owned version. Stale, missing or duplicate-create guarded writes return 409 without replacing content. Revisions are global sequence values, not timestamps, and are never reused by API delete/recreate. Guarded success includes a decimal revision; direct GET provides it. A successful guarded creation/update permanently enables guarded writes on that owned row. Compatibility saves thereafter return 409; there is no content-write downgrade. A content-free guard identity survives deletion, so legacy autosaves cannot resurrect a protected reference; explicit null guarded creation may recreate it. Untouched legacy rows retain compatibility behavior until guarded save.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/chats/{id}" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/workspaces/{workspace}/chats/{id}" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
@@ -36,51 +36,7 @@ curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/pr
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### id
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

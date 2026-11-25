@@ -1,11 +1,11 @@
 ---
 title: "Read the Provider owning an API configuration"
-description: "GET /api/v1/vendors/{id}/supplier"
+description: "GET /api/v1/admin/providers/connections/{id}/supplier"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/vendors/{id}/supplier`
+`GET /api/v1/admin/providers/connections/{id}/supplier`
 
 Installation credential or explicitly granted platform administrator required. Provider membership and customer ownership alone do not grant access. Returns the Provider identity and name, or null when no association exists, including an unknown configuration. Never returns credentials or procurement values.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/vendors/{id}/supplier" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/supplier" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

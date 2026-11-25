@@ -1,11 +1,11 @@
 ---
 title: "Change a scoped customer member role"
-description: "PATCH /api/v1/operators/{operator}"
+description: "PATCH /api/v1/members/{operator}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`PATCH /api/v1/operators/{operator}`
+`PATCH /api/v1/members/{operator}`
 
 Current scoped Owner management permission or installation administrator required. Admin and Viewer cannot manage user roles. Preserves the original member organization/workspace, credentials, sessions, session expiries and Provider memberships. Rejects self role changes, revoked/noncustomer/platform actors and role-update demotion of the last applicable active Owner. expected_role is a compare-and-set precondition; stale input returns 409 and requires reloading. Organization-scoped serialization and current actor/session validation protect the mutation transaction. A same-role request with a matching precondition returns unchanged metadata without an audit event. Changed roles apply to the original token on its next authenticated request; no replacement token or renewed session is issued. A future immutable role_changed journal records exact before/after roles and actor attribution; historical roles are never inferred. No credentials or commercial data returned.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PATCH "$NIU_ORIGIN/api/v1/operators/{operator}" \
+curl --fail-with-body -X PATCH "$NIU_ORIGIN/api/v1/members/{operator}" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

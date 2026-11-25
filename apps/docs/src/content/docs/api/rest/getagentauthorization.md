@@ -3,7 +3,7 @@ title: "Inspect an authorization request after login"
 description: "GET /api/v1/auth/agents/{code}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/auth/agents/{code}`
 

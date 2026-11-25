@@ -1,6 +1,6 @@
 import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
 import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '@/components/ui/empty';
-import { IconVideo } from '@tabler/icons-react';
+import { IconArchive } from '@tabler/icons-react';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DashboardContext } from '@/shell/dashboard-context';
@@ -11,7 +11,7 @@ import { NiuAdminClient } from '@niu-io/sdk/admin';
 import type { VideoGenerationsSessionSummary } from '@niu-io/sdk/generations-sessions';
 
 /** Video section of the existing archive dialog; restores metadata only. */
-export default function VideoArchivedSessions({context,open,disabled=false}:{context:DashboardContext;open:boolean;disabled?:boolean}) {
+export default function VideoArchivedSessions({context,open,chatsEmpty,disabled=false}:{context:DashboardContext;open:boolean;chatsEmpty:boolean;disabled?:boolean}) {
   const { t: uiT, format: uiF } = useUILocale();
   const {token,workspace}=context;
   const identity=JSON.stringify([token,workspace?.organization_id,workspace?.id,open]);
@@ -61,10 +61,10 @@ export default function VideoArchivedSessions({context,open,disabled=false}:{con
   }
   if(!open)return null;
   return <section aria-label={uiT("Archived Video sessions")} className="mt-4 min-w-0">
-    <h3 className="mb-3 text-sm font-medium">{uiT("Video sessions")}</h3>
-    {error&&<div className="mb-3"><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="ghost" disabled={loading||busy} onClick={()=>setRevision(value=>value+1)}>{uiT("Reload Video archive")}</Button></div>}
+    {(rows.length > 0 || error) && <h3 className="mb-3 text-sm font-medium">{uiT("Video sessions")}</h3>}
+    {error&&<div className="mb-3 grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="ghost" disabled={loading||busy} onClick={()=>setRevision(value=>value+1)}>{uiT("Reload Video archive")}</Button></div>}
     {notice&&<p role="status" className="mb-3 text-sm">{notice}</p>}
-    {!loading&&!error&&!rows.length&&<Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconVideo size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No archived Video sessions")}</EmptyDescription></EmptyHeader></Empty>}
+    {chatsEmpty&&!loading&&!error&&!rows.length&&<Empty className="py-6"><EmptyHeader><EmptyMedia><IconArchive size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No archived sessions", "没有已归档的会话")}</EmptyDescription></EmptyHeader></Empty>}
     {rows.length>0&&<Table className="table-fixed"><TableHeader><TableRow><TableHead>{uiT("Session")}</TableHead><TableHead className="w-32 text-right">{uiT("Action")}</TableHead></TableRow></TableHeader><TableBody>{rows.map(row=><TableRow key={row.id}><TableCell className="whitespace-normal break-words">{row.title}</TableCell><TableCell className="text-right"><Button variant="ghost" disabled={busy||loading||disabled||!context.session?.permissions.write} onClick={()=>void restore(row)} aria-label={uiF("Restore {0}", [row.title])}>{uiT("Restore")}</Button></TableCell></TableRow>)}</TableBody></Table>}
     {loading&&!rows.length&&<TableSkeleton columns={2} rows={3} label={uiT("Loading Video sessions…")}/>}
     {cursor&&<Button variant="ghost" disabled={loading||busy} onClick={()=>void more()}>{uiT("Load more Video sessions")}</Button>}

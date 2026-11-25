@@ -1,11 +1,11 @@
 ---
 title: "Reject a Limited Preview registration"
-description: "POST /api/v1/platform/registrations/{registration}/reject"
+description: "POST /api/v1/admin/registrations/{registration}/reject"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`POST /api/v1/platform/registrations/{registration}/reject`
+`POST /api/v1/admin/registrations/{registration}/reject`
 
 Platform administration required. Marks the pending request rejected and clears its stored password hash without creating an account.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/platform/registrations/{registration}/reject" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/registrations/{registration}/reject" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

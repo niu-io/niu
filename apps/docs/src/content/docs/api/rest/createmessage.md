@@ -3,11 +3,36 @@ title: "Create a native Message, optionally streamed"
 description: "POST /v1/messages"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /v1/messages`
 
-Requires supports_messages on an OpenRouter or Anthropic route. Accepts version 2023-06-01 (default when omitted) and safe capability anthropic-beta tokens (prompt-caching-2024-07-31, token-efficient-tools-2025-02-19, interleaved-thinking-2025-05-14, fine-grained-tool-streaming-2025-05-14, output-128k-2025-02-19, pdfs-2024-09-25, extended-cache-ttl-2025-04-11; host marker claude-code-20250219 is stripped; unknown or hosted-tool betas return 501). Supports Extended Thinking (thinking enabled/disabled/adaptive and output_config.effort), top_k, metadata.user_id, client function tools (auto/any/none/tool, string or bounded array tool_result.content, cache_control on tools and tool blocks), thinking/redacted_thinking history blocks, and unpriced user image/document blocks (8 MiB body cap; rejected with 400 on priced routes which keep a 1 MiB limit). Streaming enforces per-event bounds (256 KiB) and validates cumulative usage before completion.
+**Route and version**
+
+Requires `supports_messages` on an OpenRouter or Anthropic route. The supported version is `2023-06-01`, which is also the default when the version is omitted.
+
+**Accepted anthropic-beta tokens**
+
+- `prompt-caching-2024-07-31`
+- `token-efficient-tools-2025-02-19`
+- `interleaved-thinking-2025-05-14`
+- `fine-grained-tool-streaming-2025-05-14`
+- `output-128k-2025-02-19`
+- `pdfs-2024-09-25`
+- `extended-cache-ttl-2025-04-11`
+
+The gateway strips the host marker `claude-code-20250219`. Unknown or hosted-tool betas return HTTP 501.
+
+**Request content**
+
+- Extended Thinking accepts enabled, disabled and adaptive thinking, plus `output_config.effort`. History can include thinking and redacted_thinking blocks.
+- Sampling and metadata support `top_k` and `metadata.user_id`.
+- Client function tools support auto, any, none and tool choices. `tool_result.content` accepts a string or bounded array. Tools and tool blocks accept `cache_control`.
+- Unpriced routes accept user image and document blocks with an 8 MiB body limit. Priced routes reject these blocks with HTTP 400 and retain a 1 MiB limit.
+
+**Streaming**
+
+Each event is limited to 256 KiB. The gateway validates cumulative usage before completion.
 
 Operation: `createMessage`.
 
@@ -1005,7 +1030,32 @@ Response headers:
 
 ## Behavior and supported scope
 
-Requires supports_messages on an OpenRouter or Anthropic route. Accepts version 2023-06-01 (default when omitted) and safe capability anthropic-beta tokens (prompt-caching-2024-07-31, token-efficient-tools-2025-02-19, interleaved-thinking-2025-05-14, fine-grained-tool-streaming-2025-05-14, output-128k-2025-02-19, pdfs-2024-09-25, extended-cache-ttl-2025-04-11; host marker claude-code-20250219 is stripped; unknown or hosted-tool betas return 501). Supports Extended Thinking (thinking enabled/disabled/adaptive and output_config.effort), top_k, metadata.user_id, client function tools (auto/any/none/tool, string or bounded array tool_result.content, cache_control on tools and tool blocks), thinking/redacted_thinking history blocks, and unpriced user image/document blocks (8 MiB body cap; rejected with 400 on priced routes which keep a 1 MiB limit). Streaming enforces per-event bounds (256 KiB) and validates cumulative usage before completion.
+**Route and version**
+
+Requires `supports_messages` on an OpenRouter or Anthropic route. The supported version is `2023-06-01`, which is also the default when the version is omitted.
+
+**Accepted anthropic-beta tokens**
+
+- `prompt-caching-2024-07-31`
+- `token-efficient-tools-2025-02-19`
+- `interleaved-thinking-2025-05-14`
+- `fine-grained-tool-streaming-2025-05-14`
+- `output-128k-2025-02-19`
+- `pdfs-2024-09-25`
+- `extended-cache-ttl-2025-04-11`
+
+The gateway strips the host marker `claude-code-20250219`. Unknown or hosted-tool betas return HTTP 501.
+
+**Request content**
+
+- Extended Thinking accepts enabled, disabled and adaptive thinking, plus `output_config.effort`. History can include thinking and redacted_thinking blocks.
+- Sampling and metadata support `top_k` and `metadata.user_id`.
+- Client function tools support auto, any, none and tool choices. `tool_result.content` accepts a string or bounded array. Tools and tool blocks accept `cache_control`.
+- Unpriced routes accept user image and document blocks with an 8 MiB body limit. Priced routes reject these blocks with HTTP 400 and retain a 1 MiB limit.
+
+**Streaming**
+
+Each event is limited to 256 KiB. The gateway validates cumulative usage before completion.
 
 **Supported scope:** implemented
 

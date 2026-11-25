@@ -1,11 +1,11 @@
 ---
 title: "List API key spending limits"
-description: "GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit"
+description: "GET /api/v1/workspaces/{workspace}/keys/{key}/spending-limit"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit`
+`GET /api/v1/workspaces/{workspace}/keys/{key}/spending-limit`
 
 Scoped readers may inspect customer commitments. Rotated keys share the original spending identity. Personal upstream routes do not consume customer funds. No Provider costs or company balance are exposed.
 
@@ -28,24 +28,13 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/keys/{key}/spending-limit" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

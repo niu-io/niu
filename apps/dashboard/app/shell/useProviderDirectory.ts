@@ -23,8 +23,8 @@ export function useProviderDirectory(
     reload: reloadProviders,
   } = useCachedQuery<{ data: ProviderIdentity[] }>(
     token,
-    enabled ? '/api/v1/providers' : null,
-    signal => request<{ data: ProviderIdentity[] }>(token, '/api/v1/providers', 'GET', undefined, signal),
+    enabled ? '/api/v1/admin/providers' : null,
+    signal => request<{ data: ProviderIdentity[] }>(token, '/api/v1/admin/providers', 'GET', undefined, signal),
     {
       enabled,
       persist: true,
@@ -59,10 +59,22 @@ export function useProviderDirectory(
     const index = parts[1] === 'admin' ? 3 : 2;
     if (parts[index - 1] !== 'providers' && parts[index - 1] !== 'suppliers') return;
     const provider = resolveProvider(decodeURIComponent(parts[index] ?? ''), authorizedProviders);
-    if (!provider?.slug || parts[index] === provider.slug) return;
-    parts[index] = encodeURIComponent(provider.slug);
-    navigate({ pathname: parts.join('/'), search: location.search, hash: location.hash }, { replace: true });
-  }, [location.pathname, location.search, location.hash, authorizedProviders, navigate]);
+    if (!provider) return;
+    const nextParts = [...parts];
+    if (provider.slug) {
+      nextParts[index] = encodeURIComponent(provider.slug);
+    }
+    if (nextParts[1] === 'admin' && nextParts[2] === 'providers' && nextParts.length >= 5) {
+      if (nextParts[4] === 'settlements' && session?.operating_mode !== 'internal') {
+        nextParts[4] = 'usage';
+      } else if (nextParts[4] !== 'usage') {
+        nextParts.splice(4);
+      }
+    }
+    const nextPathname = nextParts.join('/');
+    if (nextPathname === location.pathname) return;
+    navigate({ pathname: nextPathname, search: location.search, hash: location.hash }, { replace: true });
+  }, [location.pathname, location.search, location.hash, authorizedProviders, navigate, session?.operating_mode]);
 
   return {
     authorizedProviders,

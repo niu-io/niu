@@ -1,11 +1,11 @@
 ---
 title: "Read Provider-adapter advertised price evidence"
-description: "GET /api/v1/providers/{provider}/pricing"
+description: "GET /api/v1/admin/providers/{provider}/pricing"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/providers/{provider}/pricing`
+`GET /api/v1/admin/providers/{provider}/pricing`
 
 Platform administration required. Uses explicit saved Provider service identity and a bounded official/public source read without forwarding credentials. No tariffs, balances or model routes are changed. Partial native ratios are not money; empty/unqualified feeds are unknown, not free. Source and observation time are returned. Qualified official-page adapters validate their observed schema and preserve conditional or unsupported rates; changed schemas remain unavailable.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/pricing" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/{provider}/pricing" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

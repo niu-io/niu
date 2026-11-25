@@ -11,7 +11,7 @@ it('renders account balance and top-up surfaces in Chinese', async () => {
     vi.stubGlobal('fetch', vi.fn(async url => Response.json({data: String(url).endsWith('/billing/balance') ? [{currency:'CNY',balance_nanos:'1000000000',available_nanos:'1000000000',reserved_nanos:'0',credit_limit_nanos:'0',warning_threshold_nanos:null,policy_revision:'0',low_balance:false}] : []})));
     const view = render(<AccountBilling token="test" organization="org" section="billing" />);
     expect(await screen.findByRole('region', {name: '账户余额'})).toBeTruthy();
-    expect(screen.getByText('可用额度')).toBeTruthy();
+    expect(screen.getByText('可用余额')).toBeTruthy();
     expect(await screen.findByText('暂无交易记录。')).toBeTruthy();
     view.rerender(<AccountBilling token="test" organization="org" section="payments" />);
     expect(await screen.findByRole('region', {name: '账户充值'})).toBeTruthy();
@@ -34,7 +34,7 @@ it('localizes account balance and transaction failures', async () => {
   }
 });
 
-it('renders the low-balance warning dialog in Chinese', async () => {
+it('renders the low-balance warning inline view in Chinese with matched punctuation', async () => {
   window.localStorage.setItem('niu-dashboard-locale', 'zh-CN');
   try {
     vi.stubGlobal('fetch', vi.fn(async url => Response.json({data: String(url).endsWith('/billing/balance') ? [{currency:'CNY',balance_nanos:'1000000000',available_nanos:'1000000000',reserved_nanos:'0',credit_limit_nanos:'0',warning_threshold_nanos:null,policy_revision:'0',low_balance:false}] : []})));
@@ -42,10 +42,12 @@ it('renders the low-balance warning dialog in Chinese', async () => {
     await screen.findByRole('region', {name: '账户余额'});
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', {name: /设置 CNY 余额提醒/}));
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('余额不足提醒')).toBeTruthy();
-    expect(within(dialog).getByLabelText('启用提醒')).toBeTruthy();
-    expect(within(dialog).getByRole('button', {name: '保存'})).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    const view = await screen.findByRole('region', {name: '余额提醒'});
+    expect(within(view).getByText('余额提醒')).toBeTruthy();
+    expect(within(view).getByLabelText('启用')).toBeTruthy();
+    expect(within(view).getByLabelText('提醒金额（CNY）')).toBeTruthy();
+    expect(within(view).getByRole('button', {name: '保存'})).toBeTruthy();
   } finally {
     window.localStorage.removeItem('niu-dashboard-locale');
   }
@@ -173,8 +175,7 @@ describe("customer billing", () => {
   it("opens a directly linked billing tab", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ data })));
     setup("operator", "/billing?tab=rates");
-    await screen.findByRole("tabpanel", { name: "Rates" });
-    expect(screen.getByRole("tab", { name: "Rates" }).getAttribute("aria-selected")).toBe("true");
+    expect(await screen.findByRole("tabpanel", { name: "Rates" })).toBeTruthy();
     expect(screen.queryByRole("region", { name: "Workspace spending" })).toBeNull();
   });
   it("shows independent exact balances and excludes unpriced usage without exposing financial writes", async () => {
@@ -187,7 +188,7 @@ describe("customer billing", () => {
     expect(screen.queryByRole("button", { name: "Issue invoice" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Record payment" })).toBeNull();
     expect(fetch.mock.calls.map(([url]) => String(url))).toEqual([
-      "/api/v1/organizations/org/projects/project/billing",
+      "/api/v1/workspaces/project/billing",
     ]);
   });
   it("loads only the selected workspace invoice details", async () => {
@@ -204,8 +205,7 @@ describe("customer billing", () => {
         ),
     );
     vi.stubGlobal("fetch", fetch);
-    setup();
-    await userEvent.setup().click(await screen.findByRole("tab", { name: "Statements" }));
+    setup("operator", "/billing?tab=statements");
     await userEvent
       .setup()
       .click(await screen.findByRole("button", { name: "View details" }));
@@ -214,7 +214,7 @@ describe("customer billing", () => {
         fetch.mock.calls.some(
           ([url]) =>
             url ===
-            "/api/v1/organizations/org/projects/project/billing/invoices/invoice-1",
+            "/api/v1/workspaces/project/billing/invoices/invoice-1",
         ),
       ).toBe(true),
     );
@@ -532,7 +532,7 @@ describe('customer media statement pagination', () => {
     await user.click(await screen.findByRole('button',{name:'Show more media charges'}));
     await waitFor(()=>expect(within(screen.getByRole('region',{name:'Media charges'})).getAllByText('example/video')).toHaveLength(2));
     expect(within(screen.getByRole('table',{name:'Text charges'})).getAllByText('qwen/text')).toHaveLength(1);
-    expect(fetcher.mock.calls.map(([url])=>String(url))).toContain('/api/v1/organizations/org/projects/project/billing/invoices/invoice-1?media_after=private-cursor');
+    expect(fetcher.mock.calls.map(([url])=>String(url))).toContain('/api/v1/workspaces/project/billing/invoices/invoice-1?media_after=private-cursor');
     expect(screen.queryByText('private-cursor')).toBeNull();
     expect(screen.queryByRole('button',{name:'Show more media charges'})).toBeNull();
   });
@@ -661,10 +661,10 @@ it('localizes funding, recovery and warning drafts reactively without changing s
   expect(screen.queryByText('Unavailable')).toBeNull();
   failed = false;
   await userEvent.click(screen.getByRole('button', {name: '重试加载余额'}));
-  expect(await screen.findByRole('heading', {name: '可用额度'})).toBeTruthy();
+  expect(await screen.findByRole('heading', {name: '余额'})).toBeTruthy();
   expect(screen.getByText('¥1.00')).toBeTruthy();
   await userEvent.click(screen.getByRole('button', {name: '设置 CNY 余额提醒'}));
-  await userEvent.click(screen.getByRole('checkbox', {name: '启用提醒'}));
+  await userEvent.click(screen.getByRole('checkbox', {name: '启用'}));
   const threshold = screen.getByLabelText(/提醒金额/);
   await userEvent.type(threshold, '2');
   act(() => saveLocale('en'));
@@ -715,4 +715,35 @@ it('separates pending settlement and missing rates headlines with direct action 
   await userEvent.click(screen.getByRole('button', { name: 'Review rates' }));
   await screen.findByRole('tabpanel', { name: 'Rates' });
   view.unmount();
+});
+
+it('sorts callable workspace models first on Rates and labels unsupplied historical tariffs as Currently unavailable', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () =>
+      Response.json({
+        data: {
+          ...data,
+          tariffs: [
+            { model_alias: 'qiniu/kimi-k3-free', revision: 'r1', currency: 'USD', prompt_rate: '0', completion_rate: '0' },
+            { model_alias: 'qiniu/conatus-free', revision: 'r2', currency: 'USD', prompt_rate: '10000', completion_rate: '10000' },
+          ],
+        },
+      }),
+    ),
+  );
+  fixture.context = {
+    token: 'test',
+    workspace: { id: 'project', organization_id: 'org' },
+    session: { kind: 'operator' },
+    models: [{ id: 'qiniu/conatus-free', callable: true }],
+    modelsLoading: false,
+  } as unknown as DashboardContext;
+  render(<MemoryRouter initialEntries={['/billing?tab=rates']}><BillingRoute /></MemoryRouter>);
+  const table = await screen.findByRole('table', { name: 'Customer model rates' });
+  const rows = within(table).getAllByRole('row');
+  expect(rows[1]?.textContent).toContain('Conatus Free');
+  expect(rows[1]?.textContent).not.toContain('Currently unavailable');
+  expect(rows[2]?.textContent).toContain('Kimi K3 Free');
+  expect(rows[2]?.textContent).toContain('Currently unavailable');
 });

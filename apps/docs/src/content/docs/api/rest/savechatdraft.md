@@ -1,11 +1,11 @@
 ---
 title: "Save or clear the personal Chat draft with an expected revision"
-description: "PUT /api/v1/organizations/{organization}/projects/{project}/chats/draft"
+description: "PUT /api/v1/workspaces/{workspace}/chats/draft"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`PUT /api/v1/organizations/{organization}/projects/{project}/chats/draft`
+`PUT /api/v1/workspaces/{workspace}/chats/draft`
 
 Write authorization and workspace scope are required. Browser-member requests require an allowed Origin when password authentication is configured; other requests also undergo Origin validation. Strict typed JSON rejects unknown fields. A referenced conversation must belong to the same owner and workspace. Saving does not call a model. The 24 MiB route body bound applies. Compare-and-swap prevents stale tabs from overwriting a newer draft; clearing retains and advances the revision.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/chats/draft" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/workspaces/{workspace}/chats/draft" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
@@ -36,18 +36,7 @@ curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/pr
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

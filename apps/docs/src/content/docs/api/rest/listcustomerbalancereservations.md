@@ -3,7 +3,7 @@ title: "Inspect open customer balance reservations"
 description: "GET /api/v1/organizations/{organization}/billing/reservations"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/organizations/{organization}/billing/reservations`
 

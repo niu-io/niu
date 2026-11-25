@@ -81,10 +81,6 @@ export function workspaceKeyPagePath(workspaceId: string, limit = 50, after?: st
   return `${workspaceKeyPath(workspaceId)}?limit=${limit}${status === "all" ? "" : `&status=${status}`}${after ? `&after=${encodeURIComponent(after)}` : ''}`;
 }
 
-export function projectKeyPath(organization: string, project: string) {
-  return `/api/v1/organizations/${encodeURIComponent(organization)}/projects/${encodeURIComponent(project)}/keys`;
-}
-
 import { fetchQuery, invalidateForMutation, peekQuery, type FetchQueryOptions } from '@/lib/query-cache';
 
 export async function keyRequest<T>(
@@ -156,7 +152,14 @@ export function formatMaskedKey(secret?: string | null, preview?: string | null)
 
 export function keyLastUsed(key: ProjectKey) {
   if (key.last_used_at_ms === undefined) return translateUI('Unavailable');
-  if (key.last_used_at_ms === null) return translateUI('No recorded requests');
-  return new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(key.last_used_at_ms));
+  if (key.last_used_at_ms === null) return translateUI('Never used');
+  const seconds = Math.max(0, Math.floor((Date.now() - key.last_used_at_ms) / 1000));
+  if (seconds < 60) return translateUI('Just now');
+  const format = new Intl.RelativeTimeFormat(readUILocale());
+  const units = [[31536000, 'year'], [2592000, 'month'], [86400, 'day'], [3600, 'hour'], [60, 'minute']] as const;
+  for (const [duration, unit] of units) {
+    if (seconds >= duration) return format.format(-Math.floor(seconds / duration), unit);
+  }
+  return translateUI('Just now');
 }
 

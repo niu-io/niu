@@ -49,11 +49,15 @@ export default function SettingsDialog({context, children, pendingSection}: {con
         target?.focus({preventScroll:true});
       });
     }}>
-      <DialogHeader className="px-5 py-4 text-left"><DialogTitle>{t('Settings', '设置')}</DialogTitle><DialogDescription className="sr-only">{t('Manage your account, preferences and organization.', '管理账户、偏好与组织设置。')}</DialogDescription></DialogHeader>
-      <div className="px-4 pb-3 sm:hidden"><DropdownMenu open={navigationOpen} onOpenChange={setNavigationOpen}><DropdownMenuTrigger asChild><Button ref={sectionTrigger} variant="outline" className="w-full justify-between" data-settings-section-trigger aria-label={t('Settings section', '设置分类')}>{selected?.label}<IconChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent className="w-64" align="start" onCloseAutoFocus={event => {event.preventDefault();sectionTrigger.current?.focus();}}><DropdownMenuRadioGroup value={canonical} onValueChange={value => { setNavigationOpen(false); navigate(settingsHref(value as Parameters<typeof settingsHref>[0]), {state:location.state,replace:true}); }}>{entries.map(item => <DropdownMenuRadioItem key={item.path} value={item.path}><item.icon />{item.label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
+      <DialogHeader className="sr-only"><DialogTitle>{t('Settings', '设置')}</DialogTitle><DialogDescription>{t('Manage your account, preferences and organization.', '账户、外观与组织设置。')}</DialogDescription></DialogHeader>
+      <div className="px-4 pr-12 pb-3 pt-4 sm:hidden"><DropdownMenu open={navigationOpen} onOpenChange={setNavigationOpen}><DropdownMenuTrigger asChild><Button ref={sectionTrigger} variant="outline" className="w-full justify-between" data-settings-section-trigger aria-label={t('Settings section', '设置分类')}>{selected?.label}<IconChevronDown /></Button></DropdownMenuTrigger><DropdownMenuContent className="w-64" align="start" onCloseAutoFocus={event => {event.preventDefault();sectionTrigger.current?.focus();}}><DropdownMenuRadioGroup value={canonical} onValueChange={value => { setNavigationOpen(false); navigate(settingsHref(value as Parameters<typeof settingsHref>[0]), {state:location.state,replace:true}); }}>{entries.map(item => <DropdownMenuRadioItem key={item.path} value={item.path}><item.icon />{item.label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></div>
       <SidebarProvider className="min-h-0 flex-1 overflow-hidden" style={{'--sidebar-width':'12rem'} as CSSProperties}>
         <Sidebar collapsible="none" className="hidden bg-muted/40 sm:flex"><SettingsNavigation context={context} section={canonical} /></Sidebar>
-        <div className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6"><div className="mb-5 flex flex-wrap items-center gap-3"><h2 className="text-lg font-semibold">{selected?.label}</h2><div id="settings-page-actions" className="dashboard-page-actions" /></div><PageHeaderActionsTargetContext.Provider value="settings-page-actions">{children}</PageHeaderActionsTargetContext.Provider></div>
+        <div className="settings-content min-w-0 flex-1 overflow-y-auto px-4 pb-4 pt-8 sm:px-6 sm:pb-6 sm:pt-9">
+          <h2 className="sr-only">{selected?.label}</h2>
+          <div className="settings-content-actions"><div id="settings-page-actions" className="dashboard-page-actions" /></div>
+          <PageHeaderActionsTargetContext.Provider value="settings-page-actions">{children}</PageHeaderActionsTargetContext.Provider>
+        </div>
       </SidebarProvider>
     </DialogContent>
   </Dialog>;

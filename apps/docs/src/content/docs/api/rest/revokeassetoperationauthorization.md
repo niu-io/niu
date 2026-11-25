@@ -1,11 +1,11 @@
 ---
 title: "Revoke one account's asset qualification"
-description: "DELETE /api/v1/vendors/{id}/asset-management/authorizations/{authorization}"
+description: "DELETE /api/v1/admin/providers/connections/{id}/asset-management/authorizations/{authorization}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`DELETE /api/v1/vendors/{id}/asset-management/authorizations/{authorization}`
+`DELETE /api/v1/admin/providers/connections/{id}/asset-management/authorizations/{authorization}`
 
 Platform administrator only. Appends an immutable actor-attributed revocation. Missing, already revoked, and mismatched-account identifiers return the same idempotent response; another account's record is never revoked. Does not delete audit records or contact upstream.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management/authorizations/{authorization}" \
+curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/asset-management/authorizations/{authorization}" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
 ```
 

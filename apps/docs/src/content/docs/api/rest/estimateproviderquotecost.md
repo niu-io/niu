@@ -1,11 +1,11 @@
 ---
 title: "Estimate supplied billable quantities against an immutable quote"
-description: "POST /api/v1/providers/{provider}/estimate"
+description: "POST /api/v1/admin/providers/{provider}/estimate"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`POST /api/v1/providers/{provider}/estimate`
+`POST /api/v1/admin/providers/{provider}/estimate`
 
 Platform administration required. Read-only calculation: no inference or billing mutation. model is the upstream ID, revision is a captured quote version, quantities are disjoint billable meters (uncached input must exclude cached tokens). Exact decimal arithmetic; unsupported/unknown/overflowing meters remain explicit and never imply zero. Conditional quotes require an explicit matching condition from the captured evidence; no time or holiday calendar is guessed. Separate currency totals and partial coverage are retained. This is not an actual Provider invoice or a Niu customer charge.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/providers/{provider}/estimate" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/{provider}/estimate" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

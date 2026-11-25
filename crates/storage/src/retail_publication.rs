@@ -37,6 +37,17 @@ pub struct RetailPromotionRetirement {
     pub idempotency_key: Uuid,
     pub reason: String,
 }
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CustomerPricingItemInput {
+    pub price_id: Uuid,
+    #[serde(default)]
+    pub schedule: Option<RetailSchedule>,
+    #[serde(default)]
+    pub valid_seconds: Option<i64>,
+    #[serde(default)]
+    pub reason: Option<String>,
+}
 pub(crate) fn required_optional_uuid<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Option<Uuid>, D::Error> {
@@ -378,5 +389,320 @@ impl Store {
             .await?;
         crate::commit_tx(tx).await?;
         Ok(json!({"price_id":head,"revision":revision,"version":next.to_string()}))
+    }
+
+    /// Single-snapshot read of all platform standard prices paired with one customer's
+    /// active/scheduled customer-scoped discount (eliminating per-model N+1 lookups).
+    pub async fn platform_customer_pricing(
+        &self,
+        customer: Uuid,
+    ) -> Result<Option<Value>, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let org_name: Option<String> =
+            sqlx::query_scalar("SELECT name FROM organizations WHERE id=$1")
+                .bind(customer)
+                .fetch_optional(&mut *snapshot)
+                .await?;
+        let Some(organization_name) = org_name else {
+            crate::commit_tx(snapshot).await?;
+            return Ok(None);
+        };
+        let as_of: i64 =
+            sqlx::query_scalar("SELECT floor(extract(epoch FROM clock_timestamp()))::bigint")
+                .fetch_one(&mut *snapshot)
+                .await?;
+        let items: Vec<Value> = sqlx::query_scalar(
+            "SELECT jsonb_build_object(
+                'price_id', h.id,
+                'model_alias', h.model_alias,
+                'currency', h.currency,
+                'version', h.version::text,
+                'revision', s.id,
+                'published_at', sc.created_at,
+                'standard_schedule', s.schedule,
+                'active_promotion', promo.doc
+            )
+            FROM platform_retail_price_heads h
+            JOIN platform_retail_standard_revisions s ON s.id = h.current_revision
+            JOIN platform_retail_price_changes sc ON sc.id = s.id
+            LEFT JOIN LATERAL (
+                SELECT jsonb_build_object(
+                    'revision', p.id,
+                    'version', pc.version::text,
+                    'created_at', pc.created_at,
+                    'reason', pc.reason,
+                    'baseline_revision', p.baseline_revision,
+                    'schedule', p.schedule,
+                    'effective_from', p.effective_from::text,
+                    'effective_until', p.effective_until::text,
+                    'eligibility_until', LEAST(p.effective_until, COALESCE(r.effective_until, p.effective_until))::text,
+                    'state', CASE WHEN $2 < p.effective_from THEN 'scheduled' ELSE 'within_period' END
+                ) AS doc
+                FROM platform_retail_promotions p
+                JOIN platform_retail_price_changes pc ON pc.id = p.id
+                LEFT JOIN platform_retail_promotion_retirements r ON r.promotion_id = p.id
+                WHERE p.head_id = h.id
+                  AND p.customer_organization_id = $1
+                  AND r.promotion_id IS NULL
+                  AND p.effective_from < p.effective_until
+                  AND $2 < p.effective_until
+                ORDER BY (CASE WHEN $2 >= p.effective_from THEN 0 ELSE 1 END), pc.version DESC
+                LIMIT 1
+            ) promo ON TRUE
+            WHERE h.current_revision IS NOT NULL
+            ORDER BY h.model_alias ASC, h.currency ASC, h.rate_kind ASC, h.id ASC",
+        )
+        .bind(customer)
+        .bind(as_of)
+        .fetch_all(&mut *snapshot)
+        .await?;
+        crate::commit_tx(snapshot).await?;
+        Ok(Some(json!({
+            "organization_id": customer,
+            "organization_name": organization_name,
+            "as_of": as_of.to_string(),
+            "items": items,
+        })))
+    }
+
+    /// Atomically set or reset customer-specific discounts for one or more standard prices
+    /// in a single transaction. Existing active/scheduled customer rules on each targeted
+    /// model are cleanly retired before publishing the replacement rule.
+    pub async fn set_platform_customer_pricing(
+        &self,
+        customer: Uuid,
+        mut items: Vec<CustomerPricingItemInput>,
+        actor: OperatorAuditActor,
+    ) -> Result<Option<Value>, StoreError> {
+        if items.is_empty() || items.len() > 200 {
+            return Err(StoreError::InvalidPrice);
+        }
+        items.sort_by_key(|item| item.price_id);
+        for pair in items.windows(2) {
+            if pair[0].price_id == pair[1].price_id {
+                return Err(StoreError::InvalidPrice);
+            }
+        }
+        let mut tx = self.begin_bounded_recording().await?;
+        let exists: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM organizations WHERE id=$1)")
+                .bind(customer)
+                .fetch_one(&mut *tx)
+                .await?;
+        if !exists {
+            crate::commit_tx(tx).await?;
+            return Ok(None);
+        }
+        let now: i64 =
+            sqlx::query_scalar("SELECT floor(extract(epoch FROM clock_timestamp()))::bigint")
+                .fetch_one(&mut *tx)
+                .await?;
+
+        let mut updated = Vec::with_capacity(items.len());
+        for item in items {
+            let head_row: Option<(i64, Option<Uuid>)> = sqlx::query_as(
+                "SELECT version, current_revision FROM platform_retail_price_heads WHERE id=$1 FOR NO KEY UPDATE",
+            )
+            .bind(item.price_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+            let Some((mut version, Some(current_revision))) = head_row else {
+                crate::commit_tx(tx).await?;
+                return Ok(None);
+            };
+            let standard_value: Value = sqlx::query_scalar(
+                "SELECT schedule FROM platform_retail_standard_revisions WHERE id=$1",
+            )
+            .bind(current_revision)
+            .fetch_one(&mut *tx)
+            .await?;
+            let standard: RetailSchedule =
+                serde_json::from_value(standard_value).map_err(|_| StoreError::InvalidPrice)?;
+
+            let is_reset = item.schedule.is_none();
+            let replacement_schedule: Option<RetailSchedule> =
+                if let Some(mut explicit) = item.schedule {
+                    explicit.canonicalize()?;
+                    explicit.validate_discount_from(&standard)?;
+                    Some(explicit)
+                } else {
+                    None
+                };
+
+            let valid_seconds = item.valid_seconds.unwrap_or(5 * 365 * 86400);
+            if !(60..=3_153_600_000).contains(&valid_seconds) {
+                return Err(StoreError::InvalidPrice);
+            }
+            let until = now
+                .checked_add(valid_seconds)
+                .filter(|v| *v <= 253_402_300_799)
+                .ok_or(StoreError::InvalidPrice)?;
+
+            let default_reason = if is_reset {
+                "Reset to platform standard price".to_owned()
+            } else {
+                "Custom customer price".to_owned()
+            };
+            let note = item
+                .reason
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .unwrap_or(&default_reason)
+                .to_owned();
+            reason(&note)?;
+
+            let active_promos: Vec<(Uuid, i64)> = sqlx::query_as(
+                "SELECT p.id, p.effective_until
+                 FROM platform_retail_promotions p
+                 LEFT JOIN platform_retail_promotion_retirements r ON r.promotion_id = p.id
+                 WHERE p.head_id = $1
+                   AND p.customer_organization_id = $2
+                   AND r.promotion_id IS NULL
+                   AND p.effective_until >= $3
+                 ORDER BY p.id ASC",
+            )
+            .bind(item.price_id)
+            .bind(customer)
+            .bind(now)
+            .fetch_all(&mut *tx)
+            .await?;
+
+            for (promo_id, promo_until) in active_promos {
+                let cutoff = now.min(promo_until);
+                version = version.checked_add(1).ok_or(StoreError::Conflict)?;
+                let retire_reason = if is_reset {
+                    note.clone()
+                } else {
+                    let prefix = format!("Replaced: {note}");
+                    if prefix.chars().count() <= 500 {
+                        prefix
+                    } else {
+                        note.clone()
+                    }
+                };
+                let key = Uuid::new_v4();
+                let intent = json!({
+                    "action": "promotion_retired",
+                    "price_id": item.price_id,
+                    "promotion_id": promo_id,
+                    "input": {
+                        "effective_until": cutoff.to_string(),
+                        "expected_version": (version - 1).to_string(),
+                        "idempotency_key": key,
+                        "reason": retire_reason,
+                    }
+                });
+                let rev = change(
+                    &mut tx,
+                    item.price_id,
+                    version,
+                    Change {
+                        action: "promotion_retired",
+                        key,
+                        intent,
+                        reason: &retire_reason,
+                        actor,
+                    },
+                )
+                .await?;
+                sqlx::query(
+                    "INSERT INTO platform_retail_promotion_retirements(id,head_id,promotion_id,effective_until) VALUES($1,$2,$3,$4)",
+                )
+                .bind(rev)
+                .bind(item.price_id)
+                .bind(promo_id)
+                .bind(cutoff)
+                .execute(&mut *tx)
+                .await?;
+                sqlx::query("UPDATE platform_retail_price_heads SET version=$2 WHERE id=$1")
+                    .bind(item.price_id)
+                    .bind(version)
+                    .execute(&mut *tx)
+                    .await?;
+            }
+
+            let mut active_revision: Option<Uuid> = None;
+            if let Some(schedule) = replacement_schedule {
+                version = version.checked_add(1).ok_or(StoreError::Conflict)?;
+                let key = Uuid::new_v4();
+                let intent = json!({
+                    "action": "promotion_published",
+                    "price_id": item.price_id,
+                    "input": {
+                        "baseline_revision": current_revision,
+                        "customer_organization_id": customer,
+                        "schedule": schedule,
+                        "effective_from": now.to_string(),
+                        "effective_until": until.to_string(),
+                        "expected_version": (version - 1).to_string(),
+                        "idempotency_key": key,
+                        "reason": note,
+                    }
+                });
+                let rev = change(
+                    &mut tx,
+                    item.price_id,
+                    version,
+                    Change {
+                        action: "promotion_published",
+                        key,
+                        intent,
+                        reason: &note,
+                        actor,
+                    },
+                )
+                .await?;
+                sqlx::query(
+                    "INSERT INTO platform_retail_promotions(id,head_id,baseline_revision,customer_organization_id,effective_from,effective_until,schedule) VALUES($1,$2,$3,$4,$5,$6,$7)",
+                )
+                .bind(rev)
+                .bind(item.price_id)
+                .bind(current_revision)
+                .bind(customer)
+                .bind(now)
+                .bind(until)
+                .bind(json!(schedule))
+                .execute(&mut *tx)
+                .await?;
+                sqlx::query("UPDATE platform_retail_price_heads SET version=$2 WHERE id=$1")
+                    .bind(item.price_id)
+                    .bind(version)
+                    .execute(&mut *tx)
+                    .await?;
+                active_revision = Some(rev);
+            }
+            updated.push(json!({
+                "price_id": item.price_id,
+                "version": version.to_string(),
+                "active_revision": active_revision,
+            }));
+        }
+
+        crate::commit_tx(tx).await?;
+        Ok(Some(json!({
+            "organization_id": customer,
+            "updated": updated,
+        })))
+    }
+
+    /// Reset one model's customer-specific discount back to platform standard pricing.
+    pub async fn reset_platform_customer_model_pricing(
+        &self,
+        customer: Uuid,
+        price_id: Uuid,
+        actor: OperatorAuditActor,
+    ) -> Result<Option<Value>, StoreError> {
+        self.set_platform_customer_pricing(
+            customer,
+            vec![CustomerPricingItemInput {
+                price_id,
+                schedule: None,
+                valid_seconds: None,
+                reason: Some("Reset to platform standard price".to_owned()),
+            }],
+            actor,
+        )
+        .await
     }
 }

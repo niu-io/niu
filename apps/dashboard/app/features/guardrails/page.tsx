@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams, type LoaderFunctionArgs } from "react-router";
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from "@/lib/route-data";
-import { IconPencil, IconShieldCheck } from "@tabler/icons-react";
+import { IconHistory, IconPencil, IconShieldCheck, IconShieldOff } from "@tabler/icons-react";
 import DetectorPreview from "./DetectorPreview";
 import {
   emptyGuardrailPolicy,
@@ -30,17 +30,18 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cachedGet, markCachedStale, peekCachedGet } from "@/features/providers/api";
 import { FormSectionSkeleton } from "@/components/PageSkeletons";
 import { disambiguatedCatalogTitle } from "@/lib/providers";
 import { translateUI, useLocale as useUILocale } from "@/shell/ui-locale";
 
-type GuardrailsTab = "policy" | "blocked" | "history";
+type GuardrailsSheet = "blocked" | "history" | null;
 
 function validateHead(raw: unknown): GuardrailHead | null {
   if (raw === null) return null;
@@ -71,10 +72,10 @@ function readCachedHead(token: string, endpoint: string): { data: GuardrailHead 
   }
 }
 
-function requestedTab(value: string | null): GuardrailsTab {
+function requestedSheet(value: string | null): GuardrailsSheet {
   if (value === "history") return "history";
   if (value === "blocked" || value === "denials") return "blocked";
-  return "policy";
+  return null;
 }
 
 function ruleSummaryItem(
@@ -131,9 +132,9 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const tab = requestedTab(searchParams.get("tab"));
+  const activeSheet = requestedSheet(searchParams.get("tab"));
   const endpoint = workspace
-    ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/guardrails`
+    ? `/api/v1/workspaces/${workspace.id}/guardrails`
     : "";
   const cachedHead = readCachedHead(token, endpoint);
   const [head, setHead] = useState<GuardrailHead | null>(() => cachedHead?.data ?? null);
@@ -149,6 +150,8 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
   const lastReload = useRef(0);
   const policyOpenerRef = useRef<HTMLButtonElement>(null);
   const testOpenerRef = useRef<HTMLButtonElement>(null);
+  const blockedOpenerRef = useRef<HTMLButtonElement>(null);
+  const historyOpenerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!endpoint) return;
@@ -196,16 +199,21 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
     return () => controller.abort();
   }, [endpoint, token, reload]);
 
-  function selectTab(next: string) {
+  function setSheet(next: GuardrailsSheet) {
     const query = new URLSearchParams(searchParams);
-    query.set("tab", next);
+    if (next) {
+      query.set("tab", next);
+    } else {
+      query.delete("tab");
+    }
     if (next !== "history") {
       query.delete("revision");
       query.delete("from");
     }
+    const qs = query.toString();
     navigate({
       pathname: location.pathname,
-      search: `?${query.toString()}`,
+      search: qs ? `?${qs}` : "",
       hash: "",
     });
   }
@@ -237,10 +245,10 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
         </AlertDescription>
       </Alert>
     ) : head === null ? (
-      <Empty className="min-h-56 rounded-[var(--radius-panel)] bg-card">
+      <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <IconShieldCheck size={20} aria-hidden="true" />
+            <IconShieldCheck aria-hidden="true" />
           </EmptyMedia>
           <EmptyTitle>{uiT("No workspace policy configured", "尚未配置工作空间护栏策略")}</EmptyTitle>
           <EmptyDescription>
@@ -385,32 +393,112 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
     );
 
   return (
-    <div className="guardrails-page">
-      <PageHeader title={uiT("Guardrails")} />
-      <Tabs value={tab} onValueChange={selectTab} className="gap-4">
-        <TabsList aria-label={uiT("Guardrails")}>
-          <TabsTrigger value="policy">{uiT("Policy")}</TabsTrigger>
-          <TabsTrigger value="blocked">{uiT("Blocked requests")}</TabsTrigger>
-          <TabsTrigger value="history">{uiT("History")}</TabsTrigger>
-        </TabsList>
-        <TabsContent value="policy" className="space-y-4">
-          {policyContent}
-        </TabsContent>
-        <TabsContent value="blocked">
-          <GuardrailDenials key={`${token}:${endpoint}`} token={token} endpoint={endpoint} />
-        </TabsContent>
-        <TabsContent value="history" className="space-y-4">
+    <div className="guardrails-page empty-region space-y-5">
+      <PageHeader
+        title={uiT("Guardrails")}
+        action={
+          <>
+            <Button
+              ref={blockedOpenerRef}
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="header-icon-action"
+              aria-label={uiT("Blocked requests")}
+              title={uiT("Blocked requests")}
+              onClick={() => setSheet("blocked")}
+            >
+              <IconShieldOff size={15} aria-hidden="true" />
+              <span>{uiT("Blocked requests")}</span>
+            </Button>
+            <Button
+              ref={historyOpenerRef}
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="header-icon-action"
+              aria-label={uiT("History")}
+              title={uiT("History")}
+              onClick={() => setSheet("history")}
+            >
+              <IconHistory size={15} aria-hidden="true" />
+              <span>{uiT("History")}</span>
+            </Button>
+          </>
+        }
+      />
+
+      {policyContent}
+
+      <Dialog
+        open={activeSheet === "blocked"}
+        onOpenChange={(open) => {
+          if (!open) setSheet(null);
+        }}
+      >
+        <DialogContent
+          className="w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[85dvh] overflow-y-auto"
+          onCloseAutoFocus={(event) => {
+            if (blockedOpenerRef.current?.isConnected) {
+              event.preventDefault();
+              blockedOpenerRef.current.focus();
+            }
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{uiT("Blocked requests")}</DialogTitle>
+            <DialogDescription>
+              {uiT(
+                "Pre-dispatch requests denied by workspace or API key guardrails.",
+                "由工作空间或 API 密钥安全护栏在调度前拦截的请求记录。",
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <GuardrailDenials key={`${token}:${endpoint}`} token={token} endpoint={endpoint} embedded />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={activeSheet === "history"}
+        onOpenChange={(open) => {
+          if (!open) setSheet(null);
+        }}
+      >
+        <DialogContent
+          className="w-[calc(100vw-2rem)] sm:max-w-4xl max-h-[85dvh] overflow-y-auto"
+          onCloseAutoFocus={(event) => {
+            if (historyOpenerRef.current?.isConnected) {
+              event.preventDefault();
+              historyOpenerRef.current.focus();
+            }
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{uiT("Policy history")}</DialogTitle>
+            <DialogDescription>
+              {uiT(
+                "Saved revisions and restore points for this workspace guardrail policy.",
+                "当前工作空间护栏策略的历史版本与可恢复节点。",
+              )}
+            </DialogDescription>
+          </DialogHeader>
           <GuardrailHistory
             token={token}
             endpoint={endpoint}
             canWrite={canWrite}
+            embedded
+            onConfigurePolicy={() => {
+              setSheet(null);
+              setSaved(false);
+              setEditorOpen(true);
+            }}
             onRestored={() => {
               setSaved(false);
               setReload((value) => value + 1);
             }}
           />
-        </TabsContent>
-      </Tabs>
+        </DialogContent>
+      </Dialog>
 
       {canWrite && (loaded || editorOpen) && (
         <PolicyEditorDialog
@@ -449,7 +537,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace }) => ({
     endpoint: workspace
-      ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/guardrails`
+      ? `/api/v1/workspaces/${workspace.id}/guardrails`
       : null,
   }));
 }

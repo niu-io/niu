@@ -3,7 +3,7 @@ title: "Recover this API key's saved ingestion history"
 description: "GET /v1/media/image-ingestions"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /v1/media/image-ingestions`
 

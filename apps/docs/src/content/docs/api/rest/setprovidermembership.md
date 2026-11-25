@@ -1,11 +1,11 @@
 ---
 title: "Grant, change or disable a Provider membership"
-description: "PUT /api/v1/providers/{provider}/members/{operator}"
+description: "PUT /api/v1/admin/providers/{provider}/members/{operator}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`PUT /api/v1/providers/{provider}/members/{operator}`
+`PUT /api/v1/admin/providers/{provider}/members/{operator}`
 
 Requires platform administration. Records legacy viewer or manager membership metadata for a non-revoked operator. These records do not enable Provider login, portal, financial, statistics or platform configuration access. Membership state and immutable audit are recorded atomically, including the authorized actor, Provider and affected-member names, and active roles before and after the change. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/providers/{provider}/members/{operator}" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/admin/providers/{provider}/members/{operator}" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

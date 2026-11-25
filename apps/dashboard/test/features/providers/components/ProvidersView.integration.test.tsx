@@ -44,15 +44,15 @@ function stubVendorApi({ existing = [] }: { existing?: ProviderConnection[] } = 
     const body = typeof init?.body === 'string' ? JSON.parse(init.body) as Record<string, unknown> : undefined;
     calls.push({ path, method, body, signal: init?.signal ?? undefined });
 
-    if (path === '/api/v1/providers' && method === 'GET') return jsonResponse({ data: [{ id: 'supplier-one', name: 'Existing business' }] });
-    if ((path === '/api/v1/vendors' || path.startsWith('/api/v1/vendors?supplier=')) && method === 'GET') return jsonResponse({ data: vendors });
-    if (path === '/api/v1/vendors' && method === 'POST') {
+    if (path === '/api/v1/admin/providers' && method === 'GET') return jsonResponse({ data: [{ id: 'supplier-one', name: 'Existing business' }] });
+    if ((path === '/api/v1/admin/providers/connections' || path.startsWith('/api/v1/admin/providers/connections?supplier=')) && method === 'GET') return jsonResponse({ data: vendors });
+    if (path === '/api/v1/admin/providers/connections' && method === 'POST') {
       const created = { ...openRouter, id: 'vendor-' + (vendors.length + 1), name: String(body?.name), supplier: body?.supplier_id ? { id: String(body.supplier_id), name: 'Existing business' } : { id: 'supplier-created', name: String(body?.name) }, adapter: body?.adapter as ProviderConnection['adapter'], api_base: String(body?.api_base), revision: 1, enabled: true, has_credential: Boolean(body?.api_key) };
       vendors.push(created);
       return jsonResponse({ data: created }, 201);
     }
-    if (path.startsWith('/api/v1/vendors/') && method === 'PUT') {
-      const vendorId = path.split('/')[4];
+    if (path.startsWith('/api/v1/admin/providers/connections/') && method === 'PUT') {
+      const vendorId = path.slice('/api/v1/admin/providers/connections/'.length).split('/')[0];
       const index = vendors.findIndex(vendor => vendor.id === vendorId);
       if (index < 0) return jsonResponse({ error: { message: 'Vendor not found' } }, 404);
       const previous = vendors[index];
@@ -119,16 +119,56 @@ describe('provider API key administration workflow', () => {
     expect(input.capabilities.catalog).toBeUndefined();
   });
 
-  it('keeps the keys surface focused on credentials and links to the canonical Models view', async () => {
+  it('keeps the keys surface focused on credentials and opens rate limit & cooldown in a dedicated dialog without inline details', async () => {
     const api = stubVendorApi({ existing: [openRouter] });
-    renderView(<MemoryRouter initialEntries={['/providers?supplier=openrouter-primary']}><ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} providerSlug="openrouter-primary" /></MemoryRouter>);
+    const origImpl = api.fetchMock.getMockImplementation()!;
+    api.fetchMock.mockImplementation(async (input, init) => {
+      const path = String(input);
+      if (path.endsWith('/request-rate-limit')) return jsonResponse({ data: { requests_per_minute: null, revision: '0' } });
+      if (path.endsWith('/cooldown')) return jsonResponse({ data: { policy_revision: 'openrouter-auth-cooldown-v1', failure_threshold: 3, window_seconds: 60, cooldown_seconds: 60, active: false, qualifying_failures: 0, cooldown_until: null } });
+      return origImpl(input, init);
+    });
+    const user = userEvent.setup();
+    const { container } = renderView(<MemoryRouter initialEntries={['/providers?supplier=openrouter-primary']}><ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} providerSlug="openrouter-primary" /></MemoryRouter>);
     await screen.findByRole('heading', { name: openRouter.name });
-    expect(screen.getByRole('heading', { name: 'Keys' })).toBeTruthy();
-    expect(screen.getByText(/Manage upstream API keys, request limits and cooldowns/)).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Models' }).getAttribute('href')).toBe('/admin/providers/openrouter-primary/models');
+    expect(screen.getByRole('heading', { name: 'API keys' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Select models' }).getAttribute('href')).toBe('/admin/providers/openrouter-primary');
+    expect(container.querySelector('details')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Import models' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Model routes/ })).toBeNull();
     expect(api.calls.some(call => call.path.endsWith('/models') || call.path.endsWith('/check') || call.path.endsWith('/catalog'))).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: 'Rate limit & cooldown' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('Unlimited')).toBeTruthy();
+    expect(await within(dialog).findByText('No active cooldown')).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'Edit limit' }));
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(within(dialog).getByLabelText('Limit')).toBeTruthy();
+  });
+
+  it('enables a disabled API key in one click and prompts for a new key when credential was erased', async () => {
+    const disabledWithKey = { ...openRouter, id: 'vendor-disabled', name: 'BabelArk key', enabled: false, has_credential: true };
+    const erasedKey = { ...openRouter, id: 'vendor-erased', name: 'Disconnected key', enabled: false, has_credential: false };
+    const api = stubVendorApi({ existing: [disabledWithKey, erasedKey] });
+    const user = userEvent.setup();
+    renderView(<MemoryRouter initialEntries={['/providers?supplier=babelark']}><ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} providerSlug="babelark" /></MemoryRouter>);
+
+    await screen.findByRole('heading', { name: 'BabelArk key' });
+    await user.click(screen.getByRole('button', { name: 'Enable API key' }));
+    await waitFor(() => {
+      const enableCall = api.calls.find(c => c.path === '/api/v1/admin/providers/connections/vendor-disabled' && c.method === 'PUT');
+      expect(enableCall?.body).toMatchObject({ enabled: true, expected_revision: 1 });
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Enter API key & enable' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Provider API key'), 'fresh-secret-key');
+    await user.click(within(dialog).getByRole('button', { name: 'Save & enable' }));
+    await waitFor(() => {
+      const reconnectCall = api.calls.find(c => c.path === '/api/v1/admin/providers/connections/vendor-erased' && c.method === 'PUT');
+      expect(reconnectCall?.body).toMatchObject({ enabled: true, api_key: 'fresh-secret-key', expected_revision: 1 });
+    });
   });
 
   it('denies scoped owners before requesting any installation vendor data', async () => {
@@ -148,20 +188,20 @@ describe('provider API key administration workflow', () => {
     render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={refreshWorkspace} />);
 
     const dialog = await openNewKeyDialog(user);
-    await user.type(within(dialog).getByLabelText('Provider name'), 'OpenRouter primary');
-    expect(within(dialog).getByLabelText('API format').textContent).toBe('OpenRouter API');
-    expect((within(dialog).getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://openrouter.ai/api/v1');
+    await user.type(within(dialog).getByLabelText('Provider name'), 'OpenAI primary');
+    expect(within(dialog).getByLabelText('API format').textContent).toBe('OpenAI-compatible API');
+    expect((within(dialog).getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://api.openai.com/v1');
     await user.type(within(dialog).getByLabelText('Provider API key'), 'vendor-secret-once');
     await user.click(within(dialog).getByRole('button', { name: 'Create provider' }));
 
-    expect(await screen.findByRole('heading', { name: 'OpenRouter primary' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'OpenAI primary' })).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.queryByRole('heading', { name: 'OpenRouter primary routes' })).toBeNull();
-    const createVendor = api.calls.find(call => call.path === '/api/v1/vendors' && call.method === 'POST');
+    expect(screen.queryByRole('heading', { name: 'OpenAI primary routes' })).toBeNull();
+    const createVendor = api.calls.find(call => call.path === '/api/v1/admin/providers/connections' && call.method === 'POST');
     expect(createVendor?.body).toEqual({
-      name: 'OpenRouter primary',
-      adapter: 'openrouter',
-      api_base: 'https://openrouter.ai/api/v1',
+      name: 'OpenAI primary',
+      adapter: 'openai',
+      api_base: 'https://api.openai.com/v1',
       api_key: 'vendor-secret-once',
       enabled: true,
       create_supplier: true,
@@ -186,7 +226,7 @@ describe('provider API key administration workflow', () => {
     expect(await screen.findByRole('alertdialog', { name: 'Disable this API key?' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Confirm disable' }));
 
-    const updateVendor = api.calls.find(call => call.path === '/api/v1/vendors/vendor-openrouter' && call.method === 'PUT');
+    const updateVendor = api.calls.find(call => call.path === '/api/v1/admin/providers/connections/vendor-openrouter' && call.method === 'PUT');
     expect(updateVendor?.body).toMatchObject({
       name: 'OpenRouter primary',
       api_base: 'https://openrouter.ai/api/v1',
@@ -212,8 +252,7 @@ describe('provider API key administration workflow', () => {
     await user.type(screen.getByLabelText('Provider API key'), 'independent-secret');
     await user.click(screen.getByRole('button', { name: 'Add API key' }));
     expect(await screen.findByRole('heading', { name: 'Specialized models' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Select Provider API key' }).textContent).toContain('Specialized models');
-    const creation = api.calls.find(call => call.method === 'POST' && call.path === '/api/v1/vendors');
+    const creation = api.calls.find(call => call.method === 'POST' && call.path === '/api/v1/admin/providers/connections');
     expect(creation?.body).toMatchObject({ supplier_id: 'supplier-one', name: 'Specialized models', api_key: 'independent-secret' });
     expect(creation?.body).not.toHaveProperty('create_supplier');
     expect(api.calls.some(call => call.method === 'PUT')).toBe(false);
@@ -225,11 +264,11 @@ describe('provider API key administration workflow', () => {
     const original = api.fetchMock.getMockImplementation()!;
     let created = false;
     api.fetchMock.mockImplementation(async (input, init) => {
-      if (created && String(input) === '/api/v1/vendors' && (init?.method ?? 'GET') === 'GET') {
+      if (created && String(input) === '/api/v1/admin/providers/connections' && (init?.method ?? 'GET') === 'GET') {
         return jsonResponse({ error: { message: 'Temporarily unavailable' } }, 503);
       }
       const response = await original(input, init);
-      if (String(input) === '/api/v1/vendors' && init?.method === 'POST') created = true;
+      if (String(input) === '/api/v1/admin/providers/connections' && init?.method === 'POST') created = true;
       return response;
     });
     const user = userEvent.setup();
@@ -239,10 +278,10 @@ describe('provider API key administration workflow', () => {
     await user.type(screen.getByLabelText('Provider name'), 'Saved Provider');
     await user.type(screen.getByLabelText('Provider API key'), 'saved-secret');
     await user.click(screen.getByRole('button', { name: 'Create provider' }));
-    expect(await screen.findByRole('alert')).toHaveProperty('textContent', expect.stringContaining('API key saved'));
+    expect(await screen.findByText(/API key saved/)).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(api.calls.filter(call => call.method === 'POST' && call.path === '/api/v1/vendors')).toHaveLength(1);
+    expect(api.calls.filter(call => call.method === 'POST' && call.path === '/api/v1/admin/providers/connections')).toHaveLength(1);
   });
 
   it.each(['transport', 'server', 'malformed'])('reconciles an uncertain %s creation through reads without reposting', async failure => {
@@ -250,7 +289,7 @@ describe('provider API key administration workflow', () => {
     const original = api.fetchMock.getMockImplementation()!;
     api.fetchMock.mockImplementation(async (input, init) => {
       const response = await original(input, init);
-      if (String(input) === '/api/v1/vendors' && init?.method === 'POST') {
+      if (String(input) === '/api/v1/admin/providers/connections' && init?.method === 'POST') {
         if (failure === 'transport') throw new TypeError('Connection lost');
         if (failure === 'server') return jsonResponse({ error: { message: 'Unavailable' } }, 503);
         return jsonResponse({ data: null }, 201);
@@ -268,26 +307,19 @@ describe('provider API key administration workflow', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.queryByLabelText('Provider API key')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
-    await user.click(await screen.findByRole('button', { name: 'Select Provider API key' }));
-    expect(await screen.findByRole('menuitemradio', { name: /Possibly saved Provider/ })).toBeTruthy();
-    expect(api.calls.filter(call => call.method === 'POST' && call.path === '/api/v1/vendors')).toHaveLength(1);
+    expect(await screen.findByRole('heading', { name: 'Possibly saved Provider' })).toBeTruthy();
+    expect(api.calls.filter(call => call.method === 'POST' && call.path === '/api/v1/admin/providers/connections')).toHaveLength(1);
     expect(localStorage.length).toBe(0);
   });
 
-  it('switches between API keys grouped under one Provider', async () => {
+  it('lists all API keys directly under one Provider with individual status and actions', async () => {
     const first = { ...openRouter, name: 'General key', supplier: { id: 'business-one', name: 'Shared business' } };
     const second = { ...first, id: 'restricted-key', name: 'Restricted key', enabled: false };
     stubVendorApi({ existing: [first, second] });
-    const user = userEvent.setup();
     render(<ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
     expect(await screen.findByRole('heading', { name: 'General key' })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Select Provider API key' }));
-    expect(screen.getByRole('menuitemradio', { name: 'General key' }).getAttribute('aria-checked')).toBe('true');
-    await user.click(screen.getByRole('menuitemradio', { name: 'Restricted key · Disabled' }));
-    expect(await screen.findByRole('heading', { name: 'Restricted key' })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Select Provider API key' }));
-    expect(screen.getByRole('menuitemradio', { name: 'Restricted key · Disabled' }).getAttribute('aria-checked')).toBe('true');
-    await user.keyboard('{Escape}');
+    expect(screen.getByRole('heading', { name: 'Restricted key' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Enable API key' })).toBeTruthy();
     expect(screen.queryByText('business-one')).toBeNull();
   });
 
@@ -306,7 +338,7 @@ describe('provider API key administration workflow', () => {
 
     expect(await screen.findByRole('heading', { name: 'OpenAI fallback' })).toBeTruthy();
     expect(screen.getByText('https://api.openai.com/v1')).toBeTruthy();
-    expect(api.calls.find(call => call.path === '/api/v1/vendors' && call.method === 'POST')?.body).toMatchObject({
+    expect(api.calls.find(call => call.path === '/api/v1/admin/providers/connections' && call.method === 'POST')?.body).toMatchObject({
       name: 'OpenAI fallback',
       adapter: 'openai',
       api_base: 'https://api.openai.com/v1',
@@ -320,10 +352,10 @@ describe('provider API key administration workflow', () => {
     api.fetchMock.mockImplementation(async (input, init) => {
       const path = String(input);
       const method = init?.method ?? 'GET';
-      if (path === `/api/v1/vendors/${openRouter.id}` && method === 'PUT') {
+      if (path === `/api/v1/admin/providers/connections/${openRouter.id}` && method === 'PUT') {
         return jsonResponse({ error: { message: 'Vendor revision conflict' } }, 409);
       }
-      if (path === '/api/v1/vendors') return jsonResponse({ data: [openRouter] });
+      if (path === '/api/v1/admin/providers/connections') return jsonResponse({ data: [openRouter] });
       return jsonResponse({ error: { message: 'Not found' } }, 404);
     });
     const user = userEvent.setup();
@@ -358,16 +390,16 @@ describe('provider API key administration workflow', () => {
     const calls: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input); calls.push(path);
-      if (path === '/api/v1/vendors?supplier=business-fixture') return jsonResponse({ data: [openRouter] });
-      if (path.startsWith('/api/v1/vendors/') && path.endsWith('/request-rate-limit')) return jsonResponse({ data: { requests_per_minute: null, revision: '0' } });
-      if (path.startsWith('/api/v1/vendors/') && path.endsWith('/cooldown')) return jsonResponse({ data: { policy_revision: 'openrouter-auth-cooldown-v1', failure_threshold: 3, window_seconds: 60, cooldown_seconds: 60, active: false, qualifying_failures: 0, cooldown_until: null } });
+      if (path === '/api/v1/admin/providers/connections?supplier=business-fixture') return jsonResponse({ data: [openRouter] });
+      if (path.startsWith('/api/v1/admin/providers/connections/') && path.endsWith('/request-rate-limit')) return jsonResponse({ data: { requests_per_minute: null, revision: '0' } });
+      if (path.startsWith('/api/v1/admin/providers/connections/') && path.endsWith('/cooldown')) return jsonResponse({ data: { policy_revision: 'openrouter-auth-cooldown-v1', failure_threshold: 3, window_seconds: 60, cooldown_seconds: 60, active: false, qualifying_failures: 0, cooldown_until: null } });
       return jsonResponse({ error: { message: 'Unexpected unscoped read' } }, 400);
     }));
     renderView(<MemoryRouter initialEntries={['/providers?supplier=business-fixture']}><ProvidersView token="test-token" session={installationSession} refreshWorkspace={vi.fn()} /></MemoryRouter>);
     await screen.findByRole('heading', { name: openRouter.name });
-    expect(calls).toContain('/api/v1/vendors?supplier=business-fixture');
-    expect(calls).not.toContain('/api/v1/vendors');
-    expect(screen.getByRole('heading', { name: 'Keys' })).toBeTruthy();
+    expect(calls).toContain('/api/v1/admin/providers/connections?supplier=business-fixture');
+    expect(calls).not.toContain('/api/v1/admin/providers/connections');
+    expect(screen.getByRole('heading', { name: 'API keys' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Add provider' })).toBeNull();
   });
 
@@ -441,5 +473,194 @@ describe('provider API key administration workflow', () => {
     expect(screen.getByText('Messages API')).toBeTruthy();
     expect(screen.getByText('Messages streaming tools')).toBeTruthy();
     expect(screen.queryByText('Gemini API')).toBeNull();
+  });
+
+  it('shows pooled status badge and pool-aware disable/disconnect warnings when sibling keys share an endpoint', async () => {
+    const providerRef = { id: 'prov-pool', name: 'DeepSeek Pool' };
+    const key1 = {
+      ...openRouter,
+      id: 'key-1',
+      name: 'DeepSeek Primary',
+      adapter: 'openai' as const,
+      api_base: 'https://api.deepseek.com/v1',
+      supplier: providerRef,
+    };
+    const key2 = {
+      ...openRouter,
+      id: 'key-2',
+      name: 'DeepSeek Backup',
+      adapter: 'openai' as const,
+      api_base: 'https://api.deepseek.com/v1/',
+      supplier: providerRef,
+    };
+    const keyOtherEndpoint = {
+      ...openRouter,
+      id: 'key-3',
+      name: 'DeepSeek Beta Endpoint',
+      adapter: 'openai' as const,
+      api_base: 'https://beta.deepseek.com/v1',
+      supplier: providerRef,
+    };
+    stubVendorApi({ existing: [key1, key2, keyOtherEndpoint] });
+    const user = userEvent.setup();
+    renderView(
+      <MemoryRouter initialEntries={['/admin/providers/prov-pool/keys?supplier=prov-pool']}>
+        <ProvidersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('heading', { name: 'DeepSeek Primary' });
+    // Two keys on https://api.deepseek.com/v1 show pooled badge; different api_base does not.
+    expect(screen.getAllByText('Pooled · 2 active keys')).toHaveLength(2);
+
+    // Disable dialog on a pooled key tells the truth: 1 remaining key keeps serving traffic.
+    const disableButtons = screen.getAllByRole('button', { name: 'Disable' });
+    await user.click(disableButtons[0]);
+    expect(
+      await screen.findByText(/Other enabled API keys on this endpoint \(1 remaining\) will continue serving traffic automatically/),
+    ).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    // Disable dialog on the isolated endpoint warns it is the last enabled key.
+    await user.click(disableButtons[2]);
+    expect(
+      await screen.findByText(/This is the last enabled key for this endpoint/),
+    ).toBeTruthy();
+  });
+
+  it('scopes API key forms strictly to the owning Provider: inherits endpoint, hides Provider selector & OpenRouter adapter, uses neutral key icons, and omits vendor integration overrides', async () => {
+    const qiniuUuid = '9cc6b65a-0b19-4f18-8828-89d6038973f0';
+    const qiniuKey: ProviderConnection = {
+      id: 'qiniu-key-1',
+      name: 'Qiniu Primary',
+      adapter: 'openai',
+      api_base: 'https://api.qnaigc.com/v1',
+      enabled: true,
+      revision: 1,
+      has_credential: true,
+      provider: { id: qiniuUuid, name: 'Qiniu' },
+      supplier: { id: qiniuUuid, name: 'Qiniu' },
+    };
+    const api = stubVendorApi({ existing: [qiniuKey] });
+    const user = userEvent.setup();
+    const { container } = renderView(
+      <MemoryRouter initialEntries={['/admin/providers/qiniu']}>
+        <ProvidersView
+          embedded
+          token="installation-token-qiniu"
+          session={installationSession}
+          refreshWorkspace={async () => {}}
+          providerId={qiniuUuid}
+          providerSlug="qiniu"
+        />
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('heading', { name: 'Qiniu Primary' });
+    // Key rows render neutral key icons, never foreign brand logos
+    const keyList = screen.getByRole('list', { name: 'Provider API keys' });
+    expect(keyList.querySelectorAll('img')).toHaveLength(0);
+
+    // Edit key dialog omits per-key Connection integration overrides
+    await user.click(screen.getByRole('button', { name: 'Edit key' }));
+    const editDialog = await screen.findByRole('dialog');
+    expect(within(editDialog).queryByText('Connection integration')).toBeNull();
+    expect(api.calls.some(call => call.path.endsWith('/integration'))).toBe(false);
+    await user.click(within(editDialog).getByRole('button', { name: 'Close dialog' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    // Add API key dialog hides Provider selector, pre-fills Qiniu's adapter + api_base, and hides OpenRouter API
+    await user.click(screen.getByRole('button', { name: 'Add API key' }));
+    const addDialog = await screen.findByRole('dialog');
+    expect(within(addDialog).queryByLabelText('Provider')).toBeNull();
+    expect(within(addDialog).getByLabelText('API format').textContent).toBe('OpenAI-compatible API');
+    expect((within(addDialog).getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://api.qnaigc.com/v1');
+
+    await user.click(within(addDialog).getByLabelText('API format'));
+    expect(screen.queryByRole('menuitemradio', { name: 'OpenRouter API' })).toBeNull();
+    expect(screen.getByRole('menuitemradio', { name: 'OpenAI-compatible API' })).toBeTruthy();
+    await user.keyboard('{Escape}');
+
+    await user.type(within(addDialog).getByLabelText('API key name'), 'Qiniu Backup');
+    await user.type(within(addDialog).getByLabelText('Provider API key'), 'qiniu-secret-2');
+    await user.click(within(addDialog).getByRole('button', { name: 'Add API key' }));
+
+    await waitFor(() => {
+      const post = api.calls.find(c => c.path === '/api/v1/admin/providers/connections' && c.method === 'POST');
+      expect(post?.body).toEqual({
+        name: 'Qiniu Backup',
+        adapter: 'openai',
+        api_base: 'https://api.qnaigc.com/v1',
+        api_key: 'qiniu-secret-2',
+        enabled: true,
+        supplier_id: qiniuUuid,
+      });
+    });
+    expect(container).toBeTruthy();
+  });
+
+  it('prefills backend preset endpoint for a 0-key built-in Provider and leaves custom 0-key Provider api_base blank rather than OpenRouter', async () => {
+    const deepseekUuid = '11111111-2222-3333-4444-555555555555';
+    const customUuid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    const fetchMock = vi.fn<typeof fetch>(async input => {
+      const path = String(input);
+      if (path.startsWith('/api/v1/admin/providers/connections')) return jsonResponse({ data: [] });
+      if (path === '/api/v1/admin/providers/presets') {
+        return jsonResponse({
+          data: [
+            {
+              id: 'deepseek',
+              name: 'DeepSeek',
+              protocol: 'openai',
+              api_base: 'https://api.deepseek.com',
+              website: 'https://platform.deepseek.com/api_keys',
+            },
+          ],
+        });
+      }
+      return jsonResponse({ data: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+
+    const view = renderView(
+      <MemoryRouter initialEntries={['/admin/providers/deepseek']}>
+        <ProvidersView
+          embedded
+          token="preset-token"
+          session={installationSession}
+          refreshWorkspace={async () => {}}
+          providerId={deepseekUuid}
+          providerSlug="deepseek"
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Configure API key' }));
+    const deepseekDialog = await screen.findByRole('dialog');
+    await waitFor(() => {
+      expect((within(deepseekDialog).getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://api.deepseek.com');
+    });
+    expect(within(deepseekDialog).getByLabelText('API format').textContent).toBe('OpenAI-compatible API');
+    expect(within(deepseekDialog).queryByLabelText('Provider')).toBeNull();
+    view.unmount();
+
+    renderView(
+      <MemoryRouter initialEntries={['/admin/providers/custom-gateway']}>
+        <ProvidersView
+          embedded
+          token="custom-token"
+          session={installationSession}
+          refreshWorkspace={async () => {}}
+          providerId={customUuid}
+          providerSlug="custom-gateway"
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Configure API key' }));
+    const customDialog = await screen.findByRole('dialog');
+    expect(within(customDialog).getByLabelText('API format').textContent).toBe('OpenAI-compatible API');
+    expect((within(customDialog).getByLabelText('API base URL') as HTMLInputElement).value).toBe('');
   });
 });

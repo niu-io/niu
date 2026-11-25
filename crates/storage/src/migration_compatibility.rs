@@ -17,6 +17,8 @@ use std::{borrow::Cow, sync::LazyLock, time::Duration};
 
 const INITIAL_SCHEMA: &str = include_str!("../migrations/0001_initial_schema.sql");
 const ORIGINAL_174: &str = include_str!("../compatibility/0174_original.sql");
+const SAFE_435: &str = include_str!("../compatibility/0435_safe.sql");
+const SAFE_439: &str = include_str!("../compatibility/0439_safe.sql");
 const MARKER_PREFIX: &str = "-- @niu-legacy-migration ";
 /// Retain the lock used by earlier Gateway versions. Acquire it before SQLx's
 /// migration lock so mixed-version startup uses the same lock order.
@@ -219,8 +221,77 @@ async fn run_locked(connection: &mut PgConnection) -> Result<(), StoreError> {
             tx.commit().await?;
         }
     }
+    let mut current_migrations = MIGRATOR.migrations.to_vec();
+    for (version, safe_sql) in [(435_i64, SAFE_435), (439_i64, SAFE_439)] {
+        let table_exists: bool =
+            sqlx::query_scalar("SELECT to_regclass('_sqlx_migrations') IS NOT NULL")
+                .fetch_one(&mut *connection)
+                .await?;
+        let applied_checksum: Option<Vec<u8>> = if table_exists {
+            sqlx::query_scalar(
+                "SELECT checksum FROM _sqlx_migrations WHERE version = $1 AND success",
+            )
+            .bind(version)
+            .fetch_optional(&mut *connection)
+            .await?
+        } else {
+            None
+        };
+        if let Some(applied) = applied_checksum {
+            if let Some(current) = current_migrations.iter_mut().find(|m| m.version == version) {
+                let safe_variant = Migration::new(
+                    version,
+                    current.description.clone(),
+                    current.migration_type,
+                    Cow::Borrowed(safe_sql),
+                    current.no_tx,
+                );
+                if applied.as_slice() == safe_variant.checksum.as_ref() {
+                    *current = safe_variant;
+                }
+            }
+            continue;
+        }
+
+        // Migration `version` has not been applied yet (fresh DB or rolling
+        // upgrade from an earlier release). Apply all preceding migrations,
+        // execute the rolling-upgrade-safe SQL in a transaction, and record
+        // the canonical released v0.3.1 checksum so `migrations/` remains
+        // immutable and subsequent SQLx verification matches seamlessly.
+        let prefix: Vec<Migration> = current_migrations
+            .iter()
+            .filter(|m| m.version < version)
+            .cloned()
+            .collect();
+        Migrator {
+            migrations: Cow::Owned(prefix),
+            ignore_missing: true,
+            locking: false,
+            no_tx: MIGRATOR.no_tx,
+        }
+        .run_direct(connection)
+        .await?;
+
+        if let Some(canonical) = current_migrations.iter().find(|m| m.version == version) {
+            let started = std::time::Instant::now();
+            let mut tx = connection.begin().await?;
+            sqlx::raw_sql(safe_sql).execute(&mut *tx).await?;
+            let elapsed_ns = i64::try_from(started.elapsed().as_nanos()).unwrap_or(i64::MAX);
+            sqlx::query(
+                "INSERT INTO _sqlx_migrations (version, description, installed_on, success, checksum, execution_time) \
+                 VALUES ($1, $2, now(), TRUE, $3, $4)",
+            )
+            .bind(canonical.version)
+            .bind(canonical.description.as_ref())
+            .bind(canonical.checksum.as_ref())
+            .bind(elapsed_ns)
+            .execute(&mut *tx)
+            .await?;
+            tx.commit().await?;
+        }
+    }
     Migrator {
-        migrations: MIGRATOR.migrations.clone(),
+        migrations: Cow::Owned(current_migrations),
         ignore_missing: MIGRATOR.ignore_missing,
         locking: false,
         no_tx: MIGRATOR.no_tx,
@@ -228,6 +299,31 @@ async fn run_locked(connection: &mut PgConnection) -> Result<(), StoreError> {
     .run_direct(connection)
     .await?;
     Ok(())
+}
+
+pub(crate) fn accepted_migration_checksum(version: i64, checksum: &[u8]) -> bool {
+    let Some(current) = MIGRATOR.migrations.iter().find(|m| m.version == version) else {
+        return false;
+    };
+    if checksum == current.checksum.as_ref() {
+        return true;
+    }
+    let safe_sql = match version {
+        435 => Some(SAFE_435),
+        439 => Some(SAFE_439),
+        _ => None,
+    };
+    if let Some(sql) = safe_sql {
+        let safe_variant = Migration::new(
+            version,
+            current.description.clone(),
+            current.migration_type,
+            Cow::Borrowed(sql),
+            current.no_tx,
+        );
+        return checksum == safe_variant.checksum.as_ref();
+    }
+    false
 }
 
 #[cfg(test)]

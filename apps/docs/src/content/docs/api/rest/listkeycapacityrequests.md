@@ -1,11 +1,11 @@
 ---
 title: "Inspect requests contributing unresolved key capacity"
-description: "GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/capacity"
+description: "GET /api/v1/workspaces/{workspace}/keys/{key}/capacity"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/organizations/{organization}/projects/{project}/keys/{key}/capacity`
+`GET /api/v1/workspaces/{workspace}/keys/{key}/capacity`
 
 Workspace read authority required. Includes the full secret-rotation lineage. Concurrency uses unresolved dispatched requests. Tokens uses reservations and unbounded usage from unresolved dispatches plus completed unknown-usage requests in the rolling 60-second window, matching the token-budget calculation; known recent usage is not returned here. Each page has a fresh statement snapshot. UUID keyset cursor is internal; rows may resolve between pages. Refresh to restart investigation. This read does not contact Providers, reconcile usage, release reservations or retry requests. No credentials, prompt content or procurement data. Cache-Control no-store.
 
@@ -28,24 +28,13 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/keys/{key}/capacity" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/keys/{key}/capacity" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

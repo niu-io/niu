@@ -41,11 +41,11 @@ export const globalRoutes: RouteObject[] = [
     }),
   },
   {
-    id: 'installation',
-    path: 'installation',
-    lazy: bindLazy(routeImporters.installation, {
+    id: 'setup',
+    path: 'setup',
+    lazy: bindLazy(routeImporters.setup, {
       destination: 'Global',
-      title: { en: 'Installation administration', zh: '实例管理' },
+      title: { en: 'Initial setup', zh: '初始化设置' },
     }),
   },
   {

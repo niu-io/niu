@@ -33,7 +33,15 @@ const policyEvidence = (name: string | null, revision: number | null) => revisio
   : translateUI('No saved policy evidence');
 const time = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : translateUI('Time unavailable');
 
-export default function GuardrailDenials({ token, endpoint }: { token: string; endpoint: string }) {
+export default function GuardrailDenials({
+  token,
+  endpoint,
+  embedded = false,
+}: {
+  token: string;
+  endpoint: string;
+  embedded?: boolean;
+}) {
   const { t: uiT } = useUILocale();
   const prepPath = `${endpoint}/denials`;
   const dispatchPath = `${endpoint}/dispatch-denials`;
@@ -83,13 +91,23 @@ export default function GuardrailDenials({ token, endpoint }: { token: string; e
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [token, prepPath, dispatchPath, reload]);
-  return <div className="guardrails-page">
-    <PageHeader title={uiT("Blocked requests")} action={<>
-      <Button asChild variant="outline" className="header-icon-action"><Link to="../executions" relative="path" aria-label={uiT("Open Logs")} title={uiT("Open Logs")}><IconListDetails aria-hidden="true" /><span>{uiT("Open Logs")}</span></Link></Button>
-      <Button variant="outline" className="header-icon-action aria-disabled:opacity-50" aria-label={uiT("Refresh")} title={uiT("Refresh")} aria-disabled={loading} onClick={() => {if (!loading) setReload(value => value + 1);}}><IconRefresh aria-hidden="true" /><span>{uiT("Refresh")}</span></Button>
-    </>} />
-    <p className="guardrails-intro">{uiT("Latest 100 recorded blocks before model dispatch. Select a saved policy to inspect its rules.")}<span className="sr-only"> {uiT("A workspace administrator can change policy for future requests. These pre-dispatch events may have no request log. Some admission denials are not recorded. Logs contain output blocks after dispatch.")}</span></p>
-    {loading && !rows.length && !error ? <TableSkeleton columns={5} rows={5} label={uiT("Loading blocked requests…")} /> : error ? <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert> : !rows.length ? <Empty className="guardrails-empty"><EmptyHeader><EmptyMedia variant="icon"><IconShieldOff aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No recorded blocks in this workspace.")}</EmptyTitle></EmptyHeader></Empty> : <Table className="sm:min-w-[680px] table-fixed">
+  return <div className={embedded ? 'space-y-4' : 'guardrails-page'}>
+    {!embedded && (
+      <PageHeader title={uiT("Blocked requests")} action={<>
+        <Button asChild variant="outline" className="header-icon-action"><Link to="../executions" relative="path" aria-label={uiT("Open Logs")} title={uiT("Open Logs")}><IconListDetails aria-hidden="true" /><span>{uiT("Open Logs")}</span></Link></Button>
+        <Button variant="outline" className="header-icon-action aria-disabled:opacity-50" aria-label={uiT("Refresh")} title={uiT("Refresh")} aria-disabled={loading} onClick={() => {if (!loading) setReload(value => value + 1);}}><IconRefresh aria-hidden="true" /><span>{uiT("Refresh")}</span></Button>
+      </>} />
+    )}
+    <div className={embedded ? 'flex flex-wrap items-center justify-between gap-2' : undefined}>
+      <p className={embedded ? 'text-sm text-muted-foreground' : 'guardrails-intro'}>{uiT("Latest 100 recorded blocks before model dispatch.")}<span className="sr-only"> {uiT("A workspace administrator can change policy for future requests. These pre-dispatch events may have no request log. Some admission denials are not recorded. Logs contain output blocks after dispatch.")}</span></p>
+      {embedded && (
+        <div className="flex items-center gap-1.5">
+          <Button asChild variant="outline" size="sm"><Link to="../executions" relative="path"><IconListDetails size={15} aria-hidden="true" /><span>{uiT("Open Logs")}</span></Link></Button>
+          <Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh")} title={uiT("Refresh")} aria-disabled={loading} disabled={loading} onClick={() => { if (!loading) setReload(value => value + 1); }}><IconRefresh size={16} className={loading ? 'animate-spin' : undefined} aria-hidden="true" /></Button>
+        </div>
+      )}
+    </div>
+    {loading && !rows.length && !error ? <TableSkeleton columns={5} rows={5} label={uiT("Loading blocked requests…")} /> : error ? <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert> : !rows.length ? <Empty className={embedded ? 'min-h-40 py-8' : 'guardrails-empty'}><EmptyHeader><EmptyMedia><IconShieldOff aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No recorded blocks in this workspace.")}</EmptyTitle></EmptyHeader></Empty> : <Table className="sm:min-w-[680px] table-fixed">
       <TableHeader><TableRow><TableHead>{uiT("Reason")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("API key")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Time")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Workspace policy")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Key policy")}</TableHead></TableRow></TableHeader>
       <TableBody>{rows.map((row, index) => <TableRow key={index}><TableCell className="whitespace-normal break-words">{translateUI(reasons[row.reason]) || uiT("Request blocked by Guardrails")}<div className="text-muted-foreground text-xs mt-1">{row.stage === 'dispatch' ? uiT("Before dispatch") : row.stage === 'batch_admission' ? uiT("During admission") : uiT("Before admission")}</div><dl className="mt-4 grid gap-3 text-sm sm:hidden">
         <div><dt className="text-xs text-muted-foreground">{uiT("API key")}</dt><dd>{row.key_name || uiT("Unnamed key")}</dd></div>

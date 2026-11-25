@@ -1,11 +1,11 @@
 ---
 title: "Read platform customer selling-price history"
-description: "GET /api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history"
+description: "GET /api/v1/admin/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history`
+`GET /api/v1/admin/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history`
 
 Explicit platform administration required, independent of ordinary customer workspace read scope. Reuses immutable customer tariff history and its bounded cursor contract. Returns selling prices only: no customer usage, balances, invoices, content, credentials or Provider procurement. Missing tariff returns 404; cursor outside the selected tariff returns 409. Cache-Control no-store.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

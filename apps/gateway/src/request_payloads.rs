@@ -2,16 +2,56 @@
 //! has already passed commercial metadata sanitization before this layer.
 use crate::{error::ApiError, state::AppState};
 use axum::{
-    body::{Body, to_bytes},
+    body::Body,
     extract::State,
     http::Request,
     middleware::Next,
     response::{IntoResponse, Response},
 };
+use futures_util::StreamExt;
+use http_body_util::BodyExt;
 use serde_json::Value;
-use std::error::Error as _;
 use uuid::Uuid;
 const LIMIT: usize = 1_048_576;
+
+enum ReadPrefix {
+    Complete(axum::body::Bytes),
+    Exceeded {
+        prefix: Vec<axum::body::Bytes>,
+        rest: Body,
+    },
+}
+
+async fn read_body_prefix(mut body: Body, limit: usize) -> Result<ReadPrefix, axum::Error> {
+    let mut chunks = Vec::new();
+    let mut total = 0usize;
+    while let Some(frame) = body.frame().await {
+        let frame = frame?;
+        if let Ok(data) = frame.into_data() {
+            if data.is_empty() {
+                continue;
+            }
+            let next_total = total.saturating_add(data.len());
+            chunks.push(data);
+            total = next_total;
+            if total > limit {
+                return Ok(ReadPrefix::Exceeded {
+                    prefix: chunks,
+                    rest: body,
+                });
+            }
+        }
+    }
+    if chunks.len() == 1 {
+        Ok(ReadPrefix::Complete(chunks.pop().unwrap_or_default()))
+    } else {
+        let mut buf = Vec::with_capacity(total);
+        for chunk in chunks {
+            buf.extend_from_slice(&chunk);
+        }
+        Ok(ReadPrefix::Complete(axum::body::Bytes::from(buf)))
+    }
+}
 
 #[derive(Clone)]
 pub(crate) struct InspectedRequestPayload(pub Value);
@@ -192,13 +232,15 @@ pub async fn capture(
     next: Next,
 ) -> Response {
     let path = request.uri().path();
-    let chat = path == "/v1/chat/completions";
+    let honors_store_false = matches!(path, "/v1/chat/completions" | "/v1/responses");
+    let multimodal =
+        matches!(path, "/v1/responses" | "/v1/messages") || path.starts_with("/v1beta/models/");
     let saved_video_submit = request
         .extensions()
         .get::<axum::extract::MatchedPath>()
-        .is_some_and(|route| matches!(route.as_str(),
-            "/api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}/submit"
-            | "/admin/v1/organizations/{organization}/projects/{project}/video/intents/{intent}/submit"));
+        .is_some_and(|route| {
+            route.as_str() == "/api/v1/workspaces/{workspace}/video/intents/{intent}/submit"
+        });
     let video = path == "/v1/video/jobs" || saved_video_submit;
     let inference = video
         || matches!(
@@ -220,21 +262,27 @@ pub async fn capture(
         (CapturedRequest::None, request)
     } else {
         let (parts, body) = request.into_parts();
-        let bytes = match to_bytes(body, LIMIT).await {
-            Ok(bytes) => bytes,
-            Err(error) => {
-                // Capture must preserve the router's 413 semantics. Transport read
-                // failures are not evidence that the client exceeded the size cap.
-                if error
-                    .source()
-                    .is_some_and(|source| source.is::<http_body_util::LengthLimitError>())
-                {
-                    return ApiError::request_too_large().into_response();
+        let bytes = match read_body_prefix(body, LIMIT).await {
+            Ok(ReadPrefix::Complete(bytes)) => bytes,
+            Ok(ReadPrefix::Exceeded { prefix, rest }) => {
+                if multimodal {
+                    // Multimodal routes permit up to 8 MiB for base64 images/PDFs.
+                    // Skip payload capture above the 1 MiB capture cap and forward
+                    // the original stream intact so the route's own body limit applies.
+                    let reassembled =
+                        futures_util::stream::iter(prefix.into_iter().map(Ok::<_, axum::Error>))
+                            .chain(rest.into_data_stream());
+                    return next
+                        .run(Request::from_parts(parts, Body::from_stream(reassembled)))
+                        .await;
                 }
+                return ApiError::request_too_large().into_response();
+            }
+            Err(_) => {
                 return ApiError::invalid_request("Could not read request body").into_response();
             }
         };
-        let no_store = if chat {
+        let no_store = if honors_store_false {
             match serde_json::from_slice::<Value>(&bytes) {
                 Ok(value) => value.get("store") == Some(&Value::Bool(false)),
                 Err(_) => return ApiError::invalid_request("Invalid JSON request").into_response(),
@@ -245,9 +293,9 @@ pub async fn capture(
             }
             false
         };
-        // The Chat compatibility flag takes precedence over an explicit capture
-        // header. Metadata and accounting remain available, but neither payload
-        // is persisted by this middleware.
+        // The Chat/Responses `store: false` flag takes precedence over default
+        // or explicit capture headers. Metadata and accounting remain available,
+        // but neither payload is persisted by this middleware.
         if no_store {
             return next
                 .run(Request::from_parts(parts, Body::from(bytes)))

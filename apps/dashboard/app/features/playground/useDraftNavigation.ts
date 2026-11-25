@@ -5,13 +5,15 @@ import { useBeforeUnload, useBlocker } from 'react-router';
 export function useDraftNavigation(draft: {
   hasUnsavedChanges: () => boolean;
   flush: () => Promise<boolean>;
+  shouldBlock?: (args: { currentLocation: { pathname: string; search: string }; nextLocation: { pathname: string; search: string } }) => boolean;
 }) {
   const latest = useRef(draft);
   latest.current = draft;
-  const blocker = useBlocker(({ currentLocation, nextLocation }) =>
-    (currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search)
-      && latest.current.hasUnsavedChanges(),
-  );
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+    if (!latest.current.hasUnsavedChanges()) return false;
+    if (latest.current.shouldBlock) return latest.current.shouldBlock({ currentLocation, nextLocation });
+    return currentLocation.pathname !== nextLocation.pathname || currentLocation.search !== nextLocation.search;
+  });
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   useBeforeUnload(event => {

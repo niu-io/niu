@@ -1,9 +1,9 @@
 //! Private Codex/ChatGPT plan connections using the documented public OAuth flow.
 //! No credential extraction from Codex, browser storage, or backend-api endpoints.
-use crate::{error::ApiError, state::AppState};
+use crate::{error::ApiError, state::AppState, web::workspace_path::WorkspacePath as Path};
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Query, State},
     http::HeaderMap,
     response::Redirect,
 };
@@ -222,6 +222,9 @@ async fn authorize(
     permission: AdminPermission,
 ) -> Result<(), ApiError> {
     let auth = state.authorize_admin_headers(headers, permission).await?;
+    if !auth.can_manage_platform() {
+        return Err(ApiError::forbidden());
+    }
     if !auth.permits_project(scope) {
         return Err(ApiError::not_found());
     }

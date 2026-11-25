@@ -92,7 +92,7 @@ function checkedRequestPage(value: Page): Page {
 async function readRequestPage(url: string, token: string, signal: AbortSignal): Promise<Page> {
   return checkedRequestPage(await read<Page>(url, token, signal));
 }
-const root = (workspace: Workspace) => `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/requests`;
+const root = (workspace: Workspace) => `/api/v1/workspaces/${workspace.id}/requests`;
 const name = (workspace: Workspace) => workspaceDisplayName(workspace.name) || translateUI('Workspace');
 const scopeSegment = (workspace: Workspace, list: Workspace[]) => !workspace.slug && !workspace.route_slug && workspace.id.length <= 1 ? workspace.id : workspacePathSegment(workspace, list);
 const scopeHref = (workspace: Workspace, list: Workspace[], page: string) => `/workspaces/${scopeSegment(workspace, list)}/${page}`;

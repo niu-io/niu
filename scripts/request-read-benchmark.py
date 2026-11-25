@@ -23,11 +23,11 @@ def main():
     args = parser.parse_args()
     url = urlsplit(args.endpoint)
     identifier = r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}'
-    route = rf'/admin/v1/organizations/{identifier}/projects/{identifier}/requests'
+    route = rf'/api/v1/workspaces/{identifier}/requests'
     is_list = bool(re.fullmatch(route, url.path)
                    and re.fullmatch(r'limit=(?:[1-9]|[1-9][0-9]|100)', url.query))
     is_detail = bool(re.fullmatch(route + '/' + identifier, url.path) and not url.query)
-    is_occupancy = bool(re.fullmatch(rf'/admin/v1/organizations/{identifier}/projects/{identifier}/keys/{identifier}/concurrency-limit', url.path) and not url.query)
+    is_occupancy = bool(re.fullmatch(rf'/api/v1/workspaces/{identifier}/keys/{identifier}/concurrency-limit', url.path) and not url.query)
     if (url.scheme not in ('http', 'https') or not url.hostname or url.username
             or url.password or url.fragment or not (is_list or is_detail or is_occupancy)):
         parser.error('Use a request-list URL with only limit=1..100, or a request-detail/key-concurrency URL without query parameters')

@@ -1,8 +1,8 @@
 //! Filtered, customer-safe request metadata exports.
 use super::{GatewayActivityQuery, authorize_project, gateway_activity_filter};
-use crate::{error::ApiError, state::AppState};
+use crate::{error::ApiError, state::AppState, web::workspace_path::WorkspacePath as Path};
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Query, State},
     http::HeaderMap,
 };
 use niu_storage::{AdminPermission, TenantScope};

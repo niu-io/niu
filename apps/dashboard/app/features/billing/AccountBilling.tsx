@@ -3,11 +3,10 @@ import { readLocale, useLocale } from '@/shell/ui-locale';
 import { amountFromNanos } from '@/lib/money';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useEffect, useRef, useState } from 'react';
-import { IconCoins, IconReceipt, IconRefresh } from '@tabler/icons-react';
+import { IconArrowLeft, IconCoins, IconReceipt, IconRefresh } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,7 +49,7 @@ function checkedTransactions(result:{data:BalanceTransaction[];next_cursor?:stri
 }
 
 export default function AccountBilling({token, organization, canConfigure = false, section = 'all'}: {token: string; organization: string; canConfigure?: boolean; section?: 'all' | 'billing' | 'payments'}) {
- const { t } = useLocale();
+ const { t, format: uiF } = useLocale();
  const {currency:platformCurrency, billingMode:platformBillingMode, unit:platformUnit}=usePlatformCurrency();
  const accessGeneration = useRef({token,organization,value:0});
  if (accessGeneration.current.token !== token || accessGeneration.current.organization !== organization) {
@@ -97,6 +96,15 @@ export default function AccountBilling({token, organization, canConfigure = fals
  const companyAccess = true;
  const [editing,setEditing] = useState<Balance | null>(null);
  const warningOpener = useRef<HTMLButtonElement | null>(null);
+ const warningView = useRef<HTMLElement | null>(null);
+ useEffect(() => {
+  if (editing) {
+   (warningView.current?.querySelector<HTMLElement>('button[role="checkbox"], input:not([disabled])') ?? warningView.current)?.focus();
+  } else if (warningOpener.current?.isConnected) {
+   warningOpener.current.focus();
+   warningOpener.current = null;
+  }
+ }, [editing]);
  const [warningEnabled,setWarningEnabled] = useState(false);
  const [threshold,setThreshold] = useState('');
  const [saving,setSaving] = useState(false);
@@ -195,10 +203,11 @@ export default function AccountBilling({token, organization, canConfigure = fals
   finally {if (!controller.signal.aborted) setLoadingOlder(false);}
  };
  return <div className="billing-balance-content">
+ <div hidden={editing !== null} className={editing !== null ? "hidden" : "grid min-w-0 gap-6"}>
  {!accounts && !accountError && (section === 'payments' ? <FormSectionSkeleton fields={2} label={t("Loading payment options…")} /> : <MetricStripSkeleton count={2} label={t("Loading account balance…")} />)}
  {section === 'payments' && accountError && <Alert variant="destructive"><AlertTitle>{t("Payment options unavailable")}</AlertTitle><AlertDescription>{t("Could not load the account data needed for payment options.")}<Button variant="outline" disabled={refreshing} onClick={() => setRevision(value => value + 1)}>{t("Retry payment options")}</Button></AlertDescription></Alert>}
         {companyAccess && section !== 'payments' && Boolean(accounts || accountError || unitSnapshot || unitSnapshotError) && <section aria-label={t("Account balance")} className="billing-account-section">
-          <div className="flex items-center justify-between gap-3"><h2>{t("Available credits")}</h2><Button variant="ghost" size="icon" aria-label={t("Refresh account balance")} title={t("Refresh account balance")} disabled={refreshing} onClick={() => setRevision(value => value + 1)}><IconRefresh className="size-4" aria-hidden="true" /></Button></div>
+          <div className="flex items-center justify-between gap-3"><h2>{t("Available credits", "余额")}</h2><Button variant="ghost" size="icon" aria-label={t("Refresh account balance")} title={t("Refresh account balance")} disabled={refreshing} onClick={() => setRevision(value => value + 1)}><IconRefresh className="size-4" aria-hidden="true" /></Button></div>
           {accountError && <Alert variant="destructive"><AlertTitle>{t("Account balance unavailable")}</AlertTitle><AlertDescription>{t(accountError)}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>{t("Retry account balance")}</Button></AlertDescription></Alert>}
           {unitSnapshotError && <Alert><AlertTitle>{t("Credits balance unavailable")}</AlertTitle><AlertDescription>{t("Could not refresh the branded Credits balance. The last loaded values are still shown.")}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>{t("Retry Credits balance")}</Button></AlertDescription></Alert>}
           {(unitSnapshot?.billing_mode === 'credits' || platformBillingMode === 'credits' || (Array.isArray(unitSnapshot?.balances) && unitSnapshot.balances.length > 0)) && (() => {
@@ -232,26 +241,28 @@ export default function AccountBilling({token, organization, canConfigure = fals
             </div>;
           })()}
           {(unitSnapshot?.billing_mode ?? platformBillingMode) !== 'credits' && accounts?.map(account => <div className="billing-account" key={account.currency}>
-            <span className="text-muted-foreground">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? t(`Preserved monetary balance (${account.currency})`, `保留的货币余额（${account.currency}）`) : account.currency === platformCurrency ? t("Available to spend") : t("Recorded balance (original currency)")}</span>
+            <span className="text-muted-foreground">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? t(`Preserved monetary balance (${account.currency})`, `保留的货币余额（${account.currency}）`) : account.currency === platformCurrency ? t("Available to spend", "可用余额") : t("Recorded balance (original currency)")}</span>
             <strong className="billing-available">{money(account.available_nanos, account.currency)}</strong>
             {(account.balance_nanos !== account.available_nanos || BigInt(account.credit_limit_nanos) > 0n || BigInt(account.reserved_nanos) > 0n) && <dl className="billing-account-details">
-              {account.balance_nanos !== account.available_nanos && <div><dt>{t("Balance")}</dt><dd>{money(account.balance_nanos, account.currency)}</dd></div>}
+              {account.balance_nanos !== account.available_nanos && <div><dt>{t("Balance", "账面余额")}</dt><dd>{money(account.balance_nanos, account.currency)}</dd></div>}
               {BigInt(account.credit_limit_nanos) > 0n && <div><dt>{t("Approved credit")}</dt><dd>{money(account.credit_limit_nanos, account.currency)}</dd></div>}
-              {BigInt(account.reserved_nanos) > 0n && <div><dt>{t("Reserved for requests")}</dt><dd>{money(account.reserved_nanos, account.currency)}</dd></div>}
+              {BigInt(account.reserved_nanos) > 0n && <div><dt>{t("Reserved for requests", "请求预留")}</dt><dd>{money(account.reserved_nanos, account.currency)}</dd></div>}
             </dl>}
             <div className="flex items-center justify-between gap-3 py-3">
-              <div><h3 className="font-medium">{t("Low balance warning")}</h3><p className="text-sm text-muted-foreground">{account.warning_threshold_nanos === null ? t("Disabled") : t(`Below ${money(account.warning_threshold_nanos,account.currency)} · In app`, `低于 ${money(account.warning_threshold_nanos,account.currency)} · 应用内提醒`)}</p></div>
-              {canConfigure && account.currency === platformCurrency && <Button variant="ghost" size="sm" aria-label={t(`Configure ${account.currency} low balance warning`, `设置 ${account.currency} 余额提醒`)} onClick={event=>{warningOpener.current=event.currentTarget;editWarning(account);}}>{t("Configure")}</Button>}
+              <div><h3 className="font-medium">{t("Low balance warning", "余额提醒")}</h3><p className="text-sm text-muted-foreground">{account.warning_threshold_nanos === null ? t("Disabled", "已关闭") : t(`Below ${money(account.warning_threshold_nanos,account.currency)} · In app`, `低于 ${money(account.warning_threshold_nanos,account.currency)}`)}</p></div>
+              {canConfigure && account.currency === platformCurrency && <Button variant="outline" size="sm" className="shrink-0" aria-label={t(`Configure ${account.currency} low balance warning`, `设置 ${account.currency} 余额提醒`)} onClick={event=>{warningOpener.current=event.currentTarget;editWarning(account);}}>{t("Configure")}</Button>}
             </div>
             {(unitSnapshot?.billing_mode ?? platformBillingMode) !== 'credits' && account.currency === platformCurrency && (BigInt(account.available_nanos) <= 0n
               ? <Alert variant="destructive"><AlertTitle>{t("Insufficient funds")}</AlertTitle><AlertDescription>{canConfigure ? t("Paid requests are paused until funds are added.") : t("Paid requests are paused. Contact your billing administrator to add funds.")}</AlertDescription></Alert>
-              : account.low_balance && <Alert><AlertTitle>{t("Low balance")}</AlertTitle><AlertDescription>{t("Your account balance is below the warning threshold. Approved credit is excluded from this warning.")}</AlertDescription></Alert>)}
+              : account.low_balance
+                ? <Alert><AlertTitle>{t("Low balance")}</AlertTitle><AlertDescription>{t("Your account balance is below the warning threshold. Approved credit is excluded from this warning.")}</AlertDescription></Alert>
+                : BigInt(account.balance_nanos) < 0n && BigInt(account.credit_limit_nanos) > 0n && <Alert><AlertTitle>{t("Using approved credit")}</AlertTitle><AlertDescription>{t("Your posted balance is negative, and paid requests continue using your remaining approved credit limit.")}</AlertDescription></Alert>)}
           </div>)}
-          {!accountError && accounts?.length === 0 && (unitSnapshot?.balances.length ?? 0) === 0 && <Empty className="min-h-40 rounded-xl bg-muted/55 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconCoins size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{canConfigure ? t("No prepaid account configured.") : t("No prepaid account configured. Contact your billing administrator.")}</EmptyDescription></EmptyHeader></Empty>}
+          {!accountError && accounts?.length === 0 && (unitSnapshot?.balances.length ?? 0) === 0 && <Empty className="min-h-36 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconCoins size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{canConfigure ? t("No prepaid account configured.") : t("No prepaid account configured. Contact your billing administrator.")}</EmptyDescription></EmptyHeader></Empty>}
         </section>}
         {accounts && section !== 'billing' && <TopupFunding key={`funding-${accessGeneration.current.value}`} token={token} organization={organization} canCreate={canConfigure} currencies={accounts.map(account => account.currency)} unitSnapshot={unitSnapshot} onPaid={() => setRevision(value => value + 1)} />}
         {companyAccess && section !== 'payments' && ((accounts?.length ?? 0) > 0 || (transactions?.length ?? 0) > 0 || transactionError) && <section aria-label={t("Recent balance transactions")}>
-          <div className="flex items-center justify-between gap-3"><h2>{t("Balance activity")}</h2>{nextCursor && <Button variant="ghost" size="sm" disabled={loadingOlder || transactionsLoading || transactionFailure === 'latest'} onClick={() => void loadOlder()}>{loadingOlder ? t('Loading…', '正在加载…') : t("History")}</Button>}</div>
+          <div className="flex items-center justify-between gap-3"><h2>{t("Balance activity", "明细")}</h2>{nextCursor && <Button variant="ghost" size="sm" disabled={loadingOlder || transactionsLoading || transactionFailure === 'latest'} onClick={() => void loadOlder()}>{loadingOlder ? t('Loading…', '正在加载…') : t("History", "更多")}</Button>}</div>
           {transactionError && <Alert variant="destructive"><AlertTitle>{t("Transactions unavailable")}</AlertTitle><AlertDescription>{t(transactionError)}<Button variant="outline" onClick={() => transactionFailure === 'older' ? void loadOlder() : setRevision(value => value + 1)}>{t("Retry transactions")}</Button></AlertDescription></Alert>}
           {transactions?.length ? <>
             <Table className="billing-transactions"><TableHeader><TableRow><TableHead>{t("Date (UTC)")}</TableHead><TableHead>{t("Type")}</TableHead><TableHead className="text-right">{t("Amount")}</TableHead></TableRow></TableHeader>
@@ -260,18 +271,32 @@ export default function AccountBilling({token, organization, canConfigure = fals
                 <TableCell>{t(transactionNames[entry.kind])}</TableCell><TableCell className="text-right tabular-nums">{money(entry.amount_nanos, entry.currency)}</TableCell>
               </TableRow>)}</TableBody>
             </Table>
-          </> : !transactionError && (transactionsLoading ? <TableSkeleton columns={3} rows={3} label={t("Loading transactions…")} /> : <Empty className="mt-2 min-h-32 rounded-xl bg-muted/55 py-6"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{t("No transactions yet.")}</EmptyDescription></EmptyHeader></Empty>)}
+          </> : !transactionError && (transactionsLoading ? <TableSkeleton columns={3} rows={3} label={t("Loading transactions…")} /> : <Empty className="mt-2 min-h-28 py-6"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{t("No transactions yet.")}</EmptyDescription></EmptyHeader></Empty>)}
         </section>}
-<Dialog open={editing !== null} onOpenChange={open=>{if (!open && !saving) setEditing(null);}}>
- <DialogContent onCloseAutoFocus={event=>{if(warningOpener.current?.isConnected){event.preventDefault();warningOpener.current.focus();}}}>
-  <DialogHeader><DialogTitle>{t("Low balance warning")}</DialogTitle><DialogDescription>{t("Show an in-app warning when your account balance falls below this amount. Credit allowances are excluded.")}</DialogDescription></DialogHeader>
-  <form onSubmit={event=>{event.preventDefault();void saveWarning();}} className="grid gap-4">
-  <div className="flex items-center gap-3"><Checkbox id="balance-warning-enabled" checked={warningEnabled} disabled={saving} onCheckedChange={value=>setWarningEnabled(value===true)}/><Label htmlFor="balance-warning-enabled">{t("Enable warning", "启用提醒")}</Label></div>
-  <div className="grid gap-2"><Label htmlFor="balance-warning-threshold">{t("Threshold (")}{editing?.currency})</Label><Input id="balance-warning-threshold" inputMode="decimal" value={threshold} disabled={!warningEnabled || saving} onChange={event=>setThreshold(event.target.value)}/></div>
-  {saveError && <Alert variant="destructive"><AlertDescription>{t(saveError)}{conflict && <Button type="button" variant="outline" disabled={saving} onClick={()=>void reloadWarning()}>{t("Reload current settings")}</Button>}</AlertDescription></Alert>}
-  <DialogFooter><Button type="button" variant="ghost" disabled={saving} onClick={()=>setEditing(null)}>{t("Cancel")}</Button><Button type="submit" disabled={saving || conflict || !warningChanged}>{saving ? t('Saving…', '正在保存…') : t("Save")}</Button></DialogFooter>
+ </div>
+ {editing !== null && <section
+  ref={warningView}
+  tabIndex={-1}
+  aria-labelledby="low-balance-warning-title"
+  className="grid min-w-0 gap-4"
+  onKeyDown={event => {
+   if (event.key === 'Escape' && !event.defaultPrevented && !saving && warningView.current?.contains(event.target as Node) && !warningView.current.closest('[data-global-settings-dialog]')) {
+    event.preventDefault();
+    setEditing(null);
+   }
+  }}
+ >
+  <Button type="button" variant="ghost" size="sm" className="justify-self-start" data-settings-back disabled={saving} onClick={() => setEditing(null)}><IconArrowLeft size={16} aria-hidden="true" />{t("Back to credits", "返回额度")}</Button>
+  <header className="space-y-1">
+   <h3 id="low-balance-warning-title" className="text-base font-semibold">{t("Low balance warning", "余额提醒")}</h3>
+   <p className="text-sm text-muted-foreground">{t("Show an in-app warning when your account balance falls below this amount. Credit allowances are excluded.")}</p>
+  </header>
+  <form onSubmit={event=>{event.preventDefault();void saveWarning();}} className="grid max-w-md gap-4">
+   <div className="flex items-center gap-3"><Checkbox id="balance-warning-enabled" checked={warningEnabled} disabled={saving} onCheckedChange={value=>setWarningEnabled(value===true)}/><Label htmlFor="balance-warning-enabled">{t("Enable warning", "启用")}</Label></div>
+   <div className="grid gap-2"><Label htmlFor="balance-warning-threshold">{uiF("Threshold ({0})", [editing.currency])}</Label><Input id="balance-warning-threshold" inputMode="decimal" value={threshold} disabled={!warningEnabled || saving} onChange={event=>setThreshold(event.target.value)}/></div>
+   {saveError && <Alert variant="destructive"><AlertDescription>{t(saveError)}{conflict && <Button type="button" variant="outline" disabled={saving} onClick={()=>void reloadWarning()}>{t("Reload current settings")}</Button>}</AlertDescription></Alert>}
+   <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="ghost" disabled={saving} onClick={()=>setEditing(null)}>{t("Cancel")}</Button><Button type="submit" disabled={saving || conflict || !warningChanged}>{saving ? t('Saving…', '正在保存…') : t("Save")}</Button></div>
   </form>
- </DialogContent>
-</Dialog>
+ </section>}
 </div>;
 }

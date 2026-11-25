@@ -139,6 +139,35 @@ impl CredentialCipher {
         aad
     }
 
+    pub(crate) fn api_key_secret_aad(scope: niu_storage::TenantScope, id: Uuid) -> Vec<u8> {
+        let mut aad = b"niu.api-key-secret.v1".to_vec();
+        aad.extend_from_slice(scope.organization_id.as_bytes());
+        aad.extend_from_slice(scope.project_id.as_bytes());
+        aad.extend_from_slice(id.as_bytes());
+        aad
+    }
+
+    pub(crate) fn seal_api_key_secret(
+        &self,
+        scope: niu_storage::TenantScope,
+        id: Uuid,
+        token: &str,
+    ) -> Result<Vec<u8>, &'static str> {
+        if token.len() != 68 || !token.starts_with("niu_") {
+            return Err("invalid api key secret");
+        }
+        self.seal_with_aad(&Self::api_key_secret_aad(scope, id), token)
+    }
+
+    pub(crate) fn open_api_key_secret(
+        &self,
+        scope: niu_storage::TenantScope,
+        id: Uuid,
+        ciphertext: &[u8],
+    ) -> Result<String, &'static str> {
+        self.open_with_aad(&Self::api_key_secret_aad(scope, id), ciphertext)
+    }
+
     pub fn seal(&self, vendor: Uuid, credential: &str) -> Result<Vec<u8>, &'static str> {
         self.seal_bounded(vendor, credential, 8192)
     }

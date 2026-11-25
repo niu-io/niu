@@ -1,8 +1,9 @@
 import { Empty, EmptyHeader, EmptyMedia, EmptyDescription } from '@/components/ui/empty';
-import { IconActivity } from '@tabler/icons-react';
+import { IconActivity, IconLoader2 as Loader2 } from '@tabler/icons-react';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
+import { TableSkeleton } from '@/components/PageSkeletons';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -27,7 +28,7 @@ export default function KeyCapacity({ token, endpoint, kind, onInspectRequest }:
   async function load(after: string | null = null) {
     request.current?.abort(); const controller = new AbortController(); request.current=controller;
     setBusy(true); setError('');
-    if (!after) {setRows([]);setPage(null);seen.current.clear();}
+    if (!after) seen.current.clear();
     try {
       const result=checked(await keyRequest<KeyCapacityPage>(token,`${endpoint}/capacity?kind=${kind}&limit=50${after ? '&after='+encodeURIComponent(after):''}`,'GET',undefined,controller.signal));
       if (controller.signal.aborted) return;
@@ -39,14 +40,14 @@ export default function KeyCapacity({ token, endpoint, kind, onInspectRequest }:
   }
   useEffect(()=>{if(open)void load();return()=>request.current?.abort();},[open,token,endpoint,kind]);
   const label=kind==='concurrency'?uiT("Inspect unresolved requests"):uiT("Inspect token reservations");
-  return <Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button ref={trigger} variant="link" className="h-auto px-0 py-1 text-xs">{label}</Button></DialogTrigger><DialogContent onCloseAutoFocus={()=>{const attempt=pending.current;pending.current=null;if(attempt)onInspectRequest?.(attempt,trigger.current);}} className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{kind==='concurrency'?uiT("Unresolved requests"):uiT("Token reservations")}</DialogTitle><DialogDescription>{uiT("Requests share limits across key rotations.")}</DialogDescription></DialogHeader>
+  return <Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button ref={trigger} variant="link" className="h-auto px-0 py-1 text-xs">{label}</Button></DialogTrigger><DialogContent onCloseAutoFocus={()=>{const attempt=pending.current;pending.current=null;if(attempt)onInspectRequest?.(attempt,trigger.current);}} className="w-[calc(100vw-2rem)] sm:max-w-3xl"><DialogHeader><DialogTitle>{kind==='concurrency'?uiT("Unresolved requests"):uiT("Token reservations")}</DialogTitle><DialogDescription>{uiT("Requests share limits across key rotations.")}</DialogDescription></DialogHeader>
     <p className="text-sm text-muted-foreground">{kind==='concurrency'?uiT("These requests still occupy concurrent-request slots. Completion is unconfirmed; they may still be running."):uiT("Unfinished requests retain their token reservations. Completed requests with unknown usage remain for 60 seconds. Known usage is shown separately in the key summary.")}</p>
     <Alert><AlertDescription>{uiT("Open a request to inspect its outcome. If uncertain, ask your administrator to investigate with the Provider. Do not resend it to clear capacity.")}{" "}<a className="underline" href={`${import.meta.env.BASE_URL}docs/guides/request-capacity/`}>{uiT("Capacity troubleshooting")}</a></AlertDescription></Alert>
-    <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{page?uiF("{0} loaded · {1} matching at {2}", [rows.length, page.total, new Date(page.snapshot_at).toLocaleTimeString(readUILocale())]):uiT("Current capacity snapshot")}</p><Button variant="outline" disabled={busy} onClick={()=>void load()}>{uiT("Refresh capacity")}</Button></div>
+    <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{page?uiF("{0} loaded · {1} matching at {2}", [rows.length, page.total, new Date(page.snapshot_at).toLocaleTimeString(readUILocale())]):uiT("Current capacity snapshot")}</p><Button variant="outline" disabled={busy} aria-busy={busy || undefined} onClick={()=>void load()}>{busy && rows.length > 0 && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}{uiT("Refresh capacity")}</Button></div>
     {error && <Alert variant="destructive"><AlertDescription>{error}<Button variant="link" onClick={()=>void load(page?.next_after??null)} disabled={busy}>{uiT("Retry capacity")}</Button></AlertDescription></Alert>}
-    {busy && <p role="status">{uiT("Loading capacity details…")}</p>}
+    {busy && rows.length===0 && <TableSkeleton columns={kind==='tokens'?4:3} rows={3} label={uiT("Loading capacity details…")} />}
     {!busy && !error && page && rows.length===0 && <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconActivity size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No matching requests remain. Refresh the key summary to see the latest capacity.")}</EmptyDescription></EmptyHeader></Empty>}
     {rows.length>0 && <Table className="w-full table-fixed" aria-label={uiT("Requests contributing capacity")}><TableHeader><TableRow><TableHead className="hidden sm:table-cell">{uiT("Dispatched")}</TableHead><TableHead>{uiT("Request")}</TableHead><TableHead className="whitespace-normal">{uiT("Recorded outcome")}</TableHead>{kind==='tokens'&&<TableHead className="hidden sm:table-cell whitespace-normal">{uiT("Reserved tokens")}</TableHead>}</TableRow></TableHeader><TableBody>{rows.map(row=><TableRow key={row.attempt_id}><TableCell className="hidden sm:table-cell whitespace-normal"><time dateTime={row.dispatched_at}>{new Date(row.dispatched_at).toLocaleString(readUILocale())}</time></TableCell><TableCell className="whitespace-normal [overflow-wrap:anywhere]">{onInspectRequest ? <Button variant="link" className="h-auto whitespace-normal break-words px-0 text-left underline underline-offset-4" onClick={()=>{pending.current=row.attempt_id;setOpen(false);}} aria-label={uiF("Inspect {0} request", [row.model_alias])}>{row.model_alias}</Button> : row.model_alias}<span className="block text-xs text-muted-foreground">{row.key_name}</span><time className="block text-xs text-muted-foreground sm:hidden" dateTime={row.dispatched_at}>{new Date(row.dispatched_at).toLocaleString(readUILocale())}</time></TableCell><TableCell className="whitespace-normal">{row.execution==='confirmed_completed'?uiT("Completed · usage unavailable"):uiT("Completion unconfirmed")}{row.completed_at&&<span className="block text-xs text-muted-foreground">{uiT("Recorded")}{" "}{new Date(row.completed_at).toLocaleString(readUILocale())}</span>}{kind==='tokens'&&<span className="block text-xs text-muted-foreground sm:hidden">{uiT("Reserved tokens:")}{" "}{row.reserved_tokens===null?uiT("Unknown"):BigInt(row.reserved_tokens).toLocaleString(readUILocale())}</span>}</TableCell>{kind==='tokens'&&<TableCell className="hidden sm:table-cell">{row.reserved_tokens===null?uiT("Unknown"):BigInt(row.reserved_tokens).toLocaleString(readUILocale())}</TableCell>}</TableRow>)}</TableBody></Table>}
-    {page?.next_after && <Button variant="outline" disabled={busy} onClick={()=>void load(page.next_after)}>{uiT("Load more requests")}</Button>}
+    {page?.next_after && <Button variant="outline" disabled={busy} onClick={()=>void load(page.next_after)}>{busy && rows.length > 0 && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}{uiT("Load more requests")}</Button>}
   </DialogContent></Dialog>;
 }

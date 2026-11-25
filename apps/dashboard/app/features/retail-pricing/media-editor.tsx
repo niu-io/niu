@@ -18,10 +18,10 @@ import type { RetailPriceRecord, RetailPublicationResult, RetailSchedule, Retail
 
 type MediaSchedule = Extract<RetailSchedule, { kind: 'media' }>;
 /** Explicit media dimensions and metering; price configuration is not qualification. */
-export function MediaStandardEditor({ token, previous, open = true, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; open?: boolean; onClose: (pending: boolean) => void; onSaved: () => void }) {
+export function MediaStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean) => void; onSaved: () => void }) {
   const { t: uiT, format: uiF } = useUILocale();
   const original = previous?.schedule.kind === 'media' ? previous.schedule : undefined;
-  const [model, setModel] = useState(previous?.model_alias ?? '');
+  const [model, setModel] = useState(previous?.model_alias ?? initialModel);
   const {currency:platformCurrency}=usePlatformCurrency();
   const currency=previous?.currency ?? platformCurrency;
   const [modelsRevision, setModelsRevision] = useState(0);
@@ -39,7 +39,19 @@ export function MediaStandardEditor({ token, previous, open = true, onClose, onS
     if (previous) return;
     const controller = new AbortController();
     setModelsLoaded(false); setModelsError('');
-    void registeredRetailModelChoices(token, controller.signal).then(choices => { if (!controller.signal.aborted) setModels(choices.filter(choice => choice.media)); }).catch(failure => { if (!controller.signal.aborted) setModelsError(failure instanceof Error ? failure.message : 'Registered models unavailable.'); }).finally(()=>{if(!controller.signal.aborted)setModelsLoaded(true);});
+    void registeredRetailModelChoices(token, controller.signal).then(choices => {
+      if (controller.signal.aborted) return;
+      const mediaChoices = choices.filter(choice => choice.media);
+      setModels(mediaChoices);
+      if (initialModel) {
+        const matched = mediaChoices.find(item => item.model_alias === initialModel)?.media;
+        if (matched) {
+          setChannel(current => current || matched.channel);
+          setMeter(current => current || matched.meter);
+          setResolution(current => current || (matched.resolutions.length === 1 ? matched.resolutions[0] : ''));
+        }
+      }
+    }).catch(failure => { if (!controller.signal.aborted) setModelsError(failure instanceof Error ? failure.message : 'Registered models unavailable.'); }).finally(()=>{if(!controller.signal.aborted)setModelsLoaded(true);});
     return () => controller.abort();
   }, [token, previous, modelsRevision]);
   const selected = models.find(item => item.model_alias === model)?.media;
@@ -62,7 +74,7 @@ export function MediaStandardEditor({ token, previous, open = true, onClose, onS
     }
     setAttempt(input); setBusy(true); setError('');
     try {
-      const result = await request<{ data: RetailPublicationResult }>(token, '/api/v1/pricing/standard-prices', 'POST', input);
+      const result = await request<{ data: RetailPublicationResult }>(token, '/api/v1/admin/pricing/standard-prices', 'POST', input);
       if (!result.data?.price_id || !result.data.revision || typeof result.data.version !== 'string' || !/^\d+$/.test(result.data.version) || BigInt(result.data.version) !== BigInt(input.expected_version) + 1n) throw new Error('Publication response could not be confirmed.');
       onSaved();
     } catch (failure) {
@@ -74,7 +86,7 @@ export function MediaStandardEditor({ token, previous, open = true, onClose, onS
       setError((failure instanceof Error ? failure.message : 'Publication outcome unavailable.') + (uncertain ? ' Retry this submission to confirm the original outcome before starting another publication.' : failure instanceof ProviderRequestError && failure.status === 409 ? ' Close and refresh current prices before editing again.' : ' Correct the fields and submit again. Your draft has been preserved.'));
     } finally { setBusy(false); }
   }
-  return <Dialog open={open} onOpenChange={value => { if (!value) onClose(!!attempt && !conflict); }}><DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{previous ? uiT("Revise media standard price") : uiT("Publish media standard price")}</DialogTitle><DialogDescription>{uiT("Set customer prices for the selected media specifications and units across workspaces. Existing requests and promotions keep their original prices. Model availability and access are managed separately.")}</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={event => void publish(event)}>
+  return <Dialog open={open} onOpenChange={value => { if (!value) onClose(!!attempt && !conflict); }}><DialogContent onCloseAutoFocus={onCloseAutoFocus} className="w-[calc(100vw-2rem)] sm:max-w-3xl"><DialogHeader><DialogTitle>{previous ? uiT("Revise media standard price") : uiT("Publish media standard price")}</DialogTitle><DialogDescription>{uiT("Set customer prices for the selected media specifications and units across workspaces. Existing requests and promotions keep their original prices. Model availability and access are managed separately.")}</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={event => void publish(event)}>
     <div className="space-y-2"><Label>{uiT("Model")}</Label>{previous ? <p className="break-words">{model}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={locked || !modelsLoaded || !!modelsError} aria-label={uiT("Media standard model")}>{model || (modelsLoaded ? uiT("Choose media model") : uiT("Loading media models…"))}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><Input aria-label={uiT("Filter registered media models")} placeholder={uiT("Filter models")} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key.length === 1 || event.key === 'Backspace' || event.key === 'Delete') event.stopPropagation(); }} /><DropdownMenuRadioGroup value={model} onValueChange={value => { const choice=models.find(item=>item.model_alias===value)?.media; setModel(value);setChannel(choice?.channel ?? '');setMeter(choice?.meter ?? '');setResolution(choice?.resolutions.length===1?choice.resolutions[0]:'');setReference(false);setError(''); }}>{models.filter(item => item.model_alias.toLowerCase().includes(query.trim().toLowerCase())).map(item => <DropdownMenuRadioItem key={item.model_alias} value={item.model_alias}>{item.model_alias}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>{!models.length && <p className="p-2 text-sm">{uiT("No configured media models available.")}</p>}</DropdownMenuContent></DropdownMenu>}</div>
     {modelsError && <Alert variant="destructive"><AlertDescription>{uiT(modelsError)}</AlertDescription></Alert>}
     {!previous && modelsLoaded && !models.length && !modelsError && <Alert><AlertDescription>{uiT("Media pricing requires configured output specifications.")}{" "}<Link className="underline" to="/admin/providers" target="_blank" rel="noopener noreferrer">{uiT("Configure a Provider model (opens in a new tab)")}</Link>{uiT(", then refresh model choices here.")}</AlertDescription></Alert>}

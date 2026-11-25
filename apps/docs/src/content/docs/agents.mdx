@@ -10,7 +10,9 @@ Niu provides machine-readable contracts and task workflows for coding agents. Us
 ## Connection Tracks
 
 - **Track 1 — Universal Device-Auth + HTTP/MCP**: Any coding agent (`Cursor`, `Windsurf`, `Zed`, `OpenCode`, `Cline`, `Aider`, `Claude Code`, `Codex`, `DeepSeek Harness`, or custom harness) can connect against any Niu deployment using `POST /api/v1/auth/agents`, browser `/connect` approval, and standard HTTP or `@niu-io/mcp`.
-- **Track 2 — Native Host Bundles**: Native bundle targets for the unpublished `v0.3.1` candidate (verify publication before installation) for `Claude Code`, `Codex` (`niu-agent-marketplace.tar.gz`), and `DeepSeek Harness` (`niu-deepseek-harness.tar.gz`).
+- **Track 2 — Native Host Bundles**: Prepackaged `v0.3.2` host bundles (verify `SHA256SUMS` and `SOURCE_COMMIT` before installation) for `Claude Code`, `Codex` (`niu-agent-marketplace.tar.gz`), and `DeepSeek Harness` (`niu-deepseek-harness.tar.gz`).
+
+With the Niu plugin installed in Codex, invoke its skill explicitly, for example `$niu check my balance`. The skill uses the permissions of the connected account.
 
 ## Universal Bootstrap Prompt
 
@@ -27,7 +29,7 @@ Give a coding agent the deployment entry URL (`{ORIGIN}/llms.txt` or `/docs/inst
 | [Install and configure](/docs/agents/install/) | [/docs/install.md](/docs/install.md) | Track 1 universal device-auth, Track 2 host bundles, and `/connect` verification |
 | [Capability map](/docs/agents/capabilities/) | [/docs/agents.md](/docs/agents.md) | Authority discovery (`/v1/key`), model inventory, usage/cost boundaries, and error recovery |
 | [Model inference](/docs/agents/inference/) | [/docs/inference.md](/docs/inference.md) | Authorized HTTP/SDK/MCP calls (`chat`, `responses`, `messages`, `content`, `embeddings`, `decisions`, `video`) |
-| [Workspace routing](/docs/agents/pools/) | [/docs/pools.md](/docs/pools.md) ([/docs/routing.md](/docs/routing.md)) | Dry-run preview, v1/v2 `auto` routing strategies, revision locks, and selection diagnostics |
+| [Workspace routing](/docs/agents/pools/) | [/docs/routing.md](/docs/routing.md) (alias: [/docs/pools.md](/docs/pools.md)) | Dry-run preview, v1/v2 `auto` routing strategies, revision locks, and selection diagnostics |
 | [Evaluations](/docs/agents/evaluations/) | [/docs/evaluations.md](/docs/evaluations.md) | Canonical v1 fingerprints, `x-niu-evaluation` binding, attributed runs, and matched comparisons |
 | [Resource events](/docs/agents/events/) | [/docs/events.md](/docs/events.md) | Authenticated pull stream (`list_workspace_events`), signed push receivers, and incident reconciliation |
 | [Machine index](/docs/llms.txt) | [/llms.txt](/llms.txt) | Concise deployment discovery map for automated harnesses |
@@ -47,7 +49,9 @@ Niu 牛元为接入的 coding agent 提供机器可读的规范契约与任务�
 ## 双轨接入方式
 
 - **路径 1 — 通用设备授权 + HTTP/MCP**：任何具备 HTTP 能力的 coding agent（`Cursor`、`Windsurf`、`Zed`、`OpenCode`、`Cline`、`Aider`、`Claude Code`、`Codex`、`DeepSeek Harness` 或自研 Agent）均可通过 `POST /api/v1/auth/agents`、浏览器 `/connect` 审批与标准 HTTP 或 `@niu-io/mcp` 接入任意 Niu 部署。
-- **路径 2 — 原生宿主扩展包**：面向 `Claude Code`、`Codex`（`niu-agent-marketplace.tar.gz`）与 `DeepSeek Harness`（`niu-deepseek-harness.tar.gz`）的 `v0.3.1` 候选原生集成（尚未发布，安装前须确认发布状态）。
+- **路径 2 — 原生宿主扩展包**：面向 `Claude Code`、`Codex`（`niu-agent-marketplace.tar.gz`）与 `DeepSeek Harness`（`niu-deepseek-harness.tar.gz`）的 `v0.3.2` 预打包原生集成（安装前须核验 `SHA256SUMS` 与 `SOURCE_COMMIT`）。
+
+在 Codex 安装牛元插件后，可以显式调用技能，例如 `$niu 检查余额`。技能使用已连接账户的权限。
 
 ## 通用引导提示词
 
@@ -62,7 +66,7 @@ Niu 牛元为接入的 coding agent 提供机器可读的规范契约与任务�
 | [安装与配置](/docs/agents/install/) | [/docs/install.md](/docs/install.md) | 通用 `/connect` 设备授权（路径 1）、原生宿主扩展包（路径 2）与连接验证 |
 | [能力概览](/docs/agents/capabilities/) | [/docs/agents.md](/docs/agents.md) | 权限发现（`/v1/key`）、模型目录、用量与费用边界及错误恢复语义 |
 | [模型推理](/docs/agents/inference/) | [/docs/inference.md](/docs/inference.md) | 已授权的多协议模型调用（`chat`/`responses`/`messages`/`content`/`embeddings`/`decisions`/`video`）与业务 SDK 集成 |
-| [工作空间路由](/docs/agents/pools/) | [/docs/pools.md](/docs/pools.md)（[/docs/routing.md](/docs/routing.md)） | 路由策略预演、v1/v2 `auto` 策略、乐观锁版本控制与选路诊断 |
+| [工作空间路由](/docs/agents/pools/) | [/docs/routing.md](/docs/routing.md)（兼容别名：[/docs/pools.md](/docs/pools.md)） | 路由策略预演、v1/v2 `auto` 策略、乐观锁版本控制与选路诊断 |
 | [任务评估](/docs/agents/evaluations/) | [/docs/evaluations.md](/docs/evaluations.md) | 规范化请求指纹、`x-niu-evaluation` 绑定、可归因评估记录与匹配样本对比 |
 | [资源事件](/docs/agents/events/) | [/docs/events.md](/docs/events.md) | 认证拉取事件流（`list_workspace_events`）、HMAC 签名推送与故障事件对账 |
 | [机器导航索引](/docs/llms.txt) | [/llms.txt](/docs/llms.txt) | 面向自动化工具与宿主框架的简洁发现入口 |

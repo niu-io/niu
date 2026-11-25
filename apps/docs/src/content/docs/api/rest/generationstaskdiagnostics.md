@@ -1,11 +1,11 @@
 ---
 title: "Read saved customer billing and transport diagnostics"
-description: "GET /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics"
+description: "GET /api/v1/workspaces/{workspace}/tasks/{task}/diagnostics"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics`
+`GET /api/v1/workspaces/{workspace}/tasks/{task}/diagnostics`
 
 Current dashboard workspace Read authorizes persisted diagnostics independently of the original inference key expiry, revocation or model grants. Actor-private tasks belonging to another actor are 404. Billing is customer-only; owner-funded jobs retain null customer charges and never expose procurement costs. Billing and measured transport/lifecycle observations share one bounded read-only snapshot. This GET never contacts a Provider, polls, refreshes, retries, submits or settles a task. Errors are explicit; no successful empty result hides a storage failure.
 
@@ -28,24 +28,13 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/tasks/{task}/diagnostics" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

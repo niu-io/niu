@@ -4,32 +4,29 @@ import ProviderModels from './ProviderModels';
 import MediaConsumption, { type MediaConsumptionRecord } from './MediaConsumption';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useProviderParams, providerPathSegment } from '@/shell/provider-route';
-import { IconBuildings as Building2, IconChevronDown as ChevronDown, IconDots as Dots, IconPlus as Plus, IconReceipt, IconSearch, IconShieldCheck as ShieldCheck, IconUsers, IconX as X } from "@tabler/icons-react";
+import { IconBuildings as Building2, IconChevronDown as ChevronDown, IconPlus as Plus, IconReceipt, IconShieldCheck as ShieldCheck, IconX as X } from "@tabler/icons-react";
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
-import { Link, Navigate, useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { useDashboardContext } from "@/shell/dashboard-context";
 import ProviderEditor, { type ProviderConnectionCreate } from "@/features/providers/components/ProviderEditor";
 import PageHeader from "@/components/PageHeader";
-import { ListRowsSkeleton, TableSkeleton, WorkspaceShellSkeleton } from "@/components/PageSkeletons";
+import { ListRowsSkeleton, WorkspaceShellSkeleton } from "@/components/PageSkeletons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cachedGet, peekCachedGet, request, writeMayHaveCommitted, ProviderRequestError, type ProviderConnection, type ProviderModel } from "@/features/providers/api";
 import { money } from "@/lib/money";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MediaRateHistory from "./MediaRateHistory";
 import MediaRatePublisher from "./MediaRatePublisher";
 import type { ProviderOffer } from "@niu-io/sdk/admin";
-import type { Operator } from "@/features/operators/api";
 
 import { type ProviderSetup } from '@/features/providers/provider-setup';
 
-type Business = ProviderSetup & { id: string; slug?: string; name: string; members: number };
-type ProviderMember = { operator_id: string; name: string; role: string; active: boolean; revoked: boolean };
+type Business = ProviderSetup & { id: string; slug?: string; name: string; members?: number };
 type AdminData = {
   media_consumption?: MediaConsumptionRecord[];
   balances: { currency: string; earned_nanos: string; unpaid_nanos: string; paid_nanos: string }[];
@@ -81,8 +78,6 @@ function settlementCutoffMs(value: string): number | null {
 export default function ProviderAdministration() {
   const { t: uiT } = useUILocale();
   const { session, token } = useDashboardContext();
-  if (!(session?.kind === "installation" || session?.permissions.platform_admin) && session?.provider_memberships?.length)
-    return <Navigate to={`/providers/${providerPathSegment(session.provider_memberships[0])}`} replace />;
   if (!(session?.kind === "installation" || session?.permissions.platform_admin))
     return (
       <>
@@ -91,7 +86,7 @@ export default function ProviderAdministration() {
           <ShieldCheck />
           <h2>{uiT("Provider access required")}</h2>
           <p>
-            {uiT("Provider membership and agreed rates are controlled by installation administration.")}</p>
+            {uiT("Providers and agreed rates are controlled by platform administration.")}</p>
         </section>
       </>
     );
@@ -101,9 +96,10 @@ function Administration({ token }: { token: string }) {
   const { t: uiT, format: uiF } = useUILocale();
   const { session, organization } = useDashboardContext();
   const internal = session?.operating_mode === 'internal';
-  const { section = "overview", providerId, supplierId } = useProviderParams();
+  const { section: rawSection, providerId, supplierId } = useProviderParams();
+  const section = !rawSection || rawSection === "overview" ? "models" : rawSection;
   const routeProviderId = providerId ?? supplierId;
-  const initialBusinesses = token ? peekCachedGet<{ data: Business[] }>(token, "/api/v1/providers")?.data ?? null : null;
+  const initialBusinesses = token ? peekCachedGet<{ data: Business[] }>(token, "/api/v1/admin/providers")?.data ?? null : null;
   const [loading, setLoading] = useState(() => Boolean(token && !initialBusinesses));
   const [businesses, setBusinesses] = useState<Business[]>(() => initialBusinesses ?? []);
   const [search, setSearch] = useSearchParams();
@@ -111,27 +107,18 @@ function Administration({ token }: { token: string }) {
   const setSelected = (id: string) => setSearch(current => { current.set('supplier', id); current.delete('create'); return current; });
 
   const initialAdminData = selected && token
-    ? peekCachedGet<{ data: AdminData }>(token, `/api/v1/providers/${selected}/administration?days=90`)?.data ?? null
-    : null;
-  const initialMembers = selected && token
-    ? peekCachedGet<{ data: ProviderMember[] }>(token, `/api/v1/providers/${selected}/members`)?.data ?? null
+    ? peekCachedGet<{ data: AdminData }>(token, `/api/v1/admin/providers/${selected}/administration?days=90`)?.data ?? null
     : null;
   const [data, setData] = useState<AdminData | null>(initialAdminData);
   const [loadingMoreOffers, setLoadingMoreOffers] = useState(false);
   const [moreOffersError, setMoreOffersError] = useState('');
   const moreOffersRequest = useRef<AbortController | null>(null);
-  const [members, setMembers] = useState<ProviderMember[]>(() => initialMembers ?? []);
-  const [membersLoading, setMembersLoading] = useState(false);
-  const [offerQuery, setOfferQuery] = useState("");
-  const offerSearch = useRef<HTMLInputElement>(null);
   const pricingTab = !internal && ['text', 'media'].includes(search.get('view') ?? '') ? search.get('view')! : 'models';
   const setPricingTab = (value: string) => setSearch(current => { if (value === 'models') current.delete('view'); else current.set('view', value); return current; });
-  useEffect(() => { setOfferQuery(""); }, [selected, section]);
   const [mediaRateModel, setMediaRateModel] = useState<string | null>(null);
   const [mediaRateVersion, setMediaRateVersion] = useState(0);
   const textOffers = (data?.offers ?? []).filter(offer => offer.rate_kind !== "media");
   const mediaOffers = (data?.offers ?? []).filter(offer => offer.rate_kind === "media");
-  const visibleOffers = textOffers.filter(offer => section !== "models" || offer.model_alias.toLowerCase().includes(offerQuery.trim().toLowerCase()));
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -144,7 +131,6 @@ function Administration({ token }: { token: string }) {
   const previousProvider = useRef("");
   const lastProvidersRevision = useRef(0);
   const lastAdminRevision = useRef(0);
-  const lastMembersRevision = useRef(0);
   useLayoutEffect(() => {
     operationScope.current += 1;
     if (previousProvider.current) {
@@ -156,60 +142,14 @@ function Administration({ token }: { token: string }) {
     }
     previousProvider.current = selected;
     const cachedAdmin = selected && token
-      ? peekCachedGet<{ data: AdminData }>(token, `/api/v1/providers/${selected}/administration?days=90`)?.data ?? null
-      : null;
-    const cachedMembers = selected && token
-      ? peekCachedGet<{ data: ProviderMember[] }>(token, `/api/v1/providers/${selected}/members`)?.data ?? null
+      ? peekCachedGet<{ data: AdminData }>(token, `/api/v1/admin/providers/${selected}/administration?days=90`)?.data ?? null
       : null;
     setData(cachedAdmin);
-    setMembers(cachedMembers ?? []);
     return () => { operationScope.current += 1; };
   }, [selected, token]);
   const dialogOpener = useRef<HTMLElement | null>(null);
   const offerActionButtons = useRef(new Map<string, HTMLButtonElement>());
   useEffect(() => { if (search.get('create') === 'supplier' || search.get('create') === 'provider') setDialog('create'); }, [search]);
-  const [operator, setOperator] = useState("");
-  const [accounts, setAccounts] = useState<Operator[]>([]);
-  const [accountsLoading, setAccountsLoading] = useState(false);
-  useEffect(() => {
-    if (dialog !== "membership") return;
-    const controller = new AbortController();
-    const cached = token ? peekCachedGet<{ data: Operator[] }>(token, "/api/v1/operators")?.data ?? null : null;
-    if (cached) {
-      setAccounts(cached.filter(account => !account.revoked));
-      setAccountsLoading(false);
-    } else {
-      setAccounts([]);
-      setAccountsLoading(true);
-    }
-    void cachedGet<{ data: Operator[] }>(token, "/api/v1/operators", { signal: controller.signal })
-      .then(result => { if (!controller.signal.aborted) setAccounts(result.data.filter(account => !account.revoked)); })
-      .catch(reason => { if (!controller.signal.aborted) setError(reason.message); })
-      .finally(() => { if (!controller.signal.aborted) setAccountsLoading(false); });
-    return () => controller.abort();
-  }, [dialog, token]);
-  useEffect(() => {
-    if (section !== "members" || !selected) return;
-    const controller = new AbortController();
-    const force = lastMembersRevision.current !== revision;
-    lastMembersRevision.current = revision;
-    const membersPath = `/api/v1/providers/${selected}/members`;
-    const cached = token ? peekCachedGet<{ data: ProviderMember[] }>(token, membersPath)?.data ?? null : null;
-    if (cached) {
-      if (!force) setMembers(cached);
-      setMembersLoading(false);
-    } else {
-      setMembers([]);
-      setMembersLoading(true);
-    }
-    void cachedGet<{ data: ProviderMember[] }>(token, membersPath, { signal: controller.signal, force })
-      .then(result => { if (!controller.signal.aborted) setMembers(result.data); })
-      .catch(reason => { if (!controller.signal.aborted) setError(reason.message); })
-      .finally(() => { if (!controller.signal.aborted) setMembersLoading(false); });
-    return () => controller.abort();
-  }, [section, selected, token, revision]);
-  const [role, setRole] = useState("viewer");
-  const [active, setActive] = useState("true");
   const [alias, setAlias] = useState("");
   const {currency} = usePlatformCurrency();
   const [inputRate, setInputRate] = useState("");
@@ -242,7 +182,7 @@ function Administration({ token }: { token: string }) {
     setSettlementPreviewLoading(true);
     void request<{ data: SettlementPreview }>(
       token,
-      `/api/v1/providers/${selected}/settlements/preview?currency=${encodeURIComponent(settlementCurrency)}&cutoff_ms=${cutoffMs}`,
+      `/api/v1/admin/providers/${selected}/settlements/preview?currency=${encodeURIComponent(settlementCurrency)}&cutoff_ms=${cutoffMs}`,
       "GET",
       undefined,
       controller.signal,
@@ -287,10 +227,10 @@ function Administration({ token }: { token: string }) {
   useEffect(() => {
     if (dialog !== "offer" || offerId || !selected || !token) { setConfiguredAliases([]); return; }
     const controller = new AbortController();
-    void cachedGet<{ data: ProviderConnection[] }>(token, `/api/v1/vendors?supplier=${encodeURIComponent(selected)}`, { signal: controller.signal })
+    void cachedGet<{ data: ProviderConnection[] }>(token, `/api/v1/admin/providers/connections?supplier=${encodeURIComponent(selected)}`, { signal: controller.signal })
       .then(async res => {
         const scoped = (res?.data ?? []).filter(c => (c.provider ?? c.supplier)?.id === selected);
-        const pages = await Promise.all(scoped.map(c => cachedGet<{ data: ProviderModel[] }>(token, `/api/v1/vendors/${encodeURIComponent(c.id)}/models`, { signal: controller.signal }).catch(() => ({ data: [] as ProviderModel[] }))));
+        const pages = await Promise.all(scoped.map(c => cachedGet<{ data: ProviderModel[] }>(token, `/api/v1/admin/providers/connections/${encodeURIComponent(c.id)}/models`, { signal: controller.signal }).catch(() => ({ data: [] as ProviderModel[] }))));
         if (!controller.signal.aborted) setConfiguredAliases([...new Set(pages.flatMap(p => (p?.data ?? []).filter(m => !m.capabilities?.video_schema).map(m => m.alias)))].sort());
       }).catch(() => { if (!controller.signal.aborted) setConfiguredAliases([]); });
     return () => controller.abort();
@@ -299,7 +239,7 @@ function Administration({ token }: { token: string }) {
     const controller = new AbortController();
     const force = lastProvidersRevision.current !== revision;
     lastProvidersRevision.current = revision;
-    const cached = token ? peekCachedGet<{ data: Business[] }>(token, "/api/v1/providers")?.data ?? null : null;
+    const cached = token ? peekCachedGet<{ data: Business[] }>(token, "/api/v1/admin/providers")?.data ?? null : null;
     if (cached) {
       if (!force) setBusinesses(cached);
       setLoading(false);
@@ -308,7 +248,7 @@ function Administration({ token }: { token: string }) {
     }
     void cachedGet<{ data: Business[] }>(
       token,
-      "/api/v1/providers",
+      "/api/v1/admin/providers",
       { signal: controller.signal, force },
     )
       .then((result) => {
@@ -328,7 +268,7 @@ function Administration({ token }: { token: string }) {
     const controller = new AbortController();
     const force = lastAdminRevision.current !== revision;
     lastAdminRevision.current = revision;
-    const adminPath = `/api/v1/providers/${selected}/administration?days=90`;
+    const adminPath = `/api/v1/admin/providers/${selected}/administration?days=90`;
     const cached = token ? peekCachedGet<{ data: AdminData }>(token, adminPath)?.data ?? null : null;
     if (cached && !force) {
       setData(cached);
@@ -353,7 +293,7 @@ function Administration({ token }: { token: string }) {
     const scope = operationScope.current;
     setLoadingMoreOffers(true); setMoreOffersError('');
     try {
-      const page = await request<{data: ProviderOffer[]; next_after: string | null}>(token, `/api/v1/providers/${selected}/offers?limit=100&after=${encodeURIComponent(after)}`, 'GET', undefined, controller.signal);
+      const page = await request<{data: ProviderOffer[]; next_after: string | null}>(token, `/api/v1/admin/providers/${selected}/offers?limit=100&after=${encodeURIComponent(after)}`, 'GET', undefined, controller.signal);
       if (controller.signal.aborted || scope !== operationScope.current) return;
       if (page.next_after === after || (page.next_after && !page.data.some(item => !data.offers.some(old => old.id === item.id)))) throw new Error('The offer list changed. Refresh before continuing.');
       setData(current => current ? {...current, offers: [...current.offers, ...page.data.filter(item => !current.offers.some(old => old.id === item.id))], offers_has_more: page.next_after !== null} : current);
@@ -367,7 +307,7 @@ function Administration({ token }: { token: string }) {
     setOfferLoad(previous => ({ token, supplier: selected, scope, offers: previous?.offers ?? [], ready: false, loading: true, conflict: previous?.conflict ?? false }));
     setError("");
     try {
-      const result = await request<{ data: AdminData }>(token, `/api/v1/providers/${selected}/administration?days=90`, "GET", undefined, controller.signal);
+      const result = await request<{ data: AdminData }>(token, `/api/v1/admin/providers/${selected}/administration?days=90`, "GET", undefined, controller.signal);
       if (controller.signal.aborted || sequence !== offerReadSequence.current || scope !== operationScope.current) return;
       // Refresh through the authorized collection before editing an offer beyond the summary cap.
       const seen = new Set<string>();
@@ -375,7 +315,7 @@ function Administration({ token }: { token: string }) {
         const after = result.data.offers.at(-1)?.model_alias;
         if (!after || seen.has(after)) throw new Error('The offer list changed. Reload before saving.');
         seen.add(after);
-        const page = await request<{data: ProviderOffer[]; next_after: string | null}>(token, `/api/v1/providers/${selected}/offers?limit=100&after=${encodeURIComponent(after)}`, 'GET', undefined, controller.signal);
+        const page = await request<{data: ProviderOffer[]; next_after: string | null}>(token, `/api/v1/admin/providers/${selected}/offers?limit=100&after=${encodeURIComponent(after)}`, 'GET', undefined, controller.signal);
         if (controller.signal.aborted || sequence !== offerReadSequence.current || scope !== operationScope.current) return;
         if (page.next_after === after || (page.next_after && !page.data.length)) throw new Error('The offer list changed. Reload before saving.');
         result.data.offers.push(...page.data.filter(item => !result.data.offers.some(old => old.id === item.id)));
@@ -409,7 +349,6 @@ function Administration({ token }: { token: string }) {
     setError("");
     setNotice("");
     setDialog(kind);
-    if (kind === "membership") { setOperator(""); setRole("viewer"); setActive("true"); }
     setOfferId(selectedOfferId);
     if (kind === "offer") {
       setOfferLoad(null);
@@ -435,18 +374,10 @@ function Administration({ token }: { token: string }) {
   }
 
   const selectedBusiness = businesses.find(item => item.id === selected);
-  const sectionTitle = uiT({ overview: "Overview", usage: "Usage", members: "Members", models: "Models", settlements: "Settlements" }[section] ?? "Providers");
-  const sectionAction =
-    section === "members" ? (
-      <Button variant="outline" className="header-icon-action" aria-label={uiT("Manage portal access")} title={uiT("Manage portal access")} disabled={!data} onClick={() => open("membership")}>
-        <Plus size={16} />
-        <span>{uiT("Manage portal access")}</span>
-      </Button>
-    ) : !internal && section === "models" && pricingTab === "text" && textOffers.length > 0 ? (
-      <Button variant="outline" className="header-icon-action" aria-label={uiT("Set agreed rates")} title={uiT("Set agreed rates")} disabled={!data} onClick={() => open("offer")}><Plus size={16} /><span>{uiT("Set agreed rates")}</span></Button>
-    ) : !internal && section === "settlements" ? (
-      <Button variant="outline" className="header-icon-action" aria-label={uiT("Record payment")} title={uiT("Record payment")} disabled={!data} onClick={() => open("settlement")}><Plus size={16} /><span>{uiT("Record payment")}</span></Button>
-    ) : null;
+  const sectionTitle = uiT({ overview: "Models & discounts", usage: "Analytics", models: internal ? "Models" : "Models & discounts", settlements: "Settlements" }[section] ?? "Providers");
+  const sectionAction = !internal && (section === "usage" || section === "settlements") ? (
+    <Button variant="outline" className="header-icon-action" aria-label={uiT("Record payment")} title={uiT("Record payment")} disabled={!data} onClick={() => open("settlement")}><Plus size={16} /><span>{uiT("Record payment")}</span></Button>
+  ) : null;
   function nanos(value: string) {
     if (!/^\d+(\.\d{1,9})?$/.test(value.trim()))
       throw new Error(
@@ -466,18 +397,9 @@ function Administration({ token }: { token: string }) {
     setError("");
     let settlementNotice = "";
     try {
-      if (dialog === "membership" && !accounts.some(account => account.id === operator))
-        throw new Error("Choose an account to manage Provider access.");
-      if (dialog === "membership")
-        await request(
-          token,
-          `/api/v1/providers/${selected}/members/${operator}`,
-          "PUT",
-          { role, active: active === "true" },
-        );
       if (dialog === "offer") {
         const currentOffer = offerLoad?.offers.find((offer) => offer.model_alias === alias);
-        await request(token, `/api/v1/providers/${selected}/offers`, "POST", {
+        await request(token, `/api/v1/admin/providers/${selected}/offers`, "POST", {
           model_alias: alias,
           currency,
           prompt_rate: nanos(inputRate),
@@ -493,8 +415,8 @@ function Administration({ token }: { token: string }) {
       }
       if (dialog === "offer-enable" || dialog === "offer-pause") {
         if (!offerSnapshot || offerSnapshot.id !== offerId) throw new Error("This offer is no longer available. Refresh and try again.");
-        if (dialog === "offer-enable") await request(token, `/api/v1/providers/${selected}/offers/${offerId}/authorization`, "PUT", {rate_revision: offerSnapshot.revision});
-        else await request(token, `/api/v1/providers/${selected}/offers/${offerId}`, "PATCH", {active:false});
+        if (dialog === "offer-enable") await request(token, `/api/v1/admin/providers/${selected}/offers/${offerId}/authorization`, "PUT", {rate_revision: offerSnapshot.revision});
+        else await request(token, `/api/v1/admin/providers/${selected}/offers/${offerId}`, "PATCH", {active:false});
       }
       if (dialog === "settlement") {
         const cutoffMs = settlementCutoffMs(settlementCutoff);
@@ -514,7 +436,7 @@ function Administration({ token }: { token: string }) {
         setPaymentSubmitted(true);
         const result = await request<{ data: SettlementResult }>(
           token,
-          `/api/v1/providers/${selected}/settlements`,
+          `/api/v1/admin/providers/${selected}/settlements`,
           "POST",
           {
             idempotency_key: paymentKey,
@@ -567,7 +489,7 @@ function Administration({ token }: { token: string }) {
     setError("");
     let committed = false;
     try {
-      const created = await request<{ data: { id: string } }>(token, "/api/v1/vendors", "POST", input);
+      const created = await request<{ data: { id: string } }>(token, "/api/v1/admin/providers/connections", "POST", input);
       if (!created?.data?.id || typeof created.data.id !== 'string') throw new Error('Invalid creation response.');
       committed = true;
       // Close immediately after commit: a discovery failure must never invite
@@ -575,7 +497,7 @@ function Administration({ token }: { token: string }) {
       setDialog("");
       setSearch(current => { current.delete("create"); return current; }, { replace: true });
       setNotice(input.supplier_id ? "API key added. Configure its models to continue setup." : internal ? "Provider created. Configure its models to continue setup." : "Provider created. Add models and agreed rates to continue setup.");
-      const ownership = await request<{ data: { id: string } }>(token, `/api/v1/vendors/${encodeURIComponent(created.data.id)}/provider`, "GET");
+      const ownership = await request<{ data: { id: string } }>(token, `/api/v1/admin/providers/connections/${encodeURIComponent(created.data.id)}/supplier`, "GET");
       setSelected(ownership.data.id);
     } catch (reason) {
       setError(committed ? "API key saved, but Provider details could not be opened. Refresh the Provider list." : reason instanceof Error ? reason.message : "Provider could not be created.");
@@ -590,11 +512,10 @@ function Administration({ token }: { token: string }) {
     }
   }
   const sectionDescription = {
-    overview: internal ? 'Connect an API key and discover models for internal use.' : 'Connect API access and model routes, then manage commercial rates and payments.',
-    models: internal ? 'Manage model connections and availability.' : 'Model connections, availability and commercial offers.',
+    overview: internal ? 'Choose which imported models are enabled.' : 'Choose which models are available on this platform and optionally set a discount off upstream standard prices (default: no discount).',
+    models: internal ? 'Choose which imported models are enabled.' : 'Choose which models are available on this platform and optionally set a discount off upstream standard prices (default: no discount).',
     usage: internal ? 'Provider usage over the last 90 days.' : 'Provider usage and accrued purchase charges over the last 90 days.',
     settlements: 'Outstanding balances and confirmed payments to this provider.',
-    members: 'Grant provider representatives access to their own offers, usage, earnings, and payments.',
   }[section];
   const payableBalances = (data?.balances ?? []).filter(
     balance =>
@@ -645,24 +566,12 @@ function Administration({ token }: { token: string }) {
             <div className="provider-admin-section-heading"><h2>{uiT("API connection")}</h2></div>
             <p className="px-6 pb-4 text-sm text-muted-foreground">{internal ? uiT("Niu attempts to discover models when you connect. A saved API key does not verify access to the Provider.") : uiT("Start here to connect models. Saved configuration does not verify the upstream credential or guarantee that a customer can send a request.")}</p>
             <ShadcnTable className="table-fixed [&_td]:whitespace-normal [&_td]:break-words [&_th]:whitespace-normal"><TableHeader><TableRow><TableHead>{uiT("Setup step")}</TableHead><TableHead>{uiT("Status")}</TableHead><TableHead>{uiT("Action")}</TableHead></TableRow></TableHeader><TableBody>
-              <TableRow><TableCell>{uiT("1. Connect upstream API key")}</TableCell><TableCell>{selectedBusiness.enabled_api_keys == null ? uiT("Not checked") : uiF("{0} enabled · {1} saved", [selectedBusiness.enabled_api_keys, selectedBusiness.api_keys ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/keys`}>{!selectedBusiness.api_keys ? uiT("Connect API key") : uiT("Manage keys")}</Link></Button></TableCell></TableRow>
-              <TableRow><TableCell>{internal ? uiT("2. Review discovered models") : uiT("2. Add model routes")}</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? uiT("Not checked") : uiF("{0} enabled · {1} saved", [selectedBusiness.enabled_model_routes, selectedBusiness.models ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/models`}>{internal ? uiT("View models") : uiT("Configure models")}</Link></Button></TableCell></TableRow>
-              {!internal && <TableRow><TableCell>{uiT("3. Set customer selling prices")}</TableCell><TableCell>{uiT("Platform-wide prices")}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">{uiT("Pricing")}</Link></Button></TableCell></TableRow>}
+              <TableRow><TableCell>{uiT("1. Connect upstream API key")}</TableCell><TableCell>{selectedBusiness.enabled_api_keys == null ? uiT("Not checked") : uiF("{0} enabled · {1} saved", [selectedBusiness.enabled_api_keys, selectedBusiness.api_keys ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/keys`}>{!selectedBusiness.api_keys ? uiT("Connect API key") : uiT("Manage connections")}</Link></Button></TableCell></TableRow>
+              <TableRow><TableCell>{internal ? uiT("2. Review discovered models") : uiT("2. Add & enable model routes")}</TableCell><TableCell>{selectedBusiness.enabled_model_routes == null ? uiT("Not checked") : uiF("{0} enabled · {1} saved", [selectedBusiness.enabled_model_routes, selectedBusiness.models ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/models`}>{internal ? uiT("View models") : uiT("Configure models")}</Link></Button></TableCell></TableRow>
+              {!internal && <TableRow><TableCell>{uiT("3. Approve commercial purchase offers")}</TableCell><TableCell>{selectedBusiness.ready_offers == null ? uiT("Not checked") : uiF("{0} ready · {1} configured", [selectedBusiness.ready_offers, selectedBusiness.offers ?? 0])}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to={`/admin/providers/${providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected})}/models?view=text`}>{uiT("Review offers")}</Link></Button></TableCell></TableRow>}
+              {!internal && <TableRow><TableCell>{uiT("4. Set customer selling prices")}</TableCell><TableCell>{uiT("Platform-wide prices")}</TableCell><TableCell><Button asChild variant="link" className="h-auto whitespace-normal p-0 text-left"><Link to="/admin/pricing">{uiT("Pricing")}</Link></Button></TableCell></TableRow>}
             </TableBody></ShadcnTable>
-            {!internal && <p className="px-6 pt-4 text-sm text-muted-foreground">{uiT("Provider portal access is optional. It lets Provider representatives view their own business records; it does not connect an API key.")}</p>}
           </div>}
-          {section === "members" && members.length > 0 && <div className="provider-members-summary">
-            <IconUsers size={20} aria-hidden="true" />
-            <strong>{members.filter(member => member.active && !member.revoked).length}</strong>
-            <span>{uiT("accounts with portal access")}</span>
-          </div>}
-          {section === "members" && (membersLoading ? <div className="px-6 pb-6"><TableSkeleton columns={4} rows={3} label={uiT("Loading members…")} /></div> : members.length ? <ShadcnTable className="provider-ledger">
-            <TableHeader><TableRow><TableHead>{uiT("Account")}</TableHead><TableHead>{uiT("Role")}</TableHead><TableHead>{uiT("Access")}</TableHead><TableHead><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader>
-            <TableBody>{members.map(member => <TableRow key={member.operator_id}>
-              <TableCell>{member.name || uiT("Unnamed account")}</TableCell><TableCell>{member.role === "manager" ? uiT("Manager") : uiT("Viewer")}</TableCell><TableCell>{member.revoked ? uiT("Account revoked") : member.active ? uiT("Active") : uiT("Revoked")}</TableCell>
-              <TableCell><Button variant="ghost" size="sm" disabled={member.revoked} aria-label={uiF("Edit access for {0}", [member.name || uiT("unnamed account")])} onClick={() => { open("membership"); setOperator(member.operator_id); setRole(member.role); setActive(String(member.active)); }}>{uiT("Edit access")}</Button></TableCell>
-            </TableRow>)}</TableBody>
-          </ShadcnTable> : !error && <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><IconUsers size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No provider portal access granted")}</EmptyTitle><EmptyDescription>{uiT("API keys and model routes work without portal access.")}</EmptyDescription></EmptyHeader></Empty>)}
           {!internal && section === "overview" && <div className="provider-admin-block">
             <div className="provider-admin-section-heading"><h2>{uiT("Model offers")}</h2><Button asChild variant="ghost"><Link to={`/admin/providers/${encodeURIComponent(providerPathSegment(businesses.find(item => item.id === selected) ?? {id:selected}))}/models`}>{uiT("Models")}</Link></Button></div>
             <div className="provider-balance-list"><div className="provider-balance-row">
@@ -673,77 +582,39 @@ function Administration({ token }: { token: string }) {
           </div>}
           {(section === "overview" || section === "models") && <>
           {section === "models" && <div className="provider-admin-block">
-            <Tabs value={pricingTab} onValueChange={setPricingTab}>
-            {!internal && <div className="mb-4 max-w-full overflow-x-auto overflow-y-hidden"><TabsList variant="line" aria-label={uiT("Provider model section")}><TabsTrigger value="models">{uiT("Models")}</TabsTrigger><TabsTrigger value="text">{uiT("Text rates")}</TabsTrigger><TabsTrigger value="media">{uiT("Media rates")}</TabsTrigger></TabsList></div>}
-            <TabsContent value="models"><ProviderModels token={token} providerId={selected} providerSlug={providerPathSegment(selectedBusiness ?? {id:selected})} canManage={session?.kind === "installation" || !!session?.permissions?.platform_admin} offers={internal ? [] : data?.offers ?? []} offersComplete={!!data && !data.offers_has_more} commercialEnabled={!internal} onEnableOffer={id => open("offer-enable", id)} onOffer={(modelAlias, media) => { if (media) { setPricingTab("media"); setMediaRateModel(modelAlias); } else open("offer", data?.offers.find(offer => offer.model_alias === modelAlias)?.id ?? "", modelAlias); }} onSaved={() => setRevision(value => value + 1)} /></TabsContent>
-            <TabsContent value="text">
-            {section === "models" && Boolean(textOffers.length) && <div className="flex flex-wrap items-center gap-2 pb-4"><div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={offerSearch} type="search" className="pl-9" aria-label={uiT("Filter provider models")} placeholder={uiT("Filter by model name…")} value={offerQuery} onChange={event => setOfferQuery(event.target.value)} /></div></div>}
-            {textOffers.length ? (
-              visibleOffers.length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconSearch size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle></EmptyHeader><EmptyContent><Button variant="outline" onClick={() => { setOfferQuery(""); offerSearch.current?.focus(); }}>{uiT("Clear search")}</Button></EmptyContent></Empty> :
-              <div className="table-wrap">
-                <ShadcnTable className="provider-ledger supplier-text-offers">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{uiT("Model alias")}</TableHead>
-                      <TableHead className="text-right">{uiT("Input / 1M tokens")}</TableHead>
-                      <TableHead className="text-right">{uiT("Cache read / 1M tokens")}</TableHead>
-                      <TableHead className="text-right">{uiT("Output / 1M tokens")}</TableHead>
-
-                      <TableHead>{uiT("Offer status")}</TableHead>
-                      {section === "models" && <TableHead className="supplier-offer-actions text-right"><span className="sr-only">{uiT("Actions")}</span></TableHead>}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {visibleOffers.map((offer) => (
-                      <TableRow key={offer.id}>
-                        <TableCell>{offer.model_alias}<dl className="mt-3 grid gap-2 text-sm sm:hidden">
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Input / 1M tokens")}</dt><dd className="tabular-nums">{money(offer.prompt_rate, offer.currency)}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Cache read / 1M tokens")}</dt><dd className="tabular-nums">{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</dd></div>
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Output / 1M tokens")}</dt><dd className="tabular-nums">{money(offer.completion_rate, offer.currency)}</dd></div>
-
-                          <div><dt className="text-xs text-muted-foreground">{uiT("Offer status")}</dt><dd>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</dd></div>
-                        </dl></TableCell>
-                        <TableCell className="text-right tabular-nums">{money(offer.prompt_rate, offer.currency)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : uiT("Input rate")}</TableCell>
-                        <TableCell className="text-right tabular-nums">{money(offer.completion_rate, offer.currency)}</TableCell>
-
-                        <TableCell>{offer.active ? offer.route_ready ? uiT("Active") : uiT("Route unavailable") : uiT("Paused")}</TableCell>
-                        {section === "models" && <TableCell className="supplier-offer-actions"><DropdownMenu>
-                          <DropdownMenuTrigger asChild><Button ref={element => { if (element) offerActionButtons.current.set(offer.id, element); else offerActionButtons.current.delete(offer.id); }} variant="ghost" size="icon" aria-label={uiF("Actions for {0}", [offer.model_alias])}><Dots size={18} /></Button></DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => open("offer", offer.id)}>{uiT("Edit rates")}</DropdownMenuItem>
-                          {offer.active ? <DropdownMenuItem onSelect={() => open("offer-pause", offer.id)}>{uiT("Pause offer")}</DropdownMenuItem> : <DropdownMenuItem onSelect={() => open("offer-enable", offer.id)}>{uiT("Enable offer")}</DropdownMenuItem>}
-                          </DropdownMenuContent>
-                        </DropdownMenu></TableCell>}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </ShadcnTable>
+            {pricingTab === "media" && !internal ? (
+              <div className="space-y-4">
+                <div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setPricingTab("models")}>
+                    {uiT("Back to models", "返回模型列表")}
+                  </Button>
+                </div>
+                <MediaRateHistory key={selected} token={token} supplier={selected} showConfiguredModels refreshSignal={mediaRateVersion} />
               </div>
             ) : (
-              <div className="provider-empty-state space-y-3">
-                <strong>{uiT("No agreed model rates")}</strong>
-                {!internal && <div><Button variant="outline" size="sm" disabled={!data} onClick={() => open("offer")}><Plus size={16} /><span>{uiT("Set agreed rates")}</span></Button></div>}
-              </div>
+              <ProviderModels
+                token={token}
+                providerId={selected}
+                providerSlug={providerPathSegment(selectedBusiness ?? { id: selected })}
+                canManage={session?.kind === "installation" || !!session?.permissions?.platform_admin}
+                offers={internal ? [] : data?.offers ?? []}
+                offersComplete={!!data && !data.offers_has_more}
+                commercialEnabled={!internal}
+                onEnableOffer={id => open("offer-enable", id)}
+                onOffer={(modelAlias, media) => {
+                  if (media) {
+                    setPricingTab("media");
+                    setMediaRateModel(modelAlias);
+                  } else {
+                    open("offer", data?.offers.find(offer => offer.model_alias === modelAlias)?.id ?? "", modelAlias);
+                  }
+                }}
+                onSaved={() => setRevision(value => value + 1)}
+              />
             )}
-            </TabsContent>
-            {section === "models" && <TabsContent value="media">
-              <div><MediaRateHistory key={selected} token={token} supplier={selected} showConfiguredModels refreshSignal={mediaRateVersion} /></div>
-            </TabsContent>}
-            </Tabs>
             {!internal && data?.offers_has_more && <div className="py-4 space-y-2"><p className="text-sm text-muted-foreground">{data.offers.length}{" "}{uiT("offers loaded. Counts and filters cover loaded offers only.")}</p>{moreOffersError && <div role="alert"><p>{moreOffersError}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Refresh offers")}</Button></div>}<Button variant="outline" disabled={loadingMoreOffers} onClick={() => void loadMoreOffers()}>{loadingMoreOffers ? uiT("Loading offers…") : moreOffersError ? uiT("Retry loading offers") : uiT("Load more offers")}</Button></div>}
           </div>}
           </>}
-          {!internal && (section === "overview" || section === "settlements") && <div className="provider-admin-block">
-            <div className="provider-admin-section-heading"><h2>{uiT("Provider payables")}</h2></div>
-            <div className="provider-balance-list">
-              {data?.balances?.length ? data.balances.map(balance => <div className="provider-balance-row" key={balance.currency}>
-                <div><span>{uiT("Accrued ·")}{" "}{balance.currency}</span><strong>{money(balance.earned_nanos,balance.currency)}</strong></div>
-                <div><span>{uiT("Unpaid")}</span><strong>{money(balance.unpaid_nanos,balance.currency)}</strong></div>
-                <div><span>{uiT("Paid")}</span><strong>{money(balance.paid_nanos,balance.currency)}</strong></div>
-              </div>) : <Empty className="provider-inline-empty min-h-32 rounded-xl bg-muted/55 py-6"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No provider charges recorded yet.")}</EmptyDescription></EmptyHeader></Empty>}
-            </div>
-          </div>}
           {section === "usage" && <>
             {(Boolean(data?.consumption?.length) || (Array.isArray(data?.media_consumption) && data.media_consumption.length === 0)) && <div className="provider-admin-section-heading"><h2>{uiT("Consumption by model")}</h2><span>{uiT("Last 90 days")}</span></div>}
             {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Requests")}</TableHead><TableHead className="text-right">{uiT("Input / output tokens")}</TableHead>{!internal && <><TableHead className="text-right">{uiT("Accrued charges")}</TableHead><TableHead className="text-right">{uiT("Unpaid")}</TableHead></>}</TableRow></TableHeader><TableBody>
@@ -751,7 +622,17 @@ function Administration({ token }: { token: string }) {
             </TableBody></ShadcnTable></div> : Array.isArray(data?.media_consumption) && data.media_consumption.length === 0 ? <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No consumption in the last 90 days")}</EmptyTitle></EmptyHeader></Empty> : null}
             <MediaConsumption records={data?.media_consumption} administrator internal={internal} />
           </>}
-          {section === "settlements" && <>
+          {!internal && (section === "overview" || section === "usage" || section === "settlements") && <div className="provider-admin-block">
+            <div className="provider-admin-section-heading"><h2>{uiT("Provider payables")}</h2></div>
+            <div className="provider-balance-list">
+              {data?.balances?.length ? data.balances.map(balance => <div className="provider-balance-row" key={balance.currency}>
+                <div><span>{uiT("Accrued ·")}{" "}{balance.currency}</span><strong>{money(balance.earned_nanos,balance.currency)}</strong></div>
+                <div><span>{uiT("Unpaid")}</span><strong>{money(balance.unpaid_nanos,balance.currency)}</strong></div>
+                <div><span>{uiT("Paid")}</span><strong>{money(balance.paid_nanos,balance.currency)}</strong></div>
+              </div>) : <Empty className="provider-inline-empty min-h-28 py-6"><EmptyHeader><EmptyMedia variant="icon"><Building2 size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No provider charges recorded yet.")}</EmptyDescription></EmptyHeader></Empty>}
+            </div>
+          </div>}
+          {!internal && (section === "usage" || section === "settlements") && <>
             <div className="provider-admin-section-heading"><h2>{uiT("Payment history")}</h2></div>
             {data?.settlements?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Date")}</TableHead><TableHead>{uiT("Payment reference")}</TableHead><TableHead className="text-right">{uiT("Amount")}</TableHead></TableRow></TableHeader><TableBody>
               {data.settlements.map(row => <TableRow key={row.id}><TableCell>{new Date(row.created_at).toLocaleDateString(readUILocale())}</TableCell><TableCell>{row.payment_reference}</TableCell><TableCell className="text-right tabular-nums">{money(row.amount_nanos,row.currency)}</TableCell></TableRow>)}
@@ -773,13 +654,12 @@ function Administration({ token }: { token: string }) {
           <div><DialogTitle>{uiT(
           {
             create: "New provider",
-            membership: "Manage provider portal access",
             offer: offerId ? "Edit agreed rates" : "Set agreed rates",
             settlement: "Record a confirmed external payment",
             "offer-enable": "Enable offer",
             "offer-pause": "Pause offer",
           }[dialog] ?? "")
-        }</DialogTitle><DialogDescription className={dialog === "membership" ? "sr-only" : undefined}>{dialog === "membership" ? uiT("Manage account access to this provider portal.") : dialog === "offer" ? uiT("Provider payments for model usage.") : uiT("Provider management")}</DialogDescription></div>
+        }</DialogTitle><DialogDescription>{dialog === "offer" ? uiT("Provider payments for model usage.") : uiT("Provider management")}</DialogDescription></div>
           <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
         </DialogHeader>
         {error && (
@@ -795,40 +675,6 @@ function Administration({ token }: { token: string }) {
           onSubmit={(event) => void submit(event)}
           className="provider-admin-form"
         >
-          {dialog === "membership" && (
-            <>
-              <div className="grid gap-2">
-                <Label htmlFor="supplier-member-account">{uiT("Account")}</Label>
-                <DropdownMenu><DropdownMenuTrigger asChild><Button id="supplier-member-account" variant="outline" className="w-full justify-between font-normal" disabled={accountsLoading || !accounts.length}>{accountsLoading ? uiT("Loading accounts…") : accounts.find(account => account.id === operator)?.name || uiT("Choose account")}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={operator} onValueChange={setOperator}>
-                    {accounts.map(account => <DropdownMenuRadioItem key={account.id} value={account.id}>{account.name || uiT("Unnamed account")}</DropdownMenuRadioItem>)}
-                  </DropdownMenuRadioGroup></DropdownMenuContent>
-                </DropdownMenu>
-                {!accountsLoading && !accounts.length && !error && <p>{uiT("No active accounts available.")}</p>}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="supplier-member-role">{uiT("Provider role")}</Label>
-                <DropdownMenu><DropdownMenuTrigger asChild><Button id="supplier-member-role" aria-describedby="supplier-member-role-help" variant="outline" className="w-full justify-between font-normal">{role === "viewer" ? uiT("Viewer") : uiT("Manager")}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={role} onValueChange={setRole}>
-                    <DropdownMenuRadioItem value="viewer">{uiT("Viewer")}</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="manager">{uiT("Manager")}</DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup></DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <p id="supplier-member-role-help" className="text-sm text-muted-foreground">{role === "manager" ? uiT("Can view offers, usage, earnings, and payments, and pause or resume existing offers.") : uiT("Can view offers, usage, earnings, and payments.")}{" "}{uiT("Agreed rates, API credentials, and payment recording remain under platform administration.")}</p>
-              <div className="grid gap-2">
-                <Label htmlFor="supplier-member-access">{uiT("Access")}</Label>
-                <DropdownMenu><DropdownMenuTrigger asChild><Button id="supplier-member-access" variant="outline" className="w-full justify-between font-normal">{active === "true" ? uiT("Grant access") : uiT("Revoke access")}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={active} onValueChange={setActive}>
-                    <DropdownMenuRadioItem value="true">{uiT("Grant access")}</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="false">{uiT("Revoke access")}</DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup></DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <p>
-                {uiT("Only grant access to an approved provider member. Customer workspace roles do not grant this access automatically.")}</p>
-            </>
-          )}
           {dialog === "offer" && (
             <>
               <div className="grid gap-2">
@@ -882,7 +728,7 @@ function Administration({ token }: { token: string }) {
               <p>
                 {uiT("This records an external payment that has already completed. It does not initiate a transfer. Niu includes every unpaid earning in the selected currency through the cutoff.")}</p>
               {payableBalances.length === 0 ? (
-                <Empty className="provider-inline-empty min-h-28 rounded-xl bg-muted/55 py-5"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No unpaid earnings are available to settle.")}</EmptyDescription></EmptyHeader></Empty>
+                <Empty className="provider-inline-empty min-h-28 py-5"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No unpaid earnings are available to settle.")}</EmptyDescription></EmptyHeader></Empty>
               ) : (
                 <>
                   <div className="grid gap-2">
@@ -986,7 +832,6 @@ function Administration({ token }: { token: string }) {
             disabled={
               busy ||
               (dialog === "offer" && (!offerLoad?.ready || offerLoad.loading || offerLoad.conflict || offerLoad.token !== token || offerLoad.supplier !== selected || offerLoad.scope !== operationScope.current)) ||
-              (dialog === "membership" && (accountsLoading || !operator)) ||
               (dialog === "settlement" && !settlementReady)
             }
           >

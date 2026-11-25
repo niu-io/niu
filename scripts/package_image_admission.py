@@ -79,7 +79,7 @@ concurrency = 1
 """
     configure(config)
     restart()
-    policy_path = f"/admin/v1/organizations/{organization}/projects/{workspace}/guardrails"
+    policy_path = f"/api/v1/workspaces/{workspace}/guardrails"
     _, descriptions, _ = request("GET", policy_path + "/image-detectors", admin=True)
     fingerprint = next(row["configuration_fingerprint"] for row in descriptions["data"] if row["detector"] == "package-image")
     _, current, _ = request("GET", policy_path, admin=True)
@@ -96,7 +96,7 @@ concurrency = 1
     source = str(uuid.UUID(prepared["data"]["source_id"]))
     count_sql = f"SELECT count(*) FROM inspected_image_source_content WHERE source_id='{source}'"
     assert database_value(count_sql) == "1"
-    _, other, _ = request("POST", f"/admin/v1/organizations/{organization}/projects/{workspace}/keys", admin=True,
+    _, other, _ = request("POST", f"/api/v1/workspaces/{workspace}/keys", admin=True,
         payload={"name": "Other image client", "allowed_models": ["fast"], "ttl_seconds": 3600})
     path = f"/v1/media/image-sources/{source}"
     assert request("DELETE", path, bearer_token=other["token"])[0] == 204
@@ -166,12 +166,12 @@ def bind_delivery_fixture(request, database_value, token, organization, workspac
     """
     import hashlib
     import secrets
-    _, vendor, _ = request("POST", "/admin/v1/vendors", admin=True, payload={
+    _, vendor, _ = request("POST", "/api/v1/admin/providers/connections", admin=True, payload={
         "name": "Source delivery fixture", "adapter": "openai", "enabled": False,
         "api_base": "https://ark.cn-beijing.volcengineapi.com/api/v3",
         "api_key": secrets.token_urlsafe(32)})
     vendor = str(uuid.UUID(vendor["data"]["id"]))
-    request("PUT", f"/admin/v1/vendors/{vendor}/asset-management", admin=True,
+    request("PUT", f"/api/v1/admin/providers/connections/{vendor}/asset-management", admin=True,
         payload={"expected_revision": 0, "upstream_project": "package-source-project",
                  "access_key": "AKPACKAGESOURCE", "secret_key": secrets.token_urlsafe(32)})
     revision = int(database_value(f"SELECT revision FROM vendors WHERE id='{vendor}'"))

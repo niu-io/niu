@@ -1,11 +1,11 @@
 ---
 title: "Dry-run routing preview for a model route pool"
-description: "POST /api/v1/routing/{reference}/preview"
+description: "POST /api/v1/admin/routing/{reference}/preview"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`POST /api/v1/routing/{reference}/preview`
+`POST /api/v1/admin/routing/{reference}/preview`
 
 Evaluates a pool's ordered routing rules, candidate eligibility, priority tiers, and normalized traffic weights for a simulated request without dispatching upstream traffic. Request traits are normalized with the same protocol support matrix used by dispatch: image inputs, tools, structured output, reasoning controls and streaming that the selected protocol cannot express are rejected explicitly instead of being silently dropped.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/routing/{reference}/preview" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/routing/{reference}/preview" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

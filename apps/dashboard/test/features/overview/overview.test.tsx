@@ -30,9 +30,10 @@ function quickStart(overrides: Partial<Parameters<typeof OverviewQuickStart>[0]>
 }
 
 describe('workspace overview quick start', () => {
-  it('prioritizes agent connection while retaining manual setup and request evidence', () => {
+  it('prioritizes Niu MCP setup while retaining manual setup and request evidence', () => {
     render(quickStart());
-    expect(screen.getByRole('heading', {name: 'Connect your agent'})).toBeTruthy();
+    expect(screen.getByRole('heading', {name: 'Get started'})).toBeTruthy();
+    expect(screen.getByRole('button', {name: 'Install MCP'})).toBeTruthy();
     expect(screen.getByRole('link', {name: 'Create an API key'}).getAttribute('href')).toBe('/workspaces/demo/keys');
     expect(screen.getByRole('link', {name: 'Read the API quickstart'}).getAttribute('href')).toBe('/docs/guides/api-quickstart/');
     expect(screen.getByRole('link', {name: 'View requests'}).getAttribute('href')).toBe('/workspaces/demo/executions');
@@ -45,10 +46,10 @@ describe('workspace overview quick start', () => {
     expect(screen.getByText('Ask a workspace administrator to create or share a key.')).toBeTruthy();
   });
 
-  it('points administrators without models at Provider configuration', () => {
+  it('points administrators without models at Admin setup', () => {
     render(quickStart({hasModels: false, canManagePlatform: true}));
-    expect(screen.getByRole('heading', {name: 'Connect your agent'})).toBeTruthy();
-    expect(screen.getByRole('link', {name: 'Connect provider'}).getAttribute('href')).toBe('/admin/providers');
+    expect(screen.getByRole('heading', {name: 'Get started'})).toBeTruthy();
+    expect(screen.getByRole('link', {name: 'Open Admin setup'}).getAttribute('href')).toBe('/admin');
   });
 
   it('points other members without models at the workspace model catalog', () => {
@@ -74,5 +75,20 @@ describe('workspace overview route', () => {
     expect(props.workspaceRoute).toBe('/workspaces/customer-workspace');
     expect(props.emptyState).toBeTruthy();
     expect('showBreakdowns' in props).toBe(false);
+  });
+
+  it('withholds zero-model admin setup warnings while the workspace catalog is still loading', () => {
+    fixture.gatewayProps.length = 0;
+    fixture.context = {
+      token: 'test-session',
+      models: [],
+      modelsLoading: true,
+      workspace: {id: 'workspace-1', slug: 'customer-workspace', organization_id: 'org-1', name: 'Customer workspace', active_key_count: 1},
+      workspaces: [{id: 'workspace-1', slug: 'customer-workspace', organization_id: 'org-1', name: 'Customer workspace', active_key_count: 1}],
+      session: {kind: 'installation', operator: null, permissions: {read: true, write: true, platform_admin: true}},
+    } as unknown as DashboardContext;
+    render(<MemoryRouter initialEntries={['/workspaces/customer-workspace']}><Routes><Route path="/workspaces/:workspace" element={<OverviewRoute />} /></Routes></MemoryRouter>);
+    expect(screen.queryByRole('link', {name: 'Admin setup'})).toBeNull();
+    expect(screen.getByText('—')).toBeTruthy();
   });
 });

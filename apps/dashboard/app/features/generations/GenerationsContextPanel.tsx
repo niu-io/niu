@@ -7,7 +7,6 @@ import {
   IconCoin,
   IconCopy,
   IconDownload,
-  IconExternalLink,
   IconFileText,
   IconHash,
   IconLayoutSidebarRightCollapse,
@@ -640,7 +639,6 @@ export default function GenerationsContextPanel({
                       <Button asChild variant="ghost" size="sm">
                         <Link to={selectedRun.logsHref}>
                           <span>{uiT('Open in Logs')}</span>
-                          <IconExternalLink size={14} />
                         </Link>
                       </Button>
                     )}

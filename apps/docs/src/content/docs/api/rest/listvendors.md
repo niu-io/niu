@@ -1,11 +1,11 @@
 ---
 title: "List Provider API-key configurations without credentials"
-description: "GET /api/v1/vendors"
+description: "GET /api/v1/admin/providers/connections"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/vendors`
+`GET /api/v1/admin/providers/connections`
 
 Returns every matching configuration, including disabled configurations, in one data array. Optional Provider filtering uses explicit business ownership. No pagination or silent row cap; response memory grows with list size. Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/vendors" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/connections" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

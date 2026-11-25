@@ -19,14 +19,14 @@ pnpm --dir sdks/javascript pack --pack-destination /tmp/niu-sdk
 In your application's directory, install the resulting package:
 
 ```sh
-npm install /tmp/niu-sdk/niu-io-sdk-0.1.0.tgz
+npm install /tmp/niu-sdk/niu-io-sdk-0.3.2.tgz
 ```
 
 Use the filename produced by `pack` if the package version has changed. A published package can be installed by its pinned package version instead.
 
 ## Configure the client
 
-Enter your installation's endpoint ending in `/v1`, and set `NIU_API_KEY` to your workspace key. For example, hosted Niu uses `https://niu.io/v1`, staging uses `https://staging.niu.io/v1`, a container on your computer normally uses `http://localhost:2555/v1`, and repository development uses `http://127.0.0.1:2566/v1`. Use your actual deployment address if it differs. Only enter an address you trust: requests send your workspace key to it.
+Enter your installation's endpoint ending in `/v1`, and set `NIU_API_KEY` to your workspace key. For example, hosted Niu uses `https://niu.io/v1`, a container on your computer normally uses `http://localhost:2555/v1`, and repository development uses `http://127.0.0.1:2566/v1`. Use your actual deployment address if it differs. Only enter an address you trust: requests send your workspace key to it.
 
 Run this command, then enter the endpoint including `/v1` and press Enter:
 
@@ -125,14 +125,14 @@ pnpm --dir sdks/javascript pack --pack-destination /tmp/niu-sdk
 在你的应用程序目录中安装生成的包：
 
 ```sh
-npm install /tmp/niu-sdk/niu-io-sdk-0.1.0.tgz
+npm install /tmp/niu-sdk/niu-io-sdk-0.3.2.tgz
 ```
 
 如果包版本号已更改，请使用 `pack` 实际生成的文件名。对于已发布的包，可以直接指定固定的包版本号进行安装。
 
 ## 配置客户端
 
-输入你的 Niu 实例中以 `/v1` 结尾的端点地址，并将 `NIU_API_KEY` 设置为你的工作空间密钥。例如，托管 Niu 使用 `https://niu.io/v1`，staging 使用 `https://staging.niu.io/v1`；本机容器通常使用 `http://localhost:2555/v1`，源码本地开发使用 `http://127.0.0.1:2566/v1`。如果实际部署地址不同，请使用实际地址。请求会向该地址发送工作空间密钥，因此只输入你信任的地址。
+输入你的 Niu 实例中以 `/v1` 结尾的端点地址，并将 `NIU_API_KEY` 设置为你的工作空间密钥。例如，托管 Niu 使用 `https://niu.io/v1`，本机容器通常使用 `http://localhost:2555/v1`，源码本地开发使用 `http://127.0.0.1:2566/v1`。如果实际部署地址不同，请使用实际地址。请求会向该地址发送工作空间密钥，因此只输入你信任的地址。
 
 运行以下命令，然后输入包含 `/v1` 的端点地址并按回车：
 

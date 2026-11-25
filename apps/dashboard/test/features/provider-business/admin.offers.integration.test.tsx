@@ -45,22 +45,14 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
     const method = init?.method ?? "GET";
     const body = typeof init?.body === "string" ? JSON.parse(init.body) as Record<string, unknown> : undefined;
     requests.push({ path, method, body });
-    if (path.startsWith("/api/v1/vendors")) return Response.json({data:[]});
-    if (path === "/api/v1/operators") return Response.json({ data: [
-      { id: "account-demo", name: "Demo", revoked: false },
-      { id: "account-revoked", name: "Revoked account", revoked: true },
-    ] });
-    if (path === `/api/v1/providers/${supplierId}/members`) return Response.json({ data: [
-      { operator_id: "account-demo", name: "Demo", role: "manager", active: true, revoked: false },
-      { operator_id: "account-revoked", name: "Revoked account", role: "viewer", active: false, revoked: true },
-    ] });
+    if (path.startsWith("/api/v1/admin/providers/connections")) return Response.json({data:[]});
 
-    if (path === "/api/v1/providers") {
+    if (path === "/api/v1/admin/providers") {
       return Response.json({
         data: [{ id: supplierId, name: "Example provider", members: 0 }],
       });
     }
-    if (path === `/api/v1/providers/${supplierId}/administration?days=90`) {
+    if (path === `/api/v1/admin/providers/${supplierId}/administration?days=90`) {
       if (failInitialRead) {
         failInitialRead = false;
         return Response.json({ error: { message: 'Provider data temporarily unavailable' } }, { status: 503 });
@@ -87,11 +79,11 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
     if (path.includes('/media-offer-models')) return Response.json({data:[{model_alias:'example/model',api_key_name:'Video credential',vendor_id:supplierId,vendor_revision:'2',model_revision:'1',schema_revision:'private-schema',channel:'ark-direct-v1',offer_revision:rateRevision,offer_id:offerId,offer_active:false,offer_qualified:false,offer_current:true,route_ready:true,resolutions:['720p'],reference_video:false,meter:'video_tokens'}],has_more:false,next_after:null});
     if (offersHasMore && path.includes('/offers?limit=100&after=')) return Response.json({data:[{id:'later-offer',model_alias:'later/model',revision:'later-revision',rate_kind:'text',currency:'USD',prompt_rate:'3000000000',completion_rate:'4000000000',active:false,qualified:false,route_ready:false}],next_after:null});
     if (path.includes('/media-rates')) return Response.json({data:[],has_more:false,next_after:null});
-    if (path === `/api/v1/providers/${supplierId}/offers/${offerId}/authorization` && method === "PUT") {
+    if (path === `/api/v1/admin/providers/${supplierId}/offers/${offerId}/authorization` && method === "PUT") {
       offerActive = true; offerQualified = true;
       return Response.json({data:{active:true,authorization_id:"authorization"}});
     }
-    if (path === `/api/v1/providers/${supplierId}/offers/${offerId}` && method === "PATCH") {
+    if (path === `/api/v1/admin/providers/${supplierId}/offers/${offerId}` && method === "PATCH") {
       offerActive = false;
       return Response.json({data:{active:false}});
     }
@@ -105,11 +97,10 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
 }
 
 describe("installation Provider commercial offer lifecycle", () => {
-  it("does not present commercial setup as required for internal Provider overview", async () => {
+  it("opens Models directly in internal mode without commercial pricing clutter", async () => {
     setup("1000000000", false, false, "overview", null, undefined, false, 'internal');
-    await screen.findByText('Connect an API key and discover models for internal use.');
-    await screen.findByText('1. Connect upstream API key');
-    expect(screen.queryByText('3. Set customer selling prices')).toBeNull();
+    await screen.findByText('Choose which imported models are enabled.');
+    expect(screen.queryByText('3. Approve commercial purchase offers')).toBeNull();
     expect(screen.queryByText('Model offers')).toBeNull();
     expect(screen.queryByText('Provider qualification')).toBeNull();
     expect(screen.queryByText('Provider payables')).toBeNull();
@@ -117,7 +108,7 @@ describe("installation Provider commercial offer lifecycle", () => {
 
   it("ignores a commercial rates deep link in internal mode", async () => {
     setup("1000000000", false, false, "models", null, undefined, false, 'internal');
-    await screen.findByText('Manage model connections and availability.');
+    await screen.findByText('Choose which imported models are enabled.');
     await screen.findByText('No models configured yet.');
     expect(screen.queryByRole('tab', {name: 'Text rates'})).toBeNull();
     expect(screen.queryByRole('tab', {name: 'Media rates'})).toBeNull();
@@ -125,136 +116,75 @@ describe("installation Provider commercial offer lifecycle", () => {
     expect(screen.queryByRole('button', {name: 'Set agreed rates'})).toBeNull();
     expect(screen.queryByText('example/model')).toBeNull();
   });
-  it("ignores a previous Provider save failure after navigation", async () => {
-    const { router } = setup("1000000000", false, false, "members");
+  it("ignores a previous Provider settlement save failure after navigating to another Provider", async () => {
+    const { router } = setup("1000000000", false, false, "settlements");
     const originalFetch = globalThis.fetch;
     let finish!: (response: Response) => void;
-    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => init?.method === "PUT"
-      ? new Promise<Response>(resolve => { finish = resolve; })
-      : originalFetch(input, init)));
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path.includes("/settlements/preview?")) return Promise.resolve(settlementPreview(path));
+      if (path.endsWith("/settlements") && init?.method === "POST") {
+        return new Promise<Response>(resolve => { finish = resolve; });
+      }
+      return originalFetch(input, init);
+    }));
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Edit access for Demo" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Save", exact: true }).hasAttribute("disabled")).toBe(false));
-    await user.click(screen.getByRole("button", { name: "Save", exact: true }));
-    await act(async () => { await router.navigate('/admin/providers/another-supplier/members'); });
+    await user.click(await screen.findByRole("button", { name: "Record payment" }));
+    const dialog = within(screen.getByRole("dialog"));
+    await dialog.findByText("Unpaid earnings included: 42");
+    await user.type(dialog.getByLabelText("External payment reference"), "October payout");
+    await user.click(dialog.getByRole("button", { name: "Record confirmed payment" }));
+    await act(async () => { await router.navigate('/admin/providers/another-supplier/settlements'); });
     await act(async () => { finish(Response.json({ error: { message: "Previous Provider save failed" } }, { status: 503 })); });
     expect(screen.queryByText("Previous Provider save failed")).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
   });
-  it("discards an open membership draft when the Provider changes", async () => {
-    const { router } = setup("1000000000", false, false, "members");
+  it("discards an open dialog when the Provider changes", async () => {
+    const { router } = setup("1000000000", false, false, "settlements");
+    const originalFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path.includes("/settlements/preview?")) return Promise.resolve(settlementPreview(path));
+      return originalFetch(input, init);
+    }));
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Edit access for Demo" }));
-    await screen.findByRole("dialog", { name: "Manage provider portal access" });
-    await act(async () => { await router.navigate('/admin/providers/another-supplier/members'); });
+    await user.click(await screen.findByRole("button", { name: "Record payment" }));
+    await screen.findByRole("dialog", { name: "Record a confirmed external payment" });
+    await act(async () => { await router.navigate('/admin/providers/another-supplier/settlements'); });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.queryByText("Provider configuration saved.")).toBeNull();
   });
-  it("shows named memberships and prefills existing access without exposing identifiers", async () => {
-    setup("1000000000", false, false, "members");
-    const user = userEvent.setup();
-    await screen.findByRole("button", { name: "Edit access for Demo" });
-    expect(screen.queryByText("account-demo")).toBeNull();
-    expect(screen.getByRole("button", { name: "Edit access for Revoked account" }).hasAttribute("disabled")).toBe(true);
-    await user.click(screen.getByRole("button", { name: "Edit access for Demo" }));
-    await waitFor(() => expect(screen.getByLabelText("Account").textContent).toContain("Demo"));
-    expect(screen.getByLabelText("Provider role").textContent).toContain("Manager");
-    expect(screen.getByLabelText("Access").textContent).toContain("Grant access");
+  it("does not expose Provider member management or request Provider member endpoints", async () => {
+    const { requests } = setup("1000000000", false, false, "models");
+    await screen.findByText("example/model");
+    expect(screen.queryByRole("button", { name: /Manage.*membership/i })).toBeNull();
+    expect(screen.queryByText("No Provider members")).toBeNull();
+    expect(requests.some(item => item.path.includes("/members"))).toBe(false);
   });
-  it("selects an active account by name while retaining its identifier only in the request", async () => {
-    const { requests } = setup("1000000000", false, false, "members");
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Manage portal access" }));
-    await waitFor(() => expect(screen.getByLabelText("Account").hasAttribute("disabled")).toBe(false));
-    expect(screen.getByRole("button", { name: "Save", exact: true }).hasAttribute("disabled")).toBe(true);
-    await user.click(screen.getByLabelText("Account"));
-    expect(screen.queryByRole("menuitemradio", { name: "Revoked account" })).toBeNull();
-    expect(screen.queryByText("account-demo")).toBeNull();
-    await user.click(screen.getByRole("menuitemradio", { name: "Demo" }));
-    await user.click(screen.getByRole("button", { name: "Save", exact: true }));
-    await waitFor(() => expect(requests.some(item => item.path === `/api/v1/providers/${supplierId}/members/account-demo` && item.method === "PUT")).toBe(true));
-  });
-  it("summarizes media offers on Overview and links to dedicated pricing without repeating rates", async () => {
-    setup("1000000000", false, true, "overview");
-    const link=await screen.findByRole("link",{name:"Models"});
-    expect(link.getAttribute("href")).toBe(`/admin/providers/${supplierId}/models`);
-    expect(screen.getByText("Media offers").parentElement?.textContent).toBe("Media offers1");
-    expect(screen.getByText("Text offers").parentElement?.textContent).toBe("Text offers0");
-    expect(screen.getByText("Active offers").parentElement?.textContent).toBe("Active offers0");
-    expect(screen.queryByRole("columnheader", { name: "Purchase rate" })).toBeNull();
-    expect(screen.queryByText("Configuration saved")).toBeNull();
-    await userEvent.setup().click(link);
-    expect(await screen.findByRole("tab",{name:"Media rates"})).toBeTruthy();
-    expect(screen.getByRole("tab",{name:"Models",exact:true}).getAttribute("aria-selected")).toBe("true");
-  });
-
-  it("lists every configured video model in Media rates and opens one rate action without a pinning step", async () => {
+  it("opens media rates publisher directly from video model row actions", async () => {
     const { requests } = setup("1000000000", false, true);
-    const user=userEvent.setup();
-    await screen.findByText("No agreed model rates");
-    await user.click(screen.getByRole("tab",{name:"Media rates"}));
-    expect(await screen.findByRole("heading",{name:"Configured video models"})).toBeTruthy();
-    expect(await screen.findByText("example/model")).toBeTruthy();
-    expect(screen.getByText("Offer paused")).toBeTruthy();
-    expect(screen.queryByText("$1.00")).toBeNull();
+    const user = userEvent.setup();
+    await screen.findByText("example/model");
+    await user.click(screen.getByRole("button", { name: "More actions for example/model" }));
+    await user.click(screen.getByRole("menuitem", { name: "Media rates" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toContain("example/model");
     expect(screen.queryByText("Set up media offer")).toBeNull();
     expect(requests.some(item => item.method === "POST" && item.path.endsWith("/media-offers"))).toBe(false);
-    await user.click(screen.getByRole("button",{name:"Set rate for example/model"}));
-    await waitFor(()=>expect(screen.getByLabelText("Model").textContent).toContain("example/model · Video credential"));
-    expect(screen.getByText(/creates the offer binding/)).toBeTruthy();
     expect(document.body.textContent).not.toContain(offerId);
     expect(document.body.textContent).not.toContain(rateRevision);
     expect(document.body.textContent).not.toContain("private-schema");
   });
-
-  it("enables the confirmed offer revision without requesting evidence hashes and can pause it", async () => {
-    const {requests}=setup(); const user=userEvent.setup();
-    await user.click(await screen.findByRole("button",{name:"Actions for example/model"}));
-    await user.click(screen.getByRole("menuitem",{name:"Enable offer"}));
-    expect(screen.queryByText(/SHA-256/)).toBeNull();
-    expect(screen.getByText(/Provider connection, customer selling price/)).toBeTruthy();
-    await user.click(screen.getByRole("button",{name:"Enable offer",exact:true}));
-    await waitFor(()=>expect(requests.find(item=>item.path.endsWith("/authorization") && item.method==="PUT")?.body).toEqual({rate_revision:rateRevision}));
-    await screen.findByText("Offer enabled. Provider access and customer selling prices remain separate.");
-    await user.click(await screen.findByRole("button",{name:"Actions for example/model"}));
-    await user.click(await screen.findByRole("menuitem",{name:"Pause offer"}));
-    await user.click(screen.getByRole("button",{name:"Pause offer",exact:true}));
-    await waitFor(()=>expect(requests.find(item=>item.path===`/api/v1/providers/${supplierId}/offers/${offerId}` && item.method==="PATCH")?.body).toEqual({active:false}));
-    expect(document.body.textContent).not.toContain(offerId);
-    expect(document.body.textContent).not.toContain(rateRevision);
-  });
-
-});
-
-it('edits current agreed rates with exact decimal values and the saved revision', async () => {
-  const { requests } = setup('1234567891');
-  const user = userEvent.setup();
-  await user.click(await screen.findByRole('button', { name: 'Actions for example/model' }));
-  await user.click(screen.getByRole('menuitem', { name: 'Edit rates', exact: true }));
-  const alias = screen.getByLabelText('Existing upstream model alias') as HTMLInputElement;
-  expect(alias.value).toBe('example/model');
-  expect(alias.readOnly).toBe(true);
-  expect((screen.getByLabelText('Input payout per million tokens') as HTMLInputElement).value).toBe('1.234567891');
-  expect((screen.getByLabelText('Output payout per million tokens') as HTMLInputElement).value).toBe('2');
-  await user.clear(screen.getByLabelText('Output payout per million tokens'));
-  await user.click(screen.getByLabelText('Output payout per million tokens'));
-  await user.paste('2.000000001');
-  await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
-  await waitFor(() => expect(requests.find(item => item.method === 'POST' && item.path.endsWith('/offers'))?.body).toEqual({
-    model_alias: 'example/model', currency: 'USD', prompt_rate: '1234567891',
-    completion_rate: '2000000001', cached_prompt_rate: null, expected_revision: rateRevision,
-  }));
 });
 
 it('does not replace a failed Provider read with a false empty pricing state', async () => {
   setup('1000000000', true);
   const user = userEvent.setup();
   expect(await screen.findByRole('alert')).toBeTruthy();
-  expect(screen.queryByText('No agreed model rates')).toBeNull();
+  expect(screen.queryByText('No models configured yet.')).toBeNull();
   await user.click(screen.getByRole('button', { name: 'Retry', exact: true }));
-  await user.click(await screen.findByRole('button', { name: 'Actions for example/model' }));
-  expect(screen.getByRole('menuitem', { name: 'Edit rates', exact: true })).toBeTruthy();
-  expect(screen.queryByRole('alert')).toBeNull();
+  await screen.findByText('example/model');
+  expect(screen.queryByText(/Provider data temporarily unavailable/)).toBeNull();
 });
 
 it.each([false, true])('creates atomic Provider setup and handles discovery failure=%s after commit', async (discoveryFails) => {
@@ -265,13 +195,13 @@ it.each([false, true])('creates atomic Provider setup and handles discovery fail
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input);
     reads.push(path);
-    if (path === '/api/v1/vendors' && init?.method === 'POST') {
+    if (path === '/api/v1/admin/providers/connections' && init?.method === 'POST') {
       created = true;
       writes.push(JSON.parse(String(init.body)));
       return Response.json({ data: { id: 'configured-api' } });
     }
     if (path.endsWith('/provider') || path.endsWith('/supplier')) return discoveryFails ? Response.json({ error: { message: 'Discovery unavailable' } }, { status: 503 }) : Response.json({ data: { id: supplierId, name: 'Test provider' } });
-    if (path === '/api/v1/providers') return Response.json({ data: created ? [{ id: supplierId, name: 'Test provider', members: 0 }] : [] });
+    if (path === '/api/v1/admin/providers') return Response.json({ data: created ? [{ id: supplierId, name: 'Test provider', members: 0 }] : [] });
     return Response.json({ data: { offers: [], balances: [], consumption: [], settlements: [], earnings: [] } });
   }));
   render(<MemoryRouter initialEntries={['/admin/providers/overview?create=provider']}><Routes><Route path='/admin/providers/:section' element={<ProviderAdministration />} /></Routes></MemoryRouter>);
@@ -285,42 +215,9 @@ it.each([false, true])('creates atomic Provider setup and handles discovery fail
   if (discoveryFails) expect(await screen.findByText('API key saved, but Provider details could not be opened. Refresh the Provider list.')).toBeTruthy();
   else {
     expect(await screen.findByText('Provider created. Add models and agreed rates to continue setup.')).toBeTruthy();
-    await waitFor(() => expect(reads).toContain(`/api/v1/providers/${supplierId}/administration?days=90`));
+    await waitFor(() => expect(reads).toContain(`/api/v1/admin/providers/${supplierId}/administration?days=90`));
   }
   expect(document.body.textContent).not.toContain('fixture-credential');
-});
-
-
-describe('Provider cached-input rates', () => {
-  it.each([
-    ['preserve', '0.123456789', '123456789'],
-    ['clear', '', null],
-    ['zero', '0', '0'],
-  ])('%s an existing cached rate explicitly when replacing an offer', async (_action, value, expected) => {
-    const { requests } = setup('1000000000', false, false, 'models', '123456789');
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Actions for example/model' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Edit rates' }));
-    const cached = screen.getByLabelText('Cache read payout per million tokens') as HTMLInputElement;
-    expect(cached.value).toBe('0.123456789');
-    await user.clear(cached);
-    if (value) await user.type(cached, value);
-    await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
-    await waitFor(() => expect(requests.find(item => item.method === 'POST' && item.path.endsWith('/offers'))?.body).toEqual({
-      model_alias: 'example/model', currency: 'USD', prompt_rate: '1000000000',
-      completion_rate: '2000000000', cached_prompt_rate: expected, expected_revision: rateRevision,
-    }));
-  });
-  it('rejects an invalid cache rate before publishing a new revision', async () => {
-    const { requests } = setup();
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Actions for example/model' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Edit rates' }));
-    await user.type(screen.getByLabelText('Cache read payout per million tokens'), '0.0000000001');
-    await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
-    expect(await screen.findByText('Rates require a nonnegative amount with at most 9 decimal places.')).toBeTruthy();
-    expect(requests.some(item => item.method === 'POST' && item.path.endsWith('/offers'))).toBe(false);
-  });
 });
 
 it('records every unpaid earning through a cutoff without request checkboxes', async () => {
@@ -504,16 +401,13 @@ it('shows media-only administrator consumption with exact fractional usage and r
   expect(screen.queryByText('hidden-revision')).toBeNull();
 });
 
-it('continues the admin offer collection and reloads current terms beyond its summary cap', async () => {
-  const {requests}=setup('1000000000',false,false,'models',null,[],true);
-  const user=userEvent.setup();
-  await user.click(await screen.findByRole('button',{name:'Load more offers'}));
+it('continues the admin offer collection beyond its summary cap', async () => {
+  const { requests } = setup('1000000000', false, false, 'models', null, [], true);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Load more offers' }));
   await screen.findByText('later/model');
-  expect(screen.queryByRole('button',{name:'Load more offers'})).toBeNull();
-  await user.click(screen.getByRole('button',{name:'Actions for later/model'}));
-  await user.click(screen.getByRole('menuitem',{name:'Edit rates'}));
-  await waitFor(()=>expect(screen.getByLabelText('Input payout per million tokens')).toHaveProperty('value','3'));
-  expect(requests.filter(row=>row.path.includes('/offers?limit=100&after='))).toHaveLength(2);
+  expect(screen.queryByRole('button', { name: 'Load more offers' })).toBeNull();
+  expect(requests.filter(row => row.path.includes('/offers?limit=100&after='))).toHaveLength(1);
 });
 
 it('keeps loaded admin offers when continuation fails and retries the same cursor',async()=>{
@@ -532,4 +426,67 @@ it('keeps loaded admin offers when continuation fails and retries the same curso
   await user.click(screen.getByRole('button',{name:'Retry loading offers'}));
   await screen.findByText('later/model');
   expect(requests.find(row=>row.path.includes('/offers?limit=100&after='))?.path).toContain('after=example%2Fmodel');
+});
+
+it('creates a new Provider in Provider Administration, resolves ownership via /supplier (never /provider), and opens it without 404', async () => {
+  const createdVendorId = '11111111-1111-4111-8111-111111111111';
+  const createdSupplierId = '22222222-2222-4222-8222-222222222222';
+  fixture.context = {
+    token: 'installation-token-create-provider',
+    session: { kind: 'installation', operating_mode: 'resale', operator: { name: 'Administrator' } },
+  } as unknown as DashboardContext;
+
+  const providers = [{ id: supplierId, name: 'Example provider', slug: 'example-provider', members: 0 }];
+  const requests: { path: string; method: string }[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    const method = init?.method ?? 'GET';
+    requests.push({ path, method });
+    if (path === `/api/v1/admin/providers/connections/${createdVendorId}/provider`) {
+      return Response.json({ error: { message: 'Not found' } }, { status: 404 });
+    }
+    if (path === '/api/v1/admin/providers/connections' && method === 'POST') {
+      providers.push({ id: createdSupplierId, name: 'New Supply Co', slug: 'new-supply-co', members: 0 });
+      return Response.json({ data: { id: createdVendorId } }, { status: 201 });
+    }
+    if (path === `/api/v1/admin/providers/connections/${createdVendorId}/supplier` && method === 'GET') {
+      return Response.json({ data: { id: createdSupplierId, name: 'New Supply Co' } });
+    }
+    if (path === '/api/v1/admin/providers') {
+      return Response.json({ data: providers });
+    }
+    if (path.startsWith('/api/v1/admin/providers/connections')) {
+      return Response.json({ data: [] });
+    }
+    if (path.includes('/administration?')) {
+      return Response.json({
+        data: { balances: [], consumption: [], settlements: [], earnings: [], offers_has_more: false, offers: [] },
+      });
+    }
+    if (path.includes('/members')) {
+      return Response.json({ data: [] });
+    }
+    return Response.json({ data: [] });
+  }));
+
+  const router = createMemoryRouter(
+    [
+      { path: '/admin/providers', element: <ProviderAdministration /> },
+      { path: '/admin/providers/:providerId/:section?', element: <ProviderAdministration /> },
+    ],
+    { initialEntries: ['/admin/providers?create=provider'] },
+  );
+  render(<RouterProvider router={router} />);
+  const user = userEvent.setup();
+  const dialog = await screen.findByRole('dialog');
+  await user.type(within(dialog).getByLabelText('Provider name'), 'New Supply Co');
+  await user.type(within(dialog).getByLabelText('Provider API key'), 'sk-test-new-supply');
+  await user.click(within(dialog).getByRole('button', { name: 'Create provider' }));
+
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  await screen.findByText('Provider created. Add models and agreed rates to continue setup.');
+  expect(screen.queryByText(/Provider details could not be opened/)).toBeNull();
+  expect(requests.some(req => req.path === `/api/v1/admin/providers/connections/${createdVendorId}/supplier` && req.method === 'GET')).toBe(true);
+  expect(requests.some(req => req.path.endsWith('/provider'))).toBe(false);
+  await waitFor(() => expect(requests.some(req => req.path.includes(`/api/v1/admin/providers/${createdSupplierId}/administration`))).toBe(true));
 });

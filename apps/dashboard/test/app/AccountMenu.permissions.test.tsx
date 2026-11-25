@@ -60,16 +60,16 @@ it('does not expose a Provider portal for legacy memberships', async () => {
 it('adds administration without removing customer navigation', async () => {
   await open({ ...customer, kind: 'installation', operator: null });
   expect(screen.getByRole('menuitem', { name: 'Admin', exact: true }).getAttribute('href')).toBe('/admin/providers');
-  for (const name of ['Workspace', 'Generations', 'Activity', 'Models', 'Settings']) {
+  for (const name of ['Workspace', 'Generations', 'Activity', 'Models', 'Account & org settings']) {
     expect(screen.getByRole('menuitem', { name, exact: true })).toBeTruthy();
   }
-  expect(screen.getByRole('menuitem', { name: 'Settings', exact: true }).getAttribute('href')).toBe('/settings/appearance');
+  expect(screen.getByRole('menuitem', { name: 'Account & org settings', exact: true }).getAttribute('href')).toBe('/settings/appearance');
 });
 
 it('shows Admin for a user account with the platform administrator role', async () => {
   await open({ ...customer, permissions: { ...customer.permissions, platform_admin: true } });
   expect(screen.getByRole('menuitem', { name: 'Admin', exact: true }).getAttribute('href')).toBe('/admin/providers');
-  expect(screen.getByRole('menuitem', { name: 'Settings', exact: true }).getAttribute('href')).toBe('/settings/account');
+  expect(screen.getByRole('menuitem', { name: 'Account & org settings', exact: true }).getAttribute('href')).toBe('/settings/account');
 });
 
 it('shows Admin for a granted platform administrator even when customer role lacks manage_operators', async () => {

@@ -38,6 +38,23 @@ export type SessionControllerCallbacks = {
   getWorkspaceError: () => WorkspaceProblem | null;
 };
 
+const TRANSIENT_SESSION_STATUSES = new Set([408, 502, 503, 504]);
+
+function waitForRetry(ms: number, signal: AbortSignal): Promise<void> {
+  if (ms <= 0 || signal.aborted) return Promise.resolve();
+  return new Promise(resolve => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
 export function useSessionController(gateway: ReturnType<typeof useGatewayConnection>) {
   const { t } = useLocale();
   const location = useLocation();
@@ -83,7 +100,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
   const restoreInFlightRef = useRef<Promise<void> | null>(null);
   const authenticate = useCallback(
     (credential: string, restoring = false) => {
-      if (restoring && authenticationPath.current === '/installation') return Promise.resolve();
+      if (restoring && authenticationPath.current === '/setup') return Promise.resolve();
       if (restoring && restoreInFlightRef.current) return restoreInFlightRef.current;
       const run = (async () => {
         if (!restoring) setError('');
@@ -92,26 +109,53 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
         connectionController.current = controller;
         const revision = ++connectionRevision.current;
         try {
-          const sessionResponse = await fetch('/api/v1/session', {
-            headers: { authorization: 'Bearer ' + credential },
-            signal: controller.signal,
-          });
-          if (revision !== connectionRevision.current || controller.signal.aborted) return;
+          const maxAttempts = restoring ? 3 : 1;
+          const retryDelays = import.meta.env.MODE === 'test' ? [0, 0] : [350, 800];
+          let sessionResponse: Response | null = null;
+          for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+            try {
+              sessionResponse = await fetch('/api/v1/session', {
+                headers: { authorization: 'Bearer ' + credential },
+                signal: controller.signal,
+              });
+              if (
+                !restoring ||
+                attempt === maxAttempts - 1 ||
+                !TRANSIENT_SESSION_STATUSES.has(sessionResponse.status)
+              ) {
+                break;
+              }
+            } catch (err) {
+              if (!restoring || attempt === maxAttempts - 1 || controller.signal.aborted) {
+                throw err;
+              }
+            }
+            await waitForRetry(retryDelays[attempt] ?? 800, controller.signal);
+            if (revision !== connectionRevision.current || controller.signal.aborted) return;
+          }
+          if (!sessionResponse || revision !== connectionRevision.current || controller.signal.aborted) return;
           if (!sessionResponse.ok) {
             if (revision === connectionRevision.current && !(restoring && sessionResponse.status === 401)) {
-              setError('Could not sign in. Try again.');
+              setError(
+                sessionResponse.status === 401 && authenticationPath.current === '/setup'
+                  ? 'That administrator token is invalid. Verify NIU_ADMIN_TOKENS and try again.'
+                  : restoring && sessionResponse.status >= 500
+                    ? 'Session check temporarily unavailable. Refresh to try again.'
+                    : 'Could not sign in. Try again.',
+              );
             }
             return;
           }
           const sessionValue = (await sessionResponse.json()) as { data: AdminSession };
           if (revision !== connectionRevision.current || controller.signal.aborted) return;
-          if (restoring && authenticationPath.current === '/installation') return;
+          if (restoring && authenticationPath.current === '/setup') return;
           const nextEffectiveSession = sessionValue.data;
           const nextAuthorityKey = buildSessionAuthorityKey(credential, nextEffectiveSession);
           syncAuthorityImmediate(nextAuthorityKey);
           callbacksRef.current?.resetModels(true);
           setSession(sessionValue.data);
           setToken(credential);
+          setError('');
           try {
             sessionStorage.removeItem('niu.signed-out');
           } catch {
@@ -119,7 +163,13 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
           }
           if (!restoring) setDraftToken('');
         } catch {
-          if (revision === connectionRevision.current) setError('Could not sign in. Try again.');
+          if (revision === connectionRevision.current) {
+            setError(
+              restoring
+                ? 'Session check temporarily unavailable. Refresh to try again.'
+                : 'Could not sign in. Try again.',
+            );
+          }
         }
       })().finally(() => {
         if (restoreInFlightRef.current === run) restoreInFlightRef.current = null;
@@ -188,12 +238,17 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
   const connect = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      await authenticate(draftToken);
+      const trimmed = draftToken.trim();
+      if (!trimmed) {
+        setError('Enter an administrator token.');
+        return;
+      }
+      await authenticate(trimmed);
     },
     [authenticate, draftToken],
   );
 
-  const isInstallationRoute = location.pathname === '/installation';
+  const isSetupRoute = location.pathname === '/setup';
   useEffect(() => {
     if (token || health?.status !== 'ok') return;
     try {
@@ -204,7 +259,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
     } catch {
       /* Storage is optional. */
     }
-    if (isInstallationRoute) {
+    if (isSetupRoute) {
       setSessionChecked(true);
       return;
     }
@@ -228,7 +283,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
         if (!controller.signal.aborted) setSessionChecked(true);
       });
     return () => controller.abort();
-  }, [authenticate, token, health?.status, isInstallationRoute]);
+  }, [authenticate, token, health?.status, isSetupRoute]);
 
   const expireSession = useCallback(() => {
     connectionController.current?.abort();

@@ -132,7 +132,7 @@ pub struct PersonalOwnerInput {
 }
 
 /// Installation-owned credentials require explicit administrative assignment.
-/// Account ownership is immutable and does not activate any commercial offer.
+/// Account ownership is immutable, available only in Internal use, and does not activate any commercial offer.
 pub async fn assign_personal_owner(
     State(state): State<AppState>,
     Path(vendor_id): Path<Uuid>,
@@ -140,6 +140,11 @@ pub async fn assign_personal_owner(
     Json(input): Json<PersonalOwnerInput>,
 ) -> Result<Json<Value>, ApiError> {
     installation(&state, &headers).await?;
+    if state.operating_mode != crate::state::OperatingMode::Internal {
+        return Err(ApiError::invalid_request(
+            "Owner-funded API keys are available only in Internal use",
+        ));
+    }
     if input.expected_revision < 1 {
         return Err(ApiError::invalid_request(
             "A positive credential revision is required",
@@ -211,7 +216,7 @@ pub struct VendorFilter {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors",
+///   "path": "/api/v1/admin/providers/connections",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listVendors",
@@ -393,12 +398,12 @@ pub struct VendorFilter {
 ///         },
 ///         "personal_organization_id": {
 ///           "type": "string", "format": "uuid",
-///           "description": "Platform-administrator-selected account paying the Provider directly. Access scope is independent. Ownership is created atomically; routes remain owner-funded and do not require resale tariffs. Omission preserves shared creation in Resale; Internal use requires an explicit access choice."
+///           "description": "Internal use only: platform-administrator-selected account paying the Provider directly. Access scope is independent. Ownership is created atomically; routes remain owner-funded and do not require resale tariffs. Rejected in Resale mode."
 ///         },
 ///         "access_scope": {
 ///           "type": "string",
 ///           "enum": ["personal", "internal"],
-///           "description": "Explicit credential access. personal restricts use to the funding account. internal shares the owner-funded credential with every organization while Internal use is active; it is rejected in Resale. Omit only for compatibility: an explicit funding account creates personal access, Resale without one creates shared commercial supply, and Internal use without either is rejected instead of silently binding to the current account."
+///           "description": "Internal use only: explicit owner-funded credential access. personal restricts use to the funding account; internal shares the owner-funded credential with every organization while Internal use is active. Rejected in Resale mode, where connections are always shared commercial supply."
 ///         },
 ///         "create_supplier": {
 ///           "type": "boolean",
@@ -470,7 +475,7 @@ pub async fn list(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors",
+///   "path": "/api/v1/admin/providers/connections",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "createVendor",
@@ -538,20 +543,21 @@ pub async fn create(
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let authorization = state.authorize_platform_headers(&headers).await?;
     let internal_mode = state.operating_mode == crate::state::OperatingMode::Internal;
+    if !internal_mode && (input.personal_organization_id.is_some() || input.access_scope.is_some())
+    {
+        return Err(ApiError::invalid_request(
+            "Owner-funded API keys are available only in Internal use",
+        ));
+    }
     let access_scope = match input.access_scope {
-        Some(niu_storage::VendorAccessScope::Internal) if !internal_mode => {
-            return Err(ApiError::invalid_request(
-                "Internal access scope is available only in Internal use",
-            ));
-        }
         Some(niu_storage::VendorAccessScope::Commercial) => {
             return Err(ApiError::invalid_request(
                 "Commercial supply is selected by omitting a funding account, not by access scope",
             ));
         }
         Some(scope) => scope,
-        // Preserve pre-scope behavior only when the caller named a funding
-        // account. Do not silently bind Internal use to the current account.
+        // Preserve pre-scope behavior in Internal use only when the caller named
+        // a funding account. Do not silently bind Internal use to the current account.
         None if input.personal_organization_id.is_some() => {
             niu_storage::VendorAccessScope::Personal
         }
@@ -638,7 +644,7 @@ pub async fn create(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/retire",
+///   "path": "/api/v1/admin/providers/connections/{id}/retire",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "retireVendorConnection",
@@ -673,7 +679,7 @@ pub async fn retire(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}",
+///   "path": "/api/v1/admin/providers/connections/{id}",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "updateVendor",
@@ -751,18 +757,26 @@ pub async fn update(
     Json(input): Json<UpdateVendor>,
 ) -> Result<Json<Value>, ApiError> {
     installation(&state, &headers).await?;
-    if input.enabled
-        && state.operating_mode == crate::state::OperatingMode::Internal
-        && state
+    if input.enabled {
+        let directly_funded = state
             .store
             .personal_vendor_organization(id)
             .await
             .map_err(ApiError::from_store)?
-            .is_none()
-    {
-        return Err(ApiError::invalid_request(
-            "Internal use cannot enable shared commercial credentials",
-        ));
+            .is_some();
+        match state.operating_mode {
+            crate::state::OperatingMode::Internal if !directly_funded => {
+                return Err(ApiError::invalid_request(
+                    "Internal use cannot enable shared commercial credentials",
+                ));
+            }
+            crate::state::OperatingMode::Resale if directly_funded => {
+                return Err(ApiError::invalid_request(
+                    "Resale requires a commercial Provider connection",
+                ));
+            }
+            _ => {}
+        }
     }
 
     let current = state
@@ -830,7 +844,7 @@ pub async fn update(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/models",
+///   "path": "/api/v1/admin/providers/connections/{id}/models",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listVendorModels",
@@ -1598,7 +1612,7 @@ pub async fn list_models(
 /// credential. Only a small allowlist of model metadata reaches the dashboard.
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/catalog",
+///   "path": "/api/v1/admin/providers/connections/{id}/catalog",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listProviderModelCatalog",
@@ -2020,7 +2034,7 @@ pub struct CheckModelInput {
 /// listed. This is a bounded catalog read, not a billable inference request.
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/check",
+///   "path": "/api/v1/admin/providers/connections/{id}/check",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "checkVendorModel",
@@ -2357,7 +2371,7 @@ fn check_response(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/models",
+///   "path": "/api/v1/admin/providers/connections/{id}/models",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "upsertVendorModel",
@@ -2475,7 +2489,7 @@ pub async fn upsert_model(
 /// Explicit metadata refresh; discovery GET stays read-only.
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/catalog",
+///   "path": "/api/v1/admin/providers/connections/{id}/catalog",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "refreshProviderCatalogMetadata",
@@ -2566,7 +2580,7 @@ pub struct SupplierAssociation {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/supplier",
+///   "path": "/api/v1/admin/providers/connections/{id}/supplier",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getConfigurationProvider",
@@ -2657,7 +2671,7 @@ pub async fn supplier(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/vendors/{id}/supplier",
+///   "path": "/api/v1/admin/providers/connections/{id}/supplier",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "associateConfigurationProvider",
@@ -2879,7 +2893,7 @@ pub async fn revoke_asset_management(
 
 /// Explicit discovery and atomic import for an already saved Provider connection.
 /// ```openapi
-/// {"path":"/api/v1/vendors/{id}/import","method":"post","operation":{"operationId":"importPersonalProviderModels","security":[{"bearerAuth":[]}],"summary":"Discover and import Provider models","description":"Platform administration required. Reads the bounded upstream catalog, then atomically creates missing model mappings. Owner-funded mappings are enabled; shared commercial mappings start disabled and unpriced. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification or selling eligibility. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Import counts and discovery evidence."},"400":{"description":"Unsupported catalog identifiers."},"409":{"description":"Connection changed or an alias conflicts; no models imported."},"502":{"description":"Upstream catalog read failed; saved connection is retained."}},"x-niu-implementation":"implemented"}}
+/// {"path":"/api/v1/admin/providers/connections/{id}/import","method":"post","operation":{"operationId":"importPersonalProviderModels","security":[{"bearerAuth":[]}],"summary":"Discover and import Provider models","description":"Platform administration required. Reads the bounded upstream catalog, then atomically creates missing model mappings. Owner-funded mappings are enabled; shared commercial mappings start disabled and unpriced. Existing mappings, disabled choices, prices and grants are preserved. No inference or payment is performed. Catalog access is not inference verification or selling eligibility. Credential revision conflicts abort the import; retry is safe and adds only missing upstream IDs.","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Import counts and discovery evidence."},"400":{"description":"Unsupported catalog identifiers."},"409":{"description":"Connection changed or an alias conflicts; no models imported."},"502":{"description":"Upstream catalog read failed; saved connection is retained."}},"x-niu-implementation":"implemented"}}
 /// ```
 pub async fn import_models(
     State(state): State<AppState>,
@@ -2893,8 +2907,13 @@ pub async fn import_models(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
+    let supplier = state
+        .store
+        .vendor_supplier(id)
+        .await
+        .map_err(ApiError::from_store)?;
     let (revision, result) = read_catalog(&state, id, &headers).await?;
-    let prefix = vendor_alias_prefix(&vendor.name);
+    let prefix = resolve_import_prefix(supplier.as_ref(), &vendor.name);
     let data = result["data"]
         .as_array()
         .ok_or_else(ApiError::unavailable)?;
@@ -2945,6 +2964,25 @@ pub async fn import_models(
 
 const MAX_MODEL_ALIAS_BYTES: usize = 200;
 const MAX_ALIAS_PREFIX_BYTES: usize = 48;
+
+/// Resolve the canonical model-alias namespace for a connection import.
+/// Connections owned by a Provider business always use the Provider's slug (or
+/// Provider name if slug is absent) so API-key labels never leak into model IDs.
+fn resolve_import_prefix(supplier: Option<&Value>, vendor_name: &str) -> String {
+    let source = supplier
+        .and_then(|owner| {
+            owner["slug"]
+                .as_str()
+                .filter(|slug| !slug.trim().is_empty())
+                .or_else(|| {
+                    owner["name"]
+                        .as_str()
+                        .filter(|name| !name.trim().is_empty())
+                })
+        })
+        .unwrap_or(vendor_name);
+    vendor_alias_prefix(source)
+}
 
 /// Provider names are display labels, not identifiers. Derive a readable,
 /// ASCII-safe namespace without depending on the caller's punctuation.
@@ -3263,6 +3301,31 @@ mod import_model_tests {
                 "/".to_owned(),
                 format!("provider/model-{}", short_alias_hash("/"))
             )]
+        );
+    }
+
+    #[test]
+    fn import_prefix_uses_owning_provider_slug_instead_of_api_key_label() {
+        let qiniu_supplier = json!({
+            "id": "9cc6b65a-0b19-4f18-8828-89d6038973f0",
+            "slug": "qiniu",
+            "name": "Qiniu"
+        });
+        for key_label in [
+            "qiniu-personal-qualification",
+            "Primary inference",
+            "主推理密钥",
+        ] {
+            let prefix = resolve_import_prefix(Some(&qiniu_supplier), key_label);
+            assert_eq!(prefix, "qiniu");
+            assert_eq!(
+                plan_imported_model_aliases(&prefix, &["deepseek-v3"]),
+                vec![("deepseek-v3".to_owned(), "qiniu/deepseek-v3".to_owned())]
+            );
+        }
+        assert_eq!(
+            resolve_import_prefix(None, "Standalone Gateway"),
+            "standalone-gateway"
         );
     }
 }

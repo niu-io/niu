@@ -41,13 +41,13 @@ function checked(result: {data: SpendingAccount[]}): SpendingAccount[] {
   return result.data;
 }
 
-export default function WorkspaceSpendingLimits({token, organization, project, canConfigure, refresh, className}: {
+export default function WorkspaceSpendingLimits({token, organization: _organization, project, canConfigure, refresh, className}: {
   token: string; organization: string; project: string; canConfigure: boolean; refresh: number; className?: string;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
   const {currency:platformCurrency, billingMode:platformBillingMode, unit:platformUnit} = usePlatformCurrency();
-  const base = `/api/v1/organizations/${organization}/projects/${project}/spending-limit`;
-  const unitBase = `/api/v1/organizations/${organization}/projects/${project}/units/limit`;
+  const base = `/api/v1/workspaces/${project}/spending-limit`;
+  const unitBase = `/api/v1/workspaces/${project}/units/limit`;
   const readCachedAccounts = (tok: string, path: string) => {
     try {
       const cached = peekCachedGet<{ data: SpendingAccount[] }>(tok, path);
@@ -299,7 +299,6 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
       }}
     >
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto"
         onCloseAutoFocus={event => {
           const currency = closingCurrencyRef.current;
           const trigger = currency ? currencyTriggerRefs.current[currency] : null;
@@ -321,7 +320,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
             </DialogHeader>
             <form onSubmit={save} className="grid gap-4">
               <div className="space-y-2">
-                <Label htmlFor="workspace-spending-amount">{uiT("Lifetime limit (")}{editing.currency})</Label>
+                <Label htmlFor="workspace-spending-amount">{uiF("Lifetime limit ({0})", [editing.currency])}</Label>
                 <Input
                   autoFocus
                   id="workspace-spending-amount"
@@ -383,7 +382,6 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
       }}
     >
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto"
         onCloseAutoFocus={event => {
           if (unitTriggerRef.current?.isConnected) {
             event.preventDefault();
@@ -403,7 +401,7 @@ export default function WorkspaceSpendingLimits({token, organization, project, c
             </DialogHeader>
             <form onSubmit={submitUnitLimit} className="grid gap-4">
               <div className="space-y-2">
-                <Label htmlFor="workspace-unit-spending-amount">{uiT("Lifetime limit (")}{activeUnitName})</Label>
+                <Label htmlFor="workspace-unit-spending-amount">{uiF("Lifetime limit ({0})", [activeUnitName])}</Label>
                 <Input
                   autoFocus
                   id="workspace-unit-spending-amount"

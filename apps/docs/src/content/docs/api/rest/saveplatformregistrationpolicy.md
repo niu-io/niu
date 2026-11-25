@@ -1,11 +1,11 @@
 ---
 title: "Update Limited Preview registration policy"
-description: "PUT /api/v1/platform/registration"
+description: "PUT /api/v1/admin/registration"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`PUT /api/v1/platform/registration`
+`PUT /api/v1/admin/registration`
 
 Platform administration required. Switches public registration between approval_required (Limited Preview) and disabled using optimistic expected_revision.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/platform/registration" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/admin/registration" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

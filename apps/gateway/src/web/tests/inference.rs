@@ -1820,8 +1820,8 @@ async fn exercise_terminal_stream(pool: PgPool, funded_without_merchant: bool) {
             .unwrap();
         assert!(record.reference.starts_with("run-"));
         let url = format!(
-            "/api/v1/organizations/{}/projects/{}/requests/{}",
-            scope.organization_id, scope.project_id, record.reference
+            "/api/v1/workspaces/{}/requests/{}",
+            scope.project_id, record.reference
         );
         let response = router(state.clone())
             .oneshot(
@@ -1869,10 +1869,7 @@ async fn chat_terminal_outcomes_survive_router_and_store_reopen(pool: PgPool) {
         .await
         .unwrap();
     let scope = state.store.default_workspace().await.unwrap();
-    let base = format!(
-        "/admin/v1/organizations/{}/projects/{}/chats",
-        scope.organization_id, scope.project_id
-    );
+    let base = format!("/api/v1/workspaces/{}/chats", scope.project_id);
     let auth = "Bearer niu-test-admin-token-that-is-long-1234";
     for (reason, content, phase, error) in [
         (Some("stop"), "Complete answer", "complete", None),
@@ -1988,10 +1985,7 @@ async fn chat_session_api_persists_content_and_requires_authentication(pool: PgP
     let state = test_state(None, pool);
     let scope = state.store.default_workspace().await.unwrap();
     let app = router(state.clone());
-    let base = format!(
-        "/admin/v1/organizations/{}/projects/{}/chats",
-        scope.organization_id, scope.project_id
-    );
+    let base = format!("/api/v1/workspaces/{}/chats", scope.project_id);
     let id = Uuid::new_v4();
     let payload = json!({"id":id,"prompt":"Hello","results":[{"model":"fast","content":"Hi","elapsedMs":10,"phase":"complete","apiKey":"must-not-store"}],"createdAt":1,"token":"must-not-store","settings":{"temperature":0.7,"logPayloads":false,"authorization":"must-not-store"},"attachments":[{"name":"note.txt","type":"text","content":"Example","token":"must-not-store"}]});
     let mut payload = payload;
@@ -2153,10 +2147,7 @@ async fn chat_session_api_persists_content_and_requires_authentication(pool: PgP
         ),
         (
             "Bearer niu-test-admin-token-that-is-long-1234",
-            format!(
-                "/admin/v1/organizations/{}/projects/{}/chats/{id}/export",
-                scope.organization_id, other.project_id
-            ),
+            format!("/api/v1/workspaces/{}/chats/{id}/export", other.project_id),
             StatusCode::NOT_FOUND,
         ),
         (
@@ -2718,8 +2709,8 @@ async fn workspace_access_guardrail_blocks_all_protocols_before_upstream_dispatc
     ] {
         if revision == 2 {
             let path = format!(
-                "/admin/v1/organizations/{}/projects/{}/keys/{}/guardrail",
-                scope.organization_id, scope.project_id, key.id
+                "/api/v1/workspaces/{}/keys/{}/guardrail",
+                scope.project_id, key.id
             );
             for (credential, expected_revision, expected_status) in [
                 (key.token.as_str(), 0, StatusCode::UNAUTHORIZED),
@@ -2776,8 +2767,8 @@ async fn workspace_access_guardrail_blocks_all_protocols_before_upstream_dispatc
                 .await
                 .unwrap();
             let foreign_path = format!(
-                "/admin/v1/organizations/{}/projects/{}/keys/{}/guardrail",
-                scope.organization_id, foreign_scope.project_id, key.id
+                "/api/v1/workspaces/{}/keys/{}/guardrail",
+                foreign_scope.project_id, key.id
             );
             let response = app
                 .clone()
@@ -2793,10 +2784,7 @@ async fn workspace_access_guardrail_blocks_all_protocols_before_upstream_dispatc
         }
         let policy =
             json!({"schema_version":1,"name":"Protected","models":models,"providers":providers});
-        let base = format!(
-            "/admin/v1/organizations/{}/projects/{}/guardrails",
-            scope.organization_id, scope.project_id
-        );
+        let base = format!("/api/v1/workspaces/{}/guardrails", scope.project_id);
         let response = app
             .clone()
             .oneshot(
@@ -2870,8 +2858,8 @@ async fn workspace_access_guardrail_blocks_all_protocols_before_upstream_dispatc
     }
     assert!(captured.0.lock().unwrap().is_empty());
     let assignment_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}/guardrail",
-        scope.organization_id, scope.project_id, key.id
+        "/api/v1/workspaces/{}/keys/{}/guardrail",
+        scope.project_id, key.id
     );
     for (body, status) in [
         (
@@ -2928,10 +2916,7 @@ async fn workspace_access_guardrail_blocks_all_protocols_before_upstream_dispatc
         .unwrap();
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
     assert!(captured.0.lock().unwrap().is_empty());
-    let denial_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/guardrails/denials",
-        scope.organization_id, scope.project_id
-    );
+    let denial_path = format!("/api/v1/workspaces/{}/guardrails/denials", scope.project_id);
     let denials = app
         .clone()
         .oneshot(
@@ -2955,8 +2940,8 @@ async fn workspace_access_guardrail_blocks_all_protocols_before_upstream_dispatc
         .await
         .unwrap();
     let other_denial_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/guardrails/denials",
-        scope.organization_id, other_audit_workspace.project_id
+        "/api/v1/workspaces/{}/guardrails/denials",
+        other_audit_workspace.project_id
     );
     for (auth, path, status) in [
         (&key.token, &denial_path, StatusCode::UNAUTHORIZED),
@@ -3040,8 +3025,8 @@ async fn workspace_access_guardrail_blocks_all_protocols_before_upstream_dispatc
         .clone()
         .oneshot(
             Request::get(format!(
-                "/admin/v1/organizations/{}/projects/{}/keys/{}/guardrail/history",
-                scope.organization_id, foreign.project_id, key.id
+                "/api/v1/workspaces/{}/keys/{}/guardrail/history",
+                foreign.project_id, key.id
             ))
             .header("authorization", format!("Bearer {}", reader.token))
             .body(axum::body::Body::empty())
@@ -3208,8 +3193,8 @@ async fn payload_api_requires_workspace_read_or_write_access(pool: PgPool) {
                 .unwrap();
         }
         let path = format!(
-            "/admin/v1/organizations/{}/projects/{}/requests/{attempt}/payloads",
-            target.organization_id, target.project_id
+            "/api/v1/workspaces/{}/requests/{attempt}/payloads",
+            target.project_id
         );
         let response = app
             .clone()
@@ -3293,8 +3278,8 @@ async fn payload_api_requires_workspace_read_or_write_access(pool: PgPool) {
         .await
         .unwrap();
     let path = format!(
-        "/admin/v1/organizations/{}/projects/{}/requests/{attempt}/payloads",
-        scope.organization_id, scope.project_id
+        "/api/v1/workspaces/{}/requests/{attempt}/payloads",
+        scope.project_id
     );
     let response = app
         .clone()
@@ -3918,10 +3903,7 @@ async fn chat_session_archive_rejects_readers_inference_keys_and_other_owners(po
         .await
         .unwrap();
     let app = router(state.clone());
-    let base = format!(
-        "/admin/v1/organizations/{}/projects/{}/chats",
-        scope.organization_id, scope.project_id
-    );
+    let base = format!("/api/v1/workspaces/{}/chats", scope.project_id);
     for (token, expected) in [
         (&viewer.token, StatusCode::FORBIDDEN),
         (&writer.token, StatusCode::NOT_FOUND),
@@ -4033,8 +4015,8 @@ async fn key_guardrail_follow_active_tracks_policy_without_repinning(pool: PgPoo
         .unwrap();
     let app = router(state.clone());
     let path = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}/guardrail",
-        scope.organization_id, scope.project_id, key.id
+        "/api/v1/workspaces/{}/keys/{}/guardrail",
+        scope.project_id, key.id
     );
     let admin = "Bearer niu-test-admin-token-that-is-long-1234";
     let write = |body: Value| {

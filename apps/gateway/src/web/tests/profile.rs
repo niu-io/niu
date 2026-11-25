@@ -45,10 +45,7 @@ async fn chat_drafts_are_durable_private_and_revision_checked(pool: PgPool) {
         .await
         .unwrap();
     let app = router(state);
-    let path = format!(
-        "/admin/v1/organizations/{}/projects/{}/chats/draft",
-        workspace.organization_id, workspace.project_id
-    );
+    let path = format!("/api/v1/workspaces/{}/chats/draft", workspace.project_id);
     let payload = json!({"sessionId":null,"prompt":"Unsent question","models":["fast"],"attachments":[{"name":"note.md","type":"text","content":"Unsent context"}],"settings":{"systemPrompt":"Be concise","maxTokens":512,"temperature":0.7,"logPayloads":true}});
     assert_eq!(
         call_path(&app, Method::GET, None, Value::Null, &path)
@@ -108,11 +105,7 @@ async fn chat_drafts_are_durable_private_and_revision_checked(pool: PgPool) {
         .await
         .unwrap();
     assert_eq!(response.headers().get("cache-control").unwrap(), "no-store");
-    let foreign_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/chats/draft",
-        workspace.organization_id,
-        Uuid::new_v4()
-    );
+    let foreign_path = format!("/api/v1/workspaces/{}/chats/draft", Uuid::new_v4());
     assert_eq!(
         call_path(
             &app,
@@ -221,7 +214,7 @@ async fn call(
     token: Option<&str>,
     body: Value,
 ) -> (StatusCode, Value) {
-    call_path(app, method, token, body, "/admin/v1/auth/profile").await
+    call_path(app, method, token, body, "/api/v1/auth/profile").await
 }
 
 async fn call_path(
@@ -414,7 +407,7 @@ async fn appearance_is_member_owned_durable_and_validated(pool: PgPool) {
         .await
         .unwrap();
     let app = router(state);
-    let path = "/admin/v1/auth/preferences";
+    let path = "/api/v1/auth/preferences";
     assert_eq!(
         call_path(&app, Method::GET, None, Value::Null, path)
             .await

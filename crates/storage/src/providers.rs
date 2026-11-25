@@ -114,6 +114,10 @@ pub struct SupplierProfile {
     pub description: String,
     pub website_url: String,
     pub logo_url: String,
+    pub model_access_mode: String,
+    pub default_discount_bps: i32,
+    pub allowlisted_models: Vec<String>,
+    pub blocklisted_models: Vec<String>,
     pub revision: i64,
 }
 
@@ -126,13 +130,17 @@ pub struct ProviderBusinessCreate {
     pub logo_url: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SupplierProfileUpdate {
     pub name: String,
     pub description: Option<String>,
     pub website_url: Option<String>,
     pub logo_url: Option<String>,
+    pub model_access_mode: Option<String>,
+    pub default_discount_bps: Option<i32>,
+    pub allowlisted_models: Option<Vec<String>>,
+    pub blocklisted_models: Option<Vec<String>>,
     pub expected_revision: Option<i64>,
 }
 
@@ -217,8 +225,46 @@ impl Store {
                 .await?,
         )
     }
+
+    /// Model aliases with an active, currently qualified text Provider offer whose
+    /// underlying route is available for commercial dispatch.
+    pub async fn active_text_provider_offer_aliases(
+        &self,
+    ) -> Result<std::collections::BTreeSet<String>, StoreError> {
+        let rows: Vec<String> = sqlx::query_scalar(
+            "SELECT o.model_alias \
+             FROM provider_offers o \
+             JOIN provider_offer_revisions r ON r.id = o.current_revision \
+             WHERE r.rate_kind = 'text' \
+               AND o.active \
+               AND niu_supplier_model_route_available(o.model_alias)",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().collect())
+    }
+
+    /// Procurement currency and base text rates from an active, qualified Provider offer.
+    pub async fn active_provider_offer_text_pricing(
+        &self,
+        alias: &str,
+    ) -> Result<Option<(String, i64, i64)>, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT r.currency, r.prompt_rate, r.completion_rate \
+             FROM provider_offers o \
+             JOIN provider_offer_revisions r ON r.id = o.current_revision \
+             WHERE o.model_alias = $1 \
+               AND r.rate_kind = 'text' \
+               AND o.active \
+               AND niu_supplier_model_route_available(o.model_alias) \
+             LIMIT 1",
+        )
+        .bind(alias)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
     pub async fn provider_businesses(&self) -> Result<Vec<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name,'logo_url',p.logo_url,'api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o WHERE o.provider_id=p.id),'models',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'enabled_api_keys',(SELECT COUNT(*) FROM vendors v JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND v.enabled),'enabled_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendors v ON v.id=vm.vendor_id JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND v.enabled AND vm.enabled),'internal_api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o JOIN personal_vendor_ownership po ON po.vendor_id=o.vendor_id WHERE o.provider_id=p.id),'internal_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id JOIN personal_vendor_ownership po ON po.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'offers',(SELECT COUNT(*) FROM provider_offers f WHERE f.provider_id=p.id),'ready_offers',(SELECT COUNT(*) FROM provider_offers f JOIN vendor_models vm ON vm.alias=f.model_alias AND vm.vendor_id=f.vendor_id JOIN vendors v ON v.id=vm.vendor_id JOIN vendor_supplier_ownership own ON own.vendor_id=v.id AND own.provider_id=p.id WHERE f.provider_id=p.id AND f.active AND vm.enabled AND v.enabled AND v.credential_ciphertext IS NOT NULL AND niu_offer_qualification_current(p.id,f.id,f.current_revision)),'members',(SELECT COUNT(*) FROM provider_memberships m JOIN admin_operators a ON a.id=m.operator_id WHERE m.provider_id=p.id AND m.active AND a.revoked_at IS NULL)) FROM provider_businesses p WHERE p.deleted_at IS NULL ORDER BY p.name,p.id").fetch_all(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name,'logo_url',p.logo_url,'model_access_mode',p.model_access_mode,'default_discount_bps',p.default_discount_bps,'api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o WHERE o.provider_id=p.id),'configured_api_keys',(SELECT COUNT(*) FROM vendors v JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND octet_length(v.credential_ciphertext) > 0),'models',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'enabled_api_keys',(SELECT COUNT(*) FROM vendors v JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND v.enabled AND octet_length(v.credential_ciphertext) > 0),'enabled_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id AND vm.enabled AND niu_model_has_enabled_vendor(vm.alias)),'internal_api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o JOIN personal_vendor_ownership po ON po.vendor_id=o.vendor_id WHERE o.provider_id=p.id),'internal_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id JOIN personal_vendor_ownership po ON po.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'offers',(SELECT COUNT(*) FROM provider_offers f WHERE f.provider_id=p.id),'ready_offers',(SELECT COUNT(*) FROM provider_offers f JOIN vendor_models vm ON vm.alias=f.model_alias AND vm.vendor_id=f.vendor_id JOIN vendor_supplier_ownership own ON own.vendor_id=vm.vendor_id AND own.provider_id=p.id WHERE f.provider_id=p.id AND f.active AND vm.enabled AND niu_model_has_enabled_vendor(vm.alias) AND niu_offer_qualification_current(p.id,f.id,f.current_revision)),'members',(SELECT COUNT(*) FROM provider_memberships m JOIN admin_operators a ON a.id=m.operator_id WHERE m.provider_id=p.id AND m.active AND a.revoked_at IS NULL)) FROM provider_businesses p WHERE p.deleted_at IS NULL ORDER BY p.name,p.id").fetch_all(&self.pool).await?)
     }
 
     pub async fn provider_memberships(
@@ -307,7 +353,7 @@ impl Store {
         &self,
         provider: Uuid,
     ) -> Result<Option<SupplierProfile>, StoreError> {
-        Ok(sqlx::query_as("SELECT id,slug,name,description,website_url,logo_url,profile_revision AS revision FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL")
+        Ok(sqlx::query_as("SELECT id,slug,name,description,website_url,logo_url,model_access_mode,default_discount_bps,allowlisted_models,blocklisted_models,profile_revision AS revision FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL")
             .bind(provider).fetch_optional(&self.pool).await?)
     }
 
@@ -336,17 +382,51 @@ impl Store {
         input: &SupplierProfileUpdate,
         actor: Option<OperatorAuditActor>,
     ) -> Result<SupplierProfile, StoreError> {
+        fn normalize_model_list(list: &[String]) -> Result<Vec<String>, StoreError> {
+            if list.len() > 2000 {
+                return Err(StoreError::InvalidAccount);
+            }
+            let mut normalized = Vec::with_capacity(list.len());
+            for item in list {
+                let trimmed = item.trim();
+                if trimmed.is_empty()
+                    || trimmed.len() > 200
+                    || trimmed.chars().any(char::is_control)
+                {
+                    return Err(StoreError::InvalidAccount);
+                }
+                normalized.push(trimmed.to_owned());
+            }
+            normalized.sort();
+            normalized.dedup();
+            Ok(normalized)
+        }
         let description = input.description.as_deref().map(str::trim);
         let website = input.website_url.as_deref().map(str::trim);
         let logo = input.logo_url.as_deref().map(str::trim);
+        let access_mode = input.model_access_mode.as_deref().map(str::trim);
+        let allowlisted = input
+            .allowlisted_models
+            .as_deref()
+            .map(normalize_model_list)
+            .transpose()?;
+        let blocklisted = input
+            .blocklisted_models
+            .as_deref()
+            .map(normalize_model_list)
+            .transpose()?;
         if !valid_profile_fields(&input.name, description, website, logo)
             || input.expected_revision.is_some_and(|v| v < 1)
+            || access_mode.is_some_and(|mode| !matches!(mode, "all" | "allowlist" | "blocklist"))
+            || input
+                .default_discount_bps
+                .is_some_and(|bps| !(10..=100_000).contains(&bps))
         {
             return Err(StoreError::InvalidAccount);
         }
         let mut tx = self.begin_bounded_recording().await?;
-        let profile = sqlx::query_as("UPDATE provider_businesses SET name=$2,description=COALESCE($3,description),website_url=COALESCE($4,website_url),logo_url=COALESCE($5,logo_url),profile_revision=profile_revision+1 WHERE id=$1 AND deleted_at IS NULL AND ($6::bigint IS NULL OR profile_revision=$6) RETURNING id,slug,name,description,website_url,logo_url,profile_revision AS revision")
-            .bind(provider).bind(input.name.trim()).bind(description).bind(website).bind(logo).bind(input.expected_revision)
+        let profile = sqlx::query_as("UPDATE provider_businesses SET name=$2,description=COALESCE($3,description),website_url=COALESCE($4,website_url),logo_url=COALESCE($5,logo_url),model_access_mode=COALESCE($6,model_access_mode),default_discount_bps=COALESCE($7,default_discount_bps),allowlisted_models=COALESCE($8,allowlisted_models),blocklisted_models=COALESCE($9,blocklisted_models),profile_revision=profile_revision+1 WHERE id=$1 AND deleted_at IS NULL AND ($10::bigint IS NULL OR profile_revision=$10) RETURNING id,slug,name,description,website_url,logo_url,model_access_mode,default_discount_bps,allowlisted_models,blocklisted_models,profile_revision AS revision")
+            .bind(provider).bind(input.name.trim()).bind(description).bind(website).bind(logo).bind(access_mode).bind(input.default_discount_bps).bind(allowlisted).bind(blocklisted).bind(input.expected_revision)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         let (actor_kind, actor_id) = actor.map_or(("unknown", None), |value| value.kind_and_id());
         sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id,actor_kind,actor_operator_id,provider_label) VALUES($1,'supplier_profile_updated',$1,$2,$3,$4)").bind(provider).bind(actor_kind).bind(actor_id).bind(input.name.trim()).execute(&mut *tx).await?;
@@ -381,7 +461,19 @@ impl Store {
         .fetch_optional(&mut *tx)
         .await?
         .ok_or(StoreError::Conflict)?;
-        let dependent: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM vendor_supplier_ownership WHERE provider_id=$1) OR EXISTS(SELECT 1 FROM provider_offers WHERE provider_id=$1) OR EXISTS(SELECT 1 FROM provider_memberships WHERE provider_id=$1)").bind(provider).fetch_one(&mut *tx).await?;
+        let dependent: bool = sqlx::query_scalar(
+            "SELECT EXISTS( \
+                 SELECT 1 FROM vendor_supplier_ownership o \
+                 JOIN vendors v ON v.id = o.vendor_id \
+                 WHERE o.provider_id = $1 \
+                   AND (v.enabled OR octet_length(v.credential_ciphertext) > 0) \
+             ) \
+             OR EXISTS(SELECT 1 FROM provider_offers WHERE provider_id = $1) \
+             OR EXISTS(SELECT 1 FROM provider_memberships WHERE provider_id = $1 AND active)",
+        )
+        .bind(provider)
+        .fetch_one(&mut *tx)
+        .await?;
         if dependent {
             return Err(StoreError::Conflict);
         }
@@ -706,6 +798,221 @@ impl Store {
         Ok(revision)
     }
 
+    /// Publish a new offer rate revision and atomically authorize and activate it
+    /// in a single serialized transaction. Requires an enabled commercial route
+    /// with a stored credential owned by the Provider.
+    pub async fn publish_and_activate_provider_offer_schedule(
+        &self,
+        provider: Uuid,
+        input: &ProviderOfferInput,
+        schedule: ProviderOfferSchedule<'_>,
+        actor: OperatorAuditActor,
+    ) -> Result<(Uuid, Uuid, Uuid), StoreError> {
+        let ProviderOfferSchedule {
+            cached_prompt_rate,
+            reasoning_completion_rate,
+            cache_write_prompt_rate,
+            context_tiers,
+        } = schedule;
+        let mut tiers = context_tiers.unwrap_or_default().to_vec();
+        crate::normalize_context_tiers(&mut tiers)?;
+        let written = cache_write_prompt_rate
+            .flatten()
+            .map(crate::pricing::parse_token_rate)
+            .transpose()?;
+        let reasoning = reasoning_completion_rate
+            .flatten()
+            .map(crate::pricing::parse_token_rate)
+            .transpose()?;
+        let cached = cached_prompt_rate
+            .flatten()
+            .map(crate::pricing::parse_token_rate)
+            .transpose()?;
+        let prompt = crate::pricing::parse_token_rate(&input.prompt_rate)?;
+        let completion = crate::pricing::parse_token_rate(&input.completion_rate)?;
+        if input.currency.len() != 3 || !input.currency.bytes().all(|b| b.is_ascii_uppercase()) {
+            return Err(StoreError::InvalidPrice);
+        }
+        let mut tx = self.begin_route_write().await?;
+        let (actor_kind, operator) = actor.kind_and_id();
+        if let Some(operator) = operator {
+            let authorized = sqlx::query_scalar::<_, bool>(
+                "SELECT EXISTS(SELECT 1 FROM admin_operators WHERE id=$1 AND platform_admin AND revoked_at IS NULL FOR SHARE)",
+            )
+            .bind(operator)
+            .fetch_one(&mut *tx)
+            .await?;
+            if !authorized {
+                return Err(StoreError::Unauthorized);
+            }
+        }
+        sqlx::query(
+            "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
+        )
+        .bind(provider)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(StoreError::Conflict)?;
+        let vendor: Uuid = sqlx::query_scalar(
+            "SELECT m.vendor_id \
+             FROM vendor_models m \
+             JOIN vendors v ON v.id=m.vendor_id \
+             JOIN vendor_supplier_ownership own ON own.vendor_id=v.id AND own.provider_id=$1 \
+             WHERE m.alias=$2 \
+               AND m.enabled \
+               AND v.enabled \
+               AND v.credential_ciphertext IS NOT NULL \
+               AND octet_length(v.credential_ciphertext) > 0 \
+               AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership personal WHERE personal.vendor_id=v.id) \
+             FOR SHARE OF m, v",
+        )
+        .bind(provider)
+        .bind(&input.model_alias)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(StoreError::Conflict)?;
+        #[derive(sqlx::FromRow)]
+        struct CurrentOffer {
+            id: Uuid,
+            provider_id: Uuid,
+            current_revision: Uuid,
+            vendor_id: Uuid,
+            cached_prompt_rate: Option<i64>,
+            reasoning_completion_rate: Option<i64>,
+            cache_write_prompt_rate: Option<i64>,
+            context_tiers: Value,
+        }
+        let existing: Option<CurrentOffer> = sqlx::query_as(
+            "SELECT o.id,o.provider_id,o.current_revision,o.vendor_id,r.cached_prompt_rate,r.reasoning_completion_rate,r.cache_write_prompt_rate,r.context_tiers \
+             FROM provider_offers o \
+             JOIN provider_offer_revisions r ON r.id=o.current_revision \
+             WHERE o.model_alias=$1 FOR UPDATE OF o",
+        )
+        .bind(&input.model_alias)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let offer = match existing {
+            Some(CurrentOffer {
+                id,
+                provider_id: owner,
+                current_revision: revision,
+                vendor_id: bound_vendor,
+                cached_prompt_rate: prior_cached,
+                reasoning_completion_rate: prior_reasoning,
+                cache_write_prompt_rate: prior_written,
+                context_tiers: prior_tiers,
+            }) => {
+                if (context_tiers.is_none()
+                    && prior_tiers
+                        .as_array()
+                        .is_some_and(|tiers| !tiers.is_empty()))
+                    || (prior_written.is_some() && cache_write_prompt_rate.is_none())
+                    || (prior_reasoning.is_some() && reasoning_completion_rate.is_none())
+                    || (prior_cached.is_some() && cached_prompt_rate.is_none())
+                    || owner != provider
+                    || input.expected_revision != Some(revision)
+                    || bound_vendor != vendor
+                {
+                    return Err(StoreError::Conflict);
+                }
+                id
+            }
+            None => {
+                if input.expected_revision.is_some() {
+                    return Err(StoreError::Conflict);
+                }
+                let id = Uuid::new_v4();
+                sqlx::query(
+                    "INSERT INTO provider_offers(id,provider_id,model_alias,vendor_id,active) VALUES($1,$2,$3,$4,FALSE)",
+                )
+                .bind(id)
+                .bind(provider)
+                .bind(&input.model_alias)
+                .bind(vendor)
+                .execute(&mut *tx)
+                .await?;
+                id
+            }
+        };
+        let revision = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO provider_offer_revisions(id,offer_id,currency,prompt_rate,completion_rate,cached_prompt_rate,reasoning_completion_rate,cache_write_prompt_rate,context_tiers) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+        )
+        .bind(revision)
+        .bind(offer)
+        .bind(&input.currency)
+        .bind(prompt)
+        .bind(completion)
+        .bind(cached)
+        .bind(reasoning)
+        .bind(written)
+        .bind(sqlx::types::Json(&tiers))
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "UPDATE provider_offers SET current_revision=$2,active=FALSE,current_qualification_review=NULL,current_authorization=NULL WHERE id=$1",
+        )
+        .bind(offer)
+        .bind(revision)
+        .execute(&mut *tx)
+        .await?;
+        let media_binding_ok: bool =
+            sqlx::query_scalar("SELECT niu_media_offer_binding_current($1,$2,$3)")
+                .bind(provider)
+                .bind(offer)
+                .bind(revision)
+                .fetch_one(&mut *tx)
+                .await?;
+        if !media_binding_ok {
+            return Err(StoreError::Conflict);
+        }
+        let authorization = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO provider_offer_authorizations(id,provider_id,offer_id,rate_revision,actor_kind,actor_operator_id) VALUES($1,$2,$3,$4,$5,$6)",
+        )
+        .bind(authorization)
+        .bind(provider)
+        .bind(offer)
+        .bind(revision)
+        .bind(actor_kind)
+        .bind(operator)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "INSERT INTO provider_audit_events(provider_id,actor_kind,actor_operator_id,action,resource_id) VALUES($1,$2,$3,'offer_priced',$4)",
+        )
+        .bind(provider)
+        .bind(actor_kind)
+        .bind(operator)
+        .bind(revision)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "INSERT INTO provider_audit_events(provider_id,actor_kind,actor_operator_id,action,resource_id) VALUES($1,$2,$3,'offer_authorized',$4)",
+        )
+        .bind(provider)
+        .bind(actor_kind)
+        .bind(operator)
+        .bind(authorization)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "UPDATE provider_offers SET current_qualification_review=NULL,current_authorization=$3 WHERE provider_id=$1 AND id=$2",
+        )
+        .bind(provider)
+        .bind(offer)
+        .bind(authorization)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query("UPDATE provider_offers SET active=TRUE WHERE provider_id=$1 AND id=$2")
+            .bind(provider)
+            .bind(offer)
+            .execute(&mut *tx)
+            .await?;
+        self.commit_route_write(tx).await?;
+        Ok((offer, revision, authorization))
+    }
+
     /// Record an authorization without activating it; retained for migration
     /// tests. Product enablement must use the atomic method below.
     pub async fn record_provider_offer_authorization(
@@ -761,7 +1068,7 @@ impl Store {
         // The same writer lock serializes this check against route changes and
         // rate publication. A matching credential is configuration, not proof
         // that the upstream accepts requests.
-        let ready = sqlx::query_scalar::<_, bool>("SELECT NOT o.active AND o.current_revision=$3 AND m.enabled AND v.enabled AND v.credential_ciphertext IS NOT NULL AND EXISTS(SELECT 1 FROM vendor_supplier_ownership own WHERE own.vendor_id=v.id AND own.provider_id=$1) AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership personal WHERE personal.vendor_id=v.id) AND niu_media_offer_binding_current($1,$2,$3) FROM provider_offers o JOIN provider_businesses p ON p.id=o.provider_id JOIN vendor_models m ON m.alias=o.model_alias AND m.vendor_id=o.vendor_id JOIN vendors v ON v.id=o.vendor_id WHERE o.provider_id=$1 AND o.id=$2 AND p.deleted_at IS NULL FOR UPDATE OF o FOR SHARE OF p,m,v")
+        let ready = sqlx::query_scalar::<_, bool>("SELECT NOT o.active AND o.current_revision=$3 AND m.enabled AND niu_model_has_enabled_vendor(m.alias) AND EXISTS(SELECT 1 FROM vendor_supplier_ownership own WHERE own.vendor_id=v.id AND own.provider_id=$1) AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership personal WHERE personal.vendor_id=v.id) AND niu_media_offer_binding_current($1,$2,$3) FROM provider_offers o JOIN provider_businesses p ON p.id=o.provider_id JOIN vendor_models m ON m.alias=o.model_alias AND m.vendor_id=o.vendor_id JOIN vendors v ON v.id=o.vendor_id WHERE o.provider_id=$1 AND o.id=$2 AND p.deleted_at IS NULL FOR UPDATE OF o FOR SHARE OF p,m,v")
             .bind(provider).bind(offer).bind(expected_revision)
             .fetch_optional(&mut *tx).await?.unwrap_or(false);
         if !ready {
@@ -951,7 +1258,7 @@ impl Store {
         upstream: &str,
         endpoint: Option<&str>,
     ) -> Result<(), StoreError> {
-        let offer=sqlx::query("SELECT o.id,o.provider_id,o.current_revision,o.active,o.vendor_id,m.vendor_id AS route_vendor,m.upstream_model,v.api_base,m.enabled AS model_enabled,v.enabled AS vendor_enabled,niu_offer_qualification_current(o.provider_id,o.id,o.current_revision) AS qualified FROM provider_offers o JOIN vendor_models m ON m.alias=o.model_alias JOIN vendors v ON v.id=m.vendor_id WHERE o.model_alias=$1 FOR SHARE OF o,m,v")
+        let offer=sqlx::query("SELECT o.id,o.provider_id,o.current_revision,o.active,o.vendor_id,m.vendor_id AS route_vendor,m.upstream_model,v.api_base,m.enabled AS model_enabled,niu_model_has_enabled_vendor(m.alias) AS vendor_enabled,niu_offer_qualification_current(o.provider_id,o.id,o.current_revision) AS qualified FROM provider_offers o JOIN vendor_models m ON m.alias=o.model_alias JOIN vendors v ON v.id=m.vendor_id WHERE o.model_alias=$1 FOR SHARE OF o,m,v")
             .bind(alias).fetch_optional(&mut **tx).await?;
         if let Some(row) = offer {
             if !row.get::<bool, _>("model_enabled")
@@ -960,7 +1267,8 @@ impl Store {
                 || !row.get::<bool, _>("qualified")
                 || row.get::<Uuid, _>("vendor_id") != row.get::<Uuid, _>("route_vendor")
                 || row.get::<String, _>("upstream_model") != upstream
-                || endpoint != Some(row.get::<String, _>("api_base").as_str())
+                || endpoint.map(|value| value.trim_end_matches('/'))
+                    != Some(row.get::<String, _>("api_base").trim_end_matches('/'))
             {
                 return Err(StoreError::AccountUnavailable);
             }

@@ -1,11 +1,11 @@
 ---
 title: "Read the configured platform currency"
-description: "GET /v1/currency"
+description: "GET /api/v1/public/currency"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /v1/currency`
+`GET /api/v1/public/currency`
 
 Returns the durable installation currency, or null until platform setup is completed. No credentials or financial balances are exposed.
 
@@ -24,7 +24,7 @@ No OpenAPI security scheme is required. Other request validation still applies.
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/v1/currency"
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/public/currency"
 ```
 
 ## Parameters

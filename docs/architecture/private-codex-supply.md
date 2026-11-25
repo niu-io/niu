@@ -2,11 +2,9 @@
 
 Status: private account sign-in, encrypted credential storage, account-specific model discovery, serialized token rotation, pool selection, and buffered text inference are implemented. Live provider qualification requires the owner to sign in and complete an actual request. This feature does not claim that an ordinary Codex CLI credential authorizes the integration.
 
-## Connect an account
+## Administrative scope
 
-Run the self-hosted dashboard on the gateway computer using `http://127.0.0.1` and its application port. On **Suppliers**, find **Private Codex subscriptions**, choose the Niu workspace, and select **Connect Codex**. Give the account a recognizable name, then choose **Continue with ChatGPT**. Authorize ChatGPT plan usage in the provider's sign-in flow. The dashboard returns to the selected workspace after sign-in.
-
-Connect additional accounts to that workspace to form its private pool. Each renewable registration has exactly one Niu workspace owner. Reconnect an existing account using its **Sign in** action; registering the same renewable session again is rejected. **Pause** stops new selection. **Resume** does not clear an outstanding execution lease.
+The legacy subscription connection API is restricted to platform administrators and scopes each connection to its workspace. The customer dashboard has no subscription onboarding flow. Existing connections retain their workspace, encrypted credentials and request history.
 
 The supported integration is OpenAI's [ChatGPT plan usage for open-source and locally hosted apps](https://developers.openai.com/siwc/token-sharing-open-source). Paid or remotely hosted integrations have a separate provider process. This private connection does not publish subscription capacity in the public model catalog or create a commercial Supplier offer.
 

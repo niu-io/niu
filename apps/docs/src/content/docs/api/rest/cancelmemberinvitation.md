@@ -3,7 +3,7 @@ title: "Cancel a pending member invitation"
 description: "DELETE /api/v1/invitations/{invitation}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `DELETE /api/v1/invitations/{invitation}`
 

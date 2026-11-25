@@ -15,10 +15,10 @@ Each model call is a normal Niu request and uses the exact model or workspace ro
 
 For any coding agent (including Claude Code, Codex, DeepSeek Harness, Cursor, Windsurf, or Zed), start with the [machine-readable installation contract](/docs/install.md), which covers universal `/connect` browser device-auth and native host bundles (where model invocation is off by default and management scopes are selected explicitly).
 
-The `v0.3.1` candidate is not yet published. After verifying that the exact release and integrity metadata are available, install the standalone MCP package with npm from [Niu v0.3.1](https://github.com/niu-io/niu/releases/tag/v0.3.1):
+Verify the release identity (`SHA256SUMS` and `SOURCE_COMMIT`) from [Niu v0.3.2](https://github.com/niu-io/niu/releases/tag/v0.3.2), then install the standalone MCP package with npm:
 
 ```sh
-npm install --global https://github.com/niu-io/niu/releases/download/v0.3.1/niu-io-mcp-0.1.0.tgz
+npm install --global https://github.com/niu-io/niu/releases/download/v0.3.2/niu-io-mcp-0.3.2.tgz
 ```
 
 Use `niu-mcp` as the command in your agent's MCP configuration. It can start from your application's workspace. If the editor does not inherit your shell's PATH, replace the command with the absolute executable path returned by `command -v niu-mcp`; JSON configuration does not expand shell variables or `~`. Do not use a path relative to the Niu repository.
@@ -76,12 +76,15 @@ Use `node` as the command and the **absolute path** to that checkout's `sdks/mcp
 
 ### Environment options
 
-- `NIU_API_KEY` (required): Workspace API key (or console session token when `NIU_KEY_ID` is also set).
-- `NIU_BASE_URL` (required without `--hosted`): Gateway `/v1` base URL.
+- `NIU_API_KEY` (optional when using `/connect` credentials; required otherwise): Workspace API key (or console session token when `NIU_KEY_ID` is also set). When omitted, `niu-mcp` reads the `0600` credential file from `NIU_CREDENTIAL_FILE` (default `~/.config/niu/credential.json`).
+- `NIU_CREDENTIAL_FILE` (optional): Path to an owner-only (`0600`) JSON credential file written by `/connect` or `niu-login` (default `~/.config/niu/credential.json`). Used when `NIU_API_KEY` is unset.
+- `NIU_BASE_URL` (required without `--hosted` and without a saved credential file): Gateway `/v1` base URL. When a credential file is loaded, `NIU_BASE_URL` may be omitted or must match `{origin}{base_path}/v1`.
 - `NIU_KEY_ID` (optional): Canonical workspace key UUID sent as `X-Niu-Key-Id`.
 - `NIU_CREDENTIAL_HEADER` (optional): `authorization` (default) or `x-niu-api-key`.
 - `NIU_LOG_PAYLOADS` (optional): `false` to opt out of 24-hour request/response payload capture by default (`x-niu-log-payloads: false`), or `true`. Individual tool calls can also pass `log_payloads`.
 - `NIU_TASK_ID` (optional): Default `X-Niu-Task-ID` correlation tag (1–200 printable ASCII characters) to group agent requests in workspace activity.
+- `NIU_EVENT_SECRET_DIR` (optional): Private owner-only (`0700`) directory where `set_event_subscription` persists one-time webhook signing secrets (`niu_whsec_...`) on creation or rotation (default `~/.config/niu/events`). Must be outside the repository.
+- `NIU_MCP_OUTPUT_DIR` (optional): Allowed root directory for binary media files saved by `download_video_result` (default: current working directory). Paths escaping this directory or using disallowed extensions are rejected.
 
 ## Tools
 
@@ -92,10 +95,10 @@ Use `node` as the command and the **absolute path** to that checkout's `sdks/mcp
 - `get_generation` — Reads `GET /v1/generations/{id}` using the `attempt_id` returned by inference calls to inspect token breakdowns (cached input, cache write, reasoning output), phase latency timings, `output_guardrail_outcome`, and settled `customer_charge`.
 
 ### Workspace routing policies (`pools:read` / `pools:write`)
-- `list_pools` & `get_pool` — List workspace routing policies (`GET /v1/routing`) or read a specific policy (`GET /v1/routing/{slug}`), including ordered candidate tiers, weights, request-trait rules, and current revision.
-- `preview_pool` — Dry-run candidate selection (`POST /v1/routing/preview`) against sample request traits (`modality`, `thinking`, `tool_calls`, `structured_output`, `max_context_tokens`) without saving or invoking a model.
-- `set_pool` — Create or update a workspace routing policy (`PUT /v1/routing/{slug}`) with revision-checked optimistic concurrency (`expected_revision`). Callable in inference as `pool/<slug>`.
-- `get_pool_history` & `get_pool_selections` — Inspect immutable policy revision history (`GET /v1/routing/{slug}/history`) and the latest 100 recorded routing selections (`GET /v1/routing/{slug}/selections`). See the [workspace routing contract](/docs/pools.md).
+- `list_pools` & `get_pool` — List workspace routing policies (`GET /v1/routing`, optional `after` cursor) or read a specific policy (`GET /v1/routing/{slug}`), including ordered candidate tiers, weights, request-trait rules, strategy, and current revision.
+- `preview_pool` — Dry-run candidate selection (`POST /v1/routing/preview`) with `{ configuration, context? }`, where optional `context` requires `protocol` (`chat`, `responses`, `messages`, `embeddings`, `generate_content`) and accepts optional `streaming`, `vision`, `tools`, `structured_output`, `reasoning`, `embedding_dimensions`, `embedding_base64`, `estimated_input_tokens`, `requested_output_tokens`, `task`, and `stage` — without saving or invoking a model (or calling an Auto decider).
+- `set_pool` — Create or update a workspace routing policy (`PUT /v1/routing/{slug}`) with `{ configuration }`, using optimistic concurrency via `configuration.revision` (`0` creates; updates supply the current saved revision). Callable in inference as `pool/<slug>`.
+- `get_pool_history` & `get_pool_selections` — Inspect immutable policy revision history (`GET /v1/routing/{slug}/history`) and the latest 100 recorded routing selections (`GET /v1/routing/{slug}/selections`). See the [workspace routing contract](/docs/routing.md).
 
 ### Task evaluations (`evaluations:read` / `evaluations:write`)
 - `fingerprint_evaluation_request` — Compute a canonical v1 request fingerprint (`POST /v1/evaluations/fingerprint`) without invoking a model or storing raw prompts.
@@ -104,7 +107,7 @@ Use `node` as the command and the **absolute path** to that checkout's `sdks/mcp
 - `list_evaluation_runs`, `record_evaluation_run`, `get_evaluation_run`, `compare_evaluation_runs` — Record immutable attributed evaluation receipts (`POST /v1/evaluations/{slug}/runs`) and compare matched sample acceptance, latency, and customer charges across runs (`GET /v1/evaluations/{slug}/compare`). See the [evaluation contract](/docs/evaluations.md).
 
 ### Workspace resource events (`events:read` / `events:write`)
-- `list_workspace_events` & `get_workspace_incident` — Poll the cursor-paged workspace event log (`GET /v1/events/log`) for `pool.changed`, `evaluation.recorded`, and `incident.opened` / `incident.resolved`, or inspect a workspace incident (`GET /v1/incidents/{slug}`).
+- `list_workspace_events` & `get_workspace_incident` — Poll the cursor-paged workspace event log (`GET /v1/events/log`) for `pool.changed`, `evaluation.recorded`, and `incident.opened` / `incident.resolved`, or inspect a workspace incident by reference (`GET /v1/incidents/{reference}`, matching `^incident-[0-9a-f]{32}$`).
 - `list_event_subscriptions`, `get_event_subscription`, `set_event_subscription`, `get_event_subscription_history` — Manage scoped webhook subscriptions (`GET|PUT /v1/events/{slug}`) with HMAC-SHA256 signing secrets.
 - `get_event_deliveries` & `test_event_subscription` — Inspect delivery attempts (`GET /v1/events/{slug}/deliveries`) or send a targeted synthetic verification event (`POST /v1/events/{slug}/test`). See the [resource event contract](/docs/events.md).
 
@@ -150,10 +153,10 @@ Use `node` as the command and the **absolute path** to that checkout's `sdks/mcp
 
 对于任意编程智能体（包括 Claude Code、Codex、DeepSeek Harness、Cursor、Windsurf 或 Zed），建议优先遵循[机器可读安装规范](/docs/install.md)，通过通用 `/connect` 浏览器设备授权或原生宿主扩展包完成接入（其中模型调用权限默认关闭，管理权限范围可按需勾选）。
 
-`v0.3.1` 候选尚未发布。确认该版本及完整性元数据已发布后，可通过 npm 安装来自 [Niu v0.3.1](https://github.com/niu-io/niu/releases/tag/v0.3.1) 的软件包产物：
+验证来自 [Niu v0.3.2](https://github.com/niu-io/niu/releases/tag/v0.3.2) 的发布版本标识（`SHA256SUMS` 与 `SOURCE_COMMIT`）后，可通过 npm 安装独立 MCP 软件包：
 
 ```sh
-npm install --global https://github.com/niu-io/niu/releases/download/v0.3.1/niu-io-mcp-0.1.0.tgz
+npm install --global https://github.com/niu-io/niu/releases/download/v0.3.2/niu-io-mcp-0.3.2.tgz
 ```
 
 在智能体的 MCP 配置中将命令设置为 `niu-mcp`。它可以从你的应用程序工作区直接启动。如果编辑器未继承你终端 Shell 的 `PATH`，请将该命令替换为 `command -v niu-mcp` 返回的可执行文件绝对路径；JSON 配置文件不会展开 Shell 变量或 `~`。请勿使用相对于 Niu 代码仓库的相对路径。
@@ -211,12 +214,15 @@ pnpm --dir sdks/mcp build
 
 ### 环境变量选项
 
-- `NIU_API_KEY`（必填）：工作空间 API 密钥（或当同时设置了 `NIU_KEY_ID` 时的控制台会话令牌）。
-- `NIU_BASE_URL`（未使用 `--hosted` 时必填）：网关 `/v1` 基础 URL。
+- `NIU_API_KEY`（使用 `/connect` 凭证文件时可选；否则必填）：工作空间 API 密钥（或当同时设置了 `NIU_KEY_ID` 时的控制台会话令牌）。省略时，`niu-mcp` 会从 `NIU_CREDENTIAL_FILE`（默认 `~/.config/niu/credential.json`）读取 `0600` 凭证文件。
+- `NIU_CREDENTIAL_FILE`（可选）：由 `/connect` 或 `niu-login` 写入的仅所有者可读（`0600`）JSON 凭证文件路径（默认 `~/.config/niu/credential.json`），在未设置 `NIU_API_KEY` 时生效。
+- `NIU_BASE_URL`（未使用 `--hosted` 且未加载已保存凭证文件时必填）：网关 `/v1` 基础 URL。使用凭证文件时可省略，若设置则必须与 `{origin}{base_path}/v1` 一致。
 - `NIU_KEY_ID`（可选）：作为 `X-Niu-Key-Id` 发送的工作空间密钥标准 UUID。
 - `NIU_CREDENTIAL_HEADER`（可选）：`authorization`（默认）或 `x-niu-api-key`。
 - `NIU_LOG_PAYLOADS`（可选）：设为 `false` 可默认退出 24 小时请求/响应载荷采集（即发送 `x-niu-log-payloads: false`），或设为 `true`。单次工具调用也可以单独传入 `log_payloads`。
 - `NIU_TASK_ID`（可选）：默认的 `X-Niu-Task-ID` 关联标签（1–200 个可打印 ASCII 字符），用于在工作空间活动记录中对智能体请求进行分组。
+- `NIU_EVENT_SECRET_DIR`（可选）：仅当前用户私有（`0700`）的目录，供 `set_event_subscription` 在创建或轮换订阅时保存一次性 Webhook 签名密钥（`niu_whsec_...`，默认 `~/.config/niu/events`），且必须位于代码仓库外部。
+- `NIU_MCP_OUTPUT_DIR`（可选）：允许 `download_video_result` 保存二进制媒体文件的根目录（默认当前工作目录）。超出该目录范围或扩展名不受支持的路径将被拒绝。
 
 ## 工具列表（Tools）
 
@@ -227,10 +233,10 @@ pnpm --dir sdks/mcp build
 - `get_generation` — 使用推理调用返回的 `attempt_id` 读取 `GET /v1/generations/{id}`，查看 Token 细分（缓存命中输入、缓存写入、推理思考输出）、各阶段延迟耗时、`output_guardrail_outcome`（输出护栏结果）以及已结算的 `customer_charge`（客户费用）。
 
 ### 工作空间路由策略（`pools:read` / `pools:write`）
-- `list_pools` 与 `get_pool` — 列出工作空间路由策略（`GET /v1/routing`）或读取指定策略（`GET /v1/routing/{slug}`），包含候选模型优先级分层、权重、请求特征匹配规则及当前修订版本号。
-- `preview_pool` — 针对样本请求特征（`modality`、`thinking`、`tool_calls`、`structured_output`、`max_context_tokens`）预演候选模型命中分布（`POST /v1/routing/preview`），不保存配置且不发起真实推理。
-- `set_pool` — 创建或更新工作空间路由策略（`PUT /v1/routing/{slug}`），采用基于 `expected_revision` 的乐观并发控制。推理调用时可通过 `pool/<slug>` 直接引用。
-- `get_pool_history` 与 `get_pool_selections` — 查看不可变的策略修订历史（`GET /v1/routing/{slug}/history`）以及最近 100 条路由命中记录（`GET /v1/routing/{slug}/selections`）。详见[工作空间路由规范](/docs/pools.md)。
+- `list_pools` 与 `get_pool` — 列出工作空间路由策略（`GET /v1/routing`，可选 `after` 游标）或读取指定策略（`GET /v1/routing/{slug}`），包含候选模型优先级分层、权重、请求特征匹配规则、调度策略及当前修订版本号。
+- `preview_pool` — 使用 `{ configuration, context? }` 预演候选模型命中分布（`POST /v1/routing/preview`），其中可选的 `context` 必须提供 `protocol`（`chat`、`responses`、`messages`、`embeddings`、`generate_content`），并支持可选的 `streaming`、`vision`、`tools`、`structured_output`、`reasoning`、`embedding_dimensions`、`embedding_base64`、`estimated_input_tokens`、`requested_output_tokens`、`task` 与 `stage`；不保存配置、不发起真实推理，也不调用 Auto 决策模型。
+- `set_pool` — 通过 `{ configuration }` 创建或更新工作空间路由策略（`PUT /v1/routing/{slug}`），采用基于 `configuration.revision` 的乐观并发控制（`0` 表示新建，更新时传入当前已保存的修订版本号）。推理调用时可通过 `pool/<slug>` 直接引用。
+- `get_pool_history` 与 `get_pool_selections` — 查看不可变的策略修订历史（`GET /v1/routing/{slug}/history`）以及最近 100 条路由命中记录（`GET /v1/routing/{slug}/selections`）。详见[工作空间路由规范](/docs/routing.md)。
 
 ### 任务评估（`evaluations:read` / `evaluations:write`）
 - `fingerprint_evaluation_request` — 计算规范化的 v1 请求指纹（`POST /v1/evaluations/fingerprint`），不调用模型且不保存原始提示词文本。
@@ -239,7 +245,7 @@ pnpm --dir sdks/mcp build
 - `list_evaluation_runs`、`record_evaluation_run`、`get_evaluation_run`、`compare_evaluation_runs` — 记录带归属信息的不可变评估回执（`POST /v1/evaluations/{slug}/runs`），并跨评估运行对比相同样本的合格率、延迟与客户计费（`GET /v1/evaluations/{slug}/compare`）。详见[任务评估规范](/docs/evaluations.md)。
 
 ### 工作空间资源事件（`events:read` / `events:write`）
-- `list_workspace_events` 与 `get_workspace_incident` — 轮询基于游标分页的工作空间事件日志（`GET /v1/events/log`），支持 `pool.changed`、`evaluation.recorded` 与 `incident.opened` / `incident.resolved`，或查看工作空间故障详情（`GET /v1/incidents/{slug}`）。
+- `list_workspace_events` 与 `get_workspace_incident` — 轮询基于游标分页的工作空间事件日志（`GET /v1/events/log`），支持 `pool.changed`、`evaluation.recorded` 与 `incident.opened` / `incident.resolved`，或按故障引用查看工作空间故障详情（`GET /v1/incidents/{reference}`，匹配 `^incident-[0-9a-f]{32}$`）。
 - `list_event_subscriptions`、`get_event_subscription`、`set_event_subscription`、`get_event_subscription_history` — 管理带 HMAC-SHA256 签名密钥的作用域 Webhook 订阅（`GET|PUT /v1/events/{slug}`）。
 - `get_event_deliveries` 与 `test_event_subscription` — 检查投递尝试记录（`GET /v1/events/{slug}/deliveries`）或发送定向合成测试事件（`POST /v1/events/{slug}/test`）。详见[资源事件规范](/docs/events.md)。
 

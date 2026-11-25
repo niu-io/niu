@@ -59,8 +59,8 @@ test('source generation preserves exact declarations, resolves OpenAPI refs, and
    assert.match(logout,/--cookie/);
    assert.doesNotMatch(logout,/-H "Authorization:/);
    assert.equal(spec.paths['/v1/chat/completions'].post.tags[0], 'Chat completions');
-   assert.equal(spec.paths['/api/v1/platform/customer-accounts'], undefined);
-   assert.equal(spec.paths['/api/v1/vendors'], undefined);
+   assert.equal(spec.paths['/api/v1/admin/customers'], undefined);
+   assert.equal(spec.paths['/api/v1/admin/providers/connections'], undefined);
    assert.equal(spec.paths['/api/v1/organizations/{organization}/projects/{project}/accounts'], undefined);
    assert.equal(spec.paths['/api/v1/organizations/{organization}/projects/{project}/budget'], undefined);
    assert.equal(spec.paths['/api/v1/organizations/{organization}/projects/{project}/costs'], undefined);
@@ -77,7 +77,7 @@ test('source generation preserves exact declarations, resolves OpenAPI refs, and
      }
    }
    const platformView = JSON.parse(readFileSync(join(directory, 'contracts/generated/views/platform-provider-openapi.json'), 'utf8'));
-   assert.equal(platformView.paths['/api/v1/platform/customer-accounts'].get.tags[0], 'Customer balances');
+   assert.equal(platformView.paths['/api/v1/admin/customers'].get.tags[0], 'Customer balances');
    const tags = new Set(spec.tags.map(tag => tag.name));
    for (const item of Object.values(spec.paths)) for (const [method, operation] of Object.entries(item)) {
      if (!['get','post','put','patch','delete','head','options'].includes(method)) continue;
@@ -158,28 +158,23 @@ test('curl query examples encode alias values without changing a POST body or me
   }
 });
 
-test('workspace aliases preserve payload contracts and require qualified session identities', () => {
- const spec = JSON.parse(readFileSync(fileURLToPath(new URL('../../../contracts/generated/handler-operations.json', import.meta.url)), 'utf8'));
- const aliases = JSON.parse(readFileSync(fileURLToPath(new URL('../../../contracts/route-aliases.json', import.meta.url)), 'utf8'));
- for (const {source, target} of aliases) {
-   for (const [method, original] of Object.entries(spec.paths[source])) {
-     const operation = spec.paths[target][method];
-     assert.ok(operation);
-     assert.notEqual(operation.operationId, original.operationId);
-     assert.equal(operation['x-niu-compatibility-route'], source);
-     assert.deepEqual(operation.requestBody, original.requestBody);
-     for (const [status, response] of Object.entries(original.responses)) {
-       assert.deepEqual(operation.responses[status], response);
-     }
-     assert.ok(operation.parameters.some(p => p.in === 'path' && p.name === 'workspace'));
-     assert.ok(!operation.parameters.some(p => p.name === 'organization' || p.name === 'project'));
-     if (target.includes('/sessions')) {
-       const category = operation.parameters.find(p => p.name === 'category');
-       assert.equal(category.required, true);
-       assert.deepEqual(category.schema.enum, method === 'get' ? ['video','chat'] : ['video']);
-     }
-   }
- }
+test('workspace routes have no legacy /projects paths and require qualified session identities', () => {
+  const spec = JSON.parse(readFileSync(fileURLToPath(new URL('../../../contracts/generated/handler-operations.json', import.meta.url)), 'utf8'));
+  for (const [route, item] of Object.entries(spec.paths)) {
+    assert.ok(!route.includes('/projects'), `legacy /projects route remained: ${route}`);
+    for (const [method, operation] of Object.entries(item)) {
+      if (route.startsWith('/api/v1/workspaces/{workspace}/')) {
+        assert.ok(operation.parameters.some(p => p.in === 'path' && p.name === 'workspace'), `${method} ${route} missing workspace param`);
+        assert.ok(!operation.parameters.some(p => p.name === 'organization' || p.name === 'project'), `${method} ${route} still has organization/project param`);
+      }
+      if (route.includes('/workspaces/{workspace}/sessions')) {
+        const category = operation.parameters.find(p => p.name === 'category');
+        assert.ok(category, `${method} ${route} missing category param`);
+        assert.equal(category.required, true);
+        assert.deepEqual(category.schema.enum, method === 'get' ? ['video', 'chat'] : ['video']);
+      }
+    }
+  }
 });
 
 test('workspace routing documentation distinguishes delegated read, preview and mutation authority', async () => {
@@ -218,4 +213,22 @@ test('human management review requires member Read rather than delegated inferen
     assert.equal(authority.required_capability,'read');
     assert.equal(authority.scope,'workspace');
   }
+});
+
+test('docs API explorer stays native inside the unified Starlight shell with zero Scalar CSS pollution', () => {
+  const docsRoot = fileURLToPath(new URL('..', import.meta.url));
+  const pkg = JSON.parse(readFileSync(join(docsRoot, 'package.json'), 'utf8'));
+  const allDeps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
+  for (const dep of Object.keys(allDeps)) {
+    assert.ok(!dep.startsWith('@scalar/'), `Unexpected Scalar dependency in apps/docs/package.json: ${dep}`);
+  }
+  const styles = readFileSync(join(docsRoot, 'src/styles.css'), 'utf8');
+  assert.doesNotMatch(styles, /\.sidebar-pane\s*\{\s*display:\s*none/, 'Docs CSS must never hide .sidebar-pane on subroutes');
+  assert.doesNotMatch(styles, /docs-api-explorer/, 'Legacy Scalar docs-api-explorer shell override must remain removed');
+  assert.doesNotMatch(styles, /:root\[data-has-sidebar\]\s+\.header\b/, 'Sidebar header offset must target header.header so Expressive Code figcaption.header is never shifted');
+  const explorerMdx = readFileSync(join(docsRoot, 'src/content/docs/api/explorer.mdx'), 'utf8');
+  assert.match(explorerMdx, /ApiExplorer/, 'explorer.mdx must mount native ApiExplorer');
+  assert.doesNotMatch(explorerMdx, /scalar|ApiReference/i, 'explorer.mdx must not mount Scalar ApiReference');
+  const markdownContent = readFileSync(join(docsRoot, 'src/components/MarkdownContent.astro'), 'utf8');
+  assert.match(markdownContent, /OperationTryIt/, 'REST operation pages must mount native OperationTryIt');
 });

@@ -1,11 +1,11 @@
 ---
 title: "Retire a Provider API-key connection without deleting history"
-description: "POST /api/v1/vendors/{id}/retire"
+description: "POST /api/v1/admin/providers/connections/{id}/retire"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`POST /api/v1/vendors/{id}/retire`
+`POST /api/v1/admin/providers/connections/{id}/retire`
 
 Platform administration required. Disables the connection and every model binding, erases the stored credential and appends an immutable retirement audit event. Existing offers, requests, earnings, incidents and audit history are retained; in-flight attempts keep their pinned configuration, while new dispatch is blocked. Idempotent for an already retired connection. Not a hard delete.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/vendors/{id}/retire" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/retire" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

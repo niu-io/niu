@@ -7,7 +7,7 @@ import { useDashboardContext } from '@/shell/dashboard-context';
 export function clientLoader(args: LoaderFunctionArgs) {
   return loadCriticalRouteEndpoint(args, ({ workspace }) => ({
     endpoint: workspace
-      ? `/api/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/requests?limit=100`
+      ? `/api/v1/workspaces/${workspace.id}/requests?limit=100`
       : null,
   }));
 }
@@ -26,6 +26,7 @@ export default function ExecutionsRoute() {
       models={models.map(model => model.id)}
       initialScope={scope}
       preferredModelAlias={params.get('modelAlias') ?? undefined}
+      activeKeyCount={workspace?.active_key_count}
     />}
   </ConnectGate>;
 }

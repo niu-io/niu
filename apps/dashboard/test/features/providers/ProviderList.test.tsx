@@ -13,9 +13,9 @@ beforeEach(() => {
 it('keeps the connection dialog and saved key recovery visible when discovery fails during a directory refresh', async () => {
   let writes = 0;
   vi.mocked(request).mockImplementation(async (_token, path, method = 'GET') => {
-    if (path === '/api/v1/providers/presets') return {data:[{id:'babelark',name:'BabelArk',protocol:'openai',api_base:'https://api.babelark.ai/v1',website:'https://api.babelark.ai'}]};
-    if (path === '/api/v1/providers') return {data:[]};
-    if (path === '/api/v1/vendors' && method === 'POST') { writes++; return {data:{id:'saved-key',revision:1}}; }
+    if (path === '/api/v1/admin/providers/presets') return {data:[{id:'babelark',name:'BabelArk',protocol:'openai',api_base:'https://api.babelark.ai/v1',website:'https://api.babelark.ai'}]};
+    if (path === '/api/v1/admin/providers') return {data:[]};
+    if (path === '/api/v1/admin/providers/connections' && method === 'POST') { writes++; return {data:{id:'saved-key',revision:1}}; }
     if (path.endsWith('/supplier')) return {data:{id:'provider'}};
     if (path.endsWith('/integration')) return {data:{effective_type:'babelark',revision:0}};
     if (path.endsWith('/import')) throw new ProviderRequestError('Catalog unavailable.', 502);
@@ -37,7 +37,7 @@ it('opens the newly created Provider directly without refreshing the directory',
   vi.mocked(request).mockImplementation(async (_token, _path, method = 'GET') => method === 'POST' ? { data: { id: 'new-provider' } } : { data: [] });
   const router = createMemoryRouter([
     { path: '/admin/providers', element: <ProviderList /> },
-    { path: '/admin/providers/:providerId', element: <h1>New Provider overview</h1> },
+    { path: '/admin/providers/:providerId', element: <h1>New Provider configuration</h1> },
   ], { initialEntries: ['/admin/providers'] });
   render(<RouterProvider router={router} />);
   const user = userEvent.setup();
@@ -45,7 +45,7 @@ it('opens the newly created Provider directly without refreshing the directory',
   await user.click(screen.getByRole('button', { name: 'Add Provider' }));
   await user.type(screen.getByLabelText('Provider name'), 'New Provider');
   await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add Provider' }));
-  await screen.findByRole('heading', { name: 'New Provider overview' });
+  await screen.findByRole('heading', { name: 'New Provider configuration' });
   expect(router.state.location.pathname).toBe('/admin/providers/new-provider');
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(vi.mocked(request).mock.calls.filter(([, , method]) => method === 'POST')).toHaveLength(1);
@@ -147,7 +147,7 @@ it('explains why a populated provider cannot be deleted before submission', asyn
   await user.click(await screen.findByRole('button', { name: 'Actions for Active provider' }));
   await user.click(screen.getByRole('menuitem', { name: 'Delete Provider' }));
   const dialog = screen.getByRole('dialog');
-  expect(within(dialog).getByText(/has API keys, models, or members and cannot be deleted/)).toBeTruthy();
+  expect(within(dialog).getByText(/has API keys or models and cannot be deleted/)).toBeTruthy();
   expect((within(dialog).getByRole('button', { name: 'Delete Provider' }) as HTMLButtonElement).disabled).toBe(true);
 });
 
@@ -161,8 +161,8 @@ it.each(['transport','server','timeout'])('reconciles uncertain Provider creatio
       if (failure==='transport') throw new TypeError('Connection lost');
       throw new ProviderRequestError('Unavailable',failure==='timeout'?408:503);
     }
-    if(path==='/api/v1/providers/presets') return {data:[]};
-    expect(path).toBe('/api/v1/providers');
+    if(path==='/api/v1/admin/providers/presets') return {data:[]};
+    expect(path).toBe('/api/v1/admin/providers');
     return {data:saved?[{id:'created',name:'Saved business',members:0,api_keys:0,models:0}]:[]};
   });
   const user=userEvent.setup();
@@ -223,8 +223,10 @@ it('shows saved logos and default fallbacks without a redundant configuration st
 it('derives commercial supply readiness only from explicitly authorized active offers', async () => {
   const { supplierAvailability } = await import('@/features/providers/provider-setup');
   const configured = { api_keys: 1, enabled_api_keys: 1, models: 2, enabled_model_routes: 2, offers: 1, ready_offers: 0 };
-  expect(supplierAvailability({ ...configured }).label).toBe('Not ready');
-  expect(supplierAvailability({ ...configured, ready_offers: 1 }).label).toBe('Ready to supply');
+  expect(supplierAvailability({ ...configured }).label).toBe('No models active');
+  expect(supplierAvailability({ ...configured }).action).toBe('Configure');
+  expect(supplierAvailability({ ...configured, ready_offers: 1 }).label).toBe('Ready');
+  expect(supplierAvailability({ ...configured, ready_offers: 1 }).action).toBe('Configure');
   expect(supplierAvailability({ ...configured, ready_offers: undefined }).label).toBe('Status unavailable');
 });
 
@@ -235,14 +237,14 @@ it('refreshes missing readiness data instead of sending users to edit offers', a
   await screen.findByText('Status unavailable');
   vi.mocked(request).mockResolvedValue({ data: [{ id: 'supplier', name: 'Provider', api_keys: 1, models: 2, enabled_api_keys: 1, enabled_model_routes: 2, offers: 2, ready_offers: 0 }] });
   await userEvent.setup().click(screen.getAllByRole('button', { name: 'Refresh status' })[0]);
-  await screen.findByText('Not ready');
+  await screen.findByText('No models active');
   expect(screen.queryByText('Status unavailable')).toBeNull();
 });
 
 it('does not require commercial authorization for administrator-managed internal models', async () => {
   const { providerAvailability } = await import('@/features/providers/provider-setup');
-  expect(providerAvailability({api_keys:1,internal_api_keys:1,internal_model_routes:2})).toMatchObject({label:'Models configured',section:'models',usable:false});
-  expect(providerAvailability({api_keys:1,internal_api_keys:1,internal_model_routes:0})).toMatchObject({label:'API key saved',action:'Import models',section:'models'});
+  expect(providerAvailability({api_keys:1,internal_api_keys:1,internal_model_routes:2})).toMatchObject({label:'Models configured',section:'config',usable:false});
+  expect(providerAvailability({api_keys:1,internal_api_keys:1,internal_model_routes:0})).toMatchObject({label:'API key saved',action:'Configure',section:'config'});
 });
 
 it('uses backend connection instructions rather than a bundled endpoint list', async () => {
@@ -263,7 +265,7 @@ it('presents Provider identity and actions without exposing preset endpoints in 
   expect(await screen.findByRole('button', { name: 'Connect DeepSeek' })).toBeTruthy();
   expect(screen.queryByText('https://api.deepseek.com/v1')).toBeNull();
   expect(screen.queryByRole('table')).toBeNull();
-  expect(screen.getByRole('link', { name: 'Manage models' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Configure' })).toBeTruthy();
 });
 
 it('shows configured Providers once and excludes them from available presets', async () => {
@@ -280,4 +282,63 @@ it('shows configured Providers once and excludes them from available presets', a
   expect(openLink.getAttribute('href')).toBe('/admin/providers/openrouter');
   expect(within(availableList).queryByRole('button', { name: 'Connect OpenRouter' })).toBeNull();
   expect(within(availableList).getByRole('button', { name: 'Connect DeepSeek' })).toBeTruthy();
+});
+
+it('shows Pending setup + API key not configured when no API key is configured (including erased/empty connection rows), and reserves API keys disabled for configured disabled keys', async () => {
+  const { providerAvailability } = await import('@/features/providers/provider-setup');
+  expect(providerAvailability({ api_keys: 0, configured_api_keys: 0, enabled_api_keys: 0, models: 0, ready_offers: 0 })).toMatchObject({
+    label: 'Pending setup',
+    detail: 'API key not configured.',
+    action: 'Configure API key',
+    usable: false,
+  });
+  expect(providerAvailability({ api_keys: 1, configured_api_keys: 0, enabled_api_keys: 0, models: 0, ready_offers: 0 })).toMatchObject({
+    label: 'Pending setup',
+    detail: 'API key not configured.',
+    action: 'Configure API key',
+    usable: false,
+  });
+  expect(providerAvailability({ api_keys: 1, configured_api_keys: 1, enabled_api_keys: 0, models: 4, ready_offers: 0 })).toMatchObject({
+    label: 'API keys disabled',
+    detail: 'All configured API keys are disabled.',
+    action: 'Enable API key',
+    usable: false,
+  });
+  expect(providerAvailability({ api_keys: 1, configured_api_keys: 1, enabled_api_keys: 1, models: 0, ready_offers: 0 })).toMatchObject({
+    label: 'Pending setup',
+    detail: 'No models imported yet.',
+    action: 'Configure',
+    usable: false,
+  });
+  expect(providerAvailability({ api_keys: 1, configured_api_keys: 1, enabled_api_keys: 1, models: 4, offers: 0, ready_offers: 0 })).toMatchObject({
+    label: 'Pending setup',
+    detail: 'Model pricing not configured.',
+    action: 'Configure',
+    usable: false,
+  });
+
+  vi.mocked(request).mockImplementation(async (_token, path) => ({
+    data: path.endsWith('/presets')
+      ? []
+      : [
+          {
+            id: 'prov-babelark',
+            slug: 'babelark',
+            name: 'BabelArk',
+            members: 0,
+            api_keys: 1,
+            configured_api_keys: 0,
+            enabled_api_keys: 0,
+            models: 0,
+            offers: 0,
+            ready_offers: 0,
+          },
+        ],
+  }));
+  render(<MemoryRouter><ProviderList /></MemoryRouter>);
+  const babelarkRow = (await screen.findByRole('link', { name: 'BabelArk' })).closest('li')!;
+  expect(within(babelarkRow).getByText('Pending setup')).toBeTruthy();
+  expect(within(babelarkRow).getByText('API key not configured.')).toBeTruthy();
+  expect(within(babelarkRow).getByRole('link', { name: 'Configure API key' })).toBeTruthy();
+  expect(within(babelarkRow).queryByText(/disabled/i)).toBeNull();
 });

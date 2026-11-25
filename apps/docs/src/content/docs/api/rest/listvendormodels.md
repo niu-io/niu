@@ -1,11 +1,11 @@
 ---
 title: "List model bindings for one Provider API-key configuration"
-description: "GET /api/v1/vendors/{id}/models"
+description: "GET /api/v1/admin/providers/connections/{id}/models"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/vendors/{id}/models`
+`GET /api/v1/admin/providers/connections/{id}/models`
 
 Management reads include route eligibility in available, an owner_funded flag and the effective access_scope. Owner-funded routes use their funding account and are excluded from shared commercial supply and customer tariffs; personal scope restricts them to that account, while internal scope shares them with every organization on an Internal-use installation. Internal-scope and commercial routes honor their explicit public_catalog publication flag; personal routes remain private. Available does not establish upstream entitlement, service quality or commercial qualification. Requires installation administration or an explicitly granted platform administrator. These platform-only route prices are procurement configuration, not customer selling tariffs.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/vendors/{id}/models" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/models" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

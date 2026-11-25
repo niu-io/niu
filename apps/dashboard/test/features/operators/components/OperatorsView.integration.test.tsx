@@ -59,13 +59,13 @@ function stubOperatorApi(options: {
     if (path === '/api/v1/organizations' && method === 'GET') {
       return jsonResponse({ data: [organization] });
     }
-    if (path === '/api/v1/organizations/org-1/projects' && method === 'GET') {
+    if (path === '/api/v1/workspaces?organization_id=org-1' && method === 'GET') {
       return jsonResponse({ data: [project] });
     }
-    if (path.split('?')[0] === '/api/v1/operators' && method === 'GET') {
+    if (path.split('?')[0] === '/api/v1/members' && method === 'GET') {
       return jsonResponse({ data: operators });
     }
-    if (path.startsWith('/api/v1/operators/') && path.endsWith('/sessions') && method === 'GET') {
+    if (path.startsWith('/api/v1/members/') && path.endsWith('/sessions') && method === 'GET') {
       const id = path.split('/')[4];
       return jsonResponse({ data: sessions.get(id) ?? [] });
     }
@@ -138,7 +138,7 @@ function stubOperatorApi(options: {
       if (target) target.status = 'canceled';
       return new Response(null, { status: 204 });
     }
-    if (path === '/api/v1/operators' && method === 'POST') {
+    if (path === '/api/v1/members' && method === 'POST') {
       const created = {
         ...operator('operator-new', String((body as { name: string }).name)),
         role: (body as { role: 'owner' | 'admin' | 'viewer' }).role,
@@ -197,7 +197,7 @@ describe('operator administration workflow', () => {
     await screen.findByRole('alert');
     expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('reviewer@example.test');
     expect((screen.getByRole('button',{name:'Create invitation'}) as HTMLButtonElement).disabled).toBe(false);
-    expect(api.calls.some(call => call.path === '/api/v1/operators' && call.method === 'POST')).toBe(false);
+    expect(api.calls.some(call => call.path === '/api/v1/members' && call.method === 'POST')).toBe(false);
   });
 
   it('uses the opened workspace for invitation scope and shows a copyable one-time link without claiming email delivery', async () => {
@@ -223,7 +223,7 @@ describe('operator administration workflow', () => {
       project_id: project.id,
       expires_in_seconds: 7 * 86400,
     });
-    expect(api.calls.some(call => call.path === '/api/v1/operators' && call.method === 'POST')).toBe(false);
+    expect(api.calls.some(call => call.path === '/api/v1/members' && call.method === 'POST')).toBe(false);
     expect(api.calls.some(call => call.path.includes('/sessions') && call.method === 'POST')).toBe(false);
   });
 
@@ -257,20 +257,23 @@ describe('operator administration workflow', () => {
     render(<OperatorsView token="owner-token" session={ownerSession} initialOrganization={organization.id} initialWorkspace={project.id} />);
 
     await user.click(await screen.findByRole('button', { name: 'Avery', exact: true }));
+    expect(screen.queryByLabelText('Expires in')).toBeNull();
     await user.click(await screen.findByRole('button', { name: 'Create access token' }));
+    await user.click(await screen.findByRole('button', { name: 'Issue access token' }));
     expect((await screen.findByLabelText('Access token') as HTMLInputElement).value).toBe('niu_once_session_operator-a');
-    expect(api.calls.some(call => call.path === '/api/v1/operators/operator-a/sessions' && call.method === 'POST')).toBe(true);
+    expect(api.calls.some(call => call.path === '/api/v1/members/operator-a/sessions' && call.method === 'POST')).toBe(true);
 
-    await user.click(screen.getByRole('button', { name: 'Close', exact: true }));
+    await user.click(screen.getByRole('button', { name: 'Back to members', exact: true }));
     await user.click(screen.getByRole('button', { name: 'Morgan', exact: true }));
     await waitFor(() => expect(screen.queryByDisplayValue('niu_once_session_operator-a')).toBeNull());
     expect(screen.getByRole('heading', { name: 'Morgan' })).toBeTruthy();
-    expect(api.calls.some(call => call.path === '/api/v1/operators/operator-b/sessions' && call.method === 'POST')).toBe(false);
+    expect(api.calls.some(call => call.path === '/api/v1/members/operator-b/sessions' && call.method === 'POST')).toBe(false);
 
     await user.click(screen.getByRole('button', { name: 'Create access token' }));
+    await user.click(await screen.findByRole('button', { name: 'Issue access token' }));
     expect((await screen.findByLabelText('Access token') as HTMLInputElement).value).toBe('niu_once_session_operator-b');
-    expect(api.calls.some(call => call.path === '/api/v1/operators/operator-b/sessions' && call.method === 'POST')).toBe(true);
-    expect(api.calls.some(call => call.path === '/api/v1/operators/sessions' && call.method === 'POST')).toBe(false);
+    expect(api.calls.some(call => call.path === '/api/v1/members/operator-b/sessions' && call.method === 'POST')).toBe(true);
+    expect(api.calls.some(call => call.path === '/api/v1/members/sessions' && call.method === 'POST')).toBe(false);
   });
 
   it('keeps the list simple and requires confirmation before revoking organization-wide access', async () => {
@@ -289,7 +292,7 @@ describe('operator administration workflow', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Revoke access' }));
     await user.click(screen.getByRole('button', { name: 'Revoke access' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(api.calls.some(call => call.path === '/api/v1/operators/operator-a' && call.method === 'DELETE')).toBe(true);
+    expect(api.calls.some(call => call.path === '/api/v1/members/operator-a' && call.method === 'DELETE')).toBe(true);
     expect(screen.getAllByText('Revoked').length).toBeGreaterThan(0);
   });
 
@@ -302,7 +305,7 @@ describe('operator administration workflow', () => {
     expect(await screen.findByText('User added')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Load older' }));
     expect(await screen.findByText('Access token created')).toBeTruthy();
-    expect(api.calls.some(call => call.path === '/api/v1/operators/operator-a/events?limit=50&cursor=event-cursor')).toBe(true);
+    expect(api.calls.some(call => call.path === '/api/v1/members/operator-a/events?limit=50&cursor=event-cursor')).toBe(true);
   });
 
   it('discards an older activity page that resolves after the selected operator changes', async () => {
@@ -322,7 +325,7 @@ describe('operator administration workflow', () => {
     await user.click(screen.getByRole('button', { name: 'Load older' }));
     await waitFor(() => expect(api.calls.some(call => call.path.includes('cursor=event-cursor'))).toBe(true));
 
-    await user.click(screen.getByRole('button', { name: 'Close', exact: true }));
+    await user.click(screen.getByRole('button', { name: 'Back to members', exact: true }));
     await user.click(screen.getByRole('button', { name: 'Morgan', exact: true }));
     expect(await screen.findByRole('heading', { name: 'Morgan' })).toBeTruthy();
     expect(await screen.findByText('No activity recorded yet.')).toBeTruthy();

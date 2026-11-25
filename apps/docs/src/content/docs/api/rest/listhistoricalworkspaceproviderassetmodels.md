@@ -1,11 +1,11 @@
 ---
 title: "Discover saved native-operation model contexts"
-description: "GET /api/v1/organizations/{organization}/projects/{project}/media/asset-operation-models"
+description: "GET /api/v1/workspaces/{workspace}/media/asset-operation-models"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/organizations/{organization}/projects/{project}/media/asset-operation-models`
+`GET /api/v1/workspaces/{workspace}/media/asset-operation-models`
 
 Requires current workspace Read permission. Lists distinct recorded public model aliases for the original scoped key, including expired or revoked keys and deleted resources. Never consults current model grants, restores inference authority, selects a Provider account or calls upstream. Each alias may have several saved account bindings; it grants historical inspection only. Alias pagination is lexical and includes all recorded operation statuses.
 
@@ -28,25 +28,14 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/media/asset-operation-models" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/media/asset-operation-models" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   --url-query 'key_id=<KEY_ID>'
 ```
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.** Workspace under the legacy API field name.
 

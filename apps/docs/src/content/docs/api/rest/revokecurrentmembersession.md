@@ -3,7 +3,7 @@ title: "Sign out the member session supplied in Authorization"
 description: "POST /api/v1/auth/logout"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/auth/logout`
 

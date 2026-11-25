@@ -4,11 +4,13 @@ import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import { DialogFooter } from '@/components/ui/dialog';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconPlus as Plus } from "@tabler/icons-react";
+import { IconSearch } from "@tabler/icons-react";
 import { IconRefresh as RefreshCw } from "@tabler/icons-react";
 import { IconShieldCheck as ShieldCheck } from "@tabler/icons-react";
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import PageHeader from '@/components/PageHeader';
-import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import type { AdminSession } from '@/shell/dashboard-context';
 import {
   AdminRequestError,
@@ -49,10 +51,10 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   const lockedOrganization = session.kind === 'operator' ? session.operator?.organization_id ?? '' : '';
   const lockedProject = session.kind === 'operator' ? session.operator?.project_id ?? '' : '';
   const initialOrgs = canManage ? (peekCachedGet<{ data: NamedResource[] }>(token, '/api/v1/organizations')?.data ?? null) : null;
-  const initialOpsPage = canManage ? peekCachedGet<{ data: Operator[]; next_cursor?: string | null }>(token, '/api/v1/operators?limit=1000') : undefined;
+  const initialOpsPage = canManage ? peekCachedGet<{ data: Operator[]; next_cursor?: string | null }>(token, '/api/v1/members?limit=1000') : undefined;
   const initialOps = initialOpsPage && Array.isArray(initialOpsPage.data) && !initialOpsPage.next_cursor ? initialOpsPage.data : null;
   const initialOrgId = lockedOrganization || initialOrganization || initialOrgs?.[0]?.id || '';
-  const initialProjects = canManage && initialOrgId ? (peekCachedGet<{ data: NamedResource[] }>(token, '/api/v1/organizations/' + initialOrgId + '/projects')?.data ?? []) : [];
+  const initialProjects = canManage && initialOrgId ? (peekCachedGet<{ data: NamedResource[] }>(token, '/api/v1/workspaces?organization_id=' + encodeURIComponent(initialOrgId))?.data ?? []) : [];
   const [organizations, setOrganizations] = useState<NamedResource[]>(() => initialOrgs ?? []);
   const [projects, setProjects] = useState<NamedResource[]>(() => initialProjects);
   const [operators, setOperators] = useState<Operator[]>(() => initialOps ?? []);
@@ -69,6 +71,8 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   const [error, setError] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const createButtonRef = useRef<HTMLButtonElement>(null);
+  const [memberSearch, setMemberSearch] = useState('');
+  const memberSearchTrigger = useRef<HTMLButtonElement>(null);
   const createEmailRef = useRef<HTMLInputElement>(null);
   const [invitations, setInvitations] = useState<MemberInvitation[]>([]);
   const [invitationsLoading, setInvitationsLoading] = useState(false);
@@ -161,7 +165,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     setRoleRefreshError('');
     try {
       const result = nextRole
-        ? await request<{ data: Operator }>(token, '/api/v1/operators/' + selectedOperator.id, 'PATCH', { role: nextRole, expected_role: expectedRole }, controller.signal)
+        ? await request<{ data: Operator }>(token, '/api/v1/members/' + selectedOperator.id, 'PATCH', { role: nextRole, expected_role: expectedRole }, controller.signal)
         : await listOperators(token, organization, controller.signal);
       if (!current()) throw new DOMException('Role context changed.', 'AbortError');
       const saved = Array.isArray(result.data) ? result.data.find(item => item.id === context.operatorId) : result.data;
@@ -213,7 +217,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     try {
       const result = await request<{ data: OperatorAuditEvent[]; next_cursor: string | null }>(
         token,
-        '/api/v1/operators/' + operatorId + '/events' + query,
+        '/api/v1/members/' + operatorId + '/events' + query,
         'GET',
         undefined,
         requestSignal,
@@ -236,7 +240,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
         try {
           const firstPage = await request<{ data: OperatorAuditEvent[]; next_cursor: string | null }>(
             token,
-            '/api/v1/operators/' + operatorId + '/events?limit=50',
+            '/api/v1/members/' + operatorId + '/events?limit=50',
             'GET',
             undefined,
             requestSignal,
@@ -268,7 +272,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     }
     const controller = new AbortController();
     const hasSeed = Array.isArray(peekCachedGet<{ data: NamedResource[] }>(token, '/api/v1/organizations')?.data)
-      && Array.isArray(peekCachedGet<{ data: Operator[] }>(token, '/api/v1/operators?limit=1000')?.data);
+      && Array.isArray(peekCachedGet<{ data: Operator[] }>(token, '/api/v1/members?limit=1000')?.data);
     if (!hasSeed) setLoading(true);
     setError('');
     Promise.all([
@@ -299,7 +303,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
       return;
     }
     const controller = new AbortController();
-    const projectsPath = '/api/v1/organizations/' + organization + '/projects';
+    const projectsPath = '/api/v1/workspaces?organization_id=' + encodeURIComponent(organization);
     const cachedProjects = peekCachedGet<{ data: NamedResource[] }>(token, projectsPath)?.data;
     setProjects(Array.isArray(cachedProjects) ? cachedProjects : []);
     cachedGet<{ data: NamedResource[] }>(
@@ -361,7 +365,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     setSessionsLoading(true);
     request<{ data: OperatorSession[] }>(
       token,
-      '/api/v1/operators/' + selectedOperatorId + '/sessions',
+      '/api/v1/members/' + selectedOperatorId + '/sessions',
       'GET',
       undefined,
       controller.signal,
@@ -467,7 +471,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     void perform(async () => {
       const result = await request<IssuedSession>(
         token,
-        '/api/v1/operators/' + operatorId + '/sessions',
+        '/api/v1/members/' + operatorId + '/sessions',
         'POST',
         { expires_in_seconds: expiresInSeconds },
       );
@@ -480,7 +484,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
 
   function onRevokeOperator(operator: Operator) {
     void perform(async () => {
-      await request<void>(token, '/api/v1/operators/' + operator.id, 'DELETE');
+      await request<void>(token, '/api/v1/members/' + operator.id, 'DELETE');
       setOperators(previous => previous.map(item => item.id === operator.id ? { ...item, revoked: true } : item));
       setSessions(previous => previous.map(item => ({ ...item, revoked: true })));
       if (credential?.operatorId === operator.id) setCredential(null);
@@ -496,7 +500,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     void perform(async () => {
       await request<void>(
         token,
-        '/api/v1/operators/' + operatorId + '/sessions/' + sessionId,
+        '/api/v1/members/' + operatorId + '/sessions/' + sessionId,
         'DELETE',
       );
       setSessions(previous => previous.map(item => item.id === sessionId ? { ...item, revoked: true } : item));
@@ -532,14 +536,15 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     : uiT("This user has organization-wide access. Revoking it removes access to every workspace in the organization, not just this workspace.");
   const detailDescription = uiF("Access sessions for {0}. Revoke a session to end that connection.", [selectedOperator?.name ?? ""]);
   const cancelDescription = uiT('The one-time link will stop working immediately. The person can still be invited again later.', '一次性链接将立即失效。之后仍可重新邀请此人。');
-  const detailBody = <>{selectedOperator && canChangeRole && openedRoleContext !== roleContext && credential?.operatorId !== selectedOperator.id
-        ? (roleOpenError
-          ? <div className="space-y-3"><p role="alert">{uiT(roleOpenError)}</p><Button variant="outline" onClick={() => setRoleOpenRevision(value => value + 1)}>{uiT("Reload saved role")}</Button></div>
-          : <FormSectionSkeleton fields={2} label={uiT("Loading the saved role…")} />)
-        : selectedOperator && <OperatorDetails
+  const [detailInnerSubview, setDetailInnerSubview] = useState(false);
+  const rolePending = Boolean(selectedOperator && canChangeRole && openedRoleContext !== roleContext && credential?.operatorId !== selectedOperator.id);
+  const detailBody = <>{selectedOperator && <OperatorDetails
         key={[session.kind, session.operator?.id ?? '', organization, project, selectedOperator.id].join(':')}
         operator={selectedOperator}
         canChangeRole={canChangeRole}
+        roleOpening={rolePending && !roleOpenError}
+        roleOpenError={rolePending ? roleOpenError : ''}
+        onRetryRoleOpen={() => setRoleOpenRevision(value => value + 1)}
         roleRefreshError={roleRefreshError}
         onSaveRole={(role, expectedRole) => roleRequest(role, expectedRole)}
         onReloadRole={() => roleRequest()}
@@ -568,6 +573,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
             void loadAudit(selectedOperator.id, auditCursor, true, controller.signal, auditRevision.current);
           }
         }}
+        onSubviewChange={setDetailInnerSubview}
       />}</>;
   const revokeBody = <>{revokeTarget && (revokeTarget.role === 'owner' || (session.kind === 'operator' && revokeTarget.id === session.operator?.id)) && <p role="status" className="text-sm text-muted-foreground">
           {session.kind === 'operator' && revokeTarget.id === session.operator?.id ? uiT("This is your current account. Revoking your own access ends all your sessions immediately.") : null}
@@ -580,6 +586,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
           : <InviteMemberForm emailInputRef={createEmailRef} onCancel={closeMemberView} disabled={busy || loading || !organization} projects={projects} defaultProjectId={project || null} canChooseOrganizationScope={!lockedProject} onCreate={onCreateInvitation} />}</>;
 
   const actions = <div className="operator-page-actions">
+    <Popover><PopoverTrigger asChild><Button ref={memberSearchTrigger} type="button" variant="ghost" size="icon-sm" aria-label={uiT("Search members", "搜索成员")} title={uiT("Search members", "搜索成员")} className={memberSearch ? "text-primary bg-accent" : undefined}><IconSearch size={16} /></Button></PopoverTrigger><PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-2"><Input autoFocus type="search" aria-label={uiT("Search members", "搜索成员")} placeholder={uiT("Search members…", "搜索成员…")} value={memberSearch} onChange={event => setMemberSearch(event.target.value)} />{memberSearch && <Button variant="ghost" size="sm" onClick={() => setMemberSearch('')}>{uiT("Reset search")}</Button>}</PopoverContent></Popover>
     <Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh members", "刷新成员")} title={uiT("Refresh members", "刷新成员")} disabled={loading || busy} onClick={() => void perform(() => loadOperators())}><RefreshCw size={15} className={loading ? 'animate-spin' : undefined} /></Button>
     <Button ref={createButtonRef} type="button" className="header-icon-action" aria-label={uiT("Invite member", "邀请成员")} title={uiT("Invite member", "邀请成员")} disabled={loading || busy || !organization || Boolean(lockedProject && !project)} onClick={() => { returnTrigger.current = null; setIssuedInvitation(null); setCreateOpen(true); }}><Plus size={16} /><span>{uiT("Invite member", "邀请成员")}</span></Button>
   </div>;
@@ -598,6 +605,9 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
         loading={loading}
         disabled={busy}
         projectScope={Boolean(project)}
+        search={memberSearch}
+        onSearchChange={setMemberSearch}
+        searchTriggerRef={memberSearchTrigger}
         onSelect={(id, trigger) => {
           returnTrigger.current = null;
           detailTriggerRef.current = trigger ?? null;
@@ -625,11 +635,15 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     )}
     </div>
     {subview && <section className="space-y-5" aria-labelledby="member-subview-title">
-      <Button type="button" variant="ghost" size="sm" data-settings-member-back disabled={busy} onClick={closeMemberView}><ArrowLeft size={16} />{uiT('Back to members', '返回成员列表')}</Button>
-      <header className="space-y-2">
-        <h3 id="member-subview-title" ref={subviewHeading} tabIndex={-1} className="text-base font-semibold outline-none">{createOpen ? invitationTitle : revokeTarget ? revokeTitle : cancelInvitation ? `${uiT('Cancel invitation for', '取消此邀请：')} ${cancelInvitation.recipient_email}?` : uiT('Member access', '成员访问权限')}</h3>
-        <p className="text-sm text-muted-foreground">{createOpen ? invitationDescription : revokeTarget ? revokeDescription : cancelInvitation ? cancelDescription : detailDescription}</p>
-      </header>
+      {!(subview === 'detail' && detailInnerSubview) && (
+        <>
+          <Button type="button" variant="ghost" size="sm" data-settings-member-back disabled={busy} onClick={closeMemberView}><ArrowLeft size={16} />{uiT('Back to members', '返回成员列表')}</Button>
+          <header className="space-y-2">
+            <h3 id="member-subview-title" ref={subviewHeading} tabIndex={-1} className="text-base font-semibold outline-none">{createOpen ? invitationTitle : revokeTarget ? revokeTitle : cancelInvitation ? `${uiT('Cancel invitation for', '取消此邀请：')} ${cancelInvitation.recipient_email}?` : uiT('Member access', '成员访问权限')}</h3>
+            <p className="text-sm text-muted-foreground">{createOpen ? invitationDescription : revokeTarget ? revokeDescription : cancelInvitation ? cancelDescription : detailDescription}</p>
+          </header>
+        </>
+      )}
       {createOpen ? invitationBody : revokeTarget ? revokeBody : cancelInvitation ? <>
         <DialogFooter><Button variant="outline" disabled={busy} onClick={closeMemberView}>{uiT('Keep invitation', '保留邀请')}</Button><Button variant="destructive" disabled={busy} onClick={() => onCancelInvitation(cancelInvitation)}>{uiT('Cancel invitation', '取消邀请')}</Button></DialogFooter>
         {error && <p role="alert" className="text-sm text-destructive">{uiT(error)}</p>}

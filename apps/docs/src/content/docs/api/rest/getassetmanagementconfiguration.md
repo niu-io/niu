@@ -1,11 +1,11 @@
 ---
 title: "Read installation asset-management configuration metadata"
-description: "GET /api/v1/vendors/{id}/asset-management"
+description: "GET /api/v1/admin/providers/connections/{id}/asset-management"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/vendors/{id}/asset-management`
+`GET /api/v1/admin/providers/connections/{id}/asset-management`
 
 Installation administrator only. Returns no Access Key, secret or ciphertext. Configuration does not enable asset dispatch.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/vendors/{id}/asset-management" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/connections/{id}/asset-management" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
 ```
 

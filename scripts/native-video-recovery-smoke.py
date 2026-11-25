@@ -56,7 +56,7 @@ try:
  log=open(root/'provider.log','ab');handles.append(log)
  provider=subprocess.Popen(['python3',str(REPO/'tests/fixtures/mock-openai-compatible.py')],env=dict(env,MOCK_PROVIDER_PORT=str(providerport)),stdout=log,stderr=log)
  start()
- organization=smoke.request('POST','/admin/v1/organizations',admin=True,payload={'name':'Isolated native package video'})[1]['id']
+ organization=smoke.request('POST','/api/v1/organizations',admin=True,payload={'name':'Isolated native package video'})[1]['id']
  smoke.initialize_prepaid_account(organization)
  print('funding initialized',flush=True)
  configuration=smoke.PACKAGE_VIDEO.configure_video(smoke.request,organization,f'http://127.0.0.1:{providerport}',credential,

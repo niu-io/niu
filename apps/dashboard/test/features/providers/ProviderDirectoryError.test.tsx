@@ -16,7 +16,7 @@ vi.mock('../../../app/shell/dashboard-context', async importOriginal => {
     }),
   };
 });
-vi.mock('../../../app/features/provider-business/admin', () => ({
+vi.mock('../../../app/features/provider-business/ProviderConfigurationPage', () => ({
   default: () => <h1>Provider admin loaded</h1>,
 }));
 import { expect, it, vi } from 'vitest';

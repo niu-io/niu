@@ -27,9 +27,15 @@ function validate(rows: Change[], field: Field, before?: string, currency?: stri
     previous = BigInt(row.revision);
   }
 }
-export default function KeyPolicyHistory({ token, endpoint, label, field, currency }: { token: string; endpoint: string; label: string; field: Field; currency?: string }) {
+export default function KeyPolicyHistory({ token, endpoint, label, field, currency, withinDialog = false, inlineOpen, onInlineOpenChange, triggerOnly = false, contentOnly = false }: { token: string; endpoint: string; label: string; field: Field; currency?: string; withinDialog?: boolean; inlineOpen?: boolean; onInlineOpenChange?: (open: boolean) => void; triggerOnly?: boolean; contentOnly?: boolean }) {
   const { t: uiT, format: uiF } = useUILocale();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = withinDialog && inlineOpen !== undefined ? inlineOpen : internalOpen;
+  const setOpen = (next: boolean | ((prev: boolean) => boolean)) => {
+    const value = typeof next === 'function' ? next(open) : next;
+    if (withinDialog && onInlineOpenChange) onInlineOpenChange(value);
+    else setInternalOpen(value);
+  };
   const [rows, setRows] = useState<Change[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -42,7 +48,7 @@ export default function KeyPolicyHistory({ token, endpoint, label, field, curren
     setCursor(data.length === pageSize ? data[data.length - 1].revision : null);
   }
   useEffect(() => {
-    if (!open) return;
+    if (!open || triggerOnly) return;
     const controller = new AbortController();pending.current = controller;
     setRows([]);setCursor(null);setLoading(true);setError('');
     void keyRequest<{data: Change[]}>(token, `${endpoint}/history?limit=${pageSize}`, 'GET', undefined, controller.signal)
@@ -50,7 +56,7 @@ export default function KeyPolicyHistory({ token, endpoint, label, field, curren
       .catch(cause => {if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Could not load limit history.');})
       .finally(() => {if (!controller.signal.aborted) setLoading(false);});
     return () => {controller.abort();pending.current?.abort();};
-  }, [open, token, endpoint, field, currency, reload]);
+  }, [open, triggerOnly, token, endpoint, field, currency, reload]);
   async function older() {
     if (!cursor || loading) return;
     const controller = new AbortController();pending.current = controller;setLoading(true);setError('');
@@ -60,14 +66,34 @@ export default function KeyPolicyHistory({ token, endpoint, label, field, curren
     } catch (cause) {if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Could not load older changes.');}
     finally {if (!controller.signal.aborted) setLoading(false);}
   }
+  const body = <>
+    {rows.length > 0 && <Table className="w-full table-fixed text-xs sm:text-sm"><TableHeader><TableRow><TableHead className="whitespace-normal! text-xs! sm:text-sm! w-[45%] px-2!">{field === 'allowed_cidrs' ? uiT("Access") : uiT("Limit")}</TableHead><TableHead className="whitespace-normal! text-xs! sm:text-sm! w-1/4 px-2!">{uiT("Changed by")}</TableHead><TableHead className="whitespace-normal! text-xs! sm:text-sm! px-2!">{uiT("Date")}</TableHead></TableRow></TableHeader><TableBody>{rows.map(row => <TableRow key={row.revision}><TableCell className="text-xs! sm:text-sm! whitespace-normal break-words px-2!">{field === 'limit_nanos' ? valueOf(row,field) === null ? uiT("Unlimited") : money(valueOf(row,field) as string,currency ?? ('currency' in row ? row.currency : '')) : field === 'allowed_cidrs' ? valueOf(row, field) === null ? uiT("Allow all sources") : (valueOf(row, field) as string[]).length ? (valueOf(row, field) as string[]).join(', ') : uiT("Block all sources") : valueOf(row, field) === null ? uiT("Unlimited") : valueOf(row, field) === 0 ? uiT("0 · New requests blocked") : valueOf(row, field)?.toLocaleString(readUILocale())}</TableCell><TableCell className="text-xs! sm:text-sm! whitespace-normal break-words px-2!">{row.actor_name || uiT("Name unavailable")}</TableCell><TableCell className="text-xs! sm:text-sm! whitespace-normal break-words px-2!">{date(row.recorded_at)}</TableCell></TableRow>)}</TableBody></Table>}
+    {loading && (rows.length ? <p role="status" className="text-sm text-muted-foreground">{uiT("Loading older changes…")}</p> : <TableSkeleton columns={3} rows={3} label={uiT("Loading limit history…")} />)}
+    {error && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="outline" disabled={loading} onClick={() => rows.length && cursor ? void older() : setReload(value => value + 1)}>{uiT("Retry history")}</Button></div>}
+    {!loading && !error && !rows.length && <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconHistory size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{field === 'allowed_cidrs' ? uiT("No source IP changes recorded.") : uiT("No limit changes recorded.")}</EmptyDescription></EmptyHeader></Empty>}
+    {!error && cursor && <Button variant="outline" disabled={loading} onClick={() => void older()}>{uiT("Load older changes")}</Button>}
+  </>;
+  if (withinDialog) {
+    return (
+      <>
+        {!contentOnly && (
+          <Button type="button" variant="ghost" size="sm" aria-expanded={open} aria-label={uiF("{0} history", [label])} onClick={() => setOpen(value => !value)}>
+            {open ? uiT("Hide history", "收起历史") : uiT("History")}
+          </Button>
+        )}
+        {!triggerOnly && open && (
+          <div className="mt-3 w-full space-y-3 border-t pt-3">
+            <p className="text-xs font-medium text-muted-foreground">{uiT("Recorded policy changes for this API key, newest first.")}</p>
+            {body}
+          </div>
+        )}
+      </>
+    );
+  }
   return <Dialog open={open} onOpenChange={setOpen}>
     <DialogTrigger asChild><Button variant="ghost" aria-label={uiF("{0} history", [label])}>{uiT("History")}</Button></DialogTrigger>
     <DialogContent className="max-h-[85dvh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>{label}{" "}{uiT("history")}</DialogTitle><DialogDescription>{uiT("Recorded policy changes for this API key, newest first.")}</DialogDescription></DialogHeader>
-      {rows.length > 0 && <Table className="w-full table-fixed text-xs sm:text-sm"><TableHeader><TableRow><TableHead className="whitespace-normal! text-xs! sm:text-sm! w-[45%] px-2!">{field === 'allowed_cidrs' ? uiT("Access") : uiT("Limit")}</TableHead><TableHead className="whitespace-normal! text-xs! sm:text-sm! w-1/4 px-2!">{uiT("Changed by")}</TableHead><TableHead className="whitespace-normal! text-xs! sm:text-sm! px-2!">{uiT("Date")}</TableHead></TableRow></TableHeader><TableBody>{rows.map(row => <TableRow key={row.revision}><TableCell className="text-xs! sm:text-sm! whitespace-normal break-words px-2!">{field === 'limit_nanos' ? valueOf(row,field) === null ? uiT("Unlimited") : money(valueOf(row,field) as string,currency ?? ('currency' in row ? row.currency : '')) : field === 'allowed_cidrs' ? valueOf(row, field) === null ? uiT("Allow all sources") : (valueOf(row, field) as string[]).length ? (valueOf(row, field) as string[]).join(', ') : uiT("Block all sources") : valueOf(row, field) === null ? uiT("Unlimited") : valueOf(row, field) === 0 ? uiT("0 · New requests blocked") : valueOf(row, field)?.toLocaleString(readUILocale())}</TableCell><TableCell className="text-xs! sm:text-sm! whitespace-normal break-words px-2!">{row.actor_name || uiT("Name unavailable")}</TableCell><TableCell className="text-xs! sm:text-sm! whitespace-normal break-words px-2!">{date(row.recorded_at)}</TableCell></TableRow>)}</TableBody></Table>}
-      {loading && (rows.length ? <p role="status" className="text-sm text-muted-foreground">{uiT("Loading older changes…")}</p> : <TableSkeleton columns={3} rows={3} label={uiT("Loading limit history…")} />)}
-      {error && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="outline" disabled={loading} onClick={() => rows.length && cursor ? void older() : setReload(value => value + 1)}>{uiT("Retry history")}</Button></div>}
-      {!loading && !error && !rows.length && <Empty className="min-h-40"><EmptyHeader><EmptyMedia variant="icon"><IconHistory size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{field === 'allowed_cidrs' ? uiT("No source IP changes recorded.") : uiT("No limit changes recorded.")}</EmptyDescription></EmptyHeader></Empty>}
-      {!error && cursor && <Button variant="outline" disabled={loading} onClick={() => void older()}>{uiT("Load older changes")}</Button>}
+      {body}
       <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>{uiT("Close")}</Button></DialogFooter>
     </DialogContent>
   </Dialog>;

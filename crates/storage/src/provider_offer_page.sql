@@ -17,7 +17,7 @@ SELECT ($2::text IS NULL OR EXISTS(SELECT 1 FROM anchor)),
             'revision',r.id,'rate_kind',r.rate_kind,'currency',r.currency,
             'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,
             'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'context_tiers',r.context_tiers,
-            'route_ready',m.enabled AND v.enabled AND m.vendor_id=o.vendor_id
+            'route_ready',m.enabled AND niu_model_has_enabled_vendor(m.alias) AND m.vendor_id=o.vendor_id
                 AND q.qualified
         ) ORDER BY o.model_alias) FROM page o
         JOIN provider_offer_revisions r ON r.id=o.current_revision

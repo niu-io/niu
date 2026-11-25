@@ -1,11 +1,11 @@
 ---
 title: "A platform administrator can pause or resume an owned offer"
-description: "PATCH /api/v1/providers/{provider}/offers/{offer}"
+description: "PATCH /api/v1/admin/providers/{provider}/offers/{offer}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`PATCH /api/v1/providers/{provider}/offers/{offer}`
+`PATCH /api/v1/admin/providers/{provider}/offers/{offer}`
 
 Pausing prevents new admissions. Already dispatched requests may complete and accrue earnings. Viewers and unrelated operators cannot mutate offers.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PATCH "$NIU_ORIGIN/api/v1/providers/{provider}/offers/{offer}" \
+curl --fail-with-body -X PATCH "$NIU_ORIGIN/api/v1/admin/providers/{provider}/offers/{offer}" \
   -H "Authorization: Bearer $NIU_MEMBER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

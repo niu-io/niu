@@ -3707,7 +3707,7 @@ pub(super) async fn cancel_operation(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/operations/{id}/cancel",
+///   "path": "/api/v1/workspaces/{workspace}/media/operations/{id}/cancel",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "cancelPreparedWorkspaceProviderAssetOperation",
@@ -3723,16 +3723,7 @@ pub(super) async fn cancel_operation(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -3817,7 +3808,7 @@ pub(super) async fn cancel_operation(
 pub(super) async fn cancel_historical_operation(
     State(state): State<AppState>,
     headers: HeaderMap,
-    axum::extract::Path((organization, project, id)): axum::extract::Path<(Uuid, Uuid, Uuid)>,
+    crate::web::workspace_path::WorkspacePath((organization, project, id)): crate::web::workspace_path::WorkspacePath<(Uuid, Uuid, Uuid)>,
     input: Result<Query<ModelQuery>, QueryRejection>,
 ) -> Result<(HeaderMap, Json<Value>), ApiError> {
     let scope = niu_storage::TenantScope {
@@ -3859,35 +3850,107 @@ pub(super) struct HistoricalModelQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/asset-operation-models",
+///   "path": "/api/v1/workspaces/{workspace}/media/asset-operation-models",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listHistoricalWorkspaceProviderAssetModels",
 ///     "summary": "Discover saved native-operation model contexts",
 ///     "description": "Requires current workspace Read permission. Lists distinct recorded public model aliases for the original scoped key, including expired or revoked keys and deleted resources. Never consults current model grants, restores inference authority, selects a Provider account or calls upstream. Each alias may have several saved account bindings; it grants historical inspection only. Alias pagination is lexical and includes all recorded operation statuses.",
-///     "security": [{"bearerAuth": []}],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
 ///     "parameters": [
-///       {"name":"organization","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},
-///       {"name":"project","in":"path","required":true,"description":"Workspace under the legacy API field name.","schema":{"type":"string","format":"uuid"}},
-///       {"name":"key_id","in":"query","required":true,"schema":{"type":"string","format":"uuid"}},
-///       {"name":"after","in":"query","schema":{"type":"string","minLength":1,"maxLength":512}},
-///       {"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":100,"default":50}}
+///       {
+///         "name": "workspace",
+///         "in": "path",
+///         "required": true,
+///         "description": "Workspace under the legacy API field name.",
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key_id",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 512
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
 ///     ],
 ///     "responses": {
-///       "200":{"description":"Recorded aliases and exclusive lexical continuation cursor.","content":{"application/json":{"schema":{"type":"object","required":["data","next_cursor"],"properties":{"data":{"type":"array","items":{"type":"string"}},"next_cursor":{"type":["string","null"]}}}}}},
-///       "400":{"description":"Invalid filters."},
-///       "401":{"description":"Authentication required."},
-///       "403":{"description":"Workspace Read permission required."},
-///       "409":{"description":"Original key does not belong to this workspace."}
+///       "200": {
+///         "description": "Recorded aliases and exclusive lexical continuation cursor.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "next_cursor"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "string"
+///                   }
+///                 },
+///                 "next_cursor": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid filters."
+///       },
+///       "401": {
+///         "description": "Authentication required."
+///       },
+///       "403": {
+///         "description": "Workspace Read permission required."
+///       },
+///       "409": {
+///         "description": "Original key does not belong to this workspace."
+///       }
 ///     },
-///     "x-niu-implementation":"implemented"
+///     "x-niu-implementation": "implemented"
 ///   }
 /// }
 /// ```
 pub(super) async fn historical_models(
     State(state): State<AppState>,
     headers: HeaderMap,
-    axum::extract::Path((organization_id, project_id)): axum::extract::Path<(Uuid, Uuid)>,
+    crate::web::workspace_path::WorkspacePath((organization_id, project_id)): crate::web::workspace_path::WorkspacePath<(Uuid, Uuid)>,
     input: Result<Query<HistoricalModelQuery>, QueryRejection>,
 ) -> Result<(HeaderMap, Json<Value>), ApiError> {
     let scope = niu_storage::TenantScope {
@@ -3935,7 +3998,7 @@ async fn authorize_historical_operations(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/operations",
+///   "path": "/api/v1/workspaces/{workspace}/media/operations",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listHistoricalWorkspaceProviderAssetOperations",
@@ -3951,16 +4014,7 @@ async fn authorize_historical_operations(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -4085,7 +4139,7 @@ async fn authorize_historical_operations(
 pub(super) async fn list_historical_operations(
     State(state): State<AppState>,
     headers: HeaderMap,
-    axum::extract::Path((organization, project)): axum::extract::Path<(Uuid, Uuid)>,
+    crate::web::workspace_path::WorkspacePath((organization, project)): crate::web::workspace_path::WorkspacePath<(Uuid, Uuid)>,
     input: Result<Query<HistoricalOperationListQuery>, QueryRejection>,
 ) -> Result<(HeaderMap, Json<Value>), ApiError> {
     let scope = niu_storage::TenantScope {
@@ -4134,7 +4188,7 @@ async fn historical_operation(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/operations/{id}",
+///   "path": "/api/v1/workspaces/{workspace}/media/operations/{id}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getHistoricalWorkspaceProviderAssetOperation",
@@ -4150,16 +4204,7 @@ async fn historical_operation(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -4261,7 +4306,7 @@ async fn historical_operation(
 pub(super) async fn get_historical_operation(
     State(state): State<AppState>,
     headers: HeaderMap,
-    axum::extract::Path((organization, project, id)): axum::extract::Path<(Uuid, Uuid, Uuid)>,
+    crate::web::workspace_path::WorkspacePath((organization, project, id)): crate::web::workspace_path::WorkspacePath<(Uuid, Uuid, Uuid)>,
     input: Result<Query<HistoricalOperationQuery>, QueryRejection>,
 ) -> Result<(HeaderMap, Json<Value>), ApiError> {
     historical_operation(
@@ -4279,7 +4324,7 @@ pub(super) async fn get_historical_operation(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/media/operations/by-idempotency/{id}",
+///   "path": "/api/v1/workspaces/{workspace}/media/operations/by-idempotency/{id}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getHistoricalWorkspaceProviderAssetOperationByIdempotency",
@@ -4295,16 +4340,7 @@ pub(super) async fn get_historical_operation(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -4406,7 +4442,7 @@ pub(super) async fn get_historical_operation(
 pub(super) async fn get_historical_operation_by_idempotency(
     State(state): State<AppState>,
     headers: HeaderMap,
-    axum::extract::Path((organization, project, id)): axum::extract::Path<(Uuid, Uuid, Uuid)>,
+    crate::web::workspace_path::WorkspacePath((organization, project, id)): crate::web::workspace_path::WorkspacePath<(Uuid, Uuid, Uuid)>,
     input: Result<Query<HistoricalOperationQuery>, QueryRejection>,
 ) -> Result<(HeaderMap, Json<Value>), ApiError> {
     historical_operation(

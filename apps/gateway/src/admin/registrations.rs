@@ -289,7 +289,7 @@ pub async fn submit(
 ///
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/registration",
+///   "path": "/api/v1/admin/registration",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getPlatformRegistrationPolicy",
@@ -342,7 +342,7 @@ pub async fn read_policy(
 ///
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/registration",
+///   "path": "/api/v1/admin/registration",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "savePlatformRegistrationPolicy",
@@ -419,7 +419,7 @@ pub async fn save_policy(
 ///
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/registrations",
+///   "path": "/api/v1/admin/registrations",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPlatformRegistrations",
@@ -480,7 +480,7 @@ pub async fn list(
 ///
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/registrations/{registration}/approve",
+///   "path": "/api/v1/admin/registrations/{registration}/approve",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "approvePlatformRegistration",
@@ -561,7 +561,7 @@ pub async fn approve(
 ///
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/registrations/{registration}/reject",
+///   "path": "/api/v1/admin/registrations/{registration}/reject",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "rejectPlatformRegistration",

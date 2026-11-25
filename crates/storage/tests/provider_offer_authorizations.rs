@@ -584,3 +584,107 @@ async fn commercial_authorization_pins_revision_and_fails_closed_on_invalidation
             .is_err()
     );
 }
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL"]
+async fn atomic_publish_and_activate_enforces_route_readiness_and_activates(pool: PgPool) {
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool.clone());
+    let provider = store
+        .create_provider_business("Atomic Provider")
+        .await
+        .unwrap();
+    let vendor = Uuid::new_v4();
+    sqlx::query("INSERT INTO vendors(id,name,adapter,api_base,enabled,credential_ciphertext) VALUES($1,'atomic-key','openai','https://example.com/v1',TRUE,$2)")
+        .bind(vendor)
+        .bind(vec![1u8; 48])
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO vendor_supplier_ownership(vendor_id,provider_id) VALUES($1,$2)")
+        .bind(vendor)
+        .bind(provider)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,enabled,capabilities) VALUES('atomic-model',$1,'upstream-atomic',FALSE,$2)")
+        .bind(vendor)
+        .bind(serde_json::json!({}))
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Fails closed when route is disabled
+    let err = store
+        .publish_and_activate_provider_offer_schedule(
+            provider,
+            &ProviderOfferInput {
+                model_alias: "atomic-model".into(),
+                currency: "USD".into(),
+                prompt_rate: "1400000000".into(),
+                completion_rate: "5600000000".into(),
+                expected_revision: None,
+            },
+            niu_storage::ProviderOfferSchedule::default(),
+            OperatorAuditActor::Installation,
+        )
+        .await;
+    assert!(matches!(err, Err(StoreError::Conflict)));
+
+    // Enable the route, then atomic publish+activate succeeds in one transaction
+    sqlx::query("UPDATE vendor_models SET enabled=TRUE WHERE alias='atomic-model'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let (offer_id, rev1, auth1) = store
+        .publish_and_activate_provider_offer_schedule(
+            provider,
+            &ProviderOfferInput {
+                model_alias: "atomic-model".into(),
+                currency: "USD".into(),
+                prompt_rate: "1400000000".into(),
+                completion_rate: "5600000000".into(),
+                expected_revision: None,
+            },
+            niu_storage::ProviderOfferSchedule::default(),
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let (active, current_auth): (bool, Option<Uuid>) =
+        sqlx::query_as("SELECT active, current_authorization FROM provider_offers WHERE id=$1")
+            .bind(offer_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(active);
+    assert_eq!(current_auth, Some(auth1));
+
+    // Updating discount with expected_revision atomically replaces and re-activates
+    let (offer_id2, rev2, auth2) = store
+        .publish_and_activate_provider_offer_schedule(
+            provider,
+            &ProviderOfferInput {
+                model_alias: "atomic-model".into(),
+                currency: "USD".into(),
+                prompt_rate: "1000000000".into(),
+                completion_rate: "4000000000".into(),
+                expected_revision: Some(rev1),
+            },
+            niu_storage::ProviderOfferSchedule::default(),
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    assert_eq!(offer_id2, offer_id);
+    assert_ne!(rev2, rev1);
+    assert_ne!(auth2, auth1);
+    let qualified: bool = sqlx::query_scalar("SELECT niu_offer_qualification_current($1,$2,$3)")
+        .bind(provider)
+        .bind(offer_id)
+        .bind(rev2)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert!(qualified);
+}

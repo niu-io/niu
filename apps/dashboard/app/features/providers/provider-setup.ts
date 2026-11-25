@@ -1,5 +1,6 @@
 export type ProviderSetup = {
   api_keys?: number;
+  configured_api_keys?: number;
   internal_api_keys?: number;
   internal_model_routes?: number;
   models?: number;
@@ -10,31 +11,35 @@ export type ProviderSetup = {
 };
 export type SupplierSetup = ProviderSetup;
 
-/** Supply readiness requires approved, active offers in resale mode, or configured routes in internal mode. */
+/**
+ * Supply readiness in clear stages: configured API key -> imported models -> active pricing/discount.
+ * Never report unconfigured resources (no stored API key credential, no imported models, or no configured offers)
+ * as "disabled" / "inactive"; reserve "disabled" strictly for saved resources that were explicitly turned off.
+ */
 export function providerAvailability(provider: ProviderSetup, operatingMode?: string) {
+  const configuredKeys = provider.configured_api_keys ?? provider.api_keys ?? 0;
   if (operatingMode === 'internal') {
-    if (!provider.api_keys) return { label: 'Not ready', detail: 'No API key connected.', usable: false, action: 'Connect API key', section: 'keys' };
-    if (provider.enabled_api_keys !== undefined && !provider.enabled_api_keys) return { label: 'API keys disabled', detail: 'All API keys are disabled.', usable: false, action: 'Enable API key', section: 'keys' };
+    if (!configuredKeys) return { label: 'Pending setup', detail: 'API key not configured.', usable: false, action: 'Configure API key', section: 'config' };
+    if (provider.enabled_api_keys !== undefined && !provider.enabled_api_keys) return { label: 'API keys disabled', detail: 'All configured API keys are disabled.', usable: false, action: 'Enable API key', section: 'config' };
     const routes = provider.internal_model_routes ?? provider.models ?? 0;
-    if (!routes) return { label: 'API key saved', detail: 'Internal use. Upstream fees are paid directly; no commercial approval is required.', usable: false, action: 'Import models', section: 'models' };
-    if (provider.enabled_model_routes !== undefined && !provider.enabled_model_routes) return { label: 'Routes disabled', detail: 'All model routes are disabled.', usable: false, action: 'Enable models', section: 'models' };
-    return { label: 'Models configured', detail: 'Internal use. Upstream fees are paid directly; no commercial approval is required.', usable: true, action: 'Manage models', section: 'models' };
+    if (!routes) return { label: 'Pending setup', detail: 'No models imported yet.', usable: false, action: 'Configure', section: 'config' };
+    if (provider.enabled_model_routes !== undefined && !provider.enabled_model_routes) return { label: 'Models disabled', detail: 'All imported models are disabled.', usable: false, action: 'Configure', section: 'config' };
+    return { label: 'Ready', detail: `${provider.enabled_model_routes ?? routes} models active`, usable: true, action: 'Configure', section: 'config' };
   }
-  if (provider.internal_api_keys && provider.internal_api_keys === provider.api_keys) return {
+  if (configuredKeys > 0 && provider.internal_api_keys && provider.internal_api_keys === provider.api_keys) return {
     label: provider.internal_model_routes ? 'Models configured' : 'API key saved',
-    detail: 'Internal use. Upstream fees are paid directly; no commercial approval is required.',
-    usable: false, action: provider.internal_model_routes ? 'Manage models' : 'Import models', section: 'models',
+    detail: 'Internal use. Upstream fees are paid directly.',
+    usable: false, action: 'Configure', section: 'config',
   };
+  if (!configuredKeys) return { label: 'Pending setup', detail: 'API key not configured.', usable: false, action: 'Configure API key', section: 'config' };
   if (provider.ready_offers == null) return { label: 'Status unavailable', detail: 'Readiness data is missing. Refresh the list to try again.', usable: false, action: 'Refresh status', section: 'refresh' };
   if (provider.ready_offers > 0) return {
-    label: 'Ready to supply', detail: `${provider.ready_offers} of ${provider.offers ?? '—'} offers ready`,
-    usable: true, action: 'Review offers', section: 'models',
+    label: 'Ready', detail: `${provider.ready_offers} models active`,
+    usable: true, action: 'Configure', section: 'config',
   };
-  if (!provider.api_keys) return { label: 'Not ready', detail: 'No API key connected.', usable: false, action: 'Connect API key', section: 'keys' };
-  if (!provider.enabled_api_keys) return { label: 'API keys disabled', detail: 'All API keys are disabled.', usable: false, action: 'Enable API key', section: 'keys' };
-  if (!provider.models) return { label: 'Not ready', detail: 'No model routes added.', usable: false, action: 'Add models', section: 'models' };
-  if (!provider.enabled_model_routes) return { label: 'Routes disabled', detail: 'All model routes are disabled.', usable: false, action: 'Enable models', section: 'models' };
-  if (!provider.offers) return { label: 'Not ready', detail: 'No agreed model offers.', usable: false, action: 'Add offers', section: 'models' };
-  return { label: 'Not ready', detail: 'No active offers with an eligible route and credential.', usable: false, action: 'Review offers', section: 'models' };
+  if (!provider.enabled_api_keys) return { label: 'API keys disabled', detail: 'All configured API keys are disabled.', usable: false, action: 'Enable API key', section: 'config' };
+  if (!provider.models) return { label: 'Pending setup', detail: 'No models imported yet.', usable: false, action: 'Configure', section: 'config' };
+  if (provider.offers !== undefined && provider.offers === 0) return { label: 'Pending setup', detail: 'Model pricing not configured.', usable: false, action: 'Configure', section: 'config' };
+  return { label: 'No models active', detail: 'Enable priced models or configure model access.', usable: false, action: 'Configure', section: 'config' };
 }
 export const supplierAvailability = providerAvailability;

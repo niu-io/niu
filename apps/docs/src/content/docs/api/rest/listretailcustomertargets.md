@@ -1,11 +1,11 @@
 ---
 title: "List named companies for customer-specific promotions"
-description: "GET /api/v1/pricing/customers"
+description: "GET /api/v1/admin/pricing/customers"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/pricing/customers`
+`GET /api/v1/admin/pricing/customers`
 
 Explicit platform administration only, independent of ordinary company membership. Includes companies without workspaces or currency accounts. Names, company creation timestamps for distinguishing repeated names, and routing-only company references; no balances, payment details, request content, Provider costs or credentials. UUID keyset order; default 50, maximum 100 companies. Pass next_after unchanged; missing cursor returns 409. Each page shares one bounded read snapshot; separate pages do not, so refresh for concurrent inserts before the cursor. No organization, workspace, account or policy is created. Discovery is not selling or spending authorization. Cache-Control no-store.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/pricing/customers" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/pricing/customers" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

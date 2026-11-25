@@ -21,21 +21,60 @@ impl Store {
                 .iter()
                 .filter(|c| c["model_alias"] == row["model_alias"])
                 .collect();
-            let mut checks = Vec::new();
-            for cost in matching {
-                checks.push(compare(
-                    &schedule,
-                    row["currency"].as_str().unwrap_or(""),
-                    cost,
-                ));
-            }
-            if checks.is_empty() {
-                checks.push(json!({"status":"comparison_unavailable","message":"No managed Provider price is available for comparison.","dimensions":[]}));
-            }
-            row["pricing_health"] = json!({"checks":checks,"advisory":true});
+            row["pricing_health"] =
+                build_pricing_health(&schedule, row["currency"].as_str().unwrap_or(""), &matching);
         }
         Ok(())
     }
+}
+
+fn build_pricing_health(schedule: &Value, currency: &str, matching: &[&Value]) -> Value {
+    let configured_routes = matching.iter().filter(|c| c["configured"] == true).count();
+    let ready: Vec<&&Value> = matching
+        .iter()
+        .filter(|c| c["supply_ready"] == true)
+        .collect();
+    let active_supply_routes = ready.len();
+    let active_providers: Vec<String> = ready
+        .iter()
+        .filter_map(|c| {
+            c["provider"]
+                .as_str()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+        })
+        .map(ToOwned::to_owned)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let supply_status = if active_supply_routes > 0 {
+        "active"
+    } else if configured_routes > 0 {
+        "inactive"
+    } else {
+        "unconfigured"
+    };
+
+    let targets: Vec<&Value> = if active_supply_routes > 0 {
+        ready.into_iter().copied().collect()
+    } else {
+        matching.to_vec()
+    };
+
+    let mut checks = Vec::new();
+    for cost in targets {
+        checks.push(compare(schedule, currency, cost));
+    }
+    if checks.is_empty() {
+        checks.push(json!({"status":"comparison_unavailable","message":"No managed Provider price is available for comparison.","dimensions":[]}));
+    }
+    json!({
+        "checks": checks,
+        "advisory": true,
+        "supply_status": supply_status,
+        "active_supply_routes": active_supply_routes,
+        "active_providers": active_providers,
+    })
 }
 
 fn rate(value: &Value, field: &str, fallback: &str) -> Option<i128> {
@@ -203,7 +242,7 @@ fn compare_media(sell: &Value, currency: &str, cost: &Value, mut result: Value) 
 
 #[cfg(test)]
 mod tests {
-    use super::compare;
+    use super::{build_pricing_health, compare};
     use serde_json::json;
 
     #[test]
@@ -342,5 +381,69 @@ mod tests {
         let mut real_cost = placeholder_cost;
         real_cost["schedule"]["prompt_rate"] = json!("1000");
         assert_eq!(compare(&sell, "USD", &real_cost)["status"], "below_cost");
+    }
+
+    #[test]
+    fn summarizes_active_inactive_and_unconfigured_supply_readiness() {
+        let sell = json!({
+            "kind": "text",
+            "prompt_rate": "1000",
+            "completion_rate": "2000",
+            "cached_prompt_rate": null,
+            "cache_write_prompt_rate": null,
+            "reasoning_completion_rate": null,
+            "context_tiers": []
+        });
+        let active = json!({
+            "route": "qiniu/conatus-free",
+            "provider": "Qiniu",
+            "configured": true,
+            "supply_ready": true,
+            "currency": "USD",
+            "rate_kind": "text",
+            "schedule": {
+                "prompt_rate": "0",
+                "completion_rate": "0",
+                "cached_prompt_rate": null,
+                "cache_write_prompt_rate": null,
+                "reasoning_completion_rate": null,
+                "context_tiers": []
+            }
+        });
+        let disabled = json!({
+            "route": "qiniu/deepseek-v4.1-flash",
+            "provider": "FastRouter",
+            "configured": true,
+            "supply_ready": false,
+            "currency": "USD",
+            "rate_kind": "text",
+            "schedule": null
+        });
+        let unconfigured = json!({
+            "route": "legacy/removed",
+            "provider": null,
+            "configured": false,
+            "supply_ready": false,
+            "currency": null,
+            "rate_kind": null,
+            "schedule": null
+        });
+
+        let active_health = build_pricing_health(&sell, "USD", &[&active, &disabled]);
+        assert_eq!(active_health["supply_status"], "active");
+        assert_eq!(active_health["active_supply_routes"], 1);
+        assert_eq!(active_health["active_providers"], json!(["Qiniu"]));
+        // Active supply routes take precedence over disabled routes for unit-rate checks.
+        assert_eq!(active_health["checks"].as_array().unwrap().len(), 1);
+        assert_eq!(active_health["checks"][0]["status"], "no_lower_unit_rates");
+
+        let inactive_health = build_pricing_health(&sell, "USD", &[&disabled]);
+        assert_eq!(inactive_health["supply_status"], "inactive");
+        assert_eq!(inactive_health["active_supply_routes"], 0);
+        assert_eq!(inactive_health["active_providers"], json!([]));
+
+        let unconfigured_health = build_pricing_health(&sell, "USD", &[&unconfigured]);
+        assert_eq!(unconfigured_health["supply_status"], "unconfigured");
+        assert_eq!(unconfigured_health["active_supply_routes"], 0);
     }
 }

@@ -1,6 +1,7 @@
+import { DialogFooter } from '@/components/ui/dialog';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type FormEvent } from 'react';
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -40,7 +41,8 @@ function choiceVisible(key: CapabilityKey, adapter?: ProviderAdapter) {
   return adapter === 'openrouter' || adapter === 'openai' || adapter === 'ark' || adapter === 'gemini';
 }
 
-export default function ModelMappingForm({ ownerFunded = false, accessScope, adapter, initialAlias = "", model, catalog, catalogLoading, catalogError, disabled, onCancel, onSave, onRetryCatalog }: {
+export default function ModelMappingForm({ connectionField, ownerFunded = false, accessScope, adapter, initialAlias = "", model, catalog, catalogLoading, catalogError, disabled, withinModal = false, onSubViewChange, onCancel, onSave, onRetryCatalog }: {
+  connectionField?: ReactNode;
   ownerFunded?: boolean;
   accessScope?: 'commercial' | 'personal' | 'internal';
   adapter?: ProviderAdapter;
@@ -50,6 +52,8 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
   catalogLoading: boolean;
   catalogError: string;
   disabled: boolean;
+  withinModal?: boolean;
+  onSubViewChange?: (active: boolean) => void;
   onCancel: () => void;
   onRetryCatalog?: () => void;
   onSave: (input: ModelWrite) => Promise<void>;
@@ -60,13 +64,22 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
   const internalShared = accessScope === 'internal';
   const [alias, setAlias] = useState(model?.alias ?? initialAlias);
   const [upstreamModel, setUpstreamModel] = useState(model?.upstream_model ?? '');
-  const [publicCatalog, setPublicCatalog] = useState(model?.public_catalog ?? !personal);
+  const [publicCatalog, setPublicCatalog] = useState(model?.public_catalog ?? internalShared);
   const [enabled, setEnabled] = useState(model?.enabled ?? true);
   const [capabilities, setCapabilities] = useState<ModelCapabilities>(() => ({ ...emptyCapabilities(), ...model?.capabilities }));
   const [catalogQuery, setCatalogQuery] = useState('');
   const [catalogOpen, setCatalogOpen] = useState(false);
   const catalogSearch = useRef<HTMLInputElement>(null);
+  const videoTriggerRef = useRef<HTMLButtonElement>(null);
   const [videoEditing, setVideoEditing] = useState(false);
+  const wasVideoEditing = useRef(false);
+  useEffect(() => {
+    onSubViewChange?.(withinModal && videoEditing);
+    if (wasVideoEditing.current && !videoEditing && withinModal) {
+      requestAnimationFrame(() => videoTriggerRef.current?.focus());
+    }
+    wasVideoEditing.current = videoEditing;
+  }, [onSubViewChange, videoEditing, withinModal]);
 
   const [saveError, setSaveError] = useState('');
   const visibleCatalog = catalog
@@ -76,12 +89,12 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
   useEffect(() => {
     setAlias(model?.alias ?? initialAlias);
     setUpstreamModel(model?.upstream_model ?? '');
-    setPublicCatalog(model?.public_catalog ?? !personal);
+    setPublicCatalog(model?.public_catalog ?? internalShared);
     setEnabled(model?.enabled ?? true);
     setCapabilities({ ...emptyCapabilities(), ...model?.capabilities });
     setCatalogQuery('');
     setCatalogOpen(false);
-  }, [model?.alias, model?.revision, personal]);
+  }, [model?.alias, model?.revision, internalShared]);
 
   function chooseProviderModel(item: ProviderCatalogModel) {
     setUpstreamModel(item.id);
@@ -161,10 +174,14 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
     });
   }
 
-  return <form className="model-mapping-form" onSubmit={event => void submit(event).catch(reason => setSaveError(reason instanceof Error ? reason.message : 'Unable to save this model route.'))}>
+  const outputs = capabilities.catalog?.output_modalities;
+  const showVideoSettings = Boolean(capabilities.video_schema || !outputs?.length || outputs.includes('video'));
+
+  return <><form hidden={withinModal && videoEditing} className={withinModal && videoEditing ? "hidden" : "flex min-h-0 flex-col gap-4"} onSubmit={event => void submit(event).catch(reason => setSaveError(reason instanceof Error ? reason.message : 'Unable to save this model route.'))}>
+    <div className="grid min-h-0 gap-4 overflow-y-auto overscroll-contain px-1 py-1">
     {saveError && <p role="alert" className="error-text">{uiT(saveError)}</p>}
-    <div className="model-form-heading"><div><h3>{model ? uiT("Edit model") : uiT("Add model")}</h3><p>{uiT("Map the name clients use to the provider’s upstream model ID.")}</p></div></div>
-    <div className="model-form-fields">
+    {connectionField}
+    <div className={model ? "grid" : "model-form-fields"}>
       <div className="min-w-0 space-y-2">
         <Label htmlFor="model-upstream">{uiT("Upstream model")}</Label>
         <DropdownMenu open={catalogOpen} onOpenChange={open => {
@@ -206,15 +223,19 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
             {visibleCatalog.length === 0 && <p role="status" className="p-2 text-sm text-muted-foreground">{catalogLoading ? uiT("Loading provider models…") : catalogError ? uiT("Catalog unavailable. Enter a model ID above.") : uiT("No matching models. You can enter a model ID above.")}</p>}
           </DropdownMenuContent>
         </DropdownMenu>
-        {!catalogLoading && !catalogError && catalog.length > 0 && <p className="text-xs text-muted-foreground">{catalog.length} {catalog.length === 1 ? uiT("model") : uiT("models")}{" "}{uiT("reported by the upstream catalog")}</p>}
         {catalogError && <div className="grid justify-items-start gap-2 text-sm text-muted-foreground" role="status">{uiT("The Provider catalog could not be loaded:")}{" "}{uiT(catalogError)}{" "}{uiT("You can still enter an upstream model ID.")}{onRetryCatalog && <Button type="button" variant="outline" size="sm" disabled={disabled || catalogLoading} onClick={onRetryCatalog}>{uiT("Retry model catalog")}</Button>}</div>}
       </div>
-      <div className="min-w-0 space-y-2">
+      {!model && <div className="min-w-0 space-y-2">
         <Label htmlFor="model-alias">{uiT("Niu model alias")}</Label>
-        <Input id="model-alias" value={alias} onChange={event => setAlias(event.target.value)} maxLength={200} placeholder={uiT("e.g. fast or team/model")} required disabled={disabled || Boolean(model)} />
-      </div>
+        <Input id="model-alias" value={alias} onChange={event => setAlias(event.target.value)} maxLength={200} placeholder={uiT("e.g. fast or team/model")} required disabled={disabled} />
+      </div>}
 
     </div>
+    <div className="model-route-switches">
+      <Label className="model-switch"><Checkbox checked={enabled} disabled={disabled} onCheckedChange={value => setEnabled(value === true)} /><span><strong>{uiT("Enabled for inference")}</strong><small>{uiT("Disabled mappings remain in the directory.")}</small></span></Label>
+      {personal ? <p className="text-sm text-muted-foreground">{uiT("Private model. Available only to the account that owns this API key.")}</p> : <Label className="model-switch"><Checkbox checked={publicCatalog} disabled={disabled} onCheckedChange={value => setPublicCatalog(value === true)} /><span><strong>{uiT("Show in public catalog")}</strong><small>{internalShared ? uiT("Shared with internal workspaces; also publish this alias in the unauthenticated model list.") : uiT("Publish this alias in the unauthenticated model list once pricing is ready.")}</small></span></Label>}
+    </div>
+    <details className="space-y-3"><summary className="cursor-pointer text-sm font-medium">{uiT("Advanced settings", "高级设置")}</summary>
     {capabilities.catalog && <div className="space-y-1 text-sm text-muted-foreground">
       <h3 className="font-medium text-foreground">{uiT("Catalog metadata to save")}</h3>
       {capabilities.catalog.name && <p>{capabilities.catalog.name}</p>}
@@ -222,15 +243,10 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
       <p>{uiT("Inputs:")}{" "}{capabilities.catalog.input_modalities?.join(', ') || uiT("Not reported")}{" "}{uiT("· Outputs:")}{" "}{capabilities.catalog.output_modalities?.join(', ') || uiT("Not reported")}</p>
       {model && JSON.stringify(model.capabilities.catalog) !== JSON.stringify(capabilities.catalog) && <p>{personal || internalShared ? uiT("This replaces the saved catalog metadata for this route.") : uiT("This replaces the saved catalog metadata for this route. Existing purchase rates and customer prices are preserved.")}</p>}
     </div>}
-    <div className="model-route-switches">
-      <Label className="model-switch"><Checkbox checked={enabled} disabled={disabled} onCheckedChange={value => setEnabled(value === true)} /><span><strong>{uiT("Enabled for inference")}</strong><small>{uiT("Disabled mappings remain in the directory.")}</small></span></Label>
-      {personal ? <p className="text-sm text-muted-foreground">{uiT("Private model. Available only to the account that owns this API key.")}</p> : <Label className="model-switch"><Checkbox checked={publicCatalog} disabled={disabled} onCheckedChange={value => setPublicCatalog(value === true)} /><span><strong>{uiT("Show in public catalog")}</strong><small>{internalShared ? uiT("Shared with internal workspaces; also publish this alias in the unauthenticated model list.") : uiT("Publish this alias in the unauthenticated model list.")}</small></span></Label>}
-    </div>
-    <div className="grid gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">{uiT("Video configuration")}</h3><p className="text-sm text-muted-foreground">{capabilities.video_schema ? uiF("Configured · {0}", [capabilities.video_schema.channel]) : uiT("No video schema configured")}</p></div><Button type="button" variant="outline" disabled={disabled || !alias.trim() || !upstreamModel.trim()} onClick={() => setVideoEditing(true)}>{capabilities.video_schema ? uiT("Edit video configuration") : uiT("Configure video")}</Button></div>
+    {showVideoSettings && <div className="grid gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">{uiT("Video configuration")}</h3><p className="text-sm text-muted-foreground">{capabilities.video_schema ? uiF("Configured · {0}", [capabilities.video_schema.channel]) : uiT("No video schema configured")}</p></div><Button ref={videoTriggerRef} type="button" variant="outline" disabled={disabled || !alias.trim() || !upstreamModel.trim()} onClick={() => setVideoEditing(true)}>{capabilities.video_schema ? uiT("Edit video configuration") : uiT("Configure video")}</Button></div>
       {!ownerFunded && !internalShared && capabilities.video_schema && <p className="text-sm text-muted-foreground">{uiT("Changes can pause affected offers. Review the rates and enable them again after updating the connection.")}</p>}
-    </div>
-    {videoEditing && <VideoSchemaEditor modelAlias={alias.trim()} upstreamModel={upstreamModel.trim()} schema={capabilities.video_schema} onClose={() => setVideoEditing(false)} onApply={schema => { setCapabilities(current => { const next = {...current}; if (schema) next.video_schema = schema; else delete next.video_schema; return next; }); setVideoEditing(false); }} />}
+    </div>}
     <fieldset className="model-capabilities" disabled={disabled}>
       <legend>{uiT("Optional capabilities")}</legend>
       <p>{uiT("These declarations are off by default. Enable only after checking the selected upstream model and endpoint.")}</p>
@@ -249,12 +265,13 @@ export default function ModelMappingForm({ ownerFunded = false, accessScope, ada
         })}
       </div>
     </fieldset>
-    <div className="model-form-footer">
-      <span>{model ? uiT("The alias remains stable for existing clients.") : personal || internalShared ? uiT("Upstream fees are billed directly by the Provider.") : uiT("Pricing remains unset until it is configured separately.")}</span>
-      <div>
-        {model && <Button type="button" variant="ghost" disabled={disabled} onClick={onCancel}>{uiT("Cancel")}</Button>}
-        <Button type="submit" disabled={disabled || !alias.trim() || !upstreamModel.trim()}>{disabled ? uiT("Saving…") : model ? uiT("Save changes") : uiT("Add model")}</Button>
-      </div>
+    </details>
     </div>
-  </form>;
+    <DialogFooter className="shrink-0">
+        <Button type="button" variant="outline" disabled={disabled} onClick={onCancel}>{uiT("Cancel")}</Button>
+        <Button type="submit" disabled={disabled || !alias.trim() || !upstreamModel.trim()}>{disabled ? uiT("Saving…") : model ? uiT("Save changes") : uiT("Add model")}</Button>
+    </DialogFooter>
+  </form>
+  {videoEditing && <VideoSchemaEditor inline={withinModal} modelAlias={alias.trim()} upstreamModel={upstreamModel.trim()} schema={capabilities.video_schema} onClose={() => setVideoEditing(false)} onApply={schema => { setCapabilities(current => { const next = {...current}; if (schema) next.video_schema = schema; else delete next.video_schema; return next; }); setVideoEditing(false); }} />}
+  </>;
 }

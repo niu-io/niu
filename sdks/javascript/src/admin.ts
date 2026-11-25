@@ -343,18 +343,40 @@ export type MemberPreferences = { color_mode: 'system' | 'light' | 'dark' };
 
 export type WorkspaceInput = { name: string; slug?: string; spending_limit?: { currency: string; limit_nanos: string }; organization_id?: string | null };
 export type WorkspaceCreateOptions = RequestOptions & { idempotencyKey?: string };
-export type CompanyMetadata = { id: string; slug?: string; name: string };
+export type CustomerAccountKind = 'personal' | 'organization';
+export type CompanyMetadata = { id: string; slug?: string; name: string; account_kind?: CustomerAccountKind };
 export type CompanyPage = { data: CompanyMetadata[]; next_cursor: string | null };
 export type CompanyPageOptions = { after?: string; limit?: number };
-export type CompanyCreationInput = { name: string; slug?: string; currency?: string };
-export type CreatedCompany = { id: string; slug?: string; name: string; currency: string };
+export type CompanyCreationInput = {
+  name: string;
+  slug?: string;
+  currency?: string;
+  account_kind?: CustomerAccountKind;
+  attach_creator?: boolean;
+};
+export type CreatedCompany = {
+  id: string;
+  slug?: string;
+  name: string;
+  currency: string;
+  account_kind?: CustomerAccountKind;
+};
 export type CompanyCreateOptions = RequestOptions & { idempotencyKey?: string };
 
+
+export type ProviderModelAccessMode = 'all' | 'allowlist' | 'blocklist';
 
 /** Platform-only credential configuration metadata. Secret values are never returned. */
 export type ProviderBusiness = {
   slug: string;
+  logo_url?: string;
+  model_access_mode?: ProviderModelAccessMode;
+  default_discount_bps?: number;
+  offers?: number;
+  ready_offers?: number;
   id: string; name: string; api_keys: number; models: number; members: number;
+  /** Connections holding a stored non-empty credential (enabled or disabled). */
+  configured_api_keys?: number;
   /** Enabled saved configurations and mappings; not upstream verification. */
   enabled_api_keys?: number; enabled_model_routes?: number;
   internal_api_keys?: number; internal_model_routes?: number;
@@ -370,12 +392,22 @@ export type ProviderBusinessCreate = {
 
 export type ProviderProfile = {
   slug: string;
-  id: string; name: string; description: string; website_url: string; logo_url: string; revision: number;
+  id: string; name: string; description: string; website_url: string; logo_url: string;
+  model_access_mode?: ProviderModelAccessMode;
+  default_discount_bps?: number;
+  allowlisted_models?: string[];
+  blocklisted_models?: string[];
+  revision: number;
 };
 export type SupplierProfile = ProviderProfile;
 export type ProviderProfileUpdate = {
   name: string; description?: string | null; website_url?: string | null;
-  logo_url?: string | null; expected_revision?: number | null;
+  logo_url?: string | null;
+  model_access_mode?: ProviderModelAccessMode | null;
+  default_discount_bps?: number | null;
+  allowlisted_models?: string[] | null;
+  blocklisted_models?: string[] | null;
+  expected_revision?: number | null;
 };
 export type SupplierProfileUpdate = ProviderProfileUpdate;
 
@@ -860,6 +892,7 @@ export type PlatformCustomerCreditSummary = {
 /** Platform account discovery row; credits is null when no Credits lots exist. */
 export type PlatformCustomerAccount = {
   organization_id: string; organization_name: string;
+  slug?: string;
   accounts: CustomerBalance[]; credits: PlatformCustomerCreditSummary | null;
 };
 export type CustomerTopupInput = {
@@ -924,6 +957,10 @@ function checkedBalanceGrantInput(currency: string, input: CustomerBalanceGrantI
 /** Exact nonnegative nanounits and optimistic revision for installation credit policy. */
 export type CustomerBalancePolicyInput = {
   credit_limit_nanos: string; warning_threshold_nanos: string | null; expected_revision: string;
+};
+/** Platform-recorded settled customer account top-up (idempotent on channel + payment_reference). */
+export type SettledCustomerFundingInput = {
+  currency: string; amount_nanos: string; channel: string; payment_reference: string;
 };
 /** Exact positive nanounits; retain the same identity when replaying an uncertain write. */
 export type CustomerBalanceReversalInput = { amount_nanos: string; idempotency_key: string };
@@ -1663,6 +1700,9 @@ export type RetailPromotionRetirement = { effective_until: string; expected_vers
 /** Confidential platform-only advice; never a realized margin or dispatch authorization. */
 export type PlatformPricingHealth = {
   advisory: boolean;
+  supply_status?: 'active' | 'inactive' | 'unconfigured';
+  active_supply_routes?: number;
+  active_providers?: string[];
   checks: Array<{
     route?: string | null; provider?: string | null;
     status: 'below_cost' | 'missing_provider_price' | 'comparison_unavailable' | 'no_lower_unit_rates';
@@ -1764,7 +1804,7 @@ export class NiuAdminClient {
   /** Durable identity-only creation. Replay returns the same user, never a new session or token. */
   createOperatorIdentity(input: { organization_id: string; project_id?: string | null; name: string; role: OperatorAccessRole }, options: RequestOptions & { idempotencyKey: string }): Promise<{ operator: OperatorAccessView; session: null; token: null }> {
     if (!options.idempotencyKey) throw new TypeError('An idempotency key is required for user creation');
-    return this.request('/operators', { organization_id: uuid(input.organization_id), project_id: input.project_id ? uuid(input.project_id) : null, name: input.name, role: input.role, issue_session: false }, options, 'POST');
+    return this.request('/members', { organization_id: uuid(input.organization_id), project_id: input.project_id ? uuid(input.project_id) : null, name: input.name, role: input.role, issue_session: false }, options, 'POST');
   }
 
   /** Create a one-time invitation and return its link secret exactly once. */
@@ -1813,23 +1853,23 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 1000) throw new RangeError('User page limit must be between 1 and 1000');
       parameters.set('limit', String(query.limit));
     }
-    return this.request(`/operators?${parameters}`, undefined, options);
+    return this.request(`/members?${parameters}`, undefined, options);
   }
 
   /** Read saved sign-in metadata; this does not establish browser sign-in availability. */
   getMemberPasswordConfiguration(operatorId: string, options?: RequestOptions): Promise<MemberPasswordConfiguration> {
-    return this.request(`/operators/${uuid(operatorId)}/password`, undefined, options);
+    return this.request(`/members/${uuid(operatorId)}/password`, undefined, options);
   }
 
   /** Provision or explicitly reset a member password. Refresh the revision after an uncertain outcome; never blindly retry. */
   setMemberPassword(operatorId: string, input: MemberPasswordInput, options?: RequestOptions): Promise<{ revision: number }> {
-    return this.request(`/operators/${uuid(operatorId)}/password`, input, options, 'PUT');
+    return this.request(`/members/${uuid(operatorId)}/password`, input, options, 'PUT');
   }
 
   updateOperatorRole(operatorId: string, input: OperatorRoleUpdate, options?: RequestOptions): Promise<{ data: OperatorAccessView }> {
     const roles = ['owner', 'admin', 'viewer'];
     if (!roles.includes(input.role) || !roles.includes(input.expected_role)) throw new TypeError('A supported role and expected_role are required');
-    return this.request(`/operators/${uuid(operatorId)}`, input, options, 'PATCH');
+    return this.request(`/members/${uuid(operatorId)}`, input, options, 'PATCH');
   }
 
   /** Read the current member; this never selects a caller-supplied operator ID. */
@@ -1855,7 +1895,7 @@ export class NiuAdminClient {
 
   /** Platform-only membership history, including inactive and revoked members. */
   listProviderMembers(providerId: string, options?: RequestOptions): Promise<{ data: ProviderMember[] }> {
-    return this.request(`/providers/${uuid(providerId)}/members`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/members`, undefined, options);
   }
   listSupplierMembers(supplierId: string, options?: RequestOptions): Promise<{ data: SupplierMember[] }> {
     return this.listProviderMembers(supplierId, options);
@@ -1863,7 +1903,7 @@ export class NiuAdminClient {
 
   /** Grant/change/revoke a membership; Provider roles do not grant platform configuration authority. */
   setProviderMember(providerId: string, operatorId: string, input: ProviderMemberUpdate, options?: RequestOptions): Promise<{ data: { active: boolean } }> {
-    return this.request(`/providers/${uuid(providerId)}/members/${uuid(operatorId)}`, input, options, 'PUT');
+    return this.request(`/admin/providers/${uuid(providerId)}/members/${uuid(operatorId)}`, input, options, 'PUT');
   }
   setSupplierMember(supplierId: string, operatorId: string, input: SupplierMemberUpdate, options?: RequestOptions): Promise<{ data: { active: boolean } }> {
     return this.setProviderMember(supplierId, operatorId, input, options);
@@ -1871,7 +1911,7 @@ export class NiuAdminClient {
 
   /** Platform directory; configuration counts include retained disabled configurations. */
   listProviderBusinesses(options?: RequestOptions): Promise<{ data: ProviderBusiness[] }> {
-    return this.request('/providers', undefined, options);
+    return this.request('/admin/providers', undefined, options);
   }
   listSupplierBusinesses(options?: RequestOptions): Promise<{ data: SupplierBusiness[] }> {
     return this.listProviderBusinesses(options);
@@ -1879,7 +1919,7 @@ export class NiuAdminClient {
 
   /** Create a business identity; this does not qualify supply or publish an offer. */
   createProviderBusiness(input: string | ProviderBusinessCreate, options?: RequestOptions): Promise<{ data: { id: string; slug: string } }> {
-    return this.request('/providers', typeof input === 'string' ? { name: input } : input, options);
+    return this.request('/admin/providers', typeof input === 'string' ? { name: input } : input, options);
   }
   createSupplierBusiness(input: string | ProviderBusinessCreate, options?: RequestOptions): Promise<{ data: { id: string; slug: string } }> {
     return this.createProviderBusiness(input, options);
@@ -1887,7 +1927,7 @@ export class NiuAdminClient {
 
   /** Only an unconfigured Provider can be removed; dependent configurations/offers/memberships return 409. */
   deleteProviderBusiness(providerId: string, options?: RequestOptions): Promise<{ data: { deleted: true } }> {
-    return this.request(`/providers/${uuid(providerId)}`, undefined, options, 'DELETE');
+    return this.request(`/admin/providers/${uuid(providerId)}`, undefined, options, 'DELETE');
   }
   deleteSupplierBusiness(supplierId: string, options?: RequestOptions): Promise<{ data: { deleted: true } }> {
     return this.deleteProviderBusiness(supplierId, options);
@@ -1895,59 +1935,59 @@ export class NiuAdminClient {
 
   /** Platform administration only; metadata contains no credentials or procurement prices. */
   getProviderProfile(providerId: string, options?: RequestOptions): Promise<{ data: ProviderProfile }> {
-    return this.request(`/providers/${uuid(providerId)}`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}`, undefined, options);
   }
   /** Platform-only Provider integration default, independent of inference formats. */
   /** Supported service implementations, separate from wire formats and saved connections. */
   listProviderPresets(options?: RequestOptions): Promise<{data: ProviderServiceDescriptor[]}> {
-    return this.request('/providers/presets', undefined, options);
+    return this.request('/admin/providers/presets', undefined, options);
   }
   /** Advertised evidence only. Partial ratios are not a monetary quote or customer tariff. */
   discoverProviderPricing(providerId: string, options?: RequestOptions): Promise<{data: ProviderPriceEvidence; integration: ProviderIntegration}> {
-    return this.request(`/providers/${uuid(providerId)}/pricing`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/pricing`, undefined, options);
   }
   discoverProviderMetadata(providerId: string, credentialId: string, options?: RequestOptions): Promise<{data: ProviderCatalogModel[]; discovery: ProviderDiscovery; pricing?: ProviderPriceEvidence | null}> {
-    return this.request(`/providers/${uuid(providerId)}/metadata?credential=${uuid(credentialId)}`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/metadata?credential=${uuid(credentialId)}`, undefined, options);
   }
   /** Explicit source refresh; persist the returned revision. No automatic write retry. */
   captureProviderPriceEvidence(providerId: string, options?: RequestOptions): Promise<{data:ProviderPriceVersion}> {
-    return this.request(`/providers/${uuid(providerId)}/pricing`, {}, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/pricing`, {}, options);
   }
   listProviderPriceHistory(providerId: string, query: {after?:string;limit?:number} = {}, options?:RequestOptions): Promise<{data:Array<{revision:string;adapter:string;status:string;source:string;captured_at_ms:number}>;next_after:string|null}> {
     const params=new URLSearchParams();
     if(query.after!==undefined){if(!/^[1-9][0-9]*$/.test(query.after))throw new TypeError('Invalid price cursor');params.set('after',query.after);}
     if(query.limit!==undefined){if(!Number.isInteger(query.limit)||query.limit<1||query.limit>50)throw new TypeError('Invalid price page size');params.set('limit',String(query.limit));}
-    return this.request(`/providers/${uuid(providerId)}/pricing/history${params.size ? '?'+params.toString() : ''}`,undefined,options);
+    return this.request(`/admin/providers/${uuid(providerId)}/pricing/history${params.size ? '?'+params.toString() : ''}`,undefined,options);
   }
   getProviderPriceEvidence(providerId: string, revision: string, options?: RequestOptions): Promise<{data:ProviderPriceVersion}> {
     if(!/^[1-9][0-9]*$/.test(revision))throw new TypeError('Invalid price revision');
-    return this.request(`/providers/${uuid(providerId)}/pricing/${revision}`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/pricing/${revision}`, undefined, options);
   }
   estimateProviderQuoteCost(providerId: string, input: {revision:string;model:string;quantities:Array<{meter:string;units:string;condition?:string}>}, options?: RequestOptions): Promise<{data:ProviderCostEstimate;quote_revision:string;adapter:string}> {
-    return this.request(`/providers/${uuid(providerId)}/estimate`, input, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/estimate`, input, options);
   }
   getProviderIntegration(providerId: string, options?: RequestOptions): Promise<{ data: ProviderIntegration }> {
-    return this.request(`/providers/${uuid(providerId)}/integration`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/integration`, undefined, options);
   }
   /** Platform-only configuration. Does not enable Credits or change existing balances. */
   getCustomerUnitConfiguration(options?: RequestOptions): Promise<{ data: CustomerUnitConfiguration }> {
-    return this.request('/platform/units', undefined, options);
+    return this.request('/admin/units', undefined, options);
   }
   getCustomerUnitModePreview(target: 'currency' | 'credits', options?: RequestOptions): Promise<{ data: CustomerUnitModePreview }> {
     if (!['currency', 'credits'].includes(target)) throw new TypeError('Choose currency or credits');
-    return this.request(`/platform/units/mode?${new URLSearchParams({target})}`, undefined, options);
+    return this.request(`/admin/units/mode?${new URLSearchParams({target})}`, undefined, options);
   }
   prepareCustomerUnitMode(input: CustomerUnitModePreviewInput, options?: RequestOptions): Promise<{data: CustomerUnitSavedModePreview}> {
     if (!['currency', 'credits'].includes(input.target_mode)) throw new TypeError('Choose currency or credits');
     unitInteger(input.expected_revision); uuid(input.idempotency_key);
-    return this.request('/platform/units/mode/previews', input, options, 'POST');
+    return this.request('/admin/units/mode/previews', input, options, 'POST');
   }
   getSavedCustomerUnitModePreview(previewId: string, options?: RequestOptions): Promise<{data: CustomerUnitSavedModePreview}> {
-    return this.request(`/platform/units/mode/previews/${uuid(previewId)}`, undefined, options);
+    return this.request(`/admin/units/mode/previews/${uuid(previewId)}`, undefined, options);
   }
   publishCustomerUnitMode(input: {preview_id: string; expected_revision: string; idempotency_key: string}, options?: RequestOptions): Promise<{data: CustomerUnitModePublication}> {
     uuid(input.preview_id); uuid(input.idempotency_key); unitInteger(input.expected_revision);
-    return this.request('/platform/units/mode', input, options, 'PUT');
+    return this.request('/admin/units/mode', input, options, 'PUT');
   }
   getCustomerUnitBalance(organizationId: string, options?: RequestOptions): Promise<{ data: CustomerUnitBalance }> {
     return this.request(`/organizations/${uuid(organizationId)}/billing/units`, undefined, options);
@@ -1975,7 +2015,7 @@ export class NiuAdminClient {
   }
   getCustomerUnitTextTariff(model: string, options?: RequestOptions): Promise<{ data: CustomerUnitTextTariff }> {
     if (!model || model !== model.trim() || [...model].length > 200 || /[\u0000-\u001f\u007f-\u009f]/.test(model)) throw new TypeError('Use a nonempty model alias');
-    return this.request(`/platform/units/tariffs?${new URLSearchParams({model})}`, undefined, options);
+    return this.request(`/admin/units/tariffs?${new URLSearchParams({model})}`, undefined, options);
   }
   publishCustomerUnitTextTariff(input: CustomerUnitTextTariffInput, options?: RequestOptions): Promise<{ data: CustomerUnitTextTariff }> {
     unitInteger(input.definition_revision, true); unitInteger(input.expected_revision); uuid(input.idempotency_key);
@@ -1988,7 +2028,7 @@ export class NiuAdminClient {
       for (const value of [tier.prompt_rate, tier.completion_rate]) retailInteger(value, 1000000000000000n);
       for (const value of [tier.cached_prompt_rate, tier.cache_write_prompt_rate, tier.reasoning_completion_rate]) if (value != null) retailInteger(value, 1000000000000000n);
     }
-    return this.request('/platform/units/tariffs', input, options, 'POST');
+    return this.request('/admin/units/tariffs', input, options, 'POST');
   }
   listCustomerUnitMediaTariffs(model?: string, options?: RequestOptions): Promise<{ data: CustomerUnitMediaTariff[] }> {
     const params = new URLSearchParams();
@@ -1997,7 +2037,7 @@ export class NiuAdminClient {
       params.set('model', model);
     }
     const suffix = params.size ? `?${params}` : '';
-    return this.request(`/platform/units/media/tariffs${suffix}`, undefined, options);
+    return this.request(`/admin/units/media/tariffs${suffix}`, undefined, options);
   }
   publishCustomerUnitMediaTariff(input: CustomerUnitMediaTariffInput, options?: RequestOptions): Promise<{ data: CustomerUnitMediaTariff }> {
     if (!input.model_alias || input.model_alias !== input.model_alias.trim() || [...input.model_alias].length > 200 || /[\u0000-\u001f\u007f-\u009f]/.test(input.model_alias)) throw new TypeError('Use a nonempty model alias');
@@ -2014,7 +2054,7 @@ export class NiuAdminClient {
     }
     if (BigInt(price.per_quantity.numerator) === 0n) throw new TypeError('Price unit quantity must be positive');
     if (!['Down', 'Up', 'HalfEven'].includes(price.rounding)) throw new TypeError('Invalid rounding mode');
-    return this.request('/platform/units/media/tariffs', input, options, 'POST');
+    return this.request('/admin/units/media/tariffs', input, options, 'POST');
   }
   issueCustomerUnitGrant(organizationId: string, input: CustomerUnitGrantInput, options?: RequestOptions): Promise<{ data: CustomerUnitGrant }> {
     unitInteger(input.definition_revision, true); unitInteger(input.credit_atoms, true); uuid(input.idempotency_key);
@@ -2042,25 +2082,25 @@ export class NiuAdminClient {
       || !Number.isInteger(input.display_precision) || input.display_precision < 0 || input.display_precision > 9) {
       throw new TypeError('Use a trimmed unit name and a display precision from zero through nine');
     }
-    return this.request('/platform/units/definitions', input, options, 'POST');
+    return this.request('/admin/units/definitions', input, options, 'POST');
   }
   publishCustomerUnitPurchaseRule(input: CustomerUnitPurchaseRuleInput, options?: RequestOptions): Promise<{ data: CustomerUnitPurchaseRule }> {
     unitInteger(input.expected_revision); unitInteger(input.definition_revision, true);
     unitInteger(input.numerator, true); unitInteger(input.denominator, true); uuid(input.idempotency_key);
     if (!/^[A-Z]{3}$/.test(input.payment_currency)) throw new TypeError('Use an uppercase payment currency');
-    return this.request('/platform/units/rules', input, options, 'POST');
+    return this.request('/admin/units/rules', input, options, 'POST');
   }
   setProviderIntegration(providerId: string, input: { integration_type: ProviderIntegrationType; expected_revision: number }, options?: RequestOptions): Promise<{ data: ProviderIntegration }> {
     if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 0) throw new TypeError('Choose a nonnegative safe integer integration revision');
-    return this.request(`/providers/${uuid(providerId)}/integration`, input, options, 'PUT');
+    return this.request(`/admin/providers/${uuid(providerId)}/integration`, input, options, 'PUT');
   }
   /** Null selection inherits the owning Provider default; no default means unspecified Custom. */
   getConnectionIntegration(connectionId: string, options?: RequestOptions): Promise<{ data: ProviderIntegration }> {
-    return this.request(`/vendors/${uuid(connectionId)}/integration`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(connectionId)}/integration`, undefined, options);
   }
   setConnectionIntegration(connectionId: string, input: { integration_type: ProviderIntegrationType | null; expected_revision: number }, options?: RequestOptions): Promise<{ data: ProviderIntegration }> {
     if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 0) throw new TypeError('Choose a nonnegative safe integer integration revision');
-    return this.request(`/vendors/${uuid(connectionId)}/integration`, input, options, 'PUT');
+    return this.request(`/admin/providers/connections/${uuid(connectionId)}/integration`, input, options, 'PUT');
   }
   getSupplierProfile(supplierId: string, options?: RequestOptions): Promise<{ data: SupplierProfile }> {
     return this.getProviderProfile(supplierId, options);
@@ -2069,7 +2109,7 @@ export class NiuAdminClient {
   /** Empty strings clear optional metadata; omission/null preserves it. Retain the last read revision. */
   updateProviderProfile(providerId: string, input: ProviderProfileUpdate, options?: RequestOptions): Promise<{ data: ProviderProfile }> {
     if (input.expected_revision != null && (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1)) throw new TypeError('Choose a positive safe integer Provider profile revision');
-    return this.request(`/providers/${uuid(providerId)}`, input, options, 'PATCH');
+    return this.request(`/admin/providers/${uuid(providerId)}`, input, options, 'PATCH');
   }
   updateSupplierProfile(supplierId: string, input: SupplierProfileUpdate, options?: RequestOptions): Promise<{ data: SupplierProfile }> {
     return this.updateProviderProfile(supplierId, input, options);
@@ -2077,7 +2117,7 @@ export class NiuAdminClient {
 
   /** Read the current publication for diagnostics or an explicit static replacement. */
   getRoutingRegistryStatus(options?: RequestOptions): Promise<{ data: RoutingRegistryStatus }> {
-    return this.request('/routing-registry', undefined, options);
+    return this.request('/admin/routing/registry', undefined, options);
   }
 
   private readonly token: string;
@@ -2157,10 +2197,10 @@ export class NiuAdminClient {
 
   /** Read the installation-wide currency; null means setup is incomplete. */
   getPlatformCurrency(options?: RequestOptions): Promise<{data: {currency: string | null}}> {
-    return this.apiRequest('/platform/currency', undefined, options);
+    return this.apiRequest('/admin/currency', undefined, options);
   }
   configurePlatformCurrency(currency: string, options?: RequestOptions): Promise<{data: {currency: string}}> {
-    return this.apiRequest('/platform/currency', {currency}, options, 'PUT');
+    return this.apiRequest('/admin/currency', {currency}, options, 'PUT');
   }
 
   /** Use options.idempotencyKey for safe replay and pass organizationId for an existing company. */
@@ -2187,26 +2227,32 @@ export class NiuAdminClient {
   /** Accept workspace IDs for current callers and scoped legacy references for compatibility. */
   renameWorkspace(scope: TenantScope | string, name: string, options?: RequestOptions): Promise<{ id: string; name: string }> {
     if (typeof scope === 'string') return this.renameWorkspaceById(scope, name, options);
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}`, { name }, options, 'PATCH');
+    return this.request(`/workspaces/${uuid(scope.projectId)}`, { name }, options, 'PATCH');
   }
 
   /** Only eligible empty workspaces may be deleted; existing business data is protected. */
   deleteWorkspace(scope: TenantScope | string, options?: RequestOptions): Promise<void> {
     if (typeof scope === 'string') return this.deleteWorkspaceById(scope, options);
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}`, undefined, options, 'DELETE');
+    return this.request(`/workspaces/${uuid(scope.projectId)}`, undefined, options, 'DELETE');
   }
 
-  /** Exact persisted route lookup; missing and out-of-scope workspaces both return 404. */
+  /** Exact persisted workspace UUID or slug lookup; missing and out-of-scope workspaces both return 404. */
   resolveWorkspaceRoute(routeSlug: string, options?: RequestOptions): Promise<WorkspaceRoute> {
     if (typeof routeSlug !== 'string' || !routeSlug.trim() || routeSlug !== routeSlug.trim() || routeSlug === '.' || routeSlug.includes('..') || /[/?#\\\x00-\x1f\x7f]/.test(routeSlug)) {
       throw new TypeError('Provide a valid workspace route slug');
     }
-    return this.request(`/workspaces/by-route/${encodeURIComponent(routeSlug)}`, undefined, options);
+    return this.request(`/workspaces/${encodeURIComponent(routeSlug)}`, undefined, options);
+  }
+
+  /** Read customer-facing balance summary for the active or selected organization. */
+  getCredits(organizationId?: string, options?: RequestOptions): Promise<{ data: CustomerBalance[] }> {
+    const query = organizationId ? `?organization_id=${encodeURIComponent(uuid(organizationId))}` : '';
+    return this.request(`/credits${query}`, undefined, options);
   }
 
   /** Complete active Provider grants for the signed-in operator; installation sessions return an empty list. */
   listProviderMemberships(options?: RequestOptions): Promise<{ data: ProviderMembership[] }> {
-    return this.request('/provider-memberships', undefined, options);
+    return this.request('/admin/providers/memberships', undefined, options);
   }
   listSupplierMemberships(options?: RequestOptions): Promise<{ data: SupplierMembership[] }> {
     return this.listProviderMemberships(options);
@@ -2214,27 +2260,27 @@ export class NiuAdminClient {
 
   /** Platform-only committed recovery progress; null fields mean no recorded worker step. */
   getFinancialRecoveryDiagnostics(options?: RequestOptions): Promise<FinancialRecoveryDiagnostics> {
-    return this.request('/platform/financial-recovery', undefined, options);
+    return this.request('/admin/finance/recovery', undefined, options);
   }
 
   /** Platform administrator inventory; does not imply merchant activation or enabled checkout. */
   listPaymentIntegrations(options?: RequestOptions): Promise<{ data: PaymentIntegration[] }> {
-    return this.request('/platform/payments/integrations', undefined, options);
+    return this.request('/admin/payments/integrations', undefined, options);
   }
 
-  /** Platform administrator read. Public display settings also exist at GET /v1/branding. */
+  /** Platform administrator read. Public display settings also exist at GET /api/v1/public/branding. */
   getPlatformEPayConfiguration(options?: RequestOptions): Promise<{ data: EPayConfiguration }> {
-    return this.request('/platform/payments/epay', undefined, options);
+    return this.request('/admin/payments/epay', undefined, options);
   }
 
   /** Revision checked; no implicit retry or merchant activation claim. */
   savePlatformEPayConfiguration(input: EPayConfigurationInput, options?: RequestOptions): Promise<{ data: EPayConfiguration }> {
-    return this.request('/platform/payments/epay', input, options, 'PUT');
+    return this.request('/admin/payments/epay', input, options, 'PUT');
   }
 
   /** Platform-only durable operation metadata. Reads never modify configuration. */
   listPlatformAuditEvents(query: PlatformAuditQuery = {}, options?: RequestOptions): Promise<PlatformAuditPage> {
-    return this.request('/platform/audit-events' + platformAuditQuery(query), undefined, options);
+    return this.request('/admin/audit' + platformAuditQuery(query), undefined, options);
   }
 
   /** Saved Chat/Video timelines. Category is always explicit on the wire; never dispatches inference. */
@@ -2282,12 +2328,12 @@ export class NiuAdminClient {
   }
 
   getBranding(options?: RequestOptions): Promise<BrandingConfiguration> {
-    return this.request('/platform/branding', undefined, options);
+    return this.request('/admin/branding', undefined, options);
   }
 
   /** Read Limited Preview registration policy (platform administration). */
   getRegistrationPolicy(options?: RequestOptions): Promise<{ data: PlatformRegistrationPolicy }> {
-    return this.apiRequest('/platform/registration', undefined, options);
+    return this.apiRequest('/admin/registration', undefined, options);
   }
 
   /** Switch registration policy between Limited Preview approval and closed (platform administration). */
@@ -2297,7 +2343,7 @@ export class NiuAdminClient {
   ): Promise<{ data: PlatformRegistrationPolicy }> {
     if (!/^[1-9][0-9]*$/.test(input.expected_revision)) throw new TypeError('Provide the current registration policy revision');
     if (input.mode !== 'disabled' && input.mode !== 'approval_required') throw new TypeError('Choose disabled or approval_required registration mode');
-    return this.apiRequest('/platform/registration', input, options, 'PUT');
+    return this.apiRequest('/admin/registration', input, options, 'PUT');
   }
 
   /** List Limited Preview registration requests (platform administration). */
@@ -2313,7 +2359,7 @@ export class NiuAdminClient {
       params.set('limit', String(query.limit));
     }
     const suffix = params.size ? `?${params}` : '';
-    return this.apiRequest(`/platform/registrations${suffix}`, undefined, options);
+    return this.apiRequest(`/admin/registrations${suffix}`, undefined, options);
   }
 
   /** Atomically approve a pending Limited Preview registration and provision workspace owner access. */
@@ -2323,7 +2369,7 @@ export class NiuAdminClient {
     options?: RequestOptions,
   ): Promise<{ data: RegistrationRequestRecord }> {
     if (!/^[1-9][0-9]*$/.test(input.expected_revision)) throw new TypeError('Provide the current registration revision');
-    return this.apiRequest(`/platform/registrations/${uuid(registrationId)}/approve`, input, options, 'POST');
+    return this.apiRequest(`/admin/registrations/${uuid(registrationId)}/approve`, input, options, 'POST');
   }
 
   /** Reject a pending Limited Preview registration without provisioning an account. */
@@ -2333,13 +2379,13 @@ export class NiuAdminClient {
     options?: RequestOptions,
   ): Promise<{ data: RegistrationRequestRecord }> {
     if (!/^[1-9][0-9]*$/.test(input.expected_revision)) throw new TypeError('Provide the current registration revision');
-    return this.apiRequest(`/platform/registrations/${uuid(registrationId)}/reject`, input, options, 'POST');
+    return this.apiRequest(`/admin/registrations/${uuid(registrationId)}/reject`, input, options, 'POST');
   }
 
   /** Revision-checked save. Empty palettes inherit Niu theme defaults. */
   saveBranding(expectedRevision: string, settings: BrandingSettings, options?: RequestOptions): Promise<BrandingConfiguration> {
     if (!/^(0|[1-9][0-9]*)$/.test(expectedRevision) || BigInt(expectedRevision) > 9223372036854775807n) throw new TypeError('A canonical branding revision is required');
-    return this.request('/platform/branding', { expected_revision: expectedRevision, settings: {
+    return this.request('/admin/branding', { expected_revision: expectedRevision, settings: {
       display_name: settings.display_name, default_appearance: settings.default_appearance,
       logo_data_url: settings.logo_data_url, favicon_data_url: settings.favicon_data_url,
       light: settings.light, dark: settings.dark,
@@ -2388,7 +2434,7 @@ export class NiuAdminClient {
    */
   cancelPreparedMediaOperation(scope: TenantScope, operationId: string, model: string, options?: RequestOptions): Promise<{ data: { status: 'not_sent' } }> {
     if (!model.trim()) throw new TypeError('A model is required');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/operations/${uuid(operationId)}/cancel${nativeCapabilityQuery(model)}`, undefined, options, 'POST');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/media/operations/${uuid(operationId)}/cancel${nativeCapabilityQuery(model)}`, undefined, options, 'POST');
   }
 
   /** Read saved native operations with current workspace Read access.
@@ -2402,13 +2448,13 @@ export class NiuAdminClient {
     const parameters = new URLSearchParams({ key_id: uuid(keyId) });
     if (query.after !== undefined) parameters.set('after', query.after);
     if (query.limit !== undefined) parameters.set('limit', String(query.limit));
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/asset-operation-models?${parameters}`, undefined, options, 'GET');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/media/asset-operation-models?${parameters}`, undefined, options, 'GET');
   }
 
   /** Read exact saved key/model history without restoring inference authority. */
   mediaOperationHistory(scope: TenantScope, context: MediaOperationHistoryContext) {
     if (!context.model.trim()) throw new TypeError('A model is required');
-    const path = `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/operations`;
+    const path = `/workspaces/${uuid(scope.projectId)}/media/operations`;
     const parameters = new URLSearchParams({ key_id: uuid(context.keyId), model: context.model });
     if (context.contextGroupId !== undefined) parameters.set('context_group_id', uuid(context.contextGroupId));
     return {
@@ -2532,7 +2578,7 @@ export class NiuAdminClient {
       if (!range.after.length || new TextEncoder().encode(range.after).length > 256) throw new TypeError('Invalid model boundary');
       query.set('after', range.after);
     }
-    return this.request(`/providers/${uuid(providerId)}/configuration-usage?${query}`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/configuration-usage?${query}`, undefined, options);
   }
   getSupplierConfigurationUsage(supplierId: string, range: SupplierConfigurationUsageQuery, options?: RequestOptions): Promise<{ data: SupplierConfigurationUsage }> {
     return this.getProviderConfigurationUsage(supplierId, range, options);
@@ -2549,7 +2595,7 @@ export class NiuAdminClient {
       if (!page.after.length || [...page.after].length > 200) throw new TypeError('Invalid offer alias cursor');
       query.set('after', page.after);
     }
-    return this.request(`/providers/${uuid(providerId)}/offers?${query}`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/offers?${query}`, undefined, options);
   }
   listSupplierOffersPage(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierOffer[]; next_after: string | null }> {
     return this.listProviderOffersPage(supplierId, page, options);
@@ -2574,7 +2620,7 @@ export class NiuAdminClient {
   /** Platform-administrator publication of a new immutable rate revision and clears prior qualification. */
   publishProviderRates(providerId: string, rates: ProviderRateInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     validateRates(rates);
-    return this.request(`/providers/${uuid(providerId)}/offers`, rates, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/offers`, rates, options);
   }
   publishSupplierRates(supplierId: string, rates: SupplierRateInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     return this.publishProviderRates(supplierId, rates, options);
@@ -2582,7 +2628,7 @@ export class NiuAdminClient {
 
   /** Platform administration or active membership in this Provider is required. */
   getProviderOfferRevision(providerId: string, offerId: string, revisionId: string, options?: RequestOptions): Promise<{ data: ProviderOfferRevision }> {
-    return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}/revisions/${uuid(revisionId)}`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/offers/${uuid(offerId)}/revisions/${uuid(revisionId)}`, undefined, options);
   }
   getSupplierOfferRevision(supplierId: string, offerId: string, revisionId: string, options?: RequestOptions): Promise<{ data: SupplierOfferRevision }> {
     return this.getProviderOfferRevision(supplierId, offerId, revisionId, options);
@@ -2594,7 +2640,7 @@ export class NiuAdminClient {
     const query = new URLSearchParams();
     if (page.before !== undefined) query.set('before', uuid(page.before));
     if (page.limit !== undefined) query.set('limit', String(page.limit));
-    return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}/revisions${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/offers/${uuid(offerId)}/revisions${query.size ? `?${query}` : ''}`, undefined, options);
   }
   listSupplierOfferHistory(supplierId: string, offerId: string, page: { before?: string; limit?: number } = {}, options?: RequestOptions): Promise<SupplierOfferHistory> {
     return this.listProviderOfferHistory(supplierId, offerId, page, options);
@@ -2603,7 +2649,7 @@ export class NiuAdminClient {
   /** Platform-only full earning history for settlement selection. IDs are never display labels. */
   listProviderEarnings(providerId: string, page: LedgerHistoryQuery = {}, options?: RequestOptions): Promise<ProviderEarningPage> {
     const query = ledgerHistoryQuery(page);
-    return this.request(`/providers/${uuid(providerId)}/earnings${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/earnings${query.size ? `?${query}` : ''}`, undefined, options);
   }
   listSupplierEarnings(supplierId: string, page: LedgerHistoryQuery = {}, options?: RequestOptions): Promise<SupplierEarningPage> {
     return this.listProviderEarnings(supplierId, page, options);
@@ -2619,7 +2665,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(from_ms) || from_ms < 0 || from_ms >= cutoff_ms) throw new TypeError('Use a period start before the cutoff');
       query.set('from_ms', String(from_ms));
     }
-    return this.request(`/providers/${uuid(providerId)}/settlements/preview?${query}`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/settlements/preview?${query}`, undefined, options);
   }
   previewSupplierSettlement(supplierId: string, page: { currency: string; cutoff_ms: number; from_ms?: number }, options?: RequestOptions): Promise<{ data: ProviderSettlementPreview }> {
     return this.previewProviderSettlement(supplierId, page, options);
@@ -2636,13 +2682,13 @@ export class NiuAdminClient {
       if (!Array.isArray(input.attempt_ids) || input.attempt_ids.length < 1 || input.attempt_ids.length > 1000) throw new TypeError('Select 1 to 1000 earning entries');
       const entries = input.attempt_ids.map(value => uuid(value).toLowerCase());
       if (new Set(entries).size !== entries.length) throw new TypeError('Select each earning entry only once');
-      return this.request(`/providers/${uuid(providerId)}/settlements`, { idempotency_key: uuid(input.idempotency_key), payment_reference: reference, attempt_ids: entries }, options);
+      return this.request(`/admin/providers/${uuid(providerId)}/settlements`, { idempotency_key: uuid(input.idempotency_key), payment_reference: reference, attempt_ids: entries }, options);
     }
     const { currency, cutoff_ms, from_ms } = input;
     if (typeof currency !== 'string' || !/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use one uppercase ISO 4217 currency code');
     if (typeof cutoff_ms !== 'number' || !Number.isInteger(cutoff_ms) || cutoff_ms < 0 || cutoff_ms > 253402300799999) throw new TypeError('Use a cutoff in Unix milliseconds within the supported range');
     if (from_ms !== undefined && (!Number.isInteger(from_ms) || from_ms < 0 || from_ms >= cutoff_ms)) throw new TypeError('Use a period start before the cutoff');
-    return this.request(`/providers/${uuid(providerId)}/settlements`, {
+    return this.request(`/admin/providers/${uuid(providerId)}/settlements`, {
       idempotency_key: uuid(input.idempotency_key),
       payment_reference: reference,
       currency,
@@ -2657,7 +2703,7 @@ export class NiuAdminClient {
   /** All-time Provider payment history; keep filters fixed while following next_cursor. */
   listProviderSettlements(providerId: string, page: ProviderSettlementQuery = {}, options?: RequestOptions): Promise<ProviderSettlementPage> {
     const query = ledgerHistoryQuery(page);
-    return this.request(`/providers/${uuid(providerId)}/settlements${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/settlements${query.size ? `?${query}` : ''}`, undefined, options);
   }
   listSupplierSettlements(supplierId: string, page: SupplierSettlementQuery = {}, options?: RequestOptions): Promise<SupplierSettlementPage> {
     return this.listProviderSettlements(supplierId, page, options);
@@ -2666,15 +2712,15 @@ export class NiuAdminClient {
   /** Requires Provider owner/admin or installation access; resuming still requires a current authorization. */
   setProviderOfferActive(providerId: string, offerId: string, active: boolean, options?: RequestOptions): Promise<{data: {active: boolean}}> {
     if (typeof active !== 'boolean') throw new TypeError('Offer active state must be boolean');
-    return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}`, {active}, options, 'PATCH');
+    return this.request(`/admin/providers/${uuid(providerId)}/offers/${uuid(offerId)}`, {active}, options, 'PATCH');
   }
   /** Atomically authorize and enable the exact current offer revision. */
   authorizeProviderOffer(providerId: string, offerId: string, rateRevision: string, options?: RequestOptions): Promise<{data: {active: boolean; authorization_id: string}}> {
-    return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}/authorization`, {rate_revision:uuid(rateRevision)}, options, 'PUT');
+    return this.request(`/admin/providers/${uuid(providerId)}/offers/${uuid(offerId)}/authorization`, {rate_revision:uuid(rateRevision)}, options, 'PUT');
   }
   /** Revoke one exact authorization; a different current authorization is unaffected. */
   revokeProviderOfferAuthorization(providerId: string, offerId: string, authorizationId: string, options?: RequestOptions): Promise<{data: {revoked: boolean}}> {
-    return this.request(`/providers/${uuid(providerId)}/offers/${uuid(offerId)}/authorization/${uuid(authorizationId)}`, undefined, options, 'DELETE');
+    return this.request(`/admin/providers/${uuid(providerId)}/offers/${uuid(offerId)}/authorization/${uuid(authorizationId)}`, undefined, options, 'DELETE');
   }
   setSupplierOfferActive(supplierId: string, offerId: string, active: boolean, options?: RequestOptions): Promise<{data: {active: boolean}}> {
     return this.setProviderOfferActive(supplierId, offerId, active, options);
@@ -2762,7 +2808,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
       query.set('limit', String(page.limit));
     }
-    return this.request(`/platform/customer-accounts${query.size ? '?' + query : ''}`, undefined, options);
+    return this.request(`/admin/customers${query.size ? '?' + query : ''}`, undefined, options);
   }
 
   getCustomerBalance(organizationId: string, options?: RequestOptions): Promise<{ data: CustomerBalance[] }> {
@@ -2771,12 +2817,12 @@ export class NiuAdminClient {
 
   /** Workspace read access. Missing receipt returns 404; never queries upstream or changes billing. */
   getRequestUsageReconciliation(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<RequestUsageReconciliation> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/usage-reconciliation`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/usage-reconciliation`, undefined, options);
   }
 
   /** Installation write only. Records supplemental usage; financial recovery settles separately. */
   reconcileRequestUsage(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<RequestUsageReconciliation> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/usage-reconciliation`, {}, options, 'POST');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/usage-reconciliation`, {}, options, 'POST');
   }
 
   /** Company-wide balance permission required. Keep currency fixed while following next_before. */
@@ -2840,6 +2886,22 @@ export class NiuAdminClient {
     const { before, ...transport } = options ?? {};
     const query = before === undefined ? '' : `?before=${uuid(before)}`;
     return this.request(`/organizations/${uuid(organizationId)}/billing/topups${query}`, undefined, transport);
+  }
+
+  /** Platform administration settled top-up; idempotent on (channel, payment_reference). */
+  recordSettledFunding(organizationId: string, input: SettledCustomerFundingInput, options?: RequestOptions): Promise<{ data: { recorded: true } }> {
+    if (!/^[A-Z]{3}$/.test(input.currency)) throw new TypeError('Use a three-letter uppercase currency');
+    if (typeof input.amount_nanos !== 'string' || !/^[1-9][0-9]{0,18}$/.test(input.amount_nanos)
+      || BigInt(input.amount_nanos) > 9223372036854775807n) throw new TypeError('Use an exact positive amount');
+    if (typeof input.channel !== 'string' || input.channel !== input.channel.trim() || input.channel.length < 1
+      || input.channel.length > 100 || /[\u0000-\u001f\u007f-\u009f]/.test(input.channel)) throw new TypeError('Use a trimmed funding channel without control characters');
+    if (typeof input.payment_reference !== 'string' || input.payment_reference !== input.payment_reference.trim()
+      || input.payment_reference.length < 1 || input.payment_reference.length > 200
+      || /[\u0000-\u001f\u007f-\u009f]/.test(input.payment_reference)) throw new TypeError('Use a trimmed payment reference without control characters');
+    return this.request(`/organizations/${uuid(organizationId)}/billing/funding/settled`, {
+      currency: input.currency, amount_nanos: input.amount_nanos,
+      channel: input.channel, payment_reference: input.payment_reference,
+    }, options, 'POST');
   }
 
   /** Installation-only ledger refund/reversal. Never initiates an external payment or automatically retries. */
@@ -2956,7 +3018,7 @@ export class NiuAdminClient {
 
   /** Customer-safe billing read; server workspace authorization is authoritative. */
   getCustomerBilling(scope: TenantScope, options?: RequestOptions): Promise<{ data: CustomerBilling }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing`, undefined, options);
   }
 
   /** Scoped immutable selling history; amount strings are never coerced to numbers. */
@@ -2966,7 +3028,7 @@ export class NiuAdminClient {
     const query = new URLSearchParams();
     if (page.before !== undefined) query.set('before', uuid(page.before));
     if (page.limit !== undefined) query.set('limit', String(page.limit));
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/tariffs/${encodeURIComponent(model)}/history${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/tariffs/${encodeURIComponent(model)}/history${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** Current shared tariff-eligible aliases; publication rechecks availability. */
@@ -2980,7 +3042,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
       query.set('limit', String(page.limit));
     }
-    return this.request(`/pricing/models${query.size ? '?' + query : ''}`, undefined, options);
+    return this.request(`/admin/pricing/models${query.size ? '?' + query : ''}`, undefined, options);
   }
 
   /** Platform-only named companies, including companies without workspaces or accounts. */
@@ -2991,7 +3053,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
       query.set('limit', String(page.limit));
     }
-    return this.request(`/pricing/customers${query.size ? '?' + query : ''}`, undefined, options);
+    return this.request(`/admin/pricing/customers${query.size ? '?' + query : ''}`, undefined, options);
   }
 
   /** Registered shared aliases, including disabled configuration; not supply readiness. */
@@ -3005,7 +3067,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
       query.set('limit', String(page.limit));
     }
-    return this.request(`/pricing/standard-prices/models${query.size ? '?' + query : ''}`, undefined, options);
+    return this.request(`/admin/pricing/standard-prices/models${query.size ? '?' + query : ''}`, undefined, options);
   }
 
   /** Platform-only read; never changes routes or initiates payment. Unknown amounts remain null. */
@@ -3019,7 +3081,7 @@ export class NiuAdminClient {
       if (query.days !== undefined && ![7, 30, 90].includes(query.days)) throw new TypeError('Choose a 7, 30 or 90 day period');
       parameters.set('days', String(query.days ?? 30));
     }
-    return this.request(`/commercial-position?${parameters}`, undefined, options);
+    return this.request(`/admin/finance/position?${parameters}`, undefined, options);
   }
 
   /** Platform-only posting summary. Cash receipts, gift issuance and net consumption revenue are distinct. */
@@ -3033,7 +3095,7 @@ export class NiuAdminClient {
       if (query.days !== undefined && ![7, 30, 90].includes(query.days)) throw new TypeError('Choose a 7, 30 or 90 day period');
       parameters.set('days', String(query.days ?? 30));
     }
-    return this.request(`/financial-summary?${parameters}`, undefined, options);
+    return this.request(`/admin/finance/summary?${parameters}`, undefined, options);
   }
 
   /** Platform-only explicit liability evidence; publication does not authorize dispatch. */
@@ -3041,7 +3103,7 @@ export class NiuAdminClient {
     const validSupplier = pathSegment(supplier, 'Provider identifier');
     const validOffer = pathSegment(offer, 'Offer identifier');
     if (input.identity.supplier_id !== supplier || input.identity.offer_id !== offer) throw new TypeError('Route identity must match the requested Provider offer');
-    return this.request(`/providers/${validSupplier}/offers/${validOffer}/media-liability-bounds`, input, options, 'POST');
+    return this.request(`/admin/providers/${validSupplier}/offers/${validOffer}/media-liability-bounds`, input, options, 'POST');
   }
   /** Platform-only immutable qualification history. Quantities do not imply an available route. */
   listMediaLiabilityQualifications(supplier: string, offer: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<MediaLiabilityQualificationPage> {
@@ -3053,36 +3115,36 @@ export class NiuAdminClient {
       if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
       query.set('limit', String(page.limit));
     }
-    return this.request(`/providers/${validSupplier}/offers/${validOffer}/media-liability-bounds${query.size ? '?' + query : ''}`, undefined, options);
+    return this.request(`/admin/providers/${validSupplier}/offers/${validOffer}/media-liability-bounds${query.size ? '?' + query : ''}`, undefined, options);
   }
   /** Future admission only; already pinned jobs retain their bound. */
   retireMediaLiabilityQualification(supplier: string, offer: string, revision: string, input: MediaLiabilityRevocation, options?: RequestOptions): Promise<{ data: MediaLiabilityPublicationResult }> {
     const validSupplier = pathSegment(supplier, 'Provider identifier');
     const validOffer = pathSegment(offer, 'Offer identifier');
     const validRevision = pathSegment(revision, 'Qualification revision');
-    return this.request(`/providers/${validSupplier}/offers/${validOffer}/media-liability-bounds/${validRevision}/retire`, input, options, 'POST');
+    return this.request(`/admin/providers/${validSupplier}/offers/${validOffer}/media-liability-bounds/${validRevision}/retire`, input, options, 'POST');
   }
 
   /** Platform configuration only; does not create funding or qualify a video route. */
   setRetailMediaEnrollment(scope: TenantScope, input: RetailMediaEnrollmentPublication, options?: RequestOptions): Promise<{ data: RetailMediaEnrollmentResult }> {
-    return this.request(`/organizations/${encodeURIComponent(uuid(scope.organizationId))}/projects/${encodeURIComponent(uuid(scope.projectId))}/billing/media-retail-price-enrollment`, input, options, 'POST');
+    return this.request(`/workspaces/${encodeURIComponent(uuid(scope.projectId))}/billing/media-retail-price-enrollment`, input, options, 'POST');
   }
   /** Own customer selection is advisory; immutable task binding happens during admission. */
   getRetailMediaEnrollment(scope: TenantScope, dimensions: MediaBillingDimensions, meter: string, options?: RequestOptions): Promise<{ data: RetailMediaEnrollment }> {
     const query = new URLSearchParams({ model: dimensions.model, channel: dimensions.channel, resolution: dimensions.resolution, reference_video: String(dimensions.reference_video), meter });
-    return this.request(`/organizations/${encodeURIComponent(uuid(scope.organizationId))}/projects/${encodeURIComponent(uuid(scope.projectId))}/billing/media-retail-price-enrollment?${query}`, undefined, options);
+    return this.request(`/workspaces/${encodeURIComponent(uuid(scope.projectId))}/billing/media-retail-price-enrollment?${query}`, undefined, options);
   }
 
   /** Platform selling publication; preserves exact prior outcome for the same canonical intent/key. */
   publishRetailStandard(input: RetailStandardPublication, options?: RequestOptions): Promise<{ data: RetailPublicationResult }> {
     retailPublication(input, true); retailSchedule(input.schedule, input.model_alias, input.currency);
-    return this.request('/pricing/standard-prices', input, options, 'POST');
+    return this.request('/admin/pricing/standard-prices', input, options, 'POST');
   }
   listRetailStandards(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: RetailPriceRecord[]; next_after: string | null }> {
     const query=new URLSearchParams();
     if (page.after !== undefined) query.set('after', uuid(page.after));
     if (page.limit !== undefined) { if (!Number.isInteger(page.limit) || page.limit<1 || page.limit>100) throw new TypeError('Choose a page size from 1 to 100'); query.set('limit',String(page.limit)); }
-    return this.request(`/pricing/standard-prices${query.size?'?'+query:''}`, undefined, options);
+    return this.request(`/admin/pricing/standard-prices${query.size?'?'+query:''}`, undefined, options);
   }
   /** Finite explicit result; customer-specific rules override global rules without stacking. */
   publishRetailPromotion(priceId: string, input: RetailPromotionPublication, options?: RequestOptions): Promise<{ data: RetailPublicationResult }> {
@@ -3090,40 +3152,40 @@ export class NiuAdminClient {
     if (input.customer_organization_id !== null) uuid(input.customer_organization_id);
     retailInteger(input.effective_from,253402300799n); retailInteger(input.effective_until,253402300799n);
     if (BigInt(input.effective_until)<=BigInt(input.effective_from)) throw new TypeError('Promotion end must follow start');
-    return this.request(`/pricing/standard-prices/${uuid(priceId)}/promotions`,input,options,'POST');
+    return this.request(`/admin/pricing/standard-prices/${uuid(priceId)}/promotions`,input,options,'POST');
   }
   /** Complete cutoff coverage per page; temporal state is not customer selection or admission. */
   listRetailPromotions(priceId: string, page: { before?: string; limit?: number } = {}, options?: RequestOptions): Promise<RetailPromotionPage> {
     const query = new URLSearchParams();
     if (page.before !== undefined) { retailInteger(page.before, 9223372036854775807n); if (BigInt(page.before) === 0n) throw new TypeError('Use a positive promotion version cursor'); query.set('before', page.before); }
     if (page.limit !== undefined) { if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100'); query.set('limit', String(page.limit)); }
-    return this.request(`/pricing/standard-prices/${uuid(priceId)}/promotions${query.size ? '?' + query : ''}`, undefined, options);
+    return this.request(`/admin/pricing/standard-prices/${uuid(priceId)}/promotions${query.size ? '?' + query : ''}`, undefined, options);
   }
   retireRetailPromotion(priceId: string, promotionId: string, input: RetailPromotionRetirement, options?: RequestOptions): Promise<{ data: RetailPublicationResult }> {
     retailPublication(input); retailInteger(input.effective_until,253402300799n);
-    return this.request(`/pricing/standard-prices/${uuid(priceId)}/promotions/${uuid(promotionId)}/retire`,input,options,'POST');
+    return this.request(`/admin/pricing/standard-prices/${uuid(priceId)}/promotions/${uuid(promotionId)}/retire`,input,options,'POST');
   }
   getRetailPriceHistory(priceId: string, page: { before?: string; limit?: number } = {}, options?: RequestOptions): Promise<RetailPriceHistory> {
     const query=new URLSearchParams();
     if (page.before !== undefined) { retailInteger(page.before,9223372036854775807n); if (BigInt(page.before)===0n) throw new TypeError('Use a positive version cursor'); query.set('before',page.before); }
     if (page.limit !== undefined) { if (!Number.isInteger(page.limit) || page.limit<1 || page.limit>100) throw new TypeError('Choose a page size from 1 to 100'); query.set('limit',String(page.limit)); }
-    return this.request(`/pricing/standard-prices/${uuid(priceId)}/history${query.size?'?'+query:''}`,undefined,options);
+    return this.request(`/admin/pricing/standard-prices/${uuid(priceId)}/history${query.size?'?'+query:''}`,undefined,options);
   }
   /** Platform preview, not enrollment, spending permission or a request price snapshot. */
   previewRetailPrice(priceId: string, customerOrganizationId: string, options?: RequestOptions): Promise<RetailSelection> {
     const query=new URLSearchParams({customer_organization_id:uuid(customerOrganizationId)});
-    return this.request(`/pricing/standard-prices/${uuid(priceId)}/preview?${query}`,undefined,options);
+    return this.request(`/admin/pricing/standard-prices/${uuid(priceId)}/preview?${query}`,undefined,options);
   }
 
   setRetailTextEnrollment(scope: TenantScope, input: RetailTextEnrollmentPublication, options?: RequestOptions): Promise<{ data: Omit<RetailTextEnrollment,'pricing_source' | 'effective_price'> & { revision: string } }> {
     retailPublication(input); if (input.price_id !== null) uuid(input.price_id);
     if (!input.model_alias || input.model_alias !== input.model_alias.trim() || input.model_alias.length>200) throw new TypeError('Use a model alias');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/retail-price-enrollment`,input,options,'POST');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/retail-price-enrollment`,input,options,'POST');
   }
   getRetailTextEnrollment(scope: TenantScope, modelAlias: string, options?: RequestOptions): Promise<{ data: RetailTextEnrollment }> {
     if (!modelAlias || modelAlias!==modelAlias.trim() || modelAlias.length>200) throw new TypeError('Use a model alias');
     const query=new URLSearchParams({model_alias:modelAlias});
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/retail-price-enrollment?${query}`,undefined,options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/retail-price-enrollment?${query}`,undefined,options);
   }
 
   /** Named pricing targets; platform permission does not grant customer data access. */
@@ -3134,7 +3196,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
       query.set('limit', String(page.limit));
     }
-    return this.request(`/pricing/targets${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.request(`/admin/pricing/targets${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** Current selling prices only; pass next_after unchanged to continue. */
@@ -3148,7 +3210,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
       query.set('limit', String(page.limit));
     }
-    return this.request(`/pricing/organizations/${uuid(scope.organizationId)}/workspaces/${uuid(scope.projectId)}/tariffs${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.request(`/admin/pricing/organizations/${uuid(scope.organizationId)}/workspaces/${uuid(scope.projectId)}/tariffs${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** Platform-only selling history, independent of customer content permissions. */
@@ -3158,7 +3220,7 @@ export class NiuAdminClient {
     const query = new URLSearchParams();
     if (page.before !== undefined) query.set('before', uuid(page.before));
     if (page.limit !== undefined) query.set('limit', String(page.limit));
-    return this.request(`/pricing/organizations/${uuid(scope.organizationId)}/workspaces/${uuid(scope.projectId)}/tariffs/${encodeURIComponent(model)}/history${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.request(`/admin/pricing/organizations/${uuid(scope.organizationId)}/workspaces/${uuid(scope.projectId)}/tariffs/${encodeURIComponent(model)}/history${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** Explicit platform-administrator retail publication. No retry or Provider-price fallback. */
@@ -3169,7 +3231,7 @@ export class NiuAdminClient {
     if (fee !== undefined && (typeof fee !== 'string' || !/^\d+$/.test(fee) || BigInt(fee) > 9_223_372_036_854_775_807n)) throw new Error('Request fee must be a nonnegative integer string within signed 64-bit range');
     const minimum = rates.minimum_charge_nanos;
     if (minimum !== undefined && (typeof minimum !== 'string' || !/^\d+$/.test(minimum) || BigInt(minimum) > 9_223_372_036_854_775_807n)) throw new Error('Minimum charge must be a nonnegative integer string within signed 64-bit range');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/tariffs`, rates, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/tariffs`, rates, options);
   }
 
   /** Platform-administrator video selling configuration; publication does not qualify dispatch. */
@@ -3207,7 +3269,7 @@ export class NiuAdminClient {
 
   /** Platform-administrator agreed Provider media purchase terms; independent from retail pricing. */
   publishProviderMediaRate(providerId: string, input: ProviderMediaRateCard, options?: RequestOptions): Promise<{ data: { revision: string } }> {
-    return this.request(`/providers/${uuid(providerId)}/media-rates`, supplierMediaRateBody(input), options);
+    return this.request(`/admin/providers/${uuid(providerId)}/media-rates`, supplierMediaRateBody(input), options);
   }
   publishSupplierMediaRate(supplierId: string, input: SupplierMediaRateCard, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     return this.publishProviderMediaRate(supplierId, input, options);
@@ -3216,7 +3278,7 @@ export class NiuAdminClient {
   /** Atomically publish new terms and end the previous schedule at their start. */
   replaceProviderMediaRate(providerId: string, previousRevision: string, input: ProviderMediaRateCard, options?: RequestOptions): Promise<{ data: { revision: string; effective_from: string } }> {
     if (!previousRevision || previousRevision.trim() !== previousRevision || previousRevision.length > 256 || /[\x00-\x1f\x7f]/.test(previousRevision)) throw new TypeError('Choose a valid previous Provider media revision');
-    return this.request(`/providers/${uuid(providerId)}/media-rates/replace`, {
+    return this.request(`/admin/providers/${uuid(providerId)}/media-rates/replace`, {
       previous_revision: previousRevision, rate: supplierMediaRateBody(input),
     }, options);
   }
@@ -3231,7 +3293,7 @@ export class NiuAdminClient {
     const query = new URLSearchParams();
     if (page.after !== undefined) query.set('after', page.after);
     if (page.limit !== undefined) query.set('limit', String(page.limit));
-    return this.request(`/providers/${uuid(providerId)}/media-rates${query.size ? '?' + query : ''}`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/media-rates${query.size ? '?' + query : ''}`, undefined, options);
   }
   listSupplierMediaRates(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierMediaRateRecord[]; has_more: boolean; next_after: string | null }> {
     return this.listProviderMediaRates(supplierId, page, options);
@@ -3244,7 +3306,7 @@ export class NiuAdminClient {
     const query = new URLSearchParams();
     if (page.after !== undefined) query.set('after', page.after);
     if (page.limit !== undefined) query.set('limit', String(page.limit));
-    return this.request(`/providers/${uuid(providerId)}/media-rate-models${query.size ? '?' + query : ''}`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/media-rate-models${query.size ? '?' + query : ''}`, undefined, options);
   }
   listSupplierMediaRateModels(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierMediaRateModel[]; has_more: boolean; next_after: string | null }> {
     return this.listProviderMediaRateModels(supplierId, page, options);
@@ -3257,7 +3319,7 @@ export class NiuAdminClient {
     const query = new URLSearchParams();
     if (page.after !== undefined) query.set('after', page.after);
     if (page.limit !== undefined) query.set('limit', String(page.limit));
-    return this.request(`/providers/${uuid(providerId)}/media-offer-models${query.size ? '?' + query : ''}`, undefined, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/media-offer-models${query.size ? '?' + query : ''}`, undefined, options);
   }
   listSupplierMediaOfferModels(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierMediaOfferModel[]; has_more: boolean; next_after: string | null }> {
     return this.listProviderMediaOfferModels(supplierId, page, options);
@@ -3274,7 +3336,7 @@ export class NiuAdminClient {
     const body = { revision: uuid(input.revision), model_alias: input.model_alias, vendor_id: uuid(input.vendor_id),
       vendor_revision: input.vendor_revision, model_revision: input.model_revision, schema_revision: input.schema_revision,
       expected_revision: input.expected_revision === null ? null : uuid(input.expected_revision) };
-    return this.request(`/providers/${uuid(providerId)}/media-offers`, body, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/media-offers`, body, options);
   }
   publishSupplierMediaOffer(supplierId: string, input: SupplierMediaOfferInput, options?: RequestOptions): Promise<{ data: { revision: string; offer_id: string } }> {
     return this.publishProviderMediaOffer(supplierId, input, options);
@@ -3284,7 +3346,7 @@ export class NiuAdminClient {
   retireProviderMediaRate(providerId: string, revision: string, effectiveUntil: number, options?: RequestOptions): Promise<{ data: { revision: string; effective_until: string } }> {
     if (typeof revision !== 'string' || !revision || revision.trim() !== revision || revision === '.' || revision === '..' || revision.length > 256 || /[\x00-\x1f\x7f/?#]/.test(revision)) throw new TypeError('Choose a valid Provider media revision');
     if (!Number.isSafeInteger(effectiveUntil)) throw new TypeError('Retirement time must be exact Unix seconds');
-    return this.request(`/providers/${uuid(providerId)}/media-rates/${encodeURIComponent(revision)}/retire`, { effective_until: effectiveUntil }, options);
+    return this.request(`/admin/providers/${uuid(providerId)}/media-rates/${encodeURIComponent(revision)}/retire`, { effective_until: effectiveUntil }, options);
   }
   retireSupplierMediaRate(supplierId: string, revision: string, effectiveUntil: number, options?: RequestOptions): Promise<{ data: { revision: string; effective_until: string } }> {
     return this.retireProviderMediaRate(supplierId, revision, effectiveUntil, options);
@@ -3300,7 +3362,7 @@ export class NiuAdminClient {
   /** Full customer-only invoice history; existing balance debits count as settlement. */
   listCustomerInvoices(scope: TenantScope, page: LedgerHistoryQuery = {}, options?: RequestOptions): Promise<CustomerInvoicePage> {
     const query = ledgerHistoryQuery(page);
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/invoices${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/invoices${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** Installation-only invoice closure. Preserve the caller's idempotency key on manual replay. */
@@ -3309,20 +3371,20 @@ export class NiuAdminClient {
       || input.from_ms < 0 || input.to_ms <= input.from_ms || input.to_ms - input.from_ms > 366 * 86_400_000
       || !/^[A-Z]{3}$/.test(input.currency)) throw new Error('Choose a nonnegative invoice range of at most 366 days and a three-letter currency');
     uuid(input.idempotency_key);
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/invoices`, input, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/invoices`, input, options);
   }
 
   /** Workspace-authorized customer line items. Unknown/out-of-scope invoices return 404; amounts and token counts remain exact decimal strings. */
   getCustomerInvoiceLines(scope: TenantScope, invoiceId: string, options?: RequestOptions, mediaAfter?: string): Promise<{ data: CustomerInvoiceLine[]; media_lines?: CustomerInvoiceMediaLine[]; media_next_cursor?: string | null }> {
     const cursor = mediaAfter === undefined ? '' : `?media_after=${uuid(mediaAfter)}`;
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/invoices/${uuid(invoiceId)}${cursor}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/invoices/${uuid(invoiceId)}${cursor}`, undefined, options);
   }
 
   /** Installation-only record of a confirmed external payment; does not collect or transfer money. */
   recordCustomerInvoicePayment(scope: TenantScope, invoiceId: string, paymentReference: string, options?: RequestOptions): Promise<{ data: { id: string } }> {
     const reference = paymentReference.trim();
     if (!reference || new TextEncoder().encode(reference).length > 200 || /\p{Cc}/u.test(reference)) throw new Error('Choose a payment reference of at most 200 bytes without control characters');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/invoices/${uuid(invoiceId)}/payment`, { payment_reference: reference }, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/billing/invoices/${uuid(invoiceId)}/payment`, { payment_reference: reference }, options);
   }
 
   getWorkspaceGuardrail(scope: TenantScope, options?: RequestOptions): Promise<{ data: { revision: number; policy: GuardrailPolicy } | null }> {
@@ -3330,14 +3392,14 @@ export class NiuAdminClient {
   }
 
   getKeyIpPolicy(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyIpPolicy }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy`, undefined, options);
   }
 
   /** Null allows all sources; [] denies all. Secret rotation preserves the policy. */
   setKeyIpPolicy(scope: TenantScope, keyId: string, input: { allowed_cidrs: string[] | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     if (input.allowed_cidrs !== null && (!Array.isArray(input.allowed_cidrs) || input.allowed_cidrs.length > 64 || input.allowed_cidrs.some(value => typeof value !== 'string' || !value || value.length > 64 || value.trim() !== value))) throw new TypeError('Use up to 64 IP addresses or CIDRs, or explicit null');
     if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy`, { allowed_cidrs: input.allowed_cidrs, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy`, { allowed_cidrs: input.allowed_cidrs, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   listKeyIpPolicyHistory(scope: TenantScope, keyId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeyIpPolicyRevision[] }> {
@@ -3350,12 +3412,12 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   /** Read known token subtotals; unknown requests are not zero usage. No TPM enforcement. */
   getKeyTokenUsageWindow(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyTokenUsageWindow }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-usage-window`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-usage-window`, undefined, options);
   }
 
   /** All matching configurations, including disabled entries. No silent row cap.
@@ -3363,7 +3425,7 @@ export class NiuAdminClient {
   listProviderCredentials(query: { providerId?: string; supplierId?: string } = {}, options?: RequestOptions): Promise<{ data: ProviderCredential[] }> {
     const filterId = query.providerId ?? query.supplierId;
     const suffix = filterId === undefined ? '' : `?supplier=${uuid(filterId)}`;
-    return this.request(`/vendors${suffix}`, undefined, options);
+    return this.request(`/admin/providers/connections${suffix}`, undefined, options);
   }
   listSupplierCredentials(query: { supplierId?: string } = {}, options?: RequestOptions): Promise<{ data: SupplierCredential[] }> {
     return this.listProviderCredentials(query, options);
@@ -3372,11 +3434,11 @@ export class NiuAdminClient {
   /** Platform-only creation; preserve the returned configuration identity. No automatic retry. */
   createProviderCredential(input: ProviderCredentialCreateInput, options?: RequestOptions): Promise<{ data: Omit<ProviderCredential, 'supplier'> }> {
     if (input.create_supplier && input.supplier_id !== undefined) throw new Error('Choose a new or existing Provider');
-    return this.request('/vendors', { ...input, ...(input.supplier_id === undefined ? {} : { supplier_id: uuid(input.supplier_id) }), ...(input.personal_organization_id === undefined ? {} : { personal_organization_id: uuid(input.personal_organization_id) }) }, options);
+    return this.request('/admin/providers/connections', { ...input, ...(input.supplier_id === undefined ? {} : { supplier_id: uuid(input.supplier_id) }), ...(input.personal_organization_id === undefined ? {} : { personal_organization_id: uuid(input.personal_organization_id) }) }, options);
   }
   /** Explicit bounded discovery and idempotent private model import; no inference or billing setup. */
   importPersonalProviderModels(id: string, options?: RequestOptions): Promise<{ data: { imported: number; discovered: number }; discovery: Record<string, unknown> }> {
-    return this.request(`/vendors/${uuid(id)}/import`, {}, options);
+    return this.request(`/admin/providers/connections/${uuid(id)}/import`, {}, options);
   }
   createSupplierCredential(input: SupplierCredentialCreateInput, options?: RequestOptions): Promise<{ data: Omit<SupplierCredential, 'supplier'> }> {
     return this.createProviderCredential(input, options);
@@ -3385,7 +3447,7 @@ export class NiuAdminClient {
   /** Optimistic update of one configuration. Omitted api_key preserves the secret. */
   updateProviderCredential(id: string, input: ProviderCredentialUpdateInput, options?: RequestOptions): Promise<{ data: Omit<ProviderCredential, 'supplier'> }> {
     if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1) throw new Error('Provide the current configuration revision');
-    return this.request(`/vendors/${uuid(id)}`, input, options, 'PUT');
+    return this.request(`/admin/providers/connections/${uuid(id)}`, input, options, 'PUT');
   }
   updateSupplierCredential(id: string, input: SupplierCredentialUpdateInput, options?: RequestOptions): Promise<{ data: Omit<SupplierCredential, 'supplier'> }> {
     return this.updateProviderCredential(id, input, options);
@@ -3393,7 +3455,7 @@ export class NiuAdminClient {
 
   /** Retire a connection: disable new dispatch, erase the credential and disable models; history remains. */
   retireProviderCredential(id: string, options?: RequestOptions): Promise<{ data: Omit<ProviderCredential, 'supplier'> }> {
-    return this.request(`/vendors/${uuid(id)}/retire`, {}, options);
+    return this.request(`/admin/providers/connections/${uuid(id)}/retire`, {}, options);
   }
   retireSupplierCredential(id: string, options?: RequestOptions): Promise<{ data: Omit<SupplierCredential, 'supplier'> }> {
     return this.retireProviderCredential(id, options);
@@ -3401,7 +3463,7 @@ export class NiuAdminClient {
 
   /** Complete per-credential management inventory; availability is not commercial qualification. */
   listProviderModels(credentialId: string, options?: RequestOptions): Promise<{ data: ProviderModelAvailability[] }> {
-    return this.request(`/vendors/${uuid(credentialId)}/models`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(credentialId)}/models`, undefined, options);
   }
   listSupplierModels(credentialId: string, options?: RequestOptions): Promise<{ data: SupplierModelAvailability[] }> {
     return this.listProviderModels(credentialId, options);
@@ -3410,7 +3472,7 @@ export class NiuAdminClient {
   /** Create a new alias or update using its current revision. Alias ownership cannot move. */
   upsertProviderModel(credentialId: string, input: ProviderModelInput, options?: RequestOptions): Promise<{ data: ProviderModel }> {
     if (input.expected_revision !== undefined && (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1)) throw new Error('Provide the current model revision');
-    return this.request(`/vendors/${uuid(credentialId)}/models`, input, options);
+    return this.request(`/admin/providers/connections/${uuid(credentialId)}/models`, input, options);
   }
   upsertSupplierModel(credentialId: string, input: SupplierModelInput, options?: RequestOptions): Promise<{ data: SupplierModel }> {
     return this.upsertProviderModel(credentialId, input, options);
@@ -3419,7 +3481,7 @@ export class NiuAdminClient {
   /** Bounded upstream catalog probe using the saved credential. Does not generate output. */
   checkProviderModel(credentialId: string, alias: string, options?: RequestOptions): Promise<{ data: ProviderModelCheck }> {
     if (!alias.trim() || alias.length > 200) throw new Error('Provide a model alias');
-    return this.request(`/vendors/${uuid(credentialId)}/check`, { alias }, options);
+    return this.request(`/admin/providers/connections/${uuid(credentialId)}/check`, { alias }, options);
   }
   checkSupplierModel(credentialId: string, alias: string, options?: RequestOptions): Promise<{ data: SupplierModelCheck }> {
     return this.checkProviderModel(credentialId, alias, options);
@@ -3427,7 +3489,7 @@ export class NiuAdminClient {
 
   /** Read the bounded upstream inventory; does not create aliases or configure billing. */
   discoverProviderModels(credentialId: string, options?: RequestOptions): Promise<ProviderDiscovery> {
-    return this.request(`/vendors/${uuid(credentialId)}/catalog`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(credentialId)}/catalog`, undefined, options);
   }
   discoverSupplierModels(credentialId: string, options?: RequestOptions): Promise<ProviderDiscovery> {
     return this.discoverProviderModels(credentialId, options);
@@ -3435,7 +3497,7 @@ export class NiuAdminClient {
 
   /** Refresh matching metadata only. Concurrent configuration changes return 409; no automatic retry. */
   refreshProviderCatalog(credentialId: string, options?: RequestOptions): Promise<{ updated: number }> {
-    return this.request(`/vendors/${uuid(credentialId)}/catalog`, {}, options);
+    return this.request(`/admin/providers/connections/${uuid(credentialId)}/catalog`, {}, options);
   }
   refreshSupplierCatalog(credentialId: string, options?: RequestOptions): Promise<{ updated: number }> {
     return this.refreshProviderCatalog(credentialId, options);
@@ -3443,7 +3505,7 @@ export class NiuAdminClient {
 
   /** Platform-only safe-failure state; reading does not probe or reset the credential. */
   getProviderCooldown(providerId: string, options?: RequestOptions): Promise<{ data: ProviderCooldown }> {
-    return this.request(`/vendors/${uuid(providerId)}/cooldown`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(providerId)}/cooldown`, undefined, options);
   }
   getVendorCooldown(vendorId: string, options?: RequestOptions): Promise<{ data: VendorCooldown }> {
     return this.getProviderCooldown(vendorId, options);
@@ -3453,13 +3515,13 @@ export class NiuAdminClient {
   listProviderConnectionIncidents(connectionId: string, before?: string, options?: RequestOptions): Promise<{ data: ProviderConnectionIncident[]; next_before: string | null }> {
     if (before !== undefined && !/^incident-[1-9][0-9]*$/.test(before)) throw new TypeError('Use the incident reference from the next page cursor');
     const query = before === undefined ? '' : `?before=${encodeURIComponent(before)}`;
-    return this.request(`/vendors/${uuid(connectionId)}/incidents${query}`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(connectionId)}/incidents${query}`, undefined, options);
   }
 
   /** Platform-only incident routing; the connection identifier is not a user-facing label. */
   resolveIncidentConnection(reference: string, options?: RequestOptions): Promise<{ data: { connection_id: string } }> {
     if (!/^incident-[1-9][0-9]*$/.test(reference)) throw new TypeError('Use a valid incident reference');
-    return this.request(`/incidents/${encodeURIComponent(reference)}/connection`, undefined, options);
+    return this.request(`/admin/incidents/${encodeURIComponent(reference)}/connection`, undefined, options);
   }
 
   /** Models with recorded active incidents in this authorized workspace only. */
@@ -3470,11 +3532,11 @@ export class NiuAdminClient {
   listConnectionIncidents(page: { status?: 'active' | 'resolved'; before?: string } = {}, options?: RequestOptions): Promise<{ data: PlatformConnectionIncident[]; next_before: string | null; coverage: { request_observed: true; proactive_probe: 'not_configured' } }> {
     if (page.before !== undefined && !/^incident-[1-9][0-9]*$/.test(page.before)) throw new TypeError('Use the incident reference from the next page cursor');
     const query = new URLSearchParams(page);
-    return this.request(`/incidents${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.request(`/admin/incidents${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   getProviderRequestRateLimit(providerId: string, options?: RequestOptions): Promise<{ data: ProviderRequestRateLimit }> {
-    return this.request(`/vendors/${uuid(providerId)}/request-rate-limit`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(providerId)}/request-rate-limit`, undefined, options);
   }
   getVendorRequestRateLimit(vendorId: string, options?: RequestOptions): Promise<{ data: VendorRequestRateLimit }> {
     return this.getProviderRequestRateLimit(vendorId, options);
@@ -3484,7 +3546,7 @@ export class NiuAdminClient {
   setProviderRequestRateLimit(providerId: string, input: { requests_per_minute: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: ProviderRequestRateLimit }> {
     if (input.requests_per_minute !== null && (!Number.isInteger(input.requests_per_minute) || input.requests_per_minute < 0 || input.requests_per_minute > 1_000_000)) throw new TypeError('Use an integer request limit from 0 to 1000000, or explicit null');
     if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
-    return this.request(`/vendors/${uuid(providerId)}/request-rate-limit`, { requests_per_minute: input.requests_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/admin/providers/connections/${uuid(providerId)}/request-rate-limit`, { requests_per_minute: input.requests_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
   }
   setVendorRequestRateLimit(vendorId: string, input: { requests_per_minute: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: VendorRequestRateLimit }> {
     return this.setProviderRequestRateLimit(vendorId, input, options);
@@ -3500,21 +3562,21 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/vendors/${uuid(providerId)}/request-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(providerId)}/request-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
   listVendorRequestRateLimitHistory(vendorId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: VendorRequestRateLimitRevision[] }> {
     return this.listProviderRequestRateLimitHistory(vendorId, query, options);
   }
 
   getKeyRequestRateLimit(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyRequestRateLimit }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit`, undefined, options);
   }
 
   /** Null removes the rate limit; zero denies dispatch. Secret rotation preserves the policy. */
   setKeyRequestRateLimit(scope: TenantScope, keyId: string, input: { requests_per_minute: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     if (input.requests_per_minute !== null && (!Number.isInteger(input.requests_per_minute) || input.requests_per_minute < 0 || input.requests_per_minute > 1_000_000)) throw new TypeError('Use an integer request limit from 0 to 1000000, or explicit null');
     if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit`, { requests_per_minute: input.requests_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit`, { requests_per_minute: input.requests_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   listKeyRequestRateLimitHistory(scope: TenantScope, keyId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeyRequestRateLimitRevision[] }> {
@@ -3527,19 +3589,19 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
 
   getKeyTokenRateLimit(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyTokenRateLimit }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit`, undefined, options);
   }
 
   /** Null removes the rate limit; zero denies dispatch. Secret rotation preserves the policy. */
   setKeyTokenRateLimit(scope: TenantScope, keyId: string, input: { tokens_per_minute: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     if (input.tokens_per_minute !== null && (!Number.isInteger(input.tokens_per_minute) || input.tokens_per_minute < 0 || input.tokens_per_minute > 1_000_000_000_000)) throw new TypeError('Use an integer token budget from 0 to 1000000000000, or explicit null');
     if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit`, { tokens_per_minute: input.tokens_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit`, { tokens_per_minute: input.tokens_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   listKeyTokenRateLimitHistory(scope: TenantScope, keyId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeyTokenRateLimitRevision[] }> {
@@ -3552,7 +3614,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
 
@@ -3568,18 +3630,18 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid capacity page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/capacity${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/capacity${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   getKeyConcurrencyLimit(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyConcurrencyLimit }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit`, undefined, options);
   }
 
   /** Null removes the concurrency limit; zero denies dispatch. Secret rotation preserves the policy. */
   setKeyConcurrencyLimit(scope: TenantScope, keyId: string, input: { max_concurrent_requests: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     if (input.max_concurrent_requests !== null && (!Number.isInteger(input.max_concurrent_requests) || input.max_concurrent_requests < 0 || input.max_concurrent_requests > 10_000)) throw new TypeError('Use an integer request limit from 0 to 10000, or explicit null');
     if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit`, { max_concurrent_requests: input.max_concurrent_requests, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit`, { max_concurrent_requests: input.max_concurrent_requests, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   listKeyConcurrencyLimitHistory(scope: TenantScope, keyId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeyConcurrencyLimitRevision[] }> {
@@ -3592,13 +3654,13 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
 
   /** Platform-administrator candidate pool; customer permissions remain attached to its alias. */
   getModelRoutePool(alias: string, options?: RequestOptions): Promise<{ data: ModelRoutePool }> {
-    return this.apiRequest(`/routing/${poolReference(alias)}`, undefined, options);
+    return this.apiRequest(`/admin/routing/${poolReference(alias)}`, undefined, options);
   }
 
   /** Platform-only live keyset traversal; retain next_after as the next query's after. */
@@ -3612,7 +3674,7 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid pool page size');
       params.set('limit', String(query.limit));
     }
-    return this.apiRequest(`/routing${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.apiRequest(`/admin/routing${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   /** Iterate the live pool directory, preserving alias cursors and platform authority. */
@@ -3625,7 +3687,7 @@ export class NiuAdminClient {
 
   setModelRoutePool(input: ModelRoutePoolInput, options?: RequestOptions): Promise<{ data: { revision: number } }> {
     if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 0) throw new TypeError('Use an exact nonnegative pool revision');
-    return this.apiRequest('/routing', input, options, 'PUT');
+    return this.apiRequest('/admin/routing', input, options, 'PUT');
   }
 
   listModelRoutePoolHistory(alias: string, beforeRevision?: number, options?: RequestOptions): Promise<{ data: ModelRoutePoolRevision[] }> {
@@ -3634,7 +3696,7 @@ export class NiuAdminClient {
       if (!Number.isSafeInteger(beforeRevision) || beforeRevision < 1) throw new TypeError('Use a positive pool history revision');
       query.set('before_revision', String(beforeRevision));
     }
-    return this.apiRequest(`/routing/${poolReference(alias)}/history${query.size ? `?${query}` : ''}`, undefined, options);
+    return this.apiRequest(`/admin/routing/${poolReference(alias)}/history${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** Dry-run routing evaluation for a Model Pool without dispatching upstream inference. */
@@ -3642,7 +3704,7 @@ export class NiuAdminClient {
     if (!['chat', 'responses', 'messages', 'embeddings', 'generate_content'].includes(input.protocol)) {
       throw new TypeError('Use a supported preview protocol');
     }
-    return this.apiRequest(`/routing/${poolReference(alias)}/preview`, input, options, 'POST');
+    return this.apiRequest(`/admin/routing/${poolReference(alias)}/preview`, input, options, 'POST');
   }
 
   /** Audit pool pricing readiness, candidate margin health, and observed routing traffic distribution. */
@@ -3654,11 +3716,11 @@ export class NiuAdminClient {
       }
       params.set('days', String(query.days));
     }
-    return this.apiRequest(`/routing/${poolReference(alias)}/audit${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.apiRequest(`/admin/routing/${poolReference(alias)}/audit${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   listKeySpendingLimits(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeySpendingAccount[] }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit`, undefined, options);
   }
 
   /** Owner-only customer cap. Rotation shares this limit and its lifetime commitments. */
@@ -3666,7 +3728,7 @@ export class NiuAdminClient {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
     const exact = (value: unknown, maximum: bigint) => typeof value === 'string' && /^\d+$/.test(value) && BigInt(value) <= maximum;
     if ((input.limit_nanos !== null && !exact(input.limit_nanos, 9223372036854775807n)) || !exact(input.expected_revision, 9223372036854775806n)) throw new TypeError('Use exact nonnegative amounts and revision; null explicitly restores unlimited');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit/${encodeURIComponent(currency)}`, { limit_nanos: input.limit_nanos, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit/${encodeURIComponent(currency)}`, { limit_nanos: input.limit_nanos, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   listKeySpendingLimitHistory(scope: TenantScope, keyId: string, currency: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeySpendingLimitRevision[] }> {
@@ -3680,17 +3742,17 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit/${encodeURIComponent(currency)}/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit/${encodeURIComponent(currency)}/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   /** Currency discovery exposes this workspace's commitments, never company funds. */
   listWorkspaceSpendingLimits(scope: TenantScope, options?: RequestOptions): Promise<{ data: WorkspaceSpendingAccount[] }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/spending-limit`, undefined, options);
   }
 
   getWorkspaceSpendingLimit(scope: TenantScope, currency: string, options?: RequestOptions): Promise<{ data: WorkspaceSpendingLimit | null }> {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}`, undefined, options);
   }
 
   /** Owner-only retail limit; never changes company funds or procurement budgets. */
@@ -3698,7 +3760,7 @@ export class NiuAdminClient {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
     const exact = (value: unknown, maximum: bigint) => typeof value === 'string' && /^\d+$/.test(value) && BigInt(value) <= maximum;
     if (!exact(input.limit_nanos, 9223372036854775807n) || !exact(input.expected_revision, 9223372036854775806n)) throw new TypeError('Use exact nonnegative amounts and revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}`, { limit_nanos: input.limit_nanos, expected_revision: input.expected_revision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}`, { limit_nanos: input.limit_nanos, expected_revision: input.expected_revision }, options, 'PUT');
   }
 
   listWorkspaceSpendingLimitHistory(scope: TenantScope, currency: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: WorkspaceSpendingLimitRevision[]; next_before_revision: string | null }> {
@@ -3712,14 +3774,14 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
       params.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}/history${params.size ? `?${params}` : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/spending-limit/${encodeURIComponent(currency)}/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   /** Explicit Credits workspace cap and commitment; preserved monetary caps block Credits admission until configured. */
   getWorkspaceCustomerUnitSpendingLimit(scope: TenantScope | string, options?: RequestOptions): Promise<{ data: CustomerUnitSpendingLimit }> {
     const path = typeof scope === 'string'
       ? `/workspaces/${uuid(scope)}/units/limit`
-      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/units/limit`;
+      : `/workspaces/${uuid(scope.projectId)}/units/limit`;
     return typeof scope === 'string' ? this.apiRequest(path, undefined, options) : this.request(path, undefined, options);
   }
 
@@ -3732,7 +3794,7 @@ export class NiuAdminClient {
     const body = { limit_atoms: input.limit_atoms, expected_revision: input.expected_revision, idempotency_key: input.idempotency_key };
     const path = typeof scope === 'string'
       ? `/workspaces/${uuid(scope)}/units/limit`
-      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/units/limit`;
+      : `/workspaces/${uuid(scope.projectId)}/units/limit`;
     return typeof scope === 'string' ? this.apiRequest(path, body, options, 'PUT') : this.request(path, body, options, 'PUT');
   }
 
@@ -3749,7 +3811,7 @@ export class NiuAdminClient {
     const suffix = params.size ? `?${params}` : '';
     const path = typeof scope === 'string'
       ? `/workspaces/${uuid(scope)}/units/limit/history${suffix}`
-      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/units/limit/history${suffix}`;
+      : `/workspaces/${uuid(scope.projectId)}/units/limit/history${suffix}`;
     return typeof scope === 'string' ? this.apiRequest(path, undefined, options) : this.request(path, undefined, options);
   }
 
@@ -3758,7 +3820,7 @@ export class NiuAdminClient {
     const validKey = uuid(keyId);
     const path = typeof scope === 'string'
       ? `/workspaces/${uuid(scope)}/keys/${validKey}/units/limit`
-      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${validKey}/units/limit`;
+      : `/workspaces/${uuid(scope.projectId)}/keys/${validKey}/units/limit`;
     return typeof scope === 'string' ? this.apiRequest(path, undefined, options) : this.request(path, undefined, options);
   }
 
@@ -3772,7 +3834,7 @@ export class NiuAdminClient {
     const body = { limit_atoms: input.limit_atoms, expected_revision: input.expected_revision, idempotency_key: input.idempotency_key };
     const path = typeof scope === 'string'
       ? `/workspaces/${uuid(scope)}/keys/${validKey}/units/limit`
-      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${validKey}/units/limit`;
+      : `/workspaces/${uuid(scope.projectId)}/keys/${validKey}/units/limit`;
     return typeof scope === 'string' ? this.apiRequest(path, body, options, 'PUT') : this.request(path, body, options, 'PUT');
   }
 
@@ -3790,7 +3852,7 @@ export class NiuAdminClient {
     const suffix = params.size ? `?${params}` : '';
     const path = typeof scope === 'string'
       ? `/workspaces/${uuid(scope)}/keys/${validKey}/units/limit/history${suffix}`
-      : `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${validKey}/units/limit/history${suffix}`;
+      : `/workspaces/${uuid(scope.projectId)}/keys/${validKey}/units/limit/history${suffix}`;
     return typeof scope === 'string' ? this.apiRequest(path, undefined, options) : this.request(path, undefined, options);
   }
 
@@ -3813,29 +3875,29 @@ export class NiuAdminClient {
   }
 
   getKeyGuardrail(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: { assignment_revision: number; policy_revision: number | null; mode: KeyGuardrailMode; policy: GuardrailPolicy | null } | null }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, undefined, options);
   }
 
   assignKeyGuardrail(scope: TenantScope, keyId: string, policyRevision: number, expectedAssignmentRevision: number, options?: RequestOptions): Promise<{ assignment_revision: number }> {
     if (!Number.isSafeInteger(policyRevision) || policyRevision < 1 || !Number.isSafeInteger(expectedAssignmentRevision) || expectedAssignmentRevision < 0) throw new Error('Invalid policy or assignment revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'fixed', policy_revision: policyRevision, expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'fixed', policy_revision: policyRevision, expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
   }
 
   /** Follow the workspace's active policy; later activations apply without re-pinning this key. */
   followActiveKeyGuardrail(scope: TenantScope, keyId: string, expectedAssignmentRevision: number, options?: RequestOptions): Promise<{ assignment_revision: number }> {
     if (!Number.isSafeInteger(expectedAssignmentRevision) || expectedAssignmentRevision < 0) throw new Error('Invalid assignment revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'active', expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'active', expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
   }
 
   listKeyGuardrailHistory(scope: TenantScope, keyId: string, beforeAssignmentRevision?: number, options?: RequestOptions): Promise<{ data: Array<{ assignment_revision: number; policy_revision: number | null; mode: KeyGuardrailMode; policy_name: string | null; actor_name: string; created_at: string }>; next_cursor: number | null }> {
     if (beforeAssignmentRevision !== undefined && (!Number.isSafeInteger(beforeAssignmentRevision) || beforeAssignmentRevision < 1)) throw new Error('Invalid assignment history cursor');
     const suffix = beforeAssignmentRevision === undefined ? '' : `?before_assignment_revision=${beforeAssignmentRevision}`;
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail/history${suffix}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail/history${suffix}`, undefined, options);
   }
 
   clearKeyGuardrail(scope: TenantScope, keyId: string, expectedAssignmentRevision: number, options?: RequestOptions): Promise<{ assignment_revision: number }> {
     if (!Number.isSafeInteger(expectedAssignmentRevision) || expectedAssignmentRevision < 1) throw new Error('Invalid assignment revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'fixed', policy_revision: null, expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/keys/${uuid(keyId)}/guardrail`, { mode: 'fixed', policy_revision: null, expected_assignment_revision: expectedAssignmentRevision }, options, 'PUT');
   }
 
   activateWorkspaceGuardrail(scope: TenantScope, expectedRevision: number, policy: GuardrailPolicy, options?: RequestOptions): Promise<{ revision: number }> {
@@ -3873,7 +3935,7 @@ export class NiuAdminClient {
   }
 
   private guardrailsPath(scope: TenantScope): string {
-    return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/guardrails`;
+    return `/workspaces/${uuid(scope.projectId)}/guardrails`;
   }
 
   /** Read the actor's mutable Video composer; unavailable saved keys confer no action grant. */
@@ -3960,7 +4022,7 @@ export class NiuAdminClient {
   }
 
   getProviderAssociation(configurationId: string, options?: RequestOptions): Promise<{ data: { id: string; name: string } | null }> {
-    return this.request(`/vendors/${uuid(configurationId)}/supplier`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/supplier`, undefined, options);
   }
 
   getSupplierAssociation(configurationId: string, options?: RequestOptions): Promise<{ data: { id: string; name: string } | null }> {
@@ -3969,7 +4031,7 @@ export class NiuAdminClient {
 
   associateProvider(configurationId: string, providerId: string, expectedRevision: number, options?: RequestOptions): Promise<void> {
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) throw new Error('expectedRevision must be a positive safe integer');
-    return this.request(`/vendors/${uuid(configurationId)}/supplier`, {
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/supplier`, {
       supplier_id: uuid(providerId), expected_revision: expectedRevision,
     }, options, 'PUT');
   }
@@ -3985,7 +4047,7 @@ export class NiuAdminClient {
     if ([input.vendor_revision, input.credential_revision].some(value => !Number.isSafeInteger(value) || value < 1)) throw new TypeError('Asset revisions must be positive safe integers');
     if (typeof input.name !== 'string' || !input.name.trim() || [...input.name].length > 64 || /\p{Cc}/u.test(input.name)) throw new TypeError('Invalid ordinary asset group name');
     if (input.description !== undefined && (typeof input.description !== 'string' || [...input.description].length > 300 || /\p{Cc}/u.test(input.description.replace(/[\n\r\t]/g, '')))) throw new TypeError('Invalid ordinary asset group description');
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/groups`, {
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/groups`, {
       organization_id: uuid(input.organization_id), project_id: uuid(input.project_id),
       idempotency_key: uuid(input.idempotency_key), vendor_revision: input.vendor_revision,
       credential_revision: input.credential_revision, name: input.name,
@@ -4000,7 +4062,7 @@ export class NiuAdminClient {
     if (input.name === undefined && input.description === undefined) throw new TypeError('An ordinary asset group metadata patch is required');
     if (input.name !== undefined && (typeof input.name !== 'string' || !input.name.trim() || [...input.name].length > 64 || /\p{Cc}/u.test(input.name))) throw new TypeError('Invalid ordinary asset group name');
     if (input.description !== undefined && (typeof input.description !== 'string' || [...input.description].length > 300 || /\p{Cc}/u.test(input.description.replace(/[\n\r\t]/g, '')))) throw new TypeError('Invalid ordinary asset group description');
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/group-updates`, {
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/group-updates`, {
       organization_id: uuid(input.organization_id), project_id: uuid(input.project_id),
       intent_id: uuid(input.intent_id), update_id: uuid(input.update_id),
       ...(input.name === undefined ? {} : {name: input.name}),
@@ -4012,14 +4074,14 @@ export class NiuAdminClient {
    * Caller cancellation does not cancel claimed work. Both outcomes need read-back.
    */
   dispatchOrdinaryAssetGroupUpdate(configurationId: string, updateId: string, scope: TenantScope, options?: RequestOptions): Promise<{data: {update_id: string; status: 'acknowledged' | 'uncertain'; reconciliation_required: true}}> {
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/group-updates/${uuid(updateId)}/dispatch`, {
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/group-updates/${uuid(updateId)}/dispatch`, {
       organization_id: uuid(scope.organizationId), project_id: uuid(scope.projectId),
     }, options);
   }
 
   /** Fresh authorized read-back; mismatch and uncertainty preserve the hold. */
   reconcileOrdinaryAssetGroupUpdate(configurationId: string, updateId: string, readId: string, scope: TenantScope, options?: RequestOptions): Promise<{data: {update_id: string; status: 'reconciled'; reconciliation_required: false}}> {
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/group-updates/${uuid(updateId)}/reconcile`, {
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/group-updates/${uuid(updateId)}/reconcile`, {
       organization_id: uuid(scope.organizationId), project_id: uuid(scope.projectId), read_id: uuid(readId),
     }, options);
   }
@@ -4032,20 +4094,20 @@ export class NiuAdminClient {
       if (!Number.isSafeInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Asset update history limit must be from 1 to 100');
       parameters.set('limit', String(query.limit));
     }
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/group-updates?${parameters}`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/group-updates?${parameters}`, undefined, options);
   }
 
   /** Erasure preserves immutable audit, mutation holds and replay protection. */
   deleteOrdinaryAssetGroupUpdatePatch(configurationId: string, updateId: string, scope: TenantScope, options?: RequestOptions): Promise<void> {
     const parameters = new URLSearchParams({organization_id: uuid(scope.organizationId), project_id: uuid(scope.projectId)});
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/group-updates/${uuid(updateId)}?${parameters}`, undefined, options, 'DELETE');
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/group-updates/${uuid(updateId)}?${parameters}`, undefined, options, 'DELETE');
   }
 
   /** Platform-only targeted read. A read identity is one-shot; no automatic retry.
    * Caller cancellation does not cancel already claimed upstream work.
    */
   readOrdinaryAssetGroup(configurationId: string, input: OrdinaryAssetGroupReadInput, options?: RequestOptions): Promise<{data: {read_id: string; name: string; description: string | null; created_at: string; updated_at: string}}> {
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/group-reads`, {
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/group-reads`, {
       organization_id: uuid(input.organization_id), project_id: uuid(input.project_id),
       intent_id: uuid(input.intent_id), read_id: uuid(input.read_id),
     }, options);
@@ -4059,24 +4121,24 @@ export class NiuAdminClient {
       if (!Number.isSafeInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Asset read history limit must be from 1 to 100');
       parameters.set('limit', String(query.limit));
     }
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/group-reads?${parameters}`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/group-reads?${parameters}`, undefined, options);
   }
 
   /** Saved encrypted result only; never sends an upstream read. */
   getOrdinaryAssetGroupRead(configurationId: string, readId: string, scope: TenantScope, options?: RequestOptions): Promise<{data: {read_id: string; name: string; description: string | null; created_at: string; updated_at: string}}> {
     const query = new URLSearchParams({organization_id: uuid(scope.organizationId), project_id: uuid(scope.projectId)});
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/group-reads/${uuid(readId)}?${query}`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/group-reads/${uuid(readId)}?${query}`, undefined, options);
   }
 
   deleteOrdinaryAssetGroupRead(configurationId: string, readId: string, scope: TenantScope, options?: RequestOptions): Promise<void> {
     const query = new URLSearchParams({organization_id: uuid(scope.organizationId), project_id: uuid(scope.projectId)});
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/group-reads/${uuid(readId)}?${query}`, undefined, options, 'DELETE');
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/group-reads/${uuid(readId)}?${query}`, undefined, options, 'DELETE');
   }
 
   /** One-shot page; continuation uses a retained parent identity, never a raw cursor. */
   listOrdinaryAssets(configurationId: string, input: OrdinaryAssetListingInput, options?: RequestOptions): Promise<{data: OrdinaryAssetListing}> {
     if (!Number.isSafeInteger(input.maximum_items) || input.maximum_items < 1 || input.maximum_items > 100) throw new TypeError('Asset page size must be from 1 to 100');
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/listings`, {
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/listings`, {
       organization_id: uuid(input.organization_id), project_id: uuid(input.project_id),
       intent_id: uuid(input.intent_id), listing_id: uuid(input.listing_id), maximum_items: input.maximum_items,
       ...(input.previous_listing_id === undefined ? {} : {previous_listing_id: uuid(input.previous_listing_id)}),
@@ -4087,7 +4149,7 @@ export class NiuAdminClient {
   /** Platform-only one-shot lookup from a retained page. Never automatically retried. */
   lookupOrdinaryAsset(configurationId: string, input: OrdinaryAssetLookupInput, options?: RequestOptions): Promise<{data: {lookup_id: string; status: 'succeeded'; asset_status: 'Active' | 'Processing' | 'Failed'}}> {
     if (!Number.isSafeInteger(input.item_index) || input.item_index < 0 || input.item_index > 99) throw new TypeError('Asset item index must be from 0 to 99');
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/lookups`, {
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/lookups`, {
       organization_id: uuid(input.organization_id), project_id: uuid(input.project_id),
       listing_id: uuid(input.listing_id), lookup_id: uuid(input.lookup_id), item_index: input.item_index,
     }, options);
@@ -4097,13 +4159,13 @@ export class NiuAdminClient {
   /** Saved content only; never sends another upstream lookup. */
   getOrdinaryAssetLookupResult(configurationId: string, scope: TenantScope, lookupId: string, options?: RequestOptions): Promise<{data: OrdinaryAssetLookupResult}> {
     const parameters = new URLSearchParams({organization_id: uuid(scope.organizationId), project_id: uuid(scope.projectId)});
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/lookups/${uuid(lookupId)}?${parameters}`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/lookups/${uuid(lookupId)}?${parameters}`, undefined, options);
   }
 
   /** Erases retained content; immutable operational history remains. */
   deleteOrdinaryAssetLookupResult(configurationId: string, scope: TenantScope, lookupId: string, options?: RequestOptions): Promise<void> {
     const parameters = new URLSearchParams({organization_id: uuid(scope.organizationId), project_id: uuid(scope.projectId)});
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/lookups/${uuid(lookupId)}?${parameters}`, undefined, options, 'DELETE');
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/lookups/${uuid(lookupId)}?${parameters}`, undefined, options, 'DELETE');
   }
 
   listOrdinaryAssetLookups(configurationId: string, scope: TenantScope, query: {after?: string; limit?: number} = {}, options?: RequestOptions): Promise<{data: OrdinaryAssetLookupAudit[]; next_cursor: string | null}> {
@@ -4113,7 +4175,7 @@ export class NiuAdminClient {
       if (!Number.isSafeInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Asset lookup history limit must be from 1 to 100');
       parameters.set('limit', String(query.limit));
     }
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/lookups?${parameters}`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/lookups?${parameters}`, undefined, options);
   }
 
   listOrdinaryAssetListings(configurationId: string, scope: TenantScope, query: {after?: string; limit?: number} = {}, options?: RequestOptions): Promise<{data: OrdinaryAssetListingAudit[]; next_cursor: string | null}> {
@@ -4123,25 +4185,25 @@ export class NiuAdminClient {
       if (!Number.isSafeInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Asset listing history limit must be from 1 to 100');
       parameters.set('limit', String(query.limit));
     }
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/listings?${parameters}`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/listings?${parameters}`, undefined, options);
   }
 
   /** Recovers retained encrypted content without an upstream listing call. */
   getOrdinaryAssetListing(configurationId: string, listingId: string, scope: TenantScope, options?: RequestOptions): Promise<{data: OrdinaryAssetListing}> {
     const query = new URLSearchParams({organization_id: uuid(scope.organizationId), project_id: uuid(scope.projectId)});
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/listings/${uuid(listingId)}?${query}`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/listings/${uuid(listingId)}?${query}`, undefined, options);
   }
 
   deleteOrdinaryAssetListing(configurationId: string, listingId: string, scope: TenantScope, options?: RequestOptions): Promise<void> {
     const query = new URLSearchParams({organization_id: uuid(scope.organizationId), project_id: uuid(scope.projectId)});
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/listings/${uuid(listingId)}?${query}`, undefined, options, 'DELETE');
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/listings/${uuid(listingId)}?${query}`, undefined, options, 'DELETE');
   }
 
   /** Records explicit cascading-deletion consent; never dispatches deletion. */
   prepareOrdinaryAssetGroupDeletionConsent(configurationId: string, input: OrdinaryAssetGroupDeletionConsentInput, options?: RequestOptions): Promise<{data: {consent_id: string; prepared: true; dispatch_available: false}}> {
     if (input.confirm_cascade !== true) throw new TypeError('Explicit cascading deletion consent is required');
     if (!Number.isSafeInteger(input.valid_for_seconds) || input.valid_for_seconds < 1 || input.valid_for_seconds > 900) throw new TypeError('Deletion consent validity must be from 1 to 900 seconds');
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/group-deletion-consents`, {
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/group-deletion-consents`, {
       organization_id: uuid(input.organization_id), project_id: uuid(input.project_id),
       intent_id: uuid(input.intent_id), consent_id: uuid(input.consent_id), authorization_id: uuid(input.authorization_id),
       valid_for_seconds: input.valid_for_seconds, confirm_cascade: true,
@@ -4150,7 +4212,7 @@ export class NiuAdminClient {
 
   /** Irreversible one-shot deletion; never automatically retries uncertain outcomes. */
   dispatchOrdinaryAssetGroupDeletion(configurationId: string, scope: TenantScope, consentId: string, options?: RequestOptions): Promise<{data: {consent_id: string; status: 'acknowledged' | 'uncertain'; reconciliation_required: true}}> {
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/group-deletion-consents/${uuid(consentId)}/dispatch`, {
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/group-deletion-consents/${uuid(consentId)}/dispatch`, {
       organization_id: uuid(scope.organizationId), project_id: uuid(scope.projectId),
     }, options);
   }
@@ -4158,13 +4220,13 @@ export class NiuAdminClient {
   /** Consent status is descriptive; it never establishes current dispatch rights. */
   getOrdinaryAssetGroupDeletionConsent(configurationId: string, scope: TenantScope, consentId: string, options?: RequestOptions): Promise<{data: OrdinaryAssetGroupDeletionConsentStatus}> {
     const parameters = new URLSearchParams({organization_id: uuid(scope.organizationId), project_id: uuid(scope.projectId)});
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/group-deletion-consents/${uuid(consentId)}?${parameters}`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/group-deletion-consents/${uuid(consentId)}?${parameters}`, undefined, options);
   }
 
   /** Idempotent local revocation; it does not erase claims or cancel dispatched work. */
   revokeOrdinaryAssetGroupDeletionConsent(configurationId: string, scope: TenantScope, consentId: string, options?: RequestOptions): Promise<void> {
     const parameters = new URLSearchParams({organization_id: uuid(scope.organizationId), project_id: uuid(scope.projectId)});
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/group-deletion-consents/${uuid(consentId)}?${parameters}`, undefined, options, 'DELETE');
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/group-deletion-consents/${uuid(consentId)}?${parameters}`, undefined, options, 'DELETE');
   }
 
   createAssetOperationAuthorization(configurationId: string, input: AssetOperationAuthorizationInput, options?: RequestOptions): Promise<{data: {id: string; operation: 'CreateAssetGroup' | 'GetAssetGroup' | 'ListAssets' | 'GetAsset' | 'UpdateAssetGroup' | 'DeleteAssetGroup' | 'CreateAsset'; dispatch_available: false}}> {
@@ -4176,7 +4238,7 @@ export class NiuAdminClient {
     for (const hash of [input.rights_sha256, input.protocol_sha256, input.data_handling_sha256, input.free_operation_sha256]) {
       if (typeof hash !== 'string' || !/^[a-fA-F0-9]{64}$/.test(hash) || /^0{64}$/.test(hash)) throw new TypeError('Asset evidence references must be nonzero SHA-256 hex digests');
     }
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/authorizations`, {
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/authorizations`, {
       organization_id: uuid(input.organization_id), project_id: uuid(input.project_id),
       vendor_revision: input.vendor_revision, credential_revision: input.credential_revision,
       rights_sha256: input.rights_sha256, protocol_sha256: input.protocol_sha256,
@@ -4194,22 +4256,22 @@ export class NiuAdminClient {
       parameters.set('limit', String(query.limit));
     }
     const suffix = parameters.size ? `?${parameters}` : '';
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/authorizations${suffix}`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/authorizations${suffix}`, undefined, options);
   }
 
   revokeAssetOperationAuthorization(configurationId: string, authorizationId: string, options?: RequestOptions): Promise<void> {
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management/authorizations/${uuid(authorizationId)}`, undefined, options, 'DELETE');
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management/authorizations/${uuid(authorizationId)}`, undefined, options, 'DELETE');
   }
 
   getAssetManagementConfiguration(configurationId: string, options?: RequestOptions): Promise<{data: AssetManagementConfiguration | null}> {
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management`, undefined, options);
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management`, undefined, options);
   }
 
   revokeAssetManagement(configurationId: string, input: {expected_revision: number; erase_history?: boolean; confirm_erase?: boolean}, options?: RequestOptions): Promise<{data: {revision: number; configured: false; dispatch_available: false; erased_revisions: number}}> {
     if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1) throw new Error('expected_revision must be a positive safe integer');
     if ((input.erase_history !== undefined && typeof input.erase_history !== 'boolean') || (input.confirm_erase !== undefined && typeof input.confirm_erase !== 'boolean')) throw new Error('Erasure options must be booleans');
     if (input.erase_history && input.confirm_erase !== true) throw new Error('Explicit confirmation is required to erase stored asset credentials');
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management`, {
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management`, {
       expected_revision: input.expected_revision, erase_history: input.erase_history ?? false,
       confirm_erase: input.confirm_erase ?? false,
     }, options, 'DELETE');
@@ -4219,7 +4281,7 @@ export class NiuAdminClient {
     if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 0 || input.expected_revision === Number.MAX_SAFE_INTEGER) throw new Error('expected_revision must be a nonnegative safe integer with room for the next revision');
     if (typeof input.upstream_project !== 'string' || !input.upstream_project.trim() || input.upstream_project.trim() !== input.upstream_project || [...input.upstream_project].length > 1024 || /[\u0000-\u001f\u007f]/.test(input.upstream_project)) throw new Error('Invalid upstream project');
     if (typeof input.access_key !== 'string' || !/^[A-Za-z0-9_-]{1,256}$/.test(input.access_key) || typeof input.secret_key !== 'string' || !input.secret_key || input.secret_key.length > 4096 || /[\u0000-\u001f\u007f]/.test(input.secret_key)) throw new Error('Invalid asset management credentials');
-    return this.request(`/vendors/${uuid(configurationId)}/asset-management`, {
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/asset-management`, {
       expected_revision: input.expected_revision, upstream_project: input.upstream_project,
       access_key: input.access_key, secret_key: input.secret_key,
     }, options, 'PUT');
@@ -4227,7 +4289,7 @@ export class NiuAdminClient {
 
   assignPersonalCredentialOwner(configurationId: string, organizationId: string, expectedRevision: number, options?: RequestOptions): Promise<{ assigned: boolean }> {
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) throw new Error('expectedRevision must be a positive safe integer');
-    return this.request(`/vendors/${uuid(configurationId)}/personal-owner`, {
+    return this.request(`/admin/providers/connections/${uuid(configurationId)}/personal-owner`, {
       organization_id: uuid(organizationId), expected_revision: expectedRevision,
     }, options, 'PUT');
   }
@@ -4251,7 +4313,7 @@ export class NiuAdminClient {
     }
     const parameters = gatewayActivityParameters(query);
     const suffix = parameters.size ? `?${parameters.toString()}` : '';
-    const path = `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests${suffix}`;
+    const path = `/workspaces/${uuid(scope.projectId)}/requests${suffix}`;
     return this.request(path, undefined, options);
   }
 
@@ -4260,12 +4322,12 @@ export class NiuAdminClient {
     if ('limit' in query || 'after' in query) throw new Error('Exports do not accept pagination parameters');
     const parameters = gatewayActivityParameters(query);
     const suffix = parameters.size ? `?${parameters}` : '';
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/export${suffix}`, undefined, options, 'GET', 'text/csv');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/requests/export${suffix}`, undefined, options, 'GET', 'text/csv');
   }
 
   /** Missing historical/denied attribution stays null; this does not claim content inspection. */
   getRequestGuardrailDecision(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<{data: RequestGuardrailDecision | null}> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/guardrails`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/guardrails`, undefined, options);
   }
 
   /** Installation-only disclosure; declarations are not verified processing guarantees. */
@@ -4307,12 +4369,12 @@ export class NiuAdminClient {
 
   /** Metadata-only required input decisions, including pre-admission denials. */
   listInputDetectorDecisions(scope: TenantScope, options?: RequestOptions): Promise<{ data: Array<{ detector: string; configuration_fingerprint: string; stage: 'input'; coverage: 'local_text'; enforcer_version: 'external-input-v1'; outcome: 'clear' | 'matched' | 'indeterminate'; reason: string; elapsed_ms: number; key_name: string; workspace_revision: number | null; key_policy_revision: number | null; key_assignment_revision: number | null; recorded_at: string }>; coverage: 'latest_100_input_detector_decisions' }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/guardrails/detector-decisions`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/guardrails/detector-decisions`, undefined, options);
   }
 
   /** Latest 100 pre-admission access denials; excludes content and dispatch-time race denials. */
   listGuardrailPreparationDenials(scope: TenantScope, options?: RequestOptions): Promise<{ data: GuardrailPreparationDenial[]; coverage: 'latest_100_preparation_denials' }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/guardrails/denials`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/guardrails/denials`, undefined, options);
   }
 
   /** Recorded policy exceptions only; eligibility status denials remain outside coverage. */
@@ -4324,11 +4386,11 @@ export class NiuAdminClient {
     workspace_revision: number | null; key_policy_revision: number | null;
     key_assignment_revision: number | null; recorded_at: string;
   }>; coverage: 'latest_100_dispatch_policy_exceptions' }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/guardrails/dispatch-denials`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/guardrails/dispatch-denials`, undefined, options);
   }
 
   getRequestPayload(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<{data: RequestPayload | null}> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/payloads`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/payloads`, undefined, options);
   }
 
   /** Local request discovery only; does not query upstream or establish asset readiness. */
@@ -4339,28 +4401,21 @@ export class NiuAdminClient {
       if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('limit must be between 1 and 100');
       search.set('limit', String(query.limit));
     }
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/asset-group-intents${search.size ? '?' + search : ''}`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/asset-group-intents${search.size ? '?' + search : ''}`, undefined, options);
   }
 
   getAssetGroupRequest(scope: TenantScope, intentId: string, options?: RequestOptions): Promise<{data: {status: 'prepared'|'dispatching'|'uncertain'|'succeeded'; created_at: string; request_content_status: 'retained'|'deleted'|'expired'; request: {name: string; description: string|null}|null; dispatch?: {outcome: 'succeeded'|'uncertain'; reason: 'invalid_configuration'|'destination_rejected'|'upstream_uncertain'|'timeout'|null; duration_ms: number}|null}|null}> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/asset-group-intents/${uuid(intentId)}/request`, undefined, options);
+    return this.request(`/workspaces/${uuid(scope.projectId)}/asset-group-intents/${uuid(intentId)}/request`, undefined, options);
   }
 
   deleteAssetGroupRequest(scope: TenantScope, intentId: string, options?: RequestOptions): Promise<void> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/asset-group-intents/${uuid(intentId)}/request`, undefined, options, 'DELETE');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/asset-group-intents/${uuid(intentId)}/request`, undefined, options, 'DELETE');
   }
 
   deleteRequestPayload(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<void> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/payloads`, undefined, options, 'DELETE');
+    return this.request(`/workspaces/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/payloads`, undefined, options, 'DELETE');
   }
 
-  listAccounts(scope: TenantScope, options?: RequestOptions): Promise<{ data: SupplierAccount[] }> {
-    return this.request(this.accountsPath(scope), undefined, options);
-  }
-
-  createAccount(scope: TenantScope, account: SupplierAccountInput, options?: RequestOptions): Promise<{ id: string; health: string }> {
-    return this.request(this.accountsPath(scope), account, options);
-  }
 
   private workspaceAssetsPath(scope: TenantScope | WorkspaceScope): string {
     return `/workspaces/${workspaceId(scope)}/assets`;
@@ -4404,9 +4459,6 @@ export class NiuAdminClient {
     return response.arrayBuffer();
   }
 
-  private accountsPath(scope: TenantScope): string {
-    return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/accounts`;
-  }
 
   private async apiRequest<T>(path: string, body?: unknown, options: RequestOptions & { idempotencyKey?: string } = {}, method?: string): Promise<T> {
     const requestMethod = method ?? (body === undefined ? 'GET' : 'POST');
@@ -4484,7 +4536,7 @@ export class NiuAdminClient {
     const requestMethod = method ?? (body === undefined ? 'GET' : 'POST');
     const headers: Record<string, string> = { authorization: `Bearer ${this.token}`, accept, ...(body === undefined ? {} : { 'content-type': 'application/json' }) };
     if (options.idempotencyKey !== undefined) {
-      const identityCreation = path === '/operators' && typeof body === 'object' && body !== null && 'issue_session' in body && body.issue_session === false;
+      const identityCreation = path === '/members' && typeof body === 'object' && body !== null && 'issue_session' in body && body.issue_session === false;
       const legacyCreation = requestMethod === 'POST' && (path === '/organizations' || path === '/workspaces' || identityCreation);
       const validKey = typeof options.idempotencyKey === 'string' && /^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey);
       if (!legacyCreation || !validKey) {

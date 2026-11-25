@@ -39,6 +39,9 @@ including dashboard, quote, rate and settlement compatibility endpoints.
 field. The old membership directory is restricted to platform administration and
 returns an empty directory. Stored historical membership rows, foreign keys and
 audit history remain intact; they do not enable login, data access or a new role.
+The administration UI does not expose a Provider `Members` tab, member-assignment
+dialog, or member-based deletion copy; `/admin/providers/{provider}/members` and
+legacy Provider member URLs redirect to the Provider detail overview.
 
 ## Business, configuration and financial boundaries
 

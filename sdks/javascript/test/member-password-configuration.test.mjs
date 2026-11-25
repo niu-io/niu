@@ -18,7 +18,7 @@ test('member password recovery reads metadata and sends an explicit expected rev
   assert.equal(calls[1].init.method,'PUT');
   assert.deepEqual(JSON.parse(calls[1].init.body),input);
   for(const {url,init} of calls) {
-    assert.ok(url.endsWith(`/api/v1/operators/${member}/password`));
+    assert.ok(url.endsWith(`/api/v1/members/${member}/password`));
     assert.equal(init.signal,controller.signal);
   }
 });
@@ -30,7 +30,7 @@ test('user-directory continuation preserves company scope and abort signal', asy
   }});
   assert.deepEqual(await client.listOperatorsPage({organizationId:member,after:member,limit:50},{signal:controller.signal}),{data:[],next_cursor:null});
   const url=new URL(calls[0].url);
-  assert.equal(url.pathname,'/api/v1/operators');
+  assert.equal(url.pathname,'/api/v1/members');
   assert.equal(url.searchParams.get('organization_id'),member);
   assert.equal(url.searchParams.get('after'),member);
   assert.equal(url.searchParams.get('limit'),'50');
@@ -50,7 +50,7 @@ test('identity creation sends a stable retry key without requesting credentials'
   assert.deepEqual(await client.createOperatorIdentity(input,options),response);
   assert.deepEqual(await client.createOperatorIdentity(input,options),response);
   for(const {url,init} of calls){
-    assert.ok(url.endsWith('/api/v1/operators'));
+    assert.ok(url.endsWith('/api/v1/members'));
     assert.equal(new Headers(init.headers).get('Idempotency-Key'),options.idempotencyKey);
     assert.deepEqual(JSON.parse(init.body),{...input,project_id:null,issue_session:false});
   }

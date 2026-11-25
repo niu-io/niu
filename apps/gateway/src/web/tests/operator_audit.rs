@@ -22,7 +22,7 @@ async fn operator_audit_api_attributes_actor_and_pages_without_leaks(pool: sqlx:
     let (status, owner_created) = call(
         &app,
         Method::POST,
-        "/admin/v1/operators",
+        "/api/v1/members",
         BOOTSTRAP,
         Some(json!({
             "organization_id":scope.organization_id,
@@ -46,7 +46,7 @@ async fn operator_audit_api_attributes_actor_and_pages_without_leaks(pool: sqlx:
         call(
             &app,
             Method::POST,
-            "/admin/v1/operators",
+            "/api/v1/members",
             "invalid-operator-token",
             Some(json!({
                 "organization_id":scope.organization_id,
@@ -64,7 +64,7 @@ async fn operator_audit_api_attributes_actor_and_pages_without_leaks(pool: sqlx:
     let (status, target_created) = call(
         &app,
         Method::POST,
-        "/admin/v1/operators",
+        "/api/v1/members",
         owner_token,
         Some(json!({
             "organization_id":scope.organization_id,
@@ -84,7 +84,7 @@ async fn operator_audit_api_attributes_actor_and_pages_without_leaks(pool: sqlx:
         call(
             &app,
             Method::POST,
-            "/admin/v1/operators",
+            "/api/v1/members",
             target_token,
             Some(json!({
                 "organization_id":scope.organization_id,
@@ -102,7 +102,7 @@ async fn operator_audit_api_attributes_actor_and_pages_without_leaks(pool: sqlx:
         call(
             &app,
             Method::GET,
-            &format!("/admin/v1/operators/{target_id}/events"),
+            &format!("/api/v1/members/{target_id}/events"),
             target_token,
             None,
         )
@@ -112,7 +112,7 @@ async fn operator_audit_api_attributes_actor_and_pages_without_leaks(pool: sqlx:
         "viewers cannot read operator audit events"
     );
 
-    let target_path = format!("/admin/v1/operators/{target_id}");
+    let target_path = format!("/api/v1/members/{target_id}");
     let sessions_path = format!("{target_path}/sessions");
     let (status, issued) = call(
         &app,
@@ -153,12 +153,12 @@ async fn operator_audit_api_attributes_actor_and_pages_without_leaks(pool: sqlx:
         "rejected authentication and permission checks append no events"
     );
 
-    let owner_events = format!("/admin/v1/operators/{owner_id}/events?limit=10");
+    let owner_events = format!("/api/v1/members/{owner_id}/events?limit=10");
     let (status, owner_page) = call(&app, Method::GET, &owner_events, BOOTSTRAP, None).await;
     assert_eq!(status, StatusCode::OK);
     let foreign_cursor = owner_page["data"][0]["id"].as_str().unwrap();
 
-    let events_path = format!("/admin/v1/operators/{target_id}/events?limit=2");
+    let events_path = format!("/api/v1/members/{target_id}/events?limit=2");
     let mut seen_ids = Vec::new();
     let (status, page_one) = call(&app, Method::GET, &events_path, owner_token, None).await;
     assert_eq!(status, StatusCode::OK);
@@ -228,7 +228,7 @@ async fn operator_audit_api_attributes_actor_and_pages_without_leaks(pool: sqlx:
         call(
             &app,
             Method::GET,
-            &format!("/admin/v1/operators/{target_id}/events?cursor={foreign_cursor}"),
+            &format!("/api/v1/members/{target_id}/events?cursor={foreign_cursor}"),
             owner_token,
             None,
         )

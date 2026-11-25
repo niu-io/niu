@@ -60,7 +60,11 @@ export default function WorkspaceSwitcher({ context, onCreateWorkspace, creation
         <ChevronsUpDown size={16} aria-hidden="true" />
       </Button></DropdownMenuTrigger>
       <DropdownMenuContent className="workspace-switcher-menu" side="bottom" align="start" sideOffset={8} collisionPadding={12}>
-        <DropdownMenuLabel className="workspace-switcher-menu-title">{organization ? `${t('Workspaces', '工作空间')} · ${organizationDisplayName(organization.name)}` : t('Workspaces', '工作空间')}</DropdownMenuLabel>
+        <DropdownMenuLabel className="workspace-switcher-menu-title">
+          {organization && (context.organizations.length > 1 || (organization.account_kind !== 'personal' && organization.name.trim() !== 'Personal workspace'))
+            ? `${t('Workspaces', '工作空间')} · ${organizationDisplayName(organization.name, organization.account_kind)}`
+            : t('Workspaces', '工作空间')}
+        </DropdownMenuLabel>
         {workspaceLoading && <div className="workspace-switcher-empty">{t('Loading workspaces…', '正在加载工作空间…')}</div>}
         {!workspaceLoading && entries.length === 0 && <div className="workspace-switcher-empty">{t('No workspaces yet.', '暂无工作空间。')}</div>}
         {!workspaceLoading && <DropdownMenuRadioGroup value={workspace?.id ?? ''} onValueChange={id => {
@@ -176,7 +180,7 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange, withinSetti
       const closingDialog = event.target instanceof HTMLElement ? event.target : null;
       const target = opener?.isConnected && opener.getClientRects().length && !closingDialog?.contains(opener) ? opener : ['[aria-label="Create workspace"]', '.workspace-switcher-trigger', '.sidebar-toggle'].flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector))).find(element => element.isConnected && element.getClientRects().length && !element.closest('[role="dialog"]'));
       if (target) { event.preventDefault(); target.focus(); }
-    }} className="niu-modal workspace-create-dialog max-h-[90dvh] overflow-y-auto" overlayClassName="workspace-create-overlay" showCloseButton={false}>
+    }} className="niu-modal workspace-create-dialog" overlayClassName="workspace-create-overlay" showCloseButton={false}>
       <DialogHeader className="niu-modal-heading flex-row text-left">
         <div><DialogTitle>{t('Create workspace', '创建工作空间')}</DialogTitle><DialogDescription>{description}</DialogDescription></div>
         <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
@@ -288,7 +292,7 @@ export function OrganizationCreateDialog({ context, open, onOpenChange, withinSe
         </div>
         <div className="grid gap-2">
           <p id="organization-prereq-help" className="text-sm text-muted-foreground">
-            {t('New organizations start with 0 credits. Add credits in Credits settings or configure a payment method before running paid model requests.', '新组织初始余额为 0。在调用付费模型前，请在“额度与充值”中充值或完成支付配置。')}
+            {t('New organizations start with 0 credits. Add credits in Credits settings or configure a payment method before running paid model requests.', '新组织初始余额为 0。在调用付费模型前，请在“额度”中充值或完成支付配置。')}
           </p>
         </div>
         {createError && <p className="error-text" role="alert">{uiT(createError)}</p>}
@@ -313,7 +317,7 @@ export function OrganizationCreateDialog({ context, open, onOpenChange, withinSe
             .flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector)))
             .find(element => element.isConnected && element.getClientRects().length && !element.closest('[role="dialog"]'));
       if (target) { event.preventDefault(); target.focus(); }
-    }} className="niu-modal workspace-create-dialog max-h-[90dvh] overflow-y-auto" overlayClassName="workspace-create-overlay" showCloseButton={false}>
+    }} className="niu-modal workspace-create-dialog" overlayClassName="workspace-create-overlay" showCloseButton={false}>
       <DialogHeader className="niu-modal-heading flex-row text-left">
         <div>
           <DialogTitle>{t('Create organization', '创建组织')}</DialogTitle>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogTitle, connectionIdentity, identifyProvider, modelIdentity, modelDeveloper, modelProviderName, providers } from '../../app/lib/providers';
+import { catalogTitle, connectionIdentity, disambiguatedCatalogTitle, identifyProvider, modelIdentity, modelDeveloper, modelProviderName, providers } from '../../app/lib/providers';
 
 describe('provider identity', () => {
   it('identifies the model author independently of a route alias', () => {
@@ -92,5 +92,15 @@ describe('model developer and provider boundaries', () => {
     expect(catalogTitle({id:'openai/gpt-4.1-mini', catalog:{name:'OpenAI: GPT-4.1 Mini'}})).toBe('GPT-4.1 Mini');
     expect(catalogTitle({id:'x-ai/grok-4.7', catalog:{name:'SpaceXAI: Grok 4.7'}})).toBe('Grok 4.7');
     expect(catalogTitle({id:'qiniu/conatus-free', catalog:{name:'Qiniu: Conatus Free'}})).toBe('Conatus Free');
+  });
+  it('preserves distinguishing date suffixes when dated and undated model variants coexist', () => {
+    const siblings = [
+      { id: 'qiniu/deepseek-v4-flash' },
+      { id: 'qiniu/deepseek-v4-flash-250801' },
+    ];
+    expect(disambiguatedCatalogTitle(siblings[0], siblings)).toBe('DeepSeek V4 Flash');
+    expect(disambiguatedCatalogTitle(siblings[1], siblings)).toBe('DeepSeek V4 Flash 250801');
+    const uniqueDated = [{ id: 'anthropic/claude-3-5-sonnet-20241022' }];
+    expect(disambiguatedCatalogTitle(uniqueDated[0], uniqueDated)).toBe('Claude 3.5 Sonnet');
   });
 });

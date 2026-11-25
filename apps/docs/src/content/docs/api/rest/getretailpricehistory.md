@@ -1,11 +1,11 @@
 ---
 title: "Read immutable standard and promotion history"
-description: "GET /api/v1/pricing/standard-prices/{price}/history"
+description: "GET /api/v1/admin/pricing/standard-prices/{price}/history"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/pricing/standard-prices/{price}/history`
+`GET /api/v1/admin/pricing/standard-prices/{price}/history`
 
 Explicit platform administration required; ordinary customer/Provider membership does not grant access. Platform configuration history can include different customer-specific rules; never expose this projection to customers. Version keyset descending, pass next_before unchanged. Each page is one snapshot. Names are customer-company display values; UUIDs are routing references. No procurement or customer usage. Cache-Control: no-store.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/pricing/standard-prices/{price}/history" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/pricing/standard-prices/{price}/history" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

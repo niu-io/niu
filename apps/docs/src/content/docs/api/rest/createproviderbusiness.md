@@ -1,11 +1,11 @@
 ---
 title: "Create a Provider business identity"
-description: "POST /api/v1/providers"
+description: "POST /api/v1/admin/providers"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`POST /api/v1/providers`
+`POST /api/v1/admin/providers`
 
 Requires platform administration. Creation grants no membership, commercial authorization, offer or permission to resell supply. Atomically stores the trimmed name, optional description, website and logo URLs with an immutable creation audit. Optional profile fields default to empty strings. Saving URLs does not fetch them.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/providers" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

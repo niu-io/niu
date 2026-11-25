@@ -38,8 +38,8 @@ function mockHealth() {
 
       : path === '/api/v1/session' ? { data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }
       : path === '/api/v1/workspaces' ? { data: [{ id: 'default', name: 'Default', organization_id: 'org', organization_name: 'Demo' }, { id: 'production', name: 'Production', organization_id: 'org', organization_name: 'Demo' }] }
-      : path === '/api/v1/platform/configuration' ? { data: {payment_gateways: []} }
-      : path === '/api/v1/platform/payments/epay' ? { data: {revision:'0', enabled:false, merchant_id:'', has_key:false, endpoint:'', notify_url:'', return_url:'', methods:[]} }
+      : path === '/api/v1/admin/configuration' ? { data: {payment_gateways: []} }
+      : path === '/api/v1/admin/payments/epay' ? { data: {revision:'0', enabled:false, merchant_id:'', has_key:false, endpoint:'', notify_url:'', return_url:'', methods:[]} }
       : path === '/api/v1/organizations' ? { data: [{ id: 'org', name: 'Demo' }] }
       : path.endsWith('/billing') ? { data: { balances: [], unresolved: '0', unpriced: '0', tariffs: [], invoices: [] } }
       : { data: [], summary: { request_count: 0, usage_count: 0, prompt_tokens: '0', completion_tokens: '0', failures: 0, customer_charges: [], usage_by_model: [], usage_by_key: [] } };
@@ -118,39 +118,41 @@ describe('dashboard route layout', () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input, init) => {
       const path = String(input);
       if (path.split('?')[0] === '/api/v1/payments/readiness') return Response.json({data:{ready:true,reason:null}}); calls.push(path);
-      if (path === '/api/v1/providers') return Response.json({data:[{id,slug:'example-provider',name:'Example Provider',members:0}]});
-      if (path === `/api/v1/providers/${id}`) return Response.json({data:{id,slug:'example-provider',name:'Example Provider',description:'',website_url:'',logo_url:'',revision:1}});
+      if (path === '/api/v1/admin/providers') return Response.json({data:[{id,slug:'example-provider',name:'Example Provider',members:0}]});
+      if (path === `/api/v1/admin/providers/${id}`) return Response.json({data:{id,slug:'example-provider',name:'Example Provider',description:'',website_url:'',logo_url:'',revision:1}});
       return originalFetch(input,init);
     }));
     const router = renderAt(`/admin/providers/${id}/settings?view=general#profile`);
     await screen.findByRole('heading', { name: 'Business profile' });
     expect(screen.getByRole('button', { name: 'Edit profile' })).toBeTruthy();
-    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-provider/settings'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-provider'));
     expect(router.state.location.search).toBe('?view=general');
     expect(router.state.location.hash).toBe('#profile');
-    expect(calls).toContain(`/api/v1/providers/${id}`);
-    expect(calls).not.toContain('/api/v1/providers/example-provider');
+    expect(calls).toContain(`/api/v1/admin/providers/${id}`);
+    expect(calls).not.toContain('/api/v1/admin/providers/example-provider');
   });
   it('keeps Admin sections available while navigating Provider detail tabs', async () => {
     mockHealth();
     const router = renderAt('/admin/providers/example-supplier');
     const user = userEvent.setup();
     const navigation = await screen.findByRole('navigation', { name: 'Admin navigation' }, { timeout: 10000 });
-    expect(within(navigation).getByRole('link', { name: 'Payment gateways' })).toBeTruthy();
+    expect(within(navigation).getByRole('link', { name: 'Settings' })).toBeTruthy();
     expect(screen.queryByRole('tablist', { name: 'Admin sections' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Switch provider' })).toBeNull();
     const breadcrumb = within(await screen.findByLabelText('Breadcrumb'));
     expect(breadcrumb.queryByText('Admin')).toBeNull();
     expect(breadcrumb.getByRole('link', {name:'Providers'}).getAttribute('href')).toBe('/admin/providers');
     const tabs = await screen.findByRole('tablist', { name: 'Provider sections' });
-    await user.click(within(tabs).getByRole('tab', { name: 'Keys' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-supplier/keys'));
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'Keys' }).getAttribute('aria-selected')).toBe('true'));
-    await user.click(within(navigation).getByRole('link', { name: 'Payment gateways' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/payments'));
+    expect(within(tabs).queryByRole('tab', { name: 'Members' })).toBeNull();
+    expect(within(tabs).getByRole('tab', { name: 'Configuration' }).getAttribute('aria-selected')).toBe('true');
+    await user.click(within(tabs).getByRole('tab', { name: 'Analytics' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/example-supplier/usage'));
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Analytics' }).getAttribute('aria-selected')).toBe('true'));
+    await user.click(within(navigation).getByRole('link', { name: 'Settings' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/admin/settings'));
     await waitFor(() => expect(screen.queryByRole('tablist', { name: 'Provider sections' })).toBeNull());
     expect(within(screen.getByLabelText('Breadcrumb')).queryByText('Admin')).toBeNull();
-    expect(within(screen.getByLabelText('Breadcrumb')).getByRole('heading', {name:'Payment gateways'})).toBeTruthy();
+    expect(within(screen.getByLabelText('Breadcrumb')).getByRole('heading', {name:'Settings'})).toBeTruthy();
   });
   it('uses the shared loading page while checking the browser session and redirecting to sign in', async () => {
     mockHealth(); const originalFetch = globalThis.fetch;
@@ -173,7 +175,7 @@ describe('dashboard route layout', () => {
   it('keeps the selected workspace when an earlier rename finishes', async () => {
     mockHealth(); const originalFetch=globalThis.fetch;
     let finishRename!: (response:Response)=>void;
-    vi.stubGlobal('fetch',vi.fn<typeof fetch>((input,init)=>String(input)==='/api/v1/organizations/org/projects/production' && init?.method==='PATCH'
+    vi.stubGlobal('fetch',vi.fn<typeof fetch>((input,init)=>String(input)==='/api/v1/workspaces/production' && init?.method==='PATCH'
       ? new Promise<Response>(resolve=>{finishRename=resolve;}) : String(input)==='/api/v1/workspaces' ? Promise.resolve(Response.json({data:[{id:'default',name:'Default',organization_id:'org',organization_name:'Demo'},{id:'production',name:'Production',organization_id:'org',organization_name:'Demo'}]})) : originalFetch(input,init)));
     const router=renderAt('/workspaces/production/settings'); const user=userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Rename workspace' }));
@@ -250,7 +252,7 @@ describe('dashboard route layout', () => {
     const router = renderAt('/workspaces/production?period=month#activity');
     await screen.findByRole('heading', {name:'Overview',level:1});
     await userEvent.click(screen.getByRole('button',{name:'Account menu'}));
-    await userEvent.click(screen.getByRole('menuitem',{name:'Settings',exact:true}));
+    await userEvent.click(screen.getByRole('menuitem',{name:'Account & org settings',exact:true}));
     await waitFor(() => expect(router.state.location.pathname).toBe('/settings/appearance'));
     const settingsDialog = await screen.findByRole('dialog', { name: 'Settings' });
     expect(within(settingsDialog).getByRole('navigation',{name:'Settings navigation'})).toBeTruthy();
@@ -322,10 +324,10 @@ describe('dashboard route layout', () => {
         listCalls += 1;
         if (listCalls > 1) return Response.json({error:{message:'List temporarily unavailable'}}, {status:503});
       }
-      if (path === '/api/v1/organizations/org/projects/production' && init?.method === 'PATCH') {
+      if (path === '/api/v1/workspaces/production' && init?.method === 'PATCH') {
         return Response.json({id:'production',name:JSON.parse(String(init.body)).name});
       }
-      if (path === '/api/v1/organizations/org/projects/production' && init?.method === 'DELETE') return new Response(null,{status:204});
+      if (path === '/api/v1/workspaces/production' && init?.method === 'DELETE') return new Response(null,{status:204});
       return originalFetch(input, init);
     }));
     const router = renderAt('/workspaces/production/settings');
@@ -370,7 +372,7 @@ describe('dashboard route layout', () => {
     const router = renderAt('/workspaces/production');
     const user = userEvent.setup();
     const nav = await screen.findByRole('navigation',{name:'Main navigation'});
-    expect(within(nav).getByRole('link',{name:'Settings',exact:true}).getAttribute('href')).toBe('/workspaces/production/settings');
+    expect(within(nav).getByRole('link',{name:'Workspace settings',exact:true}).getAttribute('href')).toBe('/workspaces/production/settings');
     await user.click(screen.getByRole('button',{name:'Switch workspace'}));
     await user.click(screen.getByRole('menuitem',{name:'Create workspace'}));
     await user.type(await screen.findByLabelText('Workspace name'),'New workspace');
@@ -383,21 +385,23 @@ describe('dashboard route layout', () => {
     mockHealth();
     renderAt('/workspaces/default/billing');
     expect(await screen.findByRole('heading', { name: 'Billing and rates', exact: true })).toBeTruthy();
-    expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Settings', exact: true }).getAttribute('href')).toBe('/workspaces/default/settings');
+    expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Usage', exact: true }).getAttribute('data-active')).toBe('true');
+    expect(within(screen.getByRole('navigation',{name:'Main navigation'})).getByRole('link', { name: 'Workspace settings', exact: true }).getAttribute('href')).toBe('/workspaces/default/settings');
     expect((await within(screen.getByLabelText('Breadcrumb')).findByRole('link', {name: 'Default', exact: true})).getAttribute('href')).toBe('/workspaces/default');
     expect(screen.queryByRole('heading', { name: 'Not Found' })).toBeNull();
   });
 
 
-  it('keeps Guardrails tabs on one workspace page without section breadcrumbs', async () => {
+  it('keeps Guardrails in the top-bar workspace settings tabs without nested tab bars', async () => {
     mockHealth();
     const router = renderAt('/workspaces/production/guardrails?tab=history');
-    await screen.findByRole('tab', {name: 'History', exact: true});
+    expect(await screen.findByRole('dialog', { name: 'Policy history' })).toBeTruthy();
+    expect((await screen.findByRole('tab', { name: 'Guardrails', exact: true, hidden: true })).getAttribute('aria-selected')).toBe('true');
     expect(router.state.location.pathname).toBe('/workspaces/production/guardrails');
     expect(document.title).toBe('Guardrails · Niu');
     const breadcrumb = within(screen.getByLabelText('Breadcrumb'));
-    expect((await breadcrumb.findByRole('link', {name: 'Production', exact: true})).getAttribute('href')).toBe('/workspaces/production');
-    expect(breadcrumb.queryByRole('button', {name: 'Show parent pages'})).toBeNull();
+    expect((await breadcrumb.findByRole('link', {name: 'Production', exact: true, hidden: true})).getAttribute('href')).toBe('/workspaces/production');
+    expect(breadcrumb.queryByRole('button', {name: 'Show parent pages', hidden: true})).toBeNull();
   });
 
   it('redirects legacy Guardrails section URLs to the canonical tab and anchor', async () => {
@@ -406,7 +410,7 @@ describe('dashboard route layout', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/production/guardrails'));
     expect(router.state.location.search).toBe('?tab=policy');
     expect(router.state.location.hash).toBe('#input');
-    await screen.findByRole('tab', {name: /^Policy/});
+    expect((await screen.findByRole('tab', { name: 'Guardrails', exact: true })).getAttribute('aria-selected')).toBe('true');
   });
 
   it('resolves the canonical Guardrails page and the legacy redirect route separately', () => {
@@ -418,7 +422,7 @@ describe('dashboard route layout', () => {
   it('renders the current page title as plain text without a duplicate page switcher', async () => {
     mockHealth();
     renderAt('/workspaces/production/settings');
-    const heading = await screen.findByRole('heading', {name: 'Settings', exact: true});
+    const heading = await screen.findByRole('heading', {name: 'Workspace settings', exact: true});
     expect(heading.closest('button')).toBeNull();
     expect(screen.queryByRole('button', {name: 'Switch workspace page'})).toBeNull();
     const breadcrumb = within(screen.getByLabelText('Breadcrumb'));
@@ -519,7 +523,7 @@ describe('dashboard route layout', () => {
     expect(screen.queryByText(/check the gateway version/i)).toBeNull();
     workspaceServiceReady = true;
     await user.click(screen.getByRole('button', {name: 'Retry workspace access'}));
-    expect(await screen.findByRole('heading', {name: 'Settings', level: 1})).toBeTruthy();
+    expect(await screen.findByRole('heading', {name: 'Workspace settings', level: 1})).toBeTruthy();
     expect(router.state.location.pathname).toBe('/workspaces/production/settings');
   });
   it('renders the workspace overview and connects the sidebar to real routes', async () => {
@@ -528,7 +532,7 @@ describe('dashboard route layout', () => {
     const router = renderAt('/workspaces/default/');
 
     expect(await screen.findByRole('heading', { name: 'Overview' })).toBeTruthy();
-    expect((await screen.findByRole('link', { name: 'Connect provider' })).getAttribute('href')).toBe('/admin/providers');
+    expect((await screen.findByRole('link', { name: 'Admin setup' })).getAttribute('href')).toBe('/admin');
 
     expect(screen.queryByText('Requests today')).toBeNull();
 
@@ -581,10 +585,12 @@ describe('dashboard route layout', () => {
     await waitFor(() => expect(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Models' }).getAttribute('data-active')).toBe('true'));
     const sidebarFooter = document.querySelector('[data-slot="sidebar-footer"]');
     expect(sidebarFooter).toBeTruthy();
-    await user.click(within(sidebarFooter as HTMLElement).getByRole('button', { name: 'Connect your agent', exact: true }));
-    expect(await screen.findByRole('dialog', { name: 'Connect your agent' })).toBeTruthy();
+    const mcpTrigger = within(sidebarFooter as HTMLElement).getByRole('button', { name: 'Install MCP', exact: true });
+    expect(mcpTrigger.querySelector('[data-icon="mcp"]')).toBeTruthy();
+    await user.click(mcpTrigger);
+    expect(await screen.findByRole('dialog', { name: 'Install MCP' })).toBeTruthy();
     await user.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Connect your agent' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Install MCP' })).toBeNull());
     await user.click(screen.getByRole('button', { name: 'Expand workspace navigation' }));
     expect(nav.closest('[data-slot="sidebar"]')?.getAttribute('data-state')).toBe('expanded');
   });
@@ -599,7 +605,7 @@ describe('dashboard route layout', () => {
     trigger.focus();
     await user.keyboard('{Enter}');
     expect(await screen.findByRole('menuitem', { name: 'Sign out' })).toBeTruthy();
-    expect(screen.getByRole('menuitem', { name: 'Settings', exact: true })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Account & org settings', exact: true })).toBeTruthy();
     expect(screen.queryByRole('menuitemradio', { name: 'Light' })).toBeNull();
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('menu')).toBeNull();
@@ -670,7 +676,7 @@ describe('dashboard route layout', () => {
     } else {
       expect(await screen.findByRole('heading', { name: 'Keys' })).toBeTruthy();
       expect(router.state.location.pathname).toBe('/workspaces/second-project/keys');
-      await waitFor(() => expect(calls.filter(path => path.split('?')[0].endsWith('/keys'))).toContain('/api/v1/workspaces/project-2/keys?limit=50&status=active'));
+      await waitFor(() => expect(calls.filter(path => path.split('?')[0].endsWith('/keys'))).toContain('/api/v1/workspaces/project-2/keys?limit=50'));
     }
     expect(router.state.location.search).toBe('?tab=active');
     expect(router.state.location.hash).toBe('#list');
@@ -708,8 +714,8 @@ describe('dashboard route layout', () => {
     expect(router.state.location.hash).toBe('#list');
     await waitFor(() => expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Second project')).toBeTruthy());
     expect([...new Set(calls.filter(path => path.split('?')[0].endsWith('/keys')))]).toEqual([
-      '/api/v1/workspaces/project-1/keys?limit=50&status=active',
-      '/api/v1/workspaces/project-2/keys?limit=50&status=active',
+      '/api/v1/workspaces/project-1/keys?limit=50',
+      '/api/v1/workspaces/project-2/keys?limit=50',
     ]);
   });
 
@@ -824,8 +830,8 @@ describe('dashboard route layout', () => {
     await waitFor(() => expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Research project')).toBeTruthy());
     expect(calls.find(call => call.path === '/api/v1/workspaces' && call.method === 'POST')?.body).toBe(JSON.stringify({ name: 'Research project', slug: 'research-project', organization_id: 'org-1' }));
     const keyRequests = calls.filter(call => call.path.split('?')[0].endsWith('/keys')).map(call => call.path);
-    expect(keyRequests).toContain('/api/v1/workspaces/project-1/keys?limit=50&status=active');
-    expect(keyRequests.at(-1)).toBe('/api/v1/workspaces/project-2/keys?limit=50&status=active');
+    expect(keyRequests).toContain('/api/v1/workspaces/project-1/keys?limit=50');
+    expect(keyRequests.at(-1)).toBe('/api/v1/workspaces/project-2/keys?limit=50');
   });
 
   it('verifies session permissions before loading operator administration', async () => {
@@ -848,8 +854,8 @@ describe('dashboard route layout', () => {
       if (path.startsWith('/api/v1/models')) return json({ data: [] });
       if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Niu Labs' }] });
       if (path === '/api/v1/workspaces') return json({ data: [{ id: 'default', name: 'Default', organization_id: 'org-1', organization_name: 'Niu Labs' }] });
-      if (path.split('?')[0] === '/api/v1/operators') return json({ data: [] });
-      if (path === '/api/v1/organizations/org-1/projects') return json({ data: [] });
+      if (path.split('?')[0] === '/api/v1/members') return json({ data: [] });
+      if (path === '/api/v1/workspaces?organization_id=org-1') return json({ data: [] });
       return json({ data: [] });
     }));
 
@@ -863,7 +869,7 @@ describe('dashboard route layout', () => {
       path: '/api/v1/session',
       authorization: 'Bearer niu-browser-member-session',
     });
-    expect(calls.some(call => call.path.split('?')[0] === '/api/v1/operators')).toBe(true);
+    expect(calls.some(call => call.path.split('?')[0] === '/api/v1/members')).toBe(true);
     expect(screen.queryByText('Organization owner')).toBeNull();
   });
 
@@ -889,17 +895,17 @@ describe('dashboard route layout', () => {
       if (path.startsWith('/api/v1/models')) return json({ data: [] });
       if (path === '/api/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Niu Labs' }] });
       if (path === '/api/v1/workspaces') return json({ data: [{ id: 'default', name: 'Default', organization_id: 'org-1', organization_name: 'Niu Labs' }] });
-      if (path.split('?')[0] === '/api/v1/operators') return json({ data: [{
+      if (path.split('?')[0] === '/api/v1/members') return json({ data: [{
         id: 'owner-1', name: 'Current owner', role: 'owner', organization_id: 'org-1', project_id: null, revoked: false,
       }] });
-      if (path === '/api/v1/organizations/org-1/projects') return json({ data: [] });
-      if (path === '/api/v1/operators/owner-1/sessions') return json({ data: [{
+      if (path === '/api/v1/workspaces?organization_id=org-1') return json({ data: [] });
+      if (path === '/api/v1/members/owner-1/sessions') return json({ data: [{
         id: 'active-session', operator_id: 'owner-1', expires_at_unix: 2_000_000_000, revoked: false,
       }] });
       if (path.includes('/events?')) return currentSessionRevoked
         ? json({ error: { message: 'Unauthorized' } }, 401)
         : json({ data: [], next_cursor: null });
-      if (path === '/api/v1/operators/owner-1/sessions/active-session' && init?.method === 'DELETE') {
+      if (path === '/api/v1/members/owner-1/sessions/active-session' && init?.method === 'DELETE') {
         currentSessionRevoked = true;
         return new Response(null, { status: 204 });
       }
@@ -943,7 +949,7 @@ describe('dashboard route layout', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin/providers/legacy/models'));
     expect(screen.queryByRole('tablist',{name:'Provider sections'})).toBeNull();
     expect(screen.queryByRole('link',{name:'Providers',exact:true})).toBeNull();
-    expect(vi.mocked(fetch).mock.calls.some(([path]) => String(path).startsWith('/api/v1/providers'))).toBe(false);
+    expect(vi.mocked(fetch).mock.calls.some(([path]) => String(path).startsWith('/api/v1/admin/providers'))).toBe(false);
   });
 
   it('switches assigned account roles and returns to the workspace on User selection', async () => {
@@ -984,7 +990,7 @@ describe('dashboard route layout', () => {
     expect(within(adminNav).getByRole('link', { name: 'Settings', exact: true }).getAttribute('href')).toBe('/admin/settings');
     expect(screen.queryByRole('tablist', { name: 'Admin sections' })).toBeNull();
     expect(screen.queryByText('Administrator access required')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Connect your agent', exact: true })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Install MCP', exact: true })).toBeNull();
     const backLink = screen.getByRole('link', { name: 'Back to workspace', exact: true });
     await userEvent.click(backLink);
     await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/workspaces\//));
@@ -996,7 +1002,7 @@ describe('dashboard route layout', () => {
     }
     const sidebarFooter = document.querySelector('[data-slot="sidebar-footer"]');
     expect(sidebarFooter).toBeTruthy();
-    expect(within(sidebarFooter as HTMLElement).getByRole('button', { name: 'Connect your agent', exact: true })).toBeTruthy();
+    expect(within(sidebarFooter as HTMLElement).getByRole('button', { name: 'Install MCP', exact: true })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Admin', exact: true })).toBeTruthy();
   });
 

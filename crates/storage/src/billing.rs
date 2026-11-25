@@ -24,7 +24,9 @@ pub struct CustomerTariffPublication<'a> {
 #[derive(sqlx::FromRow)]
 pub(crate) struct PlatformCompanyRecord {
     pub id: Uuid,
+    pub slug: String,
     pub name: String,
+    pub account_kind: String,
     pub created_at: String,
 }
 
@@ -94,7 +96,19 @@ SELECT jsonb_build_object(
         name: &str,
         currency: &str,
     ) -> Result<Uuid, StoreError> {
+        Self::create_prepaid_organization_in_tx_with_kind(tx, name, currency, "organization").await
+    }
+
+    pub(crate) async fn create_prepaid_organization_in_tx_with_kind(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        name: &str,
+        currency: &str,
+        account_kind: &str,
+    ) -> Result<Uuid, StoreError> {
         if currency.len() != 3 || !currency.bytes().all(|b| b.is_ascii_uppercase()) {
+            return Err(StoreError::InvalidPrice);
+        }
+        if !matches!(account_kind, "personal" | "organization") {
             return Err(StoreError::InvalidPrice);
         }
         let organization = Uuid::new_v4();
@@ -103,10 +117,11 @@ SELECT jsonb_build_object(
             .bind(base_slug)
             .fetch_one(&mut **tx)
             .await?;
-        sqlx::query("INSERT INTO organizations(id,name,slug) VALUES($1,$2,$3)")
+        sqlx::query("INSERT INTO organizations(id,name,slug,account_kind) VALUES($1,$2,$3,$4)")
             .bind(organization)
             .bind(name)
             .bind(slug)
+            .bind(account_kind)
             .execute(&mut **tx)
             .await?;
         sqlx::query(
@@ -509,9 +524,37 @@ SELECT jsonb_build_object(
         after: Option<Uuid>,
         limit: i64,
     ) -> Result<(Vec<PlatformCompanyRecord>, Option<Uuid>), StoreError> {
+        Self::platform_company_page_filtered_in_tx(snapshot, after, limit, None, None).await
+    }
+
+    pub(crate) async fn platform_company_page_filtered_in_tx(
+        snapshot: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        after: Option<Uuid>,
+        limit: i64,
+        query: Option<&str>,
+        account_kind: Option<&str>,
+    ) -> Result<(Vec<PlatformCompanyRecord>, Option<Uuid>), StoreError> {
         if !(1..=100).contains(&limit) {
             return Err(StoreError::InvalidPrice);
         }
+        if let Some(kind) = account_kind
+            && !matches!(kind, "personal" | "organization")
+        {
+            return Err(StoreError::InvalidPrice);
+        }
+        let search_pattern = match query.map(str::trim).filter(|value| !value.is_empty()) {
+            Some(trimmed) => {
+                if trimmed.chars().count() > 120 {
+                    return Err(StoreError::InvalidPrice);
+                }
+                let escaped = trimmed
+                    .replace('\\', "\\\\")
+                    .replace('%', "\\%")
+                    .replace('_', "\\_");
+                Some(format!("%{escaped}%"))
+            }
+            None => None,
+        };
         if let Some(cursor) = after {
             let exists: bool =
                 sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM organizations WHERE id=$1)")
@@ -522,8 +565,32 @@ SELECT jsonb_build_object(
                 return Err(StoreError::Conflict);
             }
         }
-        let mut companies: Vec<PlatformCompanyRecord> = sqlx::query_as("SELECT id,name,to_jsonb(created_at) #>> '{}' AS created_at FROM organizations WHERE $1::uuid IS NULL OR id>$1 ORDER BY id LIMIT $2")
-            .bind(after).bind(limit+1).fetch_all(&mut **snapshot).await?;
+        let mut companies: Vec<PlatformCompanyRecord> = sqlx::query_as(
+            "SELECT o.id, o.name, o.slug, o.account_kind, to_jsonb(o.created_at) #>> '{}' AS created_at \
+             FROM organizations o \
+             WHERE ($1::uuid IS NULL OR o.id > $1) \
+               AND ($2::text IS NULL OR o.account_kind = $2) \
+               AND ($3::text IS NULL \
+                 OR o.name ILIKE $3 ESCAPE '\\' \
+                 OR o.slug ILIKE $3 ESCAPE '\\' \
+                 OR EXISTS ( \
+                   SELECT 1 \
+                   FROM admin_operators ao \
+                   LEFT JOIN account_memberships am ON am.operator_id = ao.id \
+                   LEFT JOIN member_password_credentials mpc ON mpc.operator_id = COALESCE(am.identity_id, ao.id) \
+                   WHERE ao.organization_id = o.id \
+                     AND ao.revoked_at IS NULL \
+                     AND (ao.name ILIKE $3 ESCAPE '\\' OR mpc.email ILIKE $3 ESCAPE '\\') \
+                 )) \
+             ORDER BY o.id \
+             LIMIT $4",
+        )
+        .bind(after)
+        .bind(account_kind)
+        .bind(search_pattern)
+        .bind(limit + 1)
+        .fetch_all(&mut **snapshot)
+        .await?;
         let more = companies.len() > limit as usize;
         companies.truncate(limit as usize);
         let next = if more {
@@ -540,21 +607,25 @@ SELECT jsonb_build_object(
         &self,
         after: Option<Uuid>,
         limit: i64,
+        query: Option<&str>,
+        account_kind: Option<&str>,
     ) -> Result<Value, StoreError> {
         if !(1..=100).contains(&limit) {
             return Err(StoreError::InvalidPrice);
         }
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let (companies, next) =
-            Self::platform_company_page_in_tx(&mut snapshot, after, limit).await?;
+        let (companies, next) = Self::platform_company_page_filtered_in_tx(
+            &mut snapshot,
+            after,
+            limit,
+            query,
+            account_kind,
+        )
+        .await?;
+        let ids: Vec<Uuid> = companies.iter().map(|company| company.id).collect();
         let balances: Vec<(Uuid, Value)> =
             sqlx::query_as(include_str!("customer_balance_projection.sql"))
-                .bind(
-                    companies
-                        .iter()
-                        .map(|company| company.id)
-                        .collect::<Vec<_>>(),
-                )
+                .bind(&ids)
                 .fetch_all(&mut *snapshot)
                 .await?;
         let mut grouped = std::collections::BTreeMap::<Uuid, Vec<Value>>::new();
@@ -563,12 +634,7 @@ SELECT jsonb_build_object(
         }
         let credit_rows: Vec<(Uuid, String, i16, i64, bool)> =
             sqlx::query_as(include_str!("platform_customer_unit_summaries.sql"))
-                .bind(
-                    companies
-                        .iter()
-                        .map(|company| company.id)
-                        .collect::<Vec<_>>(),
-                )
+                .bind(&ids)
                 .fetch_all(&mut *snapshot)
                 .await?;
         let mut credits = std::collections::BTreeMap::<Uuid, Vec<(String, i16, i64, bool)>>::new();
@@ -580,6 +646,59 @@ SELECT jsonb_build_object(
                 is_current,
             ));
         }
+        let workspace_count_rows: Vec<(Uuid, i64)> = sqlx::query_as(
+            "SELECT organization_id, COUNT(*)::bigint FROM projects WHERE organization_id = ANY($1) GROUP BY organization_id",
+        )
+        .bind(&ids)
+        .fetch_all(&mut *snapshot)
+        .await?;
+        let workspace_counts: std::collections::BTreeMap<Uuid, i64> =
+            workspace_count_rows.into_iter().collect();
+
+        let member_count_rows: Vec<(Uuid, i64)> = sqlx::query_as(
+            "SELECT organization_id, COUNT(*)::bigint FROM admin_operators WHERE organization_id = ANY($1) AND revoked_at IS NULL GROUP BY organization_id",
+        )
+        .bind(&ids)
+        .fetch_all(&mut *snapshot)
+        .await?;
+        let member_counts: std::collections::BTreeMap<Uuid, i64> =
+            member_count_rows.into_iter().collect();
+
+        let owner_rows: Vec<(Uuid, String, Option<String>)> = sqlx::query_as(
+            "SELECT DISTINCT ON (o.organization_id) o.organization_id, o.name, c.email
+             FROM admin_operators o
+             LEFT JOIN account_memberships m ON m.operator_id = o.id
+             LEFT JOIN member_password_credentials c ON c.operator_id = COALESCE(m.identity_id, o.id)
+             WHERE o.organization_id = ANY($1)
+               AND o.revoked_at IS NULL
+               AND o.role = 'owner'
+               AND o.project_id IS NULL
+             ORDER BY o.organization_id, o.created_at ASC, o.id ASC",
+        )
+        .bind(&ids)
+        .fetch_all(&mut *snapshot)
+        .await?;
+        let mut owners = std::collections::BTreeMap::<Uuid, Value>::new();
+        for (org_id, name, email) in owner_rows {
+            owners.insert(org_id, json!({ "name": name, "email": email }));
+        }
+
+        let custom_price_rows: Vec<(Uuid, i64)> = sqlx::query_as(
+            "SELECT p.customer_organization_id, COUNT(DISTINCT p.head_id)::bigint
+             FROM platform_retail_promotions p
+             LEFT JOIN platform_retail_promotion_retirements r ON r.promotion_id = p.id
+             WHERE p.customer_organization_id = ANY($1)
+               AND r.promotion_id IS NULL
+               AND p.effective_from < p.effective_until
+               AND floor(extract(epoch FROM clock_timestamp()))::bigint < p.effective_until
+             GROUP BY p.customer_organization_id",
+        )
+        .bind(&ids)
+        .fetch_all(&mut *snapshot)
+        .await?;
+        let custom_price_counts: std::collections::BTreeMap<Uuid, i64> =
+            custom_price_rows.into_iter().collect();
+
         let data: Vec<Value> = companies
             .into_iter()
             .map(|company| {
@@ -588,15 +707,154 @@ SELECT jsonb_build_object(
                     .map(|rows| platform_customer_credit_summary(&rows))
                     .unwrap_or(Value::Null);
                 json!({
-                    "organization_id":company.id,
-                    "organization_name":company.name,
-                    "accounts":grouped.remove(&company.id).unwrap_or_default(),
-                    "credits":credit_summary
+                    "organization_id": company.id,
+                    "organization_name": company.name,
+                    "account_kind": company.account_kind,
+                    "slug": company.slug,
+                    "created_at": company.created_at,
+                    "owner": owners.remove(&company.id).unwrap_or(Value::Null),
+                    "workspace_count": workspace_counts.get(&company.id).copied().unwrap_or(0),
+                    "member_count": member_counts.get(&company.id).copied().unwrap_or(0),
+                    "custom_price_count": custom_price_counts.get(&company.id).copied().unwrap_or(0),
+                    "accounts": grouped.remove(&company.id).unwrap_or_default(),
+                    "credits": credit_summary
                 })
             })
             .collect();
         crate::commit_tx(snapshot).await?;
         Ok(json!({"data":data,"next_after":next}))
+    }
+
+    /// Single customer summary (balances, Credits, workspaces, members, pricing count,
+    /// and recent billing activity) in one bounded snapshot.
+    pub async fn platform_customer_account(
+        &self,
+        reference: impl ToString,
+    ) -> Result<Option<Value>, StoreError> {
+        let reference = reference.to_string();
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let org: Option<(Uuid, String, String, String, String)> = sqlx::query_as(
+            "SELECT o.id, o.name, o.slug, o.account_kind, to_jsonb(o.created_at) #>> '{}' FROM organizations o
+             WHERE o.id = $1 OR o.slug = $2 OR EXISTS (
+                SELECT 1 FROM organization_slug_aliases a WHERE a.organization_id = o.id AND a.slug = $2
+             ) ORDER BY (o.id = $1) DESC NULLS LAST LIMIT 1",
+        )
+        .bind(Uuid::parse_str(&reference).ok())
+        .bind(&reference)
+        .fetch_optional(&mut *snapshot)
+        .await?;
+        let Some((organization_id, organization_name, slug, account_kind, created_at)) = org else {
+            crate::commit_tx(snapshot).await?;
+            return Ok(None);
+        };
+        let ids = vec![organization_id];
+        let balances: Vec<(Uuid, Value)> =
+            sqlx::query_as(include_str!("customer_balance_projection.sql"))
+                .bind(&ids)
+                .fetch_all(&mut *snapshot)
+                .await?;
+        let accounts: Vec<Value> = balances.into_iter().map(|(_, balance)| balance).collect();
+        let credit_rows: Vec<(Uuid, String, i16, i64, bool)> =
+            sqlx::query_as(include_str!("platform_customer_unit_summaries.sql"))
+                .bind(&ids)
+                .fetch_all(&mut *snapshot)
+                .await?;
+        let credit_items: Vec<(String, i16, i64, bool)> = credit_rows
+            .into_iter()
+            .map(
+                |(_, name, display_precision, available_atoms, is_current)| {
+                    (name, display_precision, available_atoms, is_current)
+                },
+            )
+            .collect();
+        let credits = if credit_items.is_empty() {
+            Value::Null
+        } else {
+            platform_customer_credit_summary(&credit_items)
+        };
+        let workspaces: Vec<Value> = sqlx::query_scalar(
+            "SELECT jsonb_build_object(
+                'id', p.id,
+                'name', p.name,
+                'slug', p.route_slug,
+                'created_at', to_jsonb(p.created_at) #>> '{}'
+             )
+             FROM projects p
+             WHERE p.organization_id = $1
+             ORDER BY p.created_at ASC, p.id ASC",
+        )
+        .bind(organization_id)
+        .fetch_all(&mut *snapshot)
+        .await?;
+        let members: Vec<Value> = sqlx::query_scalar(
+            "SELECT jsonb_build_object(
+                'id', o.id,
+                'name', o.name,
+                'email', c.email,
+                'role', o.role,
+                'project_id', o.project_id,
+                'created_at', to_jsonb(o.created_at) #>> '{}'
+             )
+             FROM admin_operators o
+             LEFT JOIN account_memberships m ON m.operator_id = o.id
+             LEFT JOIN member_password_credentials c ON c.operator_id = COALESCE(m.identity_id, o.id)
+             WHERE o.organization_id = $1 AND o.revoked_at IS NULL
+             ORDER BY (CASE WHEN o.role = 'owner' AND o.project_id IS NULL THEN 0 ELSE 1 END), o.created_at ASC, o.id ASC",
+        )
+        .bind(organization_id)
+        .fetch_all(&mut *snapshot)
+        .await?;
+        let owner = members
+            .iter()
+            .find(|m| m["role"] == "owner" && m["project_id"].is_null())
+            .map(|m| json!({ "name": m["name"], "email": m["email"] }))
+            .unwrap_or(Value::Null);
+        let custom_price_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(DISTINCT p.head_id)::bigint
+             FROM platform_retail_promotions p
+             LEFT JOIN platform_retail_promotion_retirements r ON r.promotion_id = p.id
+             WHERE p.customer_organization_id = $1
+               AND r.promotion_id IS NULL
+               AND p.effective_from < p.effective_until
+               AND floor(extract(epoch FROM clock_timestamp()))::bigint < p.effective_until",
+        )
+        .bind(organization_id)
+        .fetch_one(&mut *snapshot)
+        .await?;
+        let recent_transactions: Vec<Value> = sqlx::query_scalar(
+            "SELECT jsonb_build_object(
+                'id', e.id,
+                'kind', e.kind,
+                'currency', e.currency,
+                'amount_nanos', e.amount_nanos::text,
+                'created_at', to_jsonb(e.created_at) #>> '{}',
+                'reverses_entry_id', e.reverses_entry_id
+             )
+             FROM customer_balance_entries e
+             WHERE e.organization_id = $1
+             ORDER BY e.created_at DESC, e.id DESC
+             LIMIT 25",
+        )
+        .bind(organization_id)
+        .fetch_all(&mut *snapshot)
+        .await?;
+        crate::commit_tx(snapshot).await?;
+        Ok(Some(json!({
+            "organization_id": organization_id,
+            "organization_name": organization_name,
+            "account_kind": account_kind,
+            "slug": slug,
+            "created_at": created_at,
+            "owner": owner,
+            "workspace_count": workspaces.len(),
+            "member_count": members.len(),
+            "custom_price_count": custom_price_count,
+            "workspaces": workspaces,
+            "members": members,
+            "recent_transactions": recent_transactions,
+            "accounts": accounts,
+            "credits": credits,
+        })))
     }
 
     /// Current platform retail text rates for one alias, used to price shared routes.
@@ -643,6 +901,61 @@ SELECT jsonb_build_object(
             prices.insert(alias, price);
         }
         Ok(prices)
+    }
+
+    /// Model aliases that have at least one published standard media selling
+    /// price in the active platform currency.
+    pub async fn public_standard_media_priced_models(
+        &self,
+    ) -> Result<std::collections::BTreeSet<String>, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let aliases: Vec<String> = sqlx::query_scalar(
+            "SELECT DISTINCT h.model_alias \
+             FROM platform_retail_price_heads h \
+             JOIN platform_currency c ON c.singleton AND c.currency = h.currency \
+             WHERE h.rate_kind = 'media' AND h.current_revision IS NOT NULL",
+        )
+        .fetch_all(&mut *snapshot)
+        .await?;
+        crate::commit_tx(snapshot).await?;
+        Ok(aliases.into_iter().collect())
+    }
+
+    /// Model aliases that have a published media selling price applicable to
+    /// the workspace (platform standard media price, explicit enrollment, or
+    /// legacy workspace media price card).
+    pub async fn workspace_media_priced_models(
+        &self,
+        scope: TenantScope,
+    ) -> Result<std::collections::BTreeSet<String>, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let aliases: Vec<String> = sqlx::query_scalar(
+            "SELECT DISTINCT model_alias FROM ( \
+                 SELECT h.model_alias \
+                 FROM platform_retail_price_heads h \
+                 JOIN platform_currency c ON c.singleton AND c.currency = h.currency \
+                 WHERE h.rate_kind = 'media' AND h.current_revision IS NOT NULL \
+                 UNION \
+                 SELECT h.model_alias \
+                 FROM retail_media_enrollments e \
+                 JOIN platform_retail_price_heads h ON h.id = e.price_id \
+                 WHERE e.organization_id = $1 AND e.project_id = $2 \
+                   AND e.price_id IS NOT NULL AND h.current_revision IS NOT NULL \
+                 UNION \
+                 SELECT c.model_alias \
+                 FROM customer_media_rate_cards c \
+                 LEFT JOIN customer_media_rate_retirements r \
+                     ON r.organization_id = c.organization_id AND r.revision = c.revision \
+                 WHERE c.organization_id = $1 \
+                   AND COALESCE(r.effective_until, c.effective_until) IS NULL \
+             ) priced",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .fetch_all(&mut *snapshot)
+        .await?;
+        crate::commit_tx(snapshot).await?;
+        Ok(aliases.into_iter().collect())
     }
 
     /// Complete customer catalog prices; this compatibility map has no cursor.
@@ -1283,7 +1596,7 @@ SELECT jsonb_build_object(
         let mut prices = Self::customer_model_prices_in_tx(&mut tx, scope).await?;
         // Match model discovery: an enabled personally funded route does not
         // expose a customer selling price, even if a legacy tariff exists.
-        let personal: Vec<String> = sqlx::query_scalar("SELECT m.alias FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id JOIN personal_vendor_ownership o ON o.vendor_id=v.id WHERE (o.organization_id=$1 OR o.access_scope='internal') AND m.enabled AND v.enabled")
+        let personal: Vec<String> = sqlx::query_scalar("SELECT m.alias FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id JOIN personal_vendor_ownership o ON o.vendor_id=v.id WHERE (o.organization_id=$1 OR o.access_scope='internal') AND m.enabled AND niu_model_has_enabled_vendor(m.alias)")
             .bind(scope.organization_id).fetch_all(&mut *tx).await?;
         for alias in &personal {
             prices.remove(alias);

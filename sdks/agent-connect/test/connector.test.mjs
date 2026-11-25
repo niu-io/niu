@@ -160,3 +160,22 @@ test('connector manifests keep subscription eligibility and activity coverage ex
   assert.equal(claudeCodeConnector.modes[0].testedVersion, '2.1.211');
   assert.match(claudeCodeConnector.modes[0].billing, /not a settled provider charge/);
 });
+
+test('agent-connect package includes LICENSE and zero orphaned dist files', async () => {
+  const { existsSync, readdirSync, readFileSync } = await import('node:fs');
+  const pkgRoot = new URL('..', import.meta.url);
+  const pkg = JSON.parse(readFileSync(new URL('package.json', pkgRoot), 'utf8'));
+  assert.ok(pkg.files.includes('LICENSE'), 'package.json files must include LICENSE');
+  assert.ok(existsSync(new URL('LICENSE', pkgRoot)), 'LICENSE file must exist in sdks/agent-connect');
+  const srcModules = new Set(
+    readdirSync(new URL('src', pkgRoot))
+      .filter((name) => name.endsWith('.ts'))
+      .map((name) => name.slice(0, -3)),
+  );
+  const distJsFiles = readdirSync(new URL('dist', pkgRoot)).filter((name) => name.endsWith('.js'));
+  assert.ok(distJsFiles.length > 0);
+  for (const file of distJsFiles) {
+    const stem = file.slice(0, -3);
+    assert.ok(srcModules.has(stem), `orphaned dist artifact without src/${stem}.ts: dist/${file}`);
+  }
+});

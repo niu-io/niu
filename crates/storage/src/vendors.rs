@@ -104,6 +104,8 @@ pub struct VendorRoute {
     pub model: VendorModelView,
     pub vendor: VendorView,
     pub credential_ciphertext: Vec<u8>,
+    /// Commercial Provider business owning this credential, when linked.
+    pub provider_id: Option<Uuid>,
     /// Internal ownership from the same statement snapshot as this route.
     pub personal_organization_id: Option<Uuid>,
     /// Access scope from the same ownership row; `None` is legacy metadata.
@@ -128,12 +130,60 @@ impl VendorRoute {
 pub struct VendorCatalogRoute {
     pub model: VendorModelView,
     pub vendor: VendorView,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<Uuid>,
     pub personal_organization_id: Option<Uuid>,
     /// Present on newly published metadata. A missing value is legacy metadata
     /// and derives the scope from `personal_organization_id`, so older registry
     /// snapshots keep their exact personal/commercial behavior.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub access_scope: Option<VendorAccessScope>,
+}
+
+/// Published metadata for a Provider-owned API key that may participate in an
+/// automatic same-Provider, same-endpoint credential pool. Never contains secrets.
+#[derive(Clone, Deserialize, Serialize)]
+pub struct VendorPoolMember {
+    pub id: Uuid,
+    pub provider_id: Uuid,
+    pub adapter: String,
+    pub api_base: String,
+    pub enabled: bool,
+    pub revision: i64,
+    pub has_credential: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub personal_organization_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub access_scope: Option<VendorAccessScope>,
+}
+
+impl VendorPoolMember {
+    pub fn access_scope(&self) -> VendorAccessScope {
+        self.access_scope.unwrap_or_else(|| {
+            VendorAccessScope::from_ownership(self.personal_organization_id, None)
+        })
+    }
+
+    pub fn matches_route(&self, route: &VendorCatalogRoute) -> bool {
+        route.provider_id == Some(self.provider_id)
+            && self.adapter == route.vendor.adapter
+            && self.api_base.trim_end_matches('/') == route.vendor.api_base.trim_end_matches('/')
+            && self.personal_organization_id == route.personal_organization_id
+            && self.access_scope() == route.access_scope()
+    }
+}
+
+/// Live credential-pool selection for a managed model alias.
+pub struct PooledRouteSelection {
+    pub route: VendorRoute,
+    pub primary_vendor_id: Uuid,
+    pub primary_vendor_revision: i64,
+    pub pool_size: usize,
+    pub supplier_available: bool,
+    pub uses_media_offer: bool,
+    pub all_disabled: bool,
+    pub all_excluded: bool,
+    pub all_cooling_down: bool,
 }
 
 impl VendorCatalogRoute {
@@ -172,6 +222,8 @@ pub struct RouteRegistryInputs {
     pub routes: Vec<VendorCatalogRoute>,
     pub pools: Vec<crate::ModelRoutePool>,
     pub offers: Vec<RouteRegistryOffer>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pooled_vendors: Vec<VendorPoolMember>,
 }
 
 /// Configured offer and review identities; their expiry and revocation stay live.
@@ -187,6 +239,8 @@ pub struct RouteRegistryOffer {
     pub supplier_review: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub offer_authorization: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_kind: Option<String>,
 }
 
 /// Server-only catalog inputs from a single database snapshot.
@@ -195,6 +249,8 @@ pub struct VendorCatalogInputs {
     pub unavailable: std::collections::BTreeSet<String>,
     pub pools: Vec<crate::ModelRoutePool>,
     pub cooling_down: std::collections::BTreeSet<Uuid>,
+    pub text_offer_aliases: std::collections::BTreeSet<String>,
+    pub pooled_vendors: Vec<VendorPoolMember>,
 }
 
 #[derive(FromRow)]
@@ -214,6 +270,7 @@ struct VendorCatalogRow {
     vendor_enabled: bool,
     vendor_revision: i64,
     has_credential: bool,
+    provider_id: Option<Uuid>,
     personal_organization_id: Option<Uuid>,
     access_scope: Option<String>,
 }
@@ -244,11 +301,61 @@ impl VendorCatalogRow {
                 revision: self.vendor_revision,
                 has_credential: self.has_credential,
             },
+            provider_id: self.provider_id,
             personal_organization_id: self.personal_organization_id,
             access_scope: Some(scope),
         }
     }
 }
+
+#[derive(FromRow)]
+struct VendorPoolMemberRow {
+    id: Uuid,
+    provider_id: Uuid,
+    adapter: String,
+    api_base: String,
+    enabled: bool,
+    revision: i64,
+    has_credential: bool,
+    personal_organization_id: Option<Uuid>,
+    access_scope: Option<String>,
+}
+
+impl VendorPoolMemberRow {
+    fn into_member(self) -> VendorPoolMember {
+        let scope = VendorAccessScope::from_ownership(
+            self.personal_organization_id,
+            self.access_scope.as_deref(),
+        );
+        VendorPoolMember {
+            id: self.id,
+            provider_id: self.provider_id,
+            adapter: self.adapter,
+            api_base: self.api_base,
+            enabled: self.enabled,
+            revision: self.revision,
+            has_credential: self.has_credential,
+            personal_organization_id: self.personal_organization_id,
+            access_scope: Some(scope),
+        }
+    }
+}
+
+#[derive(FromRow)]
+struct PooledCandidateRow {
+    id: Uuid,
+    name: String,
+    adapter: String,
+    api_base: String,
+    enabled: bool,
+    revision: i64,
+    has_credential: bool,
+    credential_ciphertext: Vec<u8>,
+    cooling_down: bool,
+    rate_limited: bool,
+}
+
+static POOL_ROUND_ROBIN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 /// Shared text selection inputs from one database statement. Dispatch must still
 /// recheck live eligibility and the selected credential/model revisions.
@@ -281,6 +388,7 @@ impl VendorRouteRow {
         VendorRoute {
             model: metadata.model,
             vendor: metadata.vendor,
+            provider_id: metadata.provider_id,
             personal_organization_id: metadata.personal_organization_id,
             access_scope: metadata.access_scope,
             credential_ciphertext: self.credential_ciphertext,
@@ -420,7 +528,7 @@ impl Store {
         supplier: Option<Uuid>,
     ) -> Result<Vec<Value>, StoreError> {
         Ok(sqlx::query_scalar(
-            "SELECT jsonb_build_object('id',v.id,'name',v.name,'adapter',v.adapter,             'api_base',v.api_base,'enabled',v.enabled,'revision',v.revision,             'has_credential',v.credential_ciphertext IS NOT NULL, 'owner_funded',EXISTS (SELECT 1 FROM personal_vendor_ownership po WHERE po.vendor_id=v.id),             'access_scope',COALESCE((SELECT po.access_scope FROM personal_vendor_ownership po WHERE po.vendor_id=v.id),'commercial'),             'supplier',CASE WHEN p.id IS NULL THEN NULL ELSE jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name) END)              FROM vendors v LEFT JOIN vendor_supplier_ownership o ON o.vendor_id=v.id              LEFT JOIN provider_businesses p ON p.id=o.provider_id              WHERE ($1::uuid IS NULL OR p.id=$1) ORDER BY p.name NULLS LAST,v.name,v.id"
+            "SELECT jsonb_build_object('id',v.id,'name',v.name,'adapter',v.adapter,             'api_base',v.api_base,'enabled',v.enabled,'revision',v.revision,             'has_credential',octet_length(v.credential_ciphertext) > 0, 'owner_funded',EXISTS (SELECT 1 FROM personal_vendor_ownership po WHERE po.vendor_id=v.id),             'access_scope',COALESCE((SELECT po.access_scope FROM personal_vendor_ownership po WHERE po.vendor_id=v.id),'commercial'),             'supplier',CASE WHEN p.id IS NULL THEN NULL ELSE jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name) END)              FROM vendors v LEFT JOIN vendor_supplier_ownership o ON o.vendor_id=v.id              LEFT JOIN provider_businesses p ON p.id=o.provider_id              WHERE ($1::uuid IS NULL OR p.id=$1) ORDER BY p.name NULLS LAST,v.name,v.id"
         ).bind(supplier).fetch_all(&self.pool).await?)
     }
 
@@ -736,14 +844,23 @@ impl Store {
         if current != Some(expected_revision) {
             return Err(StoreError::Conflict);
         }
-        let (owner_funded, personal_only): (bool, bool) = sqlx::query_as(
+        let (owner_funded, personal_only, access_mode, allowlisted, blocklisted): (
+            bool,
+            bool,
+            String,
+            Vec<String>,
+            Vec<String>,
+        ) = sqlx::query_as(
             "SELECT EXISTS(SELECT 1 FROM personal_vendor_ownership WHERE vendor_id=$1), \
-                    EXISTS(SELECT 1 FROM personal_vendor_ownership WHERE vendor_id=$1 AND access_scope='personal')",
+                    EXISTS(SELECT 1 FROM personal_vendor_ownership WHERE vendor_id=$1 AND access_scope='personal'), \
+                    COALESCE((SELECT p.model_access_mode FROM vendor_supplier_ownership o JOIN provider_businesses p ON p.id=o.provider_id WHERE o.vendor_id=$1), 'all'), \
+                    COALESCE((SELECT p.allowlisted_models FROM vendor_supplier_ownership o JOIN provider_businesses p ON p.id=o.provider_id WHERE o.vendor_id=$1), '{}'::text[]), \
+                    COALESCE((SELECT p.blocklisted_models FROM vendor_supplier_ownership o JOIN provider_businesses p ON p.id=o.provider_id WHERE o.vendor_id=$1), '{}'::text[])",
         )
         .bind(vendor)
         .fetch_one(&mut *tx)
         .await?;
-        let publish_public_catalog = !personal_only;
+        let publish_public_catalog = owner_funded && !personal_only;
         if entries
             .iter()
             .any(|e| e.pricing.is_some() || e.public_catalog || e.expected_revision.is_some())
@@ -752,8 +869,21 @@ impl Store {
         }
         let mut inserted = 0;
         for entry in entries {
-            let result = sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,public_catalog,enabled,capabilities,pricing) SELECT $1,$2,$3,$4,$5,$6,NULL WHERE NOT EXISTS(SELECT 1 FROM vendor_models WHERE vendor_id=$2 AND upstream_model=$3)")
-                .bind(&entry.alias).bind(vendor).bind(&entry.upstream_model).bind(publish_public_catalog).bind(entry.enabled && owner_funded).bind(entry.capabilities)
+            let policy_enabled = match access_mode.as_str() {
+                "allowlist" => allowlisted.iter().any(|item| item == &entry.alias),
+                "blocklist" => !blocklisted.iter().any(|item| item == &entry.alias),
+                _ => true,
+            };
+            let result = sqlx::query(
+                "INSERT INTO vendor_models(alias,vendor_id,upstream_model,public_catalog,enabled,capabilities,pricing) \
+                 SELECT $1,$2,$3,$4,$5,$6,NULL \
+                 WHERE NOT EXISTS( \
+                     SELECT 1 FROM vendor_models existing \
+                     WHERE existing.upstream_model=$3 \
+                       AND niu_vendor_serves_model($2, existing.alias) \
+                 )",
+            )
+                .bind(&entry.alias).bind(vendor).bind(&entry.upstream_model).bind(publish_public_catalog).bind(entry.enabled && owner_funded && policy_enabled).bind(entry.capabilities)
                 .execute(&mut *tx).await.map_err(map_vendor_write_error)?;
             if result.rows_affected() > 0 {
                 insert_audit(
@@ -772,8 +902,10 @@ impl Store {
     }
 
     /// Disable a Provider connection without deleting its historical rows.
-    /// The credential is erased, models are disabled and an immutable audit
-    /// event is appended. In-flight attempts keep their pinned snapshot.
+    /// The credential is erased and an immutable audit event is appended.
+    /// Model mappings are disabled only when no other enabled sibling API key
+    /// remains in the same Provider endpoint pool. In-flight attempts keep
+    /// their pinned snapshot.
     pub async fn retire_vendor(&self, id: Uuid) -> Result<Option<VendorView>, StoreError> {
         let mut transaction = self.begin_route_write().await?;
         let revision: Option<i64> =
@@ -786,6 +918,29 @@ impl Store {
             self.commit_route_write(transaction).await?;
             return Ok(None);
         };
+        let has_enabled_sibling: bool = sqlx::query_scalar(
+            "SELECT EXISTS ( \
+                 SELECT 1 \
+                 FROM vendors self_v \
+                 JOIN vendor_supplier_ownership own_self ON own_self.vendor_id = self_v.id \
+                 JOIN vendor_supplier_ownership own_sib \
+                   ON own_sib.provider_id = own_self.provider_id AND own_sib.vendor_id <> self_v.id \
+                 JOIN vendors sib ON sib.id = own_sib.vendor_id \
+                 LEFT JOIN personal_vendor_ownership po_self ON po_self.vendor_id = self_v.id \
+                 LEFT JOIN personal_vendor_ownership po_sib ON po_sib.vendor_id = sib.id \
+                 WHERE self_v.id = $1 \
+                   AND sib.enabled \
+                   AND octet_length(sib.credential_ciphertext) > 0 \
+                   AND sib.adapter = self_v.adapter \
+                   AND rtrim(sib.api_base, '/') = rtrim(self_v.api_base, '/') \
+                   AND po_self.organization_id IS NOT DISTINCT FROM po_sib.organization_id \
+                   AND po_self.access_scope IS NOT DISTINCT FROM po_sib.access_scope \
+             )",
+        )
+        .bind(id)
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_vendor_write_error)?;
         let revision = revision + 1;
         sqlx::query(
             "UPDATE vendors SET enabled=false,credential_ciphertext=''::bytea,              revision=$2,updated_at=now() WHERE id=$1",
@@ -795,13 +950,15 @@ impl Store {
         .execute(&mut *transaction)
         .await
         .map_err(map_vendor_write_error)?;
-        sqlx::query(
-            "UPDATE vendor_models SET enabled=false,revision=revision+1 WHERE vendor_id=$1",
-        )
-        .bind(id)
-        .execute(&mut *transaction)
-        .await
-        .map_err(map_vendor_write_error)?;
+        if !has_enabled_sibling {
+            sqlx::query(
+                "UPDATE vendor_models SET enabled=false,revision=revision+1 WHERE vendor_id=$1",
+            )
+            .bind(id)
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_vendor_write_error)?;
+        }
         insert_audit(&mut transaction, id, None, "vendor_retired", revision).await?;
         self.commit_route_write(transaction).await?;
         self.vendor(id).await
@@ -866,7 +1023,7 @@ impl Store {
                 'public_catalog',m.public_catalog,'enabled',m.enabled,
                 'owner_funded',EXISTS (SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id),
                 'capabilities',m.capabilities,'pricing',m.pricing,'revision',m.revision,
-                'available',m.enabled AND v.enabled AND v.credential_ciphertext IS NOT NULL
+                'available',m.enabled AND niu_model_has_enabled_vendor(m.alias)
                     AND (EXISTS (SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id)
                          OR niu_supplier_model_route_available(m.alias)))
              FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id
@@ -993,13 +1150,206 @@ impl Store {
             }))
     }
 
+    /// Resolve a managed model alias with automatic same-Provider multi-key pooling.
+    /// Enabled API keys belonging to the same Provider, adapter, normalized api_base,
+    /// and ownership/access scope are load-balanced via round-robin while skipping
+    /// disabled, excluded, cooling-down, and currently RPM-saturated credentials.
+    pub async fn resolve_pooled_vendor_route(
+        &self,
+        alias: &str,
+        excluded_vendors: &[Uuid],
+    ) -> Result<Option<PooledRouteSelection>, StoreError> {
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        let selection =
+            Self::resolve_pooled_vendor_route_in_tx(&mut tx, alias, excluded_vendors).await?;
+        crate::commit_tx(tx).await?;
+        Ok(selection)
+    }
+
+    async fn resolve_pooled_vendor_route_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        alias: &str,
+        excluded_vendors: &[Uuid],
+    ) -> Result<Option<PooledRouteSelection>, StoreError> {
+        let query = format!(
+            "SELECT route.*,niu_supplier_model_route_available(route.alias) AS supplier_available, \
+             EXISTS(SELECT 1 FROM provider_offers o JOIN provider_offer_revisions r ON r.id=o.current_revision \
+             WHERE o.model_alias=route.alias AND r.rate_kind='media') AS uses_media_offer, \
+             EXISTS(SELECT 1 FROM vendor_cooldowns c WHERE c.vendor_id=route.vendor_id AND c.cooldown_until>statement_timestamp()) AS cooling_down \
+             FROM ({}) route",
+            route_query("WHERE m.alias=$1")
+        );
+        let Some(row) = sqlx::query_as::<_, SharedVendorRouteRow>(&query)
+            .bind(alias)
+            .fetch_optional(&mut **tx)
+            .await?
+        else {
+            return Ok(None);
+        };
+        let supplier_available = row.supplier_available;
+        let uses_media_offer = row.uses_media_offer;
+        let mut route = row.route.into_route();
+        let primary_vendor_id = route.vendor.id;
+        let primary_vendor_revision = route.vendor.revision;
+        let personal_scope_str = route
+            .personal_organization_id
+            .map(|_| route.access_scope().as_str());
+
+        let candidates = sqlx::query_as::<_, PooledCandidateRow>(
+            "SELECT v.id, v.name, v.adapter, v.api_base, v.enabled, v.revision, \
+                    (octet_length(v.credential_ciphertext) > 0) AS has_credential, \
+                    v.credential_ciphertext, \
+                    EXISTS(SELECT 1 FROM vendor_cooldowns c \
+                           WHERE c.vendor_id = v.id AND c.cooldown_until > statement_timestamp()) AS cooling_down, \
+                    EXISTS(SELECT 1 FROM vendor_request_rate_limits rl \
+                           WHERE rl.vendor_id = v.id AND rl.requests_per_minute IS NOT NULL \
+                             AND (SELECT count(*) FROM vendor_request_rate_admissions ra \
+                                  WHERE ra.vendor_id = v.id \
+                                    AND ra.admitted_at > statement_timestamp() - INTERVAL '60 seconds') \
+                                 >= rl.requests_per_minute) AS rate_limited \
+             FROM vendors v \
+             LEFT JOIN personal_vendor_ownership po_v ON po_v.vendor_id = v.id \
+             WHERE v.enabled \
+               AND octet_length(v.credential_ciphertext) > 0 \
+               AND ( \
+                   v.id = $1 \
+                   OR ( \
+                       $2::uuid IS NOT NULL \
+                       AND v.adapter = $3 \
+                       AND rtrim(v.api_base, '/') = rtrim($4, '/') \
+                       AND EXISTS ( \
+                           SELECT 1 FROM vendor_supplier_ownership own \
+                           WHERE own.vendor_id = v.id AND own.provider_id = $2 \
+                       ) \
+                       AND po_v.organization_id IS NOT DISTINCT FROM $5 \
+                       AND po_v.access_scope IS NOT DISTINCT FROM $6 \
+                   ) \
+               ) \
+             ORDER BY v.id",
+        )
+        .bind(primary_vendor_id)
+        .bind(route.provider_id)
+        .bind(&route.vendor.adapter)
+        .bind(&route.vendor.api_base)
+        .bind(route.personal_organization_id)
+        .bind(personal_scope_str)
+        .fetch_all(&mut **tx)
+        .await?;
+
+        let pool_size = candidates.len();
+        if candidates.is_empty() {
+            return Ok(Some(PooledRouteSelection {
+                route,
+                primary_vendor_id,
+                primary_vendor_revision,
+                pool_size: 0,
+                supplier_available,
+                uses_media_offer,
+                all_disabled: true,
+                all_excluded: false,
+                all_cooling_down: false,
+            }));
+        }
+
+        let non_excluded: Vec<PooledCandidateRow> = candidates
+            .into_iter()
+            .filter(|candidate| !excluded_vendors.contains(&candidate.id))
+            .collect();
+        if non_excluded.is_empty() {
+            return Ok(Some(PooledRouteSelection {
+                route,
+                primary_vendor_id,
+                primary_vendor_revision,
+                pool_size,
+                supplier_available,
+                uses_media_offer,
+                all_disabled: false,
+                all_excluded: true,
+                all_cooling_down: false,
+            }));
+        }
+
+        let non_cooling: Vec<PooledCandidateRow> = non_excluded
+            .into_iter()
+            .filter(|candidate| !candidate.cooling_down)
+            .collect();
+        if non_cooling.is_empty() {
+            return Ok(Some(PooledRouteSelection {
+                route,
+                primary_vendor_id,
+                primary_vendor_revision,
+                pool_size,
+                supplier_available,
+                uses_media_offer,
+                all_disabled: false,
+                all_excluded: false,
+                all_cooling_down: true,
+            }));
+        }
+
+        let has_unthrottled = non_cooling.iter().any(|candidate| !candidate.rate_limited);
+        let mut choices: Vec<PooledCandidateRow> = if has_unthrottled {
+            non_cooling
+                .into_iter()
+                .filter(|candidate| !candidate.rate_limited)
+                .collect()
+        } else {
+            non_cooling
+        };
+        let index =
+            POOL_ROUND_ROBIN.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % choices.len();
+        let chosen = choices.swap_remove(index);
+        route.vendor = VendorView {
+            id: chosen.id,
+            name: chosen.name,
+            adapter: chosen.adapter,
+            api_base: chosen.api_base,
+            enabled: chosen.enabled,
+            revision: chosen.revision,
+            has_credential: chosen.has_credential,
+        };
+        route.credential_ciphertext = chosen.credential_ciphertext;
+
+        Ok(Some(PooledRouteSelection {
+            route,
+            primary_vendor_id,
+            primary_vendor_revision,
+            pool_size,
+            supplier_available,
+            uses_media_offer,
+            all_disabled: false,
+            all_excluded: false,
+            all_cooling_down: false,
+        }))
+    }
+
+    pub(crate) async fn has_pooled_sibling_vendor_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        model_alias: &str,
+        vendor_id: Uuid,
+    ) -> Result<bool, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT EXISTS ( \
+                 SELECT 1 FROM vendors v \
+                 WHERE v.id <> $2 \
+                   AND v.enabled \
+                   AND octet_length(v.credential_ciphertext) > 0 \
+                   AND niu_vendor_serves_model(v.id, $1) \
+             )",
+        )
+        .bind(model_alias)
+        .bind(vendor_id)
+        .fetch_one(&mut **tx)
+        .await?)
+    }
+
     /// Read the bounded pool's eligible mappings in one database statement.
     /// This is resolution evidence, not a replacement for dispatch-time locks.
     pub async fn eligible_pool_routes(
         &self,
         pool: &crate::ModelRoutePool,
     ) -> Result<Vec<VendorRoute>, StoreError> {
-        self.eligible_pool_routes_for(pool, false).await
+        self.eligible_pool_routes_excluding(pool, false, &[]).await
     }
 
     /// Internal scope is honored only when the caller's operating mode permits
@@ -1008,6 +1358,16 @@ impl Store {
         &self,
         pool: &crate::ModelRoutePool,
         allow_internal_scope: bool,
+    ) -> Result<Vec<VendorRoute>, StoreError> {
+        self.eligible_pool_routes_excluding(pool, allow_internal_scope, &[])
+            .await
+    }
+
+    pub async fn eligible_pool_routes_excluding(
+        &self,
+        pool: &crate::ModelRoutePool,
+        allow_internal_scope: bool,
+        excluded_vendors: &[Uuid],
     ) -> Result<Vec<VendorRoute>, StoreError> {
         if pool.candidates.len() > 64 {
             return Err(StoreError::InvalidVendor);
@@ -1033,24 +1393,48 @@ impl Store {
         if aliases.is_empty() {
             return Ok(Vec::new());
         }
-        let query=route_query("WHERE m.alias=ANY($1) AND m.enabled AND v.enabled
-            AND NOT EXISTS(SELECT 1 FROM vendor_cooldowns c WHERE c.vendor_id=v.id AND c.cooldown_until>statement_timestamp())
-            AND NOT (m.capabilities ? 'video_schema')
-            AND (($2::uuid IS NOT NULL AND EXISTS (
-                SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id
-                    AND (o.organization_id=$2 OR ($3::boolean AND o.access_scope='internal'))))
-                OR ($2::uuid IS NULL AND m.pricing IS NOT NULL
-                    AND NOT EXISTS (SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id)
-                    AND niu_supplier_model_route_available(m.alias)))");
-        Ok(sqlx::query_as::<_, VendorRouteRow>(&query)
-            .bind(aliases)
-            .bind(pool.organization_id)
-            .bind(allow_internal_scope)
-            .fetch_all(&self.pool)
-            .await?
-            .into_iter()
-            .map(VendorRouteRow::into_route)
-            .collect())
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        let candidate_aliases: Vec<String> = sqlx::query_scalar(
+            "SELECT m.alias FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id \
+             WHERE m.alias=ANY($1) AND m.enabled AND niu_model_has_enabled_vendor(m.alias) \
+             AND NOT (m.capabilities ? 'video_schema') \
+             AND (($2::uuid IS NOT NULL AND EXISTS ( \
+                 SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id \
+                     AND (o.organization_id=$2 OR ($3::boolean AND o.access_scope='internal')))) \
+                 OR ($2::uuid IS NULL \
+                     AND (m.pricing IS NOT NULL \
+                         OR EXISTS ( \
+                             SELECT 1 FROM provider_offers po \
+                             JOIN provider_offer_revisions por ON por.id = po.current_revision \
+                             WHERE po.model_alias = m.alias \
+                               AND po.vendor_id = m.vendor_id \
+                               AND por.rate_kind = 'text' \
+                               AND po.active \
+                         )) \
+                     AND NOT EXISTS (SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id) \
+                     AND niu_supplier_model_route_available(m.alias))) \
+             ORDER BY m.alias",
+        )
+        .bind(aliases)
+        .bind(pool.organization_id)
+        .bind(allow_internal_scope)
+        .fetch_all(&mut *tx)
+        .await?;
+
+        let mut routes = Vec::with_capacity(candidate_aliases.len());
+        for candidate_alias in candidate_aliases {
+            if let Some(selection) =
+                Self::resolve_pooled_vendor_route_in_tx(&mut tx, &candidate_alias, excluded_vendors)
+                    .await?
+                && !selection.all_disabled
+                && !selection.all_excluded
+                && !selection.all_cooling_down
+            {
+                routes.push(selection.route);
+            }
+        }
+        crate::commit_tx(tx).await?;
+        Ok(routes)
     }
 
     /// Read an enabled personal route only for its immutable owning account.
@@ -1176,8 +1560,17 @@ impl Store {
     /// This is a per-read snapshot, not a published registry generation.
     pub async fn vendor_catalog_inputs(&self) -> Result<VendorCatalogInputs, StoreError> {
         let mut tx = self.begin_bounded_read_snapshot().await?;
-        let RouteRegistryInputs { routes, pools, .. } =
-            Self::routing_registry_inputs_in_tx(&mut tx).await?;
+        let RouteRegistryInputs {
+            routes,
+            pools,
+            offers,
+            pooled_vendors,
+        } = Self::routing_registry_inputs_in_tx(&mut tx).await?;
+        let text_offer_aliases = offers
+            .into_iter()
+            .filter(|offer| offer.active && offer.rate_kind.as_deref() != Some("media"))
+            .map(|offer| offer.model_alias)
+            .collect();
         let unavailable: Vec<String> = sqlx::query_scalar(
             "SELECT model_alias FROM provider_offers WHERE NOT niu_supplier_model_route_available(model_alias)",
         )
@@ -1194,6 +1587,8 @@ impl Store {
             unavailable: unavailable.into_iter().collect(),
             pools,
             cooling_down: cooling_down.into_iter().collect(),
+            text_offer_aliases,
+            pooled_vendors,
         })
     }
 
@@ -1219,12 +1614,28 @@ impl Store {
             pools.push(pool);
         }
         let offers = sqlx::query_as::<_, RouteRegistryOffer>(
-            "SELECT o.model_alias,o.vendor_id,o.provider_id,o.id AS offer_id,o.active,o.current_revision,o.current_qualification_review AS offer_review,p.current_qualification_review AS supplier_review,o.current_authorization AS offer_authorization FROM provider_offers o JOIN provider_businesses p ON p.id=o.provider_id ORDER BY o.model_alias"
+            "SELECT o.model_alias,o.vendor_id,o.provider_id,o.id AS offer_id,o.active,o.current_revision,o.current_qualification_review AS offer_review,p.current_qualification_review AS supplier_review,o.current_authorization AS offer_authorization,r.rate_kind FROM provider_offers o JOIN provider_businesses p ON p.id=o.provider_id LEFT JOIN provider_offer_revisions r ON r.id=o.current_revision ORDER BY o.model_alias"
         ).fetch_all(&mut **tx).await?;
+        let pooled_vendors = sqlx::query_as::<_, VendorPoolMemberRow>(
+            "SELECT v.id, own.provider_id, v.adapter, v.api_base, v.enabled, v.revision, \
+                    (octet_length(v.credential_ciphertext) > 0) AS has_credential, \
+                    personal_owner.organization_id AS personal_organization_id, \
+                    personal_owner.access_scope AS access_scope \
+             FROM vendors v \
+             JOIN vendor_supplier_ownership own ON own.vendor_id = v.id \
+             LEFT JOIN personal_vendor_ownership personal_owner ON personal_owner.vendor_id = v.id \
+             ORDER BY own.provider_id, v.id",
+        )
+        .fetch_all(&mut **tx)
+        .await?
+        .into_iter()
+        .map(VendorPoolMemberRow::into_member)
+        .collect();
         Ok(RouteRegistryInputs {
             routes,
             pools,
             offers,
+            pooled_vendors,
         })
     }
 
@@ -1357,10 +1768,12 @@ fn catalog_query(filter: &str, include_credential: bool) -> String {
          m.public_catalog,m.enabled AS model_enabled,m.capabilities,m.pricing, \
          m.revision AS model_revision,v.id AS vendor_id,v.name AS vendor_name, \
          v.adapter,v.api_base,v.enabled AS vendor_enabled,v.revision AS vendor_revision, \
-         (v.credential_ciphertext IS NOT NULL) AS has_credential,{credential} \
+         (octet_length(v.credential_ciphertext) > 0) AS has_credential,{credential} \
+         supplier_own.provider_id AS provider_id, \
          personal_owner.organization_id AS personal_organization_id, \
          personal_owner.access_scope AS access_scope \
          FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id \
+         LEFT JOIN vendor_supplier_ownership supplier_own ON supplier_own.vendor_id=v.id \
          LEFT JOIN personal_vendor_ownership personal_owner ON personal_owner.vendor_id=v.id \
          {filter} ORDER BY m.alias"
     )

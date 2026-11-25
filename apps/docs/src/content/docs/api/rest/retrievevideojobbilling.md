@@ -3,7 +3,7 @@ title: "Read saved customer video billing"
 description: "GET /v1/video/jobs/{id}/billing"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /v1/video/jobs/{id}/billing`
 

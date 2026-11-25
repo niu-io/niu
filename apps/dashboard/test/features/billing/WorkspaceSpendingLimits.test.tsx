@@ -37,7 +37,7 @@ describe('workspace spending controls', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await screen.findByText('¥0.00 committed of ¥0.00');
     expect(JSON.parse(fetch.mock.calls.find(([,init])=>init.method==='PUT')![1].body)).toEqual({limit_nanos:'0',expected_revision:'0'});
-    expect(fetch.mock.calls.every(([url])=>String(url).includes('/organizations/company/projects/workspace/spending-limit'))).toBe(true);
+    expect(fetch.mock.calls.every(([url])=>String(url).includes('/workspaces/workspace/spending-limit'))).toBe(true);
   });
   it('requires reloading after conflict without automatically retrying a write', async () => {
     const fetch=vi.fn(async (_url,init)=>init.method==='PUT' ? Response.json({error:{message:'private internal identifier'}},{status:409}) : Response.json({data:[account]}));
@@ -65,5 +65,17 @@ describe('workspace spending controls', () => {
     vi.stubGlobal('fetch',vi.fn(async()=>Response.json({data:[{...account,committed_nanos:'secret'}]})));
     render(<WorkspaceSpendingLimits {...props}/>);await screen.findByText('Spending limits unavailable');
     expect(screen.queryByRole('button',{name:'Add CNY spending limit'})).toBeNull();
+  });
+  it('renders matched fullwidth parentheses in zh-CN lifetime limit label', async () => {
+    window.localStorage.setItem('niu-dashboard-locale', 'zh-CN');
+    try {
+      vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [account] })));
+      render(<WorkspaceSpendingLimits {...props} />);
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: /CNY/ }));
+      expect(screen.getByLabelText('累计限额（CNY）')).toBeTruthy();
+    } finally {
+      window.localStorage.removeItem('niu-dashboard-locale');
+    }
   });
 });

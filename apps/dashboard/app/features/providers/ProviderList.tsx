@@ -25,8 +25,8 @@ import { fetchQuery, invalidateForMutation, peekQuery } from '@/lib/query-cache'
 import { prefetchRouteIntent } from '@/shell/prefetch';
 import { prefetchGet, request, writeMayHaveCommitted } from './api';
 
-type ProviderSummary = ProviderSetup & { id: string; slug?: string; name: string; logo_url?: string; api_keys?: number; models?: number; members: number };
-const PROVIDERS_PATH = '/api/v1/providers';
+type ProviderSummary = ProviderSetup & { id: string; slug?: string; name: string; logo_url?: string; api_keys?: number; models?: number; members?: number };
+const PROVIDERS_PATH = '/api/v1/admin/providers';
 export default function ProviderList() {
   const { t: uiT, format: uiF } = useUILocale();
   const { token, session } = useDashboardContext();
@@ -77,7 +77,7 @@ export default function ProviderList() {
   useEffect(() => {
     const controller = new AbortController();
     setPresetsLoading(true); setPresetError(''); setProviderPresets([]);
-    void request<{data:ProviderServiceDescriptor[]}>(token, '/api/v1/providers/presets', 'GET', undefined, controller.signal)
+    void request<{data:ProviderServiceDescriptor[]}>(token, '/api/v1/admin/providers/presets', 'GET', undefined, controller.signal)
       .then(result => { if (!controller.signal.aborted) setProviderPresets(result.data.map(providerPreset)); })
       .catch(reason => { if (!controller.signal.aborted) setPresetError(reason instanceof Error ? reason.message : 'Could not load Provider presets.'); })
       .finally(() => { if (!controller.signal.aborted) setPresetsLoading(false); });
@@ -87,12 +87,12 @@ export default function ProviderList() {
     setError(''); setSelected(provider); setName(provider?.name ?? '');
     setDescription(''); setWebsite(''); setLogo(''); setDialog(action);
   }
-  const deletionBlocked = Boolean(selected && ((selected.api_keys ?? 0) > 0 || (selected.models ?? 0) > 0 || selected.members > 0));
+  const deletionBlocked = Boolean(selected && ((selected.api_keys ?? 0) > 0 || (selected.models ?? 0) > 0 || (selected.offers ?? 0) > 0 || (selected.members ?? 0) > 0));
   async function save(event: FormEvent) {
     event.preventDefault(); if (busy || (dialog === 'delete' && deletionBlocked)) return;
     setBusy(true); setError('');
     try {
-      const result = await request<{ data?: { id?: string; slug?: string } }>(token, '/api/v1/providers' + (selected ? '/' + encodeURIComponent(selected.id) : ''), dialog === 'delete' ? 'DELETE' : 'POST', dialog === 'delete' ? undefined : {
+      const result = await request<{ data?: { id?: string; slug?: string } }>(token, '/api/v1/admin/providers' + (selected ? '/' + encodeURIComponent(selected.id) : ''), dialog === 'delete' ? 'DELETE' : 'POST', dialog === 'delete' ? undefined : {
         name: name.trim(),
         ...(description.trim() && { description: description.trim() }),
         ...(website.trim() && { website_url: website.trim() }),
@@ -103,7 +103,7 @@ export default function ProviderList() {
         setDialog('');
         window.dispatchEvent(new Event('niu:provider-profile-updated'));
         if (typeof result?.data?.id === 'string' && result.data.id.trim()) {
-          navigate('/admin/providers/' + encodeURIComponent(result.data.slug || result.data.id) + (session?.operating_mode === 'internal' ? '/keys' : ''));
+          navigate('/admin/providers/' + encodeURIComponent(result.data.slug || result.data.id));
         } else {
           setError('Provider was created, but its page could not be opened. Refresh the list to find it before adding another Provider.');
         }
@@ -114,7 +114,7 @@ export default function ProviderList() {
       if (dialog === 'add' && writeMayHaveCommitted(reason)) {
         setDialog('');
         setError('Provider creation could not be confirmed. Refresh the list before adding another Provider; the previous request may have saved it.');
-      } else setError(dialog === 'delete' ? 'This Provider could not be deleted. Providers with API keys, offers, or members must retain their records.' : reason instanceof Error ? reason.message : 'Could not save Provider.');
+      } else setError(dialog === 'delete' ? 'This Provider could not be deleted. Providers with API keys or offers must retain their records.' : reason instanceof Error ? reason.message : 'Could not save Provider.');
     }
     finally { setBusy(false); }
   }
@@ -123,27 +123,27 @@ export default function ProviderList() {
     {preset && <ProviderConnectDialog key={preset.id} preset={preset} onClose={() => setPreset(null)} onSaved={() => { invalidateForMutation(token, PROVIDERS_PATH, 'POST'); setRevision(value => value + 1); window.dispatchEvent(new Event('niu:provider-profile-updated')); }} />}
     <PageHeader title={uiT("Providers")} action={<Button className="header-icon-action" aria-label={uiT("Add Provider")} title={uiT("Add Provider")} onClick={event => { dialogTrigger.current = event.currentTarget; open('add'); }}><Plus className="size-4" /><span>{uiT("Add Provider")}</span></Button>} />
     <div className="empty-region space-y-5 pb-5 pt-0">
-      <p className="text-sm text-muted-foreground">{session?.operating_mode === 'resale' ? uiT("Manage upstream supply for customer billing. Commercial offers and customer prices are required.") : uiT("Connect Providers for your internal workspaces. You pay each Provider directly.")}</p>
+      <p className="text-sm text-muted-foreground">{session?.operating_mode === 'resale' ? uiT("Connect a Provider with an API key. Available models are enabled by default with no discount unless you configure a discount, allowlist, or blocklist.", "连接供应商 API 密钥即可自动启用全部可用模型；可按需配置默认采购折扣或黑白名单。") : uiT("Connect Providers for your internal workspaces. You pay each Provider directly.")}</p>
 
       <h2 className="text-[15px] font-semibold">{uiT("Configured Providers")}</h2>
       {error && !dialog && <p role="alert">{uiT(error)}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
       {loading ? <TableSkeleton columns={3} rows={5} label={uiT("Loading Providers…")} /> : !visible.length ? !error && <Empty className="min-h-36 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconPlugConnected size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No Providers yet. Choose one below to connect.")}</EmptyDescription></EmptyHeader></Empty> : <ul className="space-y-2" aria-label={uiT("Configured Providers")}>
-        {visible.map(provider => { const availability = providerAvailability(provider, session?.operating_mode); const warmProvider = () => { prefetchRouteIntent('providers'); if (token) prefetchGet(token, `/api/v1/providers/${encodeURIComponent(provider.id)}`); }; return <li key={provider.id} className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5">
+        {visible.map(provider => { const availability = providerAvailability(provider, session?.operating_mode); const warmProvider = () => { prefetchRouteIntent('providers'); if (token) prefetchGet(token, `/api/v1/admin/providers/${encodeURIComponent(provider.id)}`); }; const activeCount = session?.operating_mode === 'internal' ? (provider.enabled_model_routes ?? provider.internal_model_routes ?? provider.models ?? 0) : (provider.ready_offers ?? 0); return <li key={provider.id} className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5">
           <div className="flex min-w-48 flex-1 items-center gap-3"><ProviderMark url={provider.logo_url} preset={providerPresets.find(item => item.name.toLowerCase() === provider.name.toLowerCase() || item.id === identifyProvider(provider.name)?.id)} /><Link className="min-w-0 break-words font-medium hover:underline" to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider))} onMouseEnter={warmProvider} onFocus={warmProvider}>{provider.name}</Link></div>
-          <div className="min-w-48 flex-[2]"><Badge className="whitespace-normal" variant={availability.usable ? "secondary" : "outline"}>{uiT(availability.label)}</Badge>{availability.detail !== 'Internal use. Upstream fees are paid directly; no commercial approval is required.' && <p className="mt-1 text-xs text-muted-foreground">{availability.label === 'Ready to supply' ? uiF("{0} of {1} offers ready · Set customer prices in Pricing", [provider.ready_offers ?? 0, provider.offers ?? '—']) : uiT(availability.detail)}</p>}</div>
-          <div className="flex items-center gap-2"><Button asChild={availability.section !== 'refresh'} onClick={availability.section === 'refresh' ? () => setRevision(value => value + 1) : undefined} variant="outline" size="sm">{availability.section === 'refresh' ? uiT(availability.action) : <Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider)) + '/' + availability.section} onMouseEnter={warmProvider} onFocus={warmProvider}>{uiT(availability.action)}</Link>}</Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" ref={node => { if (node) actionTriggers.current.set(provider.id, node); else actionTriggers.current.delete(provider.id); }} onClick={event => { dialogTrigger.current = event.currentTarget; }} onFocus={event => { dialogTrigger.current = event.currentTarget; }} aria-label={uiF("Actions for {0}", [provider.name])}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem asChild><Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider))} onMouseEnter={warmProvider} onFocus={warmProvider}>{uiT("Open Provider")}</Link></DropdownMenuItem><DropdownMenuItem asChild><Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider)) + '/settings'} onMouseEnter={warmProvider} onFocus={warmProvider}>{uiT("Edit Provider")}</Link></DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => { dialogTrigger.current = actionTriggers.current.get(provider.id) ?? null; open('delete', provider); }}>{uiT("Delete Provider")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>
+          <div className="min-w-48 flex-[2]"><Badge className="whitespace-normal" variant={availability.usable ? "secondary" : "outline"}>{uiT(availability.label)}</Badge><p className="mt-1 text-xs text-muted-foreground">{availability.usable ? (activeCount === 1 ? uiT("1 model active", "1 个模型可用") : uiF("{0} models active", [activeCount])) : uiT(availability.detail)}</p></div>
+          <div className="flex items-center gap-2"><Button asChild={availability.section !== 'refresh'} onClick={availability.section === 'refresh' ? () => setRevision(value => value + 1) : undefined} variant="outline" size="sm">{availability.section === 'refresh' ? uiT(availability.action) : <Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider)) + (availability.section === 'config' || availability.section === 'models' ? '' : '/' + availability.section)} onMouseEnter={warmProvider} onFocus={warmProvider}>{uiT(availability.action)}</Link>}</Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" ref={node => { if (node) actionTriggers.current.set(provider.id, node); else actionTriggers.current.delete(provider.id); }} onClick={event => { dialogTrigger.current = event.currentTarget; }} onFocus={event => { dialogTrigger.current = event.currentTarget; }} aria-label={uiF("Actions for {0}", [provider.name])}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem asChild><Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider))} onMouseEnter={warmProvider} onFocus={warmProvider}>{uiT("Configure", "配置供应商")}</Link></DropdownMenuItem><DropdownMenuItem asChild><Link to={'/admin/providers/' + encodeURIComponent(providerPathSegment(provider)) + '/usage'} onMouseEnter={warmProvider} onFocus={warmProvider}>{uiT("Analytics", "统计")}</Link></DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => { dialogTrigger.current = actionTriggers.current.get(provider.id) ?? null; open('delete', provider); }}>{uiT("Delete Provider")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>
         </li>; })}
       </ul>}
       <section aria-labelledby="provider-presets-title" className="space-y-3">
         <h2 id="provider-presets-title" className="text-[15px] font-semibold">{uiT("Available Providers")}</h2>
-        <p className="text-sm text-muted-foreground">{session?.operating_mode === 'resale' ? uiT("Choose a Provider and save its API key. Commercial offers and customer prices are required before selling.") : uiT("Choose a Provider and enter its API key to import models. You pay the Provider directly.")}</p>
+        <p className="text-sm text-muted-foreground">{session?.operating_mode === 'resale' ? uiT("Choose a Provider and enter its API key to import models.", "选择一个供应商并输入 API 密钥，即可导入模型。") : uiT("Choose a Provider and enter its API key to import models. You pay the Provider directly.")}</p>
         {presetError && <p role="alert">{uiT(presetError)}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
         {presetsLoading ? <TableSkeleton columns={2} rows={5} label={uiT("Loading Providers…")} /> : <ul className="space-y-2" aria-label={uiT("Available Providers")}>
           {providerPresets.filter(item => !visible.some(p => p.name.toLowerCase() === item.name.toLowerCase() || identifyProvider(p.name)?.id === item.id)).map(item => <li key={item.id} className="flex min-w-0 items-center justify-between gap-4 rounded-[var(--radius-panel)] bg-card px-4 py-3"><span className="flex min-w-0 items-center gap-3 font-medium"><ProviderMark preset={item} /><span>{item.name}</span></span><Button variant="outline" size="sm" onClick={() => setPreset(item)} aria-label={uiF("Connect {0}", [item.name])}>{uiT("Connect")}</Button></li>)}
         </ul>}
       </section>
     </div>
-    <Dialog open={Boolean(dialog)} onOpenChange={open => { if (!open && !busy) setDialog(''); }}><DialogContent className="niu-modal max-h-[calc(100dvh-2rem)] overflow-y-auto" onCloseAutoFocus={event => { if (dialogTrigger.current?.isConnected) { event.preventDefault(); dialogTrigger.current.focus(); } }}><DialogHeader><DialogTitle>{dialog === 'delete' ? uiF("Delete {0}?", [selected?.name]) : uiT("Add Provider")}</DialogTitle><DialogDescription>{dialog === 'delete' ? deletionBlocked ? uiT("This Provider has API keys, models, or members and cannot be deleted. Audit history is retained.") : uiT("Only Providers without API keys, offers, or members can be deleted. Audit history is retained.") : uiT("Add the business supplying your models. Only the name is required; you can update these details in Settings.")}</DialogDescription></DialogHeader><form onSubmit={event => void save(event)} className="space-y-5">{dialog !== 'delete' && <fieldset disabled={busy} className="space-y-4">
+    <Dialog open={Boolean(dialog)} onOpenChange={open => { if (!open && !busy) setDialog(''); }}><DialogContent className="niu-modal max-h-[calc(100dvh-2rem)] overflow-y-auto" onCloseAutoFocus={event => { if (dialogTrigger.current?.isConnected) { event.preventDefault(); dialogTrigger.current.focus(); } }}><DialogHeader><DialogTitle>{dialog === 'delete' ? uiF("Delete {0}?", [selected?.name]) : uiT("Add Provider")}</DialogTitle><DialogDescription>{dialog === 'delete' ? deletionBlocked ? uiT("This Provider has API keys or models and cannot be deleted. Audit history is retained.") : uiT("Only Providers without API keys or offers can be deleted. Audit history is retained.") : uiT("Add the business supplying your models. Only the name is required; you can update these details in Settings.")}</DialogDescription></DialogHeader><form onSubmit={event => void save(event)} className="space-y-5">{dialog !== 'delete' && <fieldset disabled={busy} className="space-y-4">
           <div className="space-y-2"><Label htmlFor="supplier-name">{uiT("Provider name")}</Label><Input id="supplier-name" autoFocus maxLength={100} required value={name} onChange={event => setName(event.target.value)} placeholder={uiT("e.g. OpenRouter")} /></div>
           <div className="space-y-2"><Label htmlFor="provider-create-website">{uiT("Website (optional)")}</Label><Input id="provider-create-website" type="url" maxLength={2048} value={website} onChange={event => setWebsite(event.target.value)} placeholder="https://example.com" /></div>
           <div className="space-y-2"><Label htmlFor="provider-create-description">{uiT("Description (optional)")}</Label><Textarea id="provider-create-description" rows={3} maxLength={2000} value={description} onChange={event => setDescription(event.target.value)} placeholder={uiT("A short description of this Provider.")} /></div>

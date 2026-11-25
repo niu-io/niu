@@ -45,11 +45,11 @@ class PublicRatesTest(unittest.TestCase):
                       pricing=dict(prompt='0.000000000000003',completion='0.000000000000004'))]
         fixtures={
             'https://openrouter.ai/api/v1/models':catalog,
-            'http://fixture/admin/v1/providers':[dict(id='supplier',name='OpenRouter')],
-            'http://fixture/admin/v1/vendors':[dict(id='vendor',name='Demo key',adapter='openrouter',revision=2)],
-            'http://fixture/admin/v1/vendors/vendor/models':[dict(alias='test/model',upstream_model='test/model',
+            'http://fixture/api/v1/admin/providers':[dict(id='supplier',name='OpenRouter')],
+            'http://fixture/api/v1/admin/providers/connections':[dict(id='vendor',name='Demo key',adapter='openrouter',revision=2)],
+            'http://fixture/api/v1/admin/providers/connections/vendor/models':[dict(alias='test/model',upstream_model='test/model',
                 enabled=False,public_catalog=False,revision=7,capabilities=dict(custom_feature=True))],
-            'http://fixture/admin/v1/providers/supplier/administration':dict(offers=[dict(model_alias='test/model',
+            'http://fixture/api/v1/admin/providers/supplier/administration':dict(offers=[dict(model_alias='test/model',
                 currency='USD',prompt_rate='3',completion_rate='4')]),
         }
         def read(request,timeout):
@@ -72,15 +72,15 @@ class PublicRatesTest(unittest.TestCase):
         writes=[]
         fixtures={
             'https://openrouter.ai/api/v1/models':[dict(id='test/model',description='Full description with details.')],
-            'http://fixture/admin/v1/vendors':[dict(id='vendor',name='Demo key',adapter='openrouter')],
-            'http://fixture/admin/v1/vendors/vendor/models':[dict(alias='test/model',upstream_model='test/model',
+            'http://fixture/api/v1/admin/providers/connections':[dict(id='vendor',name='Demo key',adapter='openrouter')],
+            'http://fixture/api/v1/admin/providers/connections/vendor/models':[dict(alias='test/model',upstream_model='test/model',
                 enabled=False,public_catalog=False,revision=7,capabilities=dict(custom=True,catalog=dict(description='Full description...')))],
         }
         def read(request,timeout):
             url=request if isinstance(request,str) else request.full_url
             method='GET' if isinstance(request,str) else request.get_method()
             if method!='GET':
-                self.assertEqual(url,'http://fixture/admin/v1/vendors/vendor/models')
+                self.assertEqual(url,'http://fixture/api/v1/admin/providers/connections/vendor/models')
                 writes.append(json.loads(request.data));value={}
             else:value=fixtures[url]
             response=io.BytesIO(json.dumps(dict(data=value)).encode());response.status=200;return response
@@ -152,11 +152,11 @@ class PublicRatesTest(unittest.TestCase):
             calls = []
             fixtures = {
                 'https://openrouter.ai/api/v1/models': [dict(id='test/model', pricing=dict(prompt='0.000000000000003', completion='0.000000000000004'))],
-                'http://127.0.0.1:2566/admin/v1/providers': [dict(id='supplier-one', name='OpenRouter')],
-                'http://127.0.0.1:2566/admin/v1/vendors': [dict(id='key-one', name='Demo key', adapter='openrouter', revision=1)],
-                'http://127.0.0.1:2566/admin/v1/vendors/key-one/models': [dict(alias='test/model', upstream_model='test/model')],
-                'http://127.0.0.1:2566/admin/v1/providers/supplier-one/administration': dict(offers=[] if missing_offer else [dict(model_alias='test/model', currency='USD', prompt_rate='3', completion_rate='4')]),
-                'http://127.0.0.1:2566/admin/v1/vendors/key-one/supplier': dict(id='supplier-one', name='OpenRouter'),
+                'http://127.0.0.1:2566/api/v1/admin/providers': [dict(id='supplier-one', name='OpenRouter')],
+                'http://127.0.0.1:2566/api/v1/admin/providers/connections': [dict(id='key-one', name='Demo key', adapter='openrouter', revision=1)],
+                'http://127.0.0.1:2566/api/v1/admin/providers/connections/key-one/models': [dict(alias='test/model', upstream_model='test/model')],
+                'http://127.0.0.1:2566/api/v1/admin/providers/supplier-one/administration': dict(offers=[] if missing_offer else [dict(model_alias='test/model', currency='USD', prompt_rate='3', completion_rate='4')]),
+                'http://127.0.0.1:2566/api/v1/admin/providers/connections/key-one/supplier': dict(id='supplier-one', name='OpenRouter'),
             }
             def read(request, timeout):
                 url = request if isinstance(request, str) else request.full_url

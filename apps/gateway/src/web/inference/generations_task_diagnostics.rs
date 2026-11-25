@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics",
+///   "path": "/api/v1/workspaces/{workspace}/tasks/{task}/diagnostics",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "generationsTaskDiagnostics",
@@ -25,16 +25,7 @@ use uuid::Uuid;
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

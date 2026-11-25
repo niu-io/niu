@@ -3,7 +3,7 @@ title: "Delete a Provider asset group"
 description: "DELETE /v1/media/groups/{id}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `DELETE /v1/media/groups/{id}`
 

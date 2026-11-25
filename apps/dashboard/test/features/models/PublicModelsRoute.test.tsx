@@ -73,7 +73,7 @@ function stubGatewayFetch(options: {
       if (pathname === '/healthz') {
         return new Response(JSON.stringify({ status: 'ok' }), { status: 200 });
       }
-      if (pathname === '/v1/branding') {
+      if (pathname === '/api/v1/public/branding') {
         return new Response(
           JSON.stringify({
             data: {
@@ -196,14 +196,14 @@ describe('PublicModelsRoute & conditional Models links', () => {
 
     expect(screen.getByText('$1.5/M input tokens')).toBeTruthy();
     expect(screen.getByText('$6.00/M output tokens')).toBeTruthy();
-    expect(screen.getByText('Upstream-funded · no Niu charge')).toBeTruthy();
+    expect(screen.getByText('No Niu charge')).toBeTruthy();
 
     await user.click(screen.getByRole('link', { name: 'GPT-5', exact: true }));
 
     await waitFor(() =>
       expect(screen.getByRole('complementary', { name: 'openai/gpt-5 route details' })).toBeTruthy(),
     );
-    expect(screen.getByRole('link', { name: 'Open Generations' }).getAttribute('href')).toBe(
+    expect(screen.getByRole('link', { name: 'Try' }).getAttribute('href')).toBe(
       '/login?returnTo=%2Fgenerations%3Fnew%3D1%26model%3Dopenai%252Fgpt-5',
     );
     expect(
@@ -258,7 +258,7 @@ describe('PublicModelsRoute & conditional Models links', () => {
     expect(screen.getByRole('link', { name: 'Models' }).getAttribute('href')).toBe('/models');
   });
 
-  it('defaults public_catalog to true for shared/commercial models and false for personal models', async () => {
+  it('defaults public_catalog to true for internal models and false for commercial and personal models', async () => {
     const user = userEvent.setup();
     const onSaveShared = vi.fn(async () => {});
     const sharedView = render(
@@ -285,6 +285,31 @@ describe('PublicModelsRoute & conditional Models links', () => {
     await waitFor(() => expect(onSaveShared).toHaveBeenCalledTimes(1));
     expect(onSaveShared.mock.calls[0][0].public_catalog).toBe(true);
     sharedView.unmount();
+
+    const onSaveCommercial = vi.fn(async () => {});
+    const commercialView = render(
+      <ModelMappingForm
+        accessScope="commercial"
+        model={null}
+        catalog={[]}
+        catalogLoading={false}
+        catalogError=""
+        disabled={false}
+        onCancel={() => {}}
+        onSave={onSaveCommercial}
+      />,
+    );
+
+    const commercialCheckbox = screen.getByRole('checkbox', { name: /Show in public catalog/i });
+    expect(commercialCheckbox.getAttribute('aria-checked')).toBe('false');
+    await user.click(screen.getByRole('button', { name: 'Upstream model' }));
+    await user.type(screen.getByRole('textbox', { name: 'Search provider models' }), 'gpt-5-pro');
+    await user.click(screen.getByRole('menuitem', { name: /Use model ID “gpt-5-pro”/i }));
+    fireEvent.change(screen.getByLabelText('Niu model alias'), { target: { value: 'openai/gpt-5-pro' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add model' }));
+    await waitFor(() => expect(onSaveCommercial).toHaveBeenCalledTimes(1));
+    expect(onSaveCommercial.mock.calls[0][0].public_catalog).toBe(false);
+    commercialView.unmount();
 
     const onSavePersonal = vi.fn(async () => {});
     render(

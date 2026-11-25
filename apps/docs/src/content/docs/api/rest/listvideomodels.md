@@ -3,7 +3,7 @@ title: "Read customer-safe configured text-video capabilities"
 description: "GET /v1/video/models"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /v1/video/models`
 

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Niu Customer Workspace & Billing Management API",
-    "version": "0.1.0",
+    "version": "0.4.0",
     "description": "Model inference and management APIs for Niu. Browse the resource groups in the sidebar,\nsearch by operation or path, and expand the request and response schemas for exact fields.\n\n## Getting started\nUse the [HTTP quickstart](/docs/guides/api-quickstart/) for your first model request,\nor the [JavaScript SDK guide](/docs/guides/sdk-quickstart/) for typed clients.\n[Download the complete OpenAPI 3.1 document](/docs/openapi/public.json).\n\n## Authentication and scope\nInference uses a workspace API key. Management operations require the member session or explicit delegated workspace capability stated by that operation. These credentials\nare not interchangeable. See each operation's security scheme and access description.\nLegacy `project` field names refer to workspaces.\n\n## Requests and responses\nSend the documented Content-Type and use the declared request schema. Response status codes,\nerror bodies and pagination fields are operation-specific. Follow the returned cursor rather\nthan assuming a list is complete. Streaming operations document their event format separately.\n\nMonetary amounts and large counters use the exact string representation in their schemas.\nPreserve currency and rate units;\n\n## Writes and retries\nWhere an operation documents an idempotency key, retry an uncertain outcome with the same\nkey and identical input. Preserve expected revisions for configuration updates; reload after\na conflict. A timeout does not prove that a write or an upstream generation did not execute.\nRead the individual operation's retry and reconciliation behavior before resubmitting.\n"
   },
   "servers": [
@@ -29,7 +29,7 @@
     },
     {
       "name": "Companies and workspaces",
-      "description": "Company and workspace discovery and lifecycle. Legacy project path segments refer to workspaces."
+      "description": "Company and workspace discovery and lifecycle."
     },
     {
       "name": "Chat sessions",
@@ -1716,9 +1716,9 @@
     },
     "/api/v1/workspaces/{workspace}/assets": {
       "get": {
-        "operationId": "listWorkspaceAssetsByWorkspace",
+        "operationId": "listWorkspaceAssets",
         "summary": "List saved workspace materials",
-        "description": "Member Read permission required. Scope is the selected workspace, not the creating actor. Lists active objects with metadata only, ordered by creation time then identity. limit defaults to 50 and must be 1–100. after must be an active asset in the same workspace and kind filter or conflicts. Follow next_cursor; separate pages are not a frozen snapshot. No ciphertext, actor identifier, Provider URI, procurement or dispatch approval is returned. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Member Read permission required. Scope is the selected workspace, not the creating actor. Lists active objects with metadata only, ordered by creation time then identity. limit defaults to 50 and must be 1–100. after must be an active asset in the same workspace and kind filter or conflicts. Follow next_cursor; separate pages are not a frozen snapshot. No ciphertext, actor identifier, Provider URI, procurement or dispatch approval is returned.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -1922,7 +1922,6 @@
             "description": "Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed."
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/assets",
         "tags": [
           "Workspace assets"
         ],
@@ -1937,9 +1936,9 @@
         }
       },
       "post": {
-        "operationId": "uploadWorkspaceAssetByWorkspace",
+        "operationId": "uploadWorkspaceAsset",
         "summary": "Save a workspace material",
-        "description": "Member Write permission required. Raw binary body with exact supported Content-Type and required name query; no multipart or base64 envelope. Authentication and a bounded upload slot precede body collection. Original bytes are immutable, encrypted with workspace/asset identity binding, limited to 8 MiB each and 256 MiB/256 active objects per workspace. Images undergo bounded pixel decoding; audio/video undergo local frame/container structural validation. This is not content-inspection approval, Provider upload, licensing evidence or inference authorization. Repeated uploads create distinct objects; uncertain clients should reconcile the library before repeating. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Member Write permission required. Raw binary body with exact supported Content-Type and required name query; no multipart or base64 envelope. Authentication and a bounded upload slot precede body collection. Original bytes are immutable, encrypted with workspace/asset identity binding, limited to 8 MiB each and 256 MiB/256 active objects per workspace. Images undergo bounded pixel decoding; audio/video undergo local frame/container structural validation. This is not content-inspection approval, Provider upload, licensing evidence or inference authorization. Repeated uploads create distinct objects; uncertain clients should reconcile the library before repeating.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -2184,7 +2183,6 @@
             }
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/assets",
         "tags": [
           "Workspace assets"
         ],
@@ -2201,9 +2199,9 @@
     },
     "/api/v1/workspaces/{workspace}/assets/{asset}": {
       "get": {
-        "operationId": "getWorkspaceAssetByWorkspace",
+        "operationId": "getWorkspaceAsset",
         "summary": "Read workspace material metadata",
-        "description": "Member Read permission required. Returns one active scoped asset without ciphertext or internal actor information. Unknown, deleted or foreign-workspace asset is 404. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Member Read permission required. Returns one active scoped asset without ciphertext or internal actor information. Unknown, deleted or foreign-workspace asset is 404.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -2374,7 +2372,6 @@
             "description": "Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed."
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}",
         "tags": [
           "Workspace assets"
         ],
@@ -2389,9 +2386,9 @@
         }
       },
       "patch": {
-        "operationId": "renameWorkspaceAssetByWorkspace",
+        "operationId": "renameWorkspaceAsset",
         "summary": "Rename a saved workspace material",
-        "description": "Member Write permission required. Requires the exact current revision as a canonical positive decimal string. Renaming changes display metadata and increments revision, never bytes, content hash or Provider authorization. Stale revision returns 409. A missing scoped asset is 404; a concurrent deletion may conflict. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Member Write permission required. Requires the exact current revision as a canonical positive decimal string. Renaming changes display metadata and increments revision, never bytes, content hash or Provider authorization. Stale revision returns 409. A missing scoped asset is 404; a concurrent deletion may conflict.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -2590,7 +2587,6 @@
             }
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}",
         "tags": [
           "Workspace assets"
         ],
@@ -2605,9 +2601,9 @@
         }
       },
       "delete": {
-        "operationId": "deleteWorkspaceAssetByWorkspace",
+        "operationId": "deleteWorkspaceAsset",
         "summary": "Delete a saved workspace material",
-        "description": "Member Write permission required. Optional expected_revision protects against deleting a newly renamed active object. Deletion marks metadata inactive, erases ciphertext and releases quota atomically. Repeat deletion of the same scoped deleted asset is idempotent 204. Unknown or foreign asset is 404. No upstream asset or existing inference job is deleted. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Member Write permission required. Optional expected_revision protects against deleting a newly renamed active object. Deletion marks metadata inactive, erases ciphertext and releases quota atomically. Repeat deletion of the same scoped deleted asset is idempotent 204. Unknown or foreign asset is 404. No upstream asset or existing inference job is deleted.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -2666,7 +2662,6 @@
             "description": "Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed."
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}",
         "tags": [
           "Workspace assets"
         ],
@@ -2683,9 +2678,9 @@
     },
     "/api/v1/workspaces/{workspace}/assets/{asset}/content": {
       "get": {
-        "operationId": "downloadWorkspaceAssetByWorkspace",
+        "operationId": "downloadWorkspaceAsset",
         "summary": "Download saved workspace material bytes",
-        "description": "Member Read permission required. Authenticates encrypted identity binding and checks byte length and SHA-256 before returning the original bytes. Safe fixed attachment filename, exact supported Content-Type, Cache-Control:no-store and X-Content-Type-Options:nosniff. Unknown/deleted/foreign asset is 404; decryption/integrity failure is a safe unavailable response. Does not make content approved for Provider processing. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Member Read permission required. Authenticates encrypted identity binding and checks byte length and SHA-256 before returning the original bytes. Safe fixed attachment filename, exact supported Content-Type, Cache-Control:no-store and X-Content-Type-Options:nosniff. Unknown/deleted/foreign asset is 404; decryption/integrity failure is a safe unavailable response. Does not make content approved for Provider processing.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -2793,7 +2788,6 @@
             "description": "Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed."
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/assets/{asset}/content",
         "tags": [
           "Workspace assets"
         ],
@@ -2810,10 +2804,10 @@
     },
     "/api/v1/workspaces/{workspace}/chats": {
       "get": {
-        "operationId": "listChatSessionsByWorkspace",
+        "operationId": "listChatSessions",
         "x-niu-implementation": "implemented",
         "summary": "List personal saved Chat history or one continuation page",
-        "description": "Without limit or after, retain the latest-100 compatibility response. Either paging parameter selects a bounded page, default 50, ordered by updated time and ID descending within the authenticated owner, workspace and archive state. Session payload and customer-charge hydration share a read-only snapshot with 250 ms lock and 2 s statement limits. A changed, deleted, foreign-owner or different-archive cursor returns 409; pages are live views, not a frozen cross-request snapshot. Before loading saved bodies, paging also limits the sum of saved JSON text bytes to 32 MiB and may return fewer rows than limit; follow next_cursor. Customer-charge hydration can increase wire size. Legacy latest-100 calls over that saved-payload budget return 413 rather than truncated success. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Without limit or after, retain the latest-100 compatibility response. Either paging parameter selects a bounded page, default 50, ordered by updated time and ID descending within the authenticated owner, workspace and archive state. Session payload and customer-charge hydration share a read-only snapshot with 250 ms lock and 2 s statement limits. A changed, deleted, foreign-owner or different-archive cursor returns 409; pages are live views, not a frozen cross-request snapshot. Before loading saved bodies, paging also limits the sum of saved JSON text bytes to 32 MiB and may return fewer rows than limit; follow next_cursor. Customer-charge hydration can increase wire size. Legacy latest-100 calls over that saved-payload budget return 413 rather than truncated success.",
         "security": [
           {
             "bearerAuth": []
@@ -2895,9 +2889,6 @@
           "403": {
             "description": "Workspace read access required."
           },
-          "404": {
-            "description": "Resource missing or outside authorized workspace/owner scope."
-          },
           "409": {
             "description": "Cursor no longer matches an accessible session in this archive."
           },
@@ -2908,7 +2899,6 @@
             "description": "Storage unavailable or read wait exceeded; no empty-success fallback."
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/chats",
         "tags": [
           "Chat sessions"
         ],
@@ -2925,9 +2915,9 @@
     },
     "/api/v1/workspaces/{workspace}/chats/{id}/archive": {
       "put": {
-        "operationId": "setChatSessionArchivedByWorkspace",
+        "operationId": "setChatSessionArchived",
         "summary": "Archive or restore the authenticated owner's Chat session",
-        "description": "Updates backend-owned archive state without changing content or conversation ordering. Autosaves preserve archive state. Repeating the same value is idempotent. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Updates backend-owned archive state without changing content or conversation ordering. Autosaves preserve archive state. Repeating the same value is idempotent.",
         "security": [
           {
             "bearerAuth": []
@@ -2990,7 +2980,6 @@
           }
         ],
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}/archive",
         "tags": [
           "Chat sessions"
         ],
@@ -3007,9 +2996,9 @@
     },
     "/api/v1/workspaces/{workspace}/chats/{id}/export": {
       "get": {
-        "operationId": "exportChatSessionByWorkspace",
+        "operationId": "exportChatSession",
         "summary": "Export one owned saved conversation",
-        "description": "Requires workspace read access and the authenticated conversation owner. Reads durable content directly, including sessions outside the latest-100 list. Excludes internal identifiers, settings, diagnostic errors and accounting. Conversation and attachment content is deliberately included and may contain user-supplied sensitive text. Legacy single-turn sessions become one turn. Does not export request Logs or billing evidence. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Requires workspace read access and the authenticated conversation owner. Reads durable content directly, including sessions outside the latest-100 list. Excludes internal identifiers, settings, diagnostic errors and accounting. Conversation and attachment content is deliberately included and may contain user-supplied sensitive text. Legacy single-turn sessions become one turn. Does not export request Logs or billing evidence.",
         "security": [
           {
             "bearerAuth": []
@@ -3161,7 +3150,6 @@
           }
         ],
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}/export",
         "tags": [
           "Chat sessions"
         ],
@@ -3178,10 +3166,10 @@
     },
     "/api/v1/workspaces/{workspace}/chats/{id}": {
       "get": {
-        "operationId": "getChatSessionByWorkspace",
+        "operationId": "getChatSession",
         "x-niu-implementation": "implemented",
         "summary": "Read one complete owned saved Chat conversation",
-        "description": "Requires workspace read permission and the authenticated personal owner. Returns the full saved conversation and archive state without scanning history pages, including sessions beyond the recent-100 list. Selection and authoritative customer-charge hydration share a bounded read-only snapshot (250 ms lock and 2 s statement limits); preceding authorization and pool acquisition are separate. Saved browser accounting is ignored. Saved JSON above 32 MiB returns 413; no content is truncated. Archived sessions remain directly readable. Accepts an internal UUID alias or permanent chat reference; both require the same workspace and personal-owner authorization. The returned data includes its server-assigned reference. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Requires workspace read permission and the authenticated personal owner. Returns the full saved conversation and archive state without scanning history pages, including sessions beyond the recent-100 list. Selection and authoritative customer-charge hydration share a bounded read-only snapshot (250 ms lock and 2 s statement limits); preceding authorization and pool acquisition are separate. Saved browser accounting is ignored. Saved JSON above 32 MiB returns 413; no content is truncated. Archived sessions remain directly readable. Accepts an internal UUID alias or permanent chat reference; both require the same workspace and personal-owner authorization. The returned data includes its server-assigned reference.",
         "parameters": [
           {
             "name": "workspace",
@@ -3266,7 +3254,6 @@
             "description": "Durable storage unavailable or read wait exceeded."
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}",
         "tags": [
           "Chat sessions"
         ],
@@ -3281,9 +3268,9 @@
         }
       },
       "delete": {
-        "operationId": "deleteChatSessionByWorkspace",
+        "operationId": "deleteChatSession",
         "summary": "Delete an owned Chat session in a workspace",
-        "description": "Requires write access to the workspace. Deletion is scoped to the authenticated owner and workspace. Missing or already deleted sessions return the same result without disclosing another owner's history. Does not delete request accounting or billing records. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Requires write access to the workspace. Deletion is scoped to the authenticated owner and workspace. Missing or already deleted sessions return the same result without disclosing another owner's history. Does not delete request accounting or billing records.",
         "security": [
           {
             "bearerAuth": []
@@ -3298,9 +3285,6 @@
           },
           "403": {
             "description": "Workspace write access required."
-          },
-          "404": {
-            "description": "Resource missing or outside authorized workspace/owner scope."
           }
         },
         "parameters": [
@@ -3324,7 +3308,6 @@
           }
         ],
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}",
         "tags": [
           "Chat sessions"
         ],
@@ -3339,9 +3322,9 @@
         }
       },
       "put": {
-        "operationId": "saveChatSessionByWorkspace",
+        "operationId": "saveChatSession",
         "summary": "Save an owned Chat session in a workspace",
-        "description": "Requires workspace write access. Stores conversation content separately from accounting. Only supported top-level and nested fields are retained. Client-supplied accounting fields are discarded. Numeric timestamps, durations and token counts must be nonnegative JavaScript-safe integers; token counts may be null. Settings and attachment shapes are validated. This endpoint does not establish authoritative request charges or detect secrets embedded in conversation text. Omit expectedRevision for a compatibility write only while the owned record has not enabled guarded writes. Explicit null creates only if no owned row exists; a canonical positive decimal revision updates only that exact owned version. Stale, missing or duplicate-create guarded writes return 409 without replacing content. Revisions are global sequence values, not timestamps, and are never reused by API delete/recreate. Guarded success includes a decimal revision; direct GET provides it. A successful guarded creation/update permanently enables guarded writes on that owned row. Compatibility saves thereafter return 409; there is no content-write downgrade. A content-free guard identity survives deletion, so legacy autosaves cannot resurrect a protected reference; explicit null guarded creation may recreate it. Untouched legacy rows retain compatibility behavior until guarded save. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Requires workspace write access. Stores conversation content separately from accounting. Only supported top-level and nested fields are retained. Client-supplied accounting fields are discarded. Numeric timestamps, durations and token counts must be nonnegative JavaScript-safe integers; token counts may be null. Settings and attachment shapes are validated. This endpoint does not establish authoritative request charges or detect secrets embedded in conversation text. Omit expectedRevision for a compatibility write only while the owned record has not enabled guarded writes. Explicit null creates only if no owned row exists; a canonical positive decimal revision updates only that exact owned version. Stale, missing or duplicate-create guarded writes return 409 without replacing content. Revisions are global sequence values, not timestamps, and are never reused by API delete/recreate. Guarded success includes a decimal revision; direct GET provides it. A successful guarded creation/update permanently enables guarded writes on that owned row. Compatibility saves thereafter return 409; there is no content-write downgrade. A content-free guard identity survives deletion, so legacy autosaves cannot resurrect a protected reference; explicit null guarded creation may recreate it. Untouched legacy rows retain compatibility behavior until guarded save.",
         "security": [
           {
             "bearerAuth": []
@@ -3582,9 +3565,6 @@
           "403": {
             "description": "Workspace write access required."
           },
-          "404": {
-            "description": "Resource missing or outside authorized workspace/owner scope."
-          },
           "409": {
             "description": "Guarded creation/update does not match current owned state."
           },
@@ -3616,7 +3596,6 @@
             }
           }
         ],
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/chats/{id}",
         "tags": [
           "Chat sessions"
         ],
@@ -3633,10 +3612,10 @@
     },
     "/api/v1/workspaces/{workspace}/tasks/{task}/refresh": {
       "post": {
-        "operationId": "refreshGenerationsTaskByWorkspace",
+        "operationId": "refreshGenerationsTask",
         "x-niu-implementation": "implemented",
         "summary": "Explicitly refresh the original Video task",
-        "description": "Explicit workspace Write action. Derives the original inference key and immutable Provider/account/model/channel binding from the actor-visible saved task; clients cannot choose replacements. Current original key grants and source policy remain required; revoked or expired keys never regain action authority through history. No generation, automatic retry or composer configuration is used. Rechecks actor visibility and grants after upstream work. Saved GET, cached artifact content, upstream refresh and fresh delivery remain distinct. Queries saved task status through the existing guarded recovery/settlement path; query receipts can be appended, but no task is created. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Explicit workspace Write action. Derives the original inference key and immutable Provider/account/model/channel binding from the actor-visible saved task; clients cannot choose replacements. Current original key grants and source policy remain required; revoked or expired keys never regain action authority through history. No generation, automatic retry or composer configuration is used. Rechecks actor visibility and grants after upstream work. Saved GET, cached artifact content, upstream refresh and fresh delivery remain distinct. Queries saved task status through the existing guarded recovery/settlement path; query receipts can be appended, but no task is created.",
         "security": [
           {
             "bearerAuth": []
@@ -3729,7 +3708,6 @@
             "description": "Upstream query or delivery timed out"
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh",
         "tags": [
           "Generation history"
         ],
@@ -3746,10 +3724,10 @@
     },
     "/api/v1/workspaces/{workspace}/tasks/{task}/results/{kind}/refresh": {
       "post": {
-        "operationId": "retrieveFreshGenerationsTaskResultByWorkspace",
+        "operationId": "retrieveFreshGenerationsTaskResult",
         "x-niu-implementation": "implemented",
         "summary": "Retrieve fresh output from the original Video task",
-        "description": "Explicit workspace Write action. Derives the original inference key and immutable Provider/account/model/channel binding from the actor-visible saved task; clients cannot choose replacements. Current original key grants and source policy remain required; revoked or expired keys never regain action authority through history. No generation, automatic retry or composer configuration is used. Rechecks actor visibility and grants after upstream work. Saved GET, cached artifact content, upstream refresh and fresh delivery remain distinct. Queries the original task once, then performs bounded authorized binary retrieval. Does not rewrite expired/deleted cached references. A fresh URL does not prove durable media availability; missing result404, Provider gone/unavailable502 and timeout504 remain explicit. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Explicit workspace Write action. Derives the original inference key and immutable Provider/account/model/channel binding from the actor-visible saved task; clients cannot choose replacements. Current original key grants and source policy remain required; revoked or expired keys never regain action authority through history. No generation, automatic retry or composer configuration is used. Rechecks actor visibility and grants after upstream work. Saved GET, cached artifact content, upstream refresh and fresh delivery remain distinct. Queries the original task once, then performs bounded authorized binary retrieval. Does not rewrite expired/deleted cached references. A fresh URL does not prove durable media availability; missing result404, Provider gone/unavailable502 and timeout504 remain explicit.",
         "security": [
           {
             "bearerAuth": []
@@ -3842,7 +3820,6 @@
             "description": "Upstream query or delivery timed out"
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh",
         "tags": [
           "Generation history"
         ],
@@ -3859,9 +3836,9 @@
     },
     "/api/v1/workspaces/{workspace}/artifacts/{task}/{kind}/capture": {
       "get": {
-        "operationId": "retrieveGenerationsArtifactCaptureByWorkspace",
+        "operationId": "retrieveGenerationsArtifactCapture",
         "summary": "Read saved artifact capture status",
-        "description": "Current dashboard workspace Read permission and actor-visible original task required. Task/output identity is scoped; no Provider URLs, private references, credentials or costs are returned. Saved claim metadata only; no download, refresh, retry, generation or ledger mutation. Source lookup returns the stored/active outcome or newest failed request; missing/private task or missing capture404. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Current dashboard workspace Read permission and actor-visible original task required. Task/output identity is scoped; no Provider URLs, private references, credentials or costs are returned. Saved claim metadata only; no download, refresh, retry, generation or ledger mutation. Source lookup returns the stored/active outcome or newest failed request; missing/private task or missing capture404.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -4016,7 +3993,6 @@
             "description": "Upstream query or delivery timeout"
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture",
         "tags": [
           "Generation history"
         ],
@@ -4031,9 +4007,9 @@
         }
       },
       "post": {
-        "operationId": "captureGenerationsArtifactByWorkspace",
+        "operationId": "captureGenerationsArtifact",
         "summary": "Explicitly save a generated output into workspace materials",
-        "description": "Current dashboard workspace Write permission and actor-visible original task required. Task/output identity is scoped; no Provider URLs, private references, credentials or costs are returned. Explicit bounded copy into the existing encrypted workspace material library, not Provider registration or generation. Cached mode uses unexpired saved references under historical access; fresh mode explicitly queries the original task then retrieves output, using optional selected current workspace key or original-key fallback. The selected key cannot replace the immutable Provider/account/model/channel. Original expired keys without explicit current authority refuse fresh actions. Upstream operations never retry automatically. Two process capture slots; transport and format validation limited to8MiB; existing256asset/256MiB workspace quotas remain. A durable2minute preparing lease is committed before retrieval. Only an explicit repeated POST recovers failed/expired claims. Same requestid with changed fields409; a NEW requestid may change mode after failure; source identity prevents duplicate active/stored captures. Stored source replay returns canonical retained/deleted outcome without network; deleted retained bytes are never resurrected. Asset bytes, source provenance, quota and audit commit atomically after rechecking visibility under the source task lock. Failed delivery returns its error and retains a safe failed claim when storage is available; ambiguous failure-record writes leave preparing, not false availability. Cached expiry/deletion and original task/pricing identity are not rewritten. Fresh status queries may append diagnosis and settle an original pending liability through existing recovery, never create a new generation or reprice it. Saving shares copied bytes with authorized workspace members through the existing library; Provider readiness and verified identity remain separate. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Current dashboard workspace Write permission and actor-visible original task required. Task/output identity is scoped; no Provider URLs, private references, credentials or costs are returned. Explicit bounded copy into the existing encrypted workspace material library, not Provider registration or generation. Cached mode uses unexpired saved references under historical access; fresh mode explicitly queries the original task then retrieves output, using optional selected current workspace key or original-key fallback. The selected key cannot replace the immutable Provider/account/model/channel. Original expired keys without explicit current authority refuse fresh actions. Upstream operations never retry automatically. Two process capture slots; transport and format validation limited to8MiB; existing256asset/256MiB workspace quotas remain. A durable2minute preparing lease is committed before retrieval. Only an explicit repeated POST recovers failed/expired claims. Same requestid with changed fields409; a NEW requestid may change mode after failure; source identity prevents duplicate active/stored captures. Stored source replay returns canonical retained/deleted outcome without network; deleted retained bytes are never resurrected. Asset bytes, source provenance, quota and audit commit atomically after rechecking visibility under the source task lock. Failed delivery returns its error and retains a safe failed claim when storage is available; ambiguous failure-record writes leave preparing, not false availability. Cached expiry/deletion and original task/pricing identity are not rewritten. Fresh status queries may append diagnosis and settle an original pending liability through existing recovery, never create a new generation or reprice it. Saving shares copied bytes with authorized workspace members through the existing library; Provider readiness and verified identity remain separate.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -4231,7 +4207,6 @@
             }
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture",
         "tags": [
           "Generation history"
         ],
@@ -4248,9 +4223,9 @@
     },
     "/api/v1/workspaces/{workspace}/tasks": {
       "get": {
-        "operationId": "generationsInventoryTasksByWorkspace",
+        "operationId": "generationsInventoryTasks",
         "summary": "List saved Video tasks across workspace keys",
-        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported.",
         "security": [
           {
             "bearerAuth": []
@@ -4592,7 +4567,6 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks",
         "tags": [
           "Generation history"
         ],
@@ -4609,9 +4583,9 @@
     },
     "/api/v1/workspaces/{workspace}/tasks/{task}": {
       "get": {
-        "operationId": "generationsInventoryTaskByWorkspace",
+        "operationId": "generationsInventoryTask",
         "summary": "Read a saved Video task",
-        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported.",
         "security": [
           {
             "bearerAuth": []
@@ -4897,7 +4871,6 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}",
         "tags": [
           "Generation history"
         ],
@@ -4914,10 +4887,10 @@
     },
     "/api/v1/workspaces/{workspace}/tasks/{task}/diagnostics": {
       "get": {
-        "operationId": "generationsTaskDiagnosticsByWorkspace",
+        "operationId": "generationsTaskDiagnostics",
         "x-niu-implementation": "implemented",
         "summary": "Read saved customer billing and transport diagnostics",
-        "description": "Current dashboard workspace Read authorizes persisted diagnostics independently of the original inference key expiry, revocation or model grants. Actor-private tasks belonging to another actor are 404. Billing is customer-only; owner-funded jobs retain null customer charges and never expose procurement costs. Billing and measured transport/lifecycle observations share one bounded read-only snapshot. This GET never contacts a Provider, polls, refreshes, retries, submits or settles a task. Errors are explicit; no successful empty result hides a storage failure. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Current dashboard workspace Read authorizes persisted diagnostics independently of the original inference key expiry, revocation or model grants. Actor-private tasks belonging to another actor are 404. Billing is customer-only; owner-funded jobs retain null customer charges and never expose procurement costs. Billing and measured transport/lifecycle observations share one bounded read-only snapshot. This GET never contacts a Provider, polls, refreshes, retries, submits or settles a task. Errors are explicit; no successful empty result hides a storage failure.",
         "security": [
           {
             "bearerAuth": []
@@ -4980,7 +4953,6 @@
             "description": "Saved diagnostics unavailable"
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics",
         "tags": [
           "Generation history"
         ],
@@ -4997,9 +4969,9 @@
     },
     "/api/v1/workspaces/{workspace}/artifacts": {
       "get": {
-        "operationId": "generationsInventoryArtifactsByWorkspace",
+        "operationId": "generationsInventoryArtifacts",
         "summary": "List actual saved output references",
-        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported.",
         "security": [
           {
             "bearerAuth": []
@@ -5203,7 +5175,6 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts",
         "tags": [
           "Generation history"
         ],
@@ -5220,9 +5191,9 @@
     },
     "/api/v1/workspaces/{workspace}/artifacts/{task}/{kind}": {
       "get": {
-        "operationId": "generationsInventoryArtifactByWorkspace",
+        "operationId": "generationsInventoryArtifact",
         "summary": "Read an output availability record",
-        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported.",
         "security": [
           {
             "bearerAuth": []
@@ -5373,7 +5344,6 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}",
         "tags": [
           "Generation history"
         ],
@@ -5390,9 +5360,9 @@
     },
     "/api/v1/workspaces/{workspace}/artifacts/{task}/{kind}/content": {
       "get": {
-        "operationId": "generationsInventoryContentByWorkspace",
+        "operationId": "generationsInventoryContent",
         "summary": "Download an authorized retained output",
-        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported.",
         "security": [
           {
             "bearerAuth": []
@@ -5462,7 +5432,6 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content",
         "tags": [
           "Generation history"
         ],
@@ -5484,9 +5453,9 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "getCustomerBillingByWorkspace",
+        "operationId": "getCustomerBilling",
         "summary": "Read workspace customer charges, tariffs and latest 100 invoices",
-        "description": "Requires workspace read access. Balances cover the full ledger per currency. Tariffs are current effective customer selling prices using the same workspace/standard enrollment and customer/global promotion selection as model discovery, within the billing read snapshot. Enabled personally funded routes are excluded. Rates are informational and do not establish route availability or spending authorization. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Requires workspace read access. Balances cover the full ledger per currency. Tariffs are current effective customer selling prices using the same workspace/standard enrollment and customer/global promotion selection as model discovery, within the billing read snapshot. Enabled personally funded routes are excluded. Rates are informational and do not establish route availability or spending authorization. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store.",
         "responses": {
           "200": {
             "description": "Billing overview",
@@ -5807,7 +5776,6 @@
           }
         ],
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/billing",
         "tags": [
           "Customer prices and statements"
         ],
@@ -5824,9 +5792,9 @@
     },
     "/api/v1/workspaces/{workspace}/spending-limit": {
       "get": {
-        "operationId": "listWorkspaceSpendingLimitsByWorkspace",
+        "operationId": "listWorkspaceSpendingLimits",
         "summary": "List workspace spending currencies",
-        "description": "Workspace readers may discover company account currencies and this workspace commitment without company-balance access. Absent limits and revisions are null. No state is changed. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Workspace readers may discover company account currencies and this workspace commitment without company-balance access. Absent limits and revisions are null. No state is changed.",
         "security": [
           {
             "bearerAuth": []
@@ -5879,7 +5847,6 @@
             "description": "Workspace unavailable in the authorized scope"
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/spending-limit",
         "tags": [
           "Customer balances"
         ],
@@ -5896,9 +5863,9 @@
     },
     "/api/v1/workspaces/{workspace}/spending-limit/{currency}": {
       "get": {
-        "operationId": "getWorkspaceSpendingLimitByWorkspace",
+        "operationId": "getWorkspaceSpendingLimit",
         "summary": "Read a workspace spending limit",
-        "description": "Workspace read permission required. Returns data: null when no explicit limit exists. Does not expose company funds or other workspace usage. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Workspace read permission required. Returns data: null when no explicit limit exists. Does not expose company funds or other workspace usage.",
         "security": [
           {
             "bearerAuth": []
@@ -5964,7 +5931,6 @@
             "description": "Workspace unavailable in the authorized scope"
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
         "tags": [
           "Customer balances"
         ],
@@ -5979,9 +5945,9 @@
         }
       },
       "put": {
-        "operationId": "setWorkspaceSpendingLimitByWorkspace",
+        "operationId": "setWorkspaceSpendingLimit",
         "summary": "Set a workspace spending limit",
-        "description": "Scoped owner or installation administrator required. Both input fields are nonnegative decimal strings, not null. expected_revision 0 creates the first limit; later writes require the saved revision. Zero denies new paid liability; there is no null reset on this endpoint. A limit below existing commitment is rejected. Writes append actor history and never change company funds. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Scoped owner or installation administrator required. Both input fields are nonnegative decimal strings, not null. expected_revision 0 creates the first limit; later writes require the saved revision. Zero denies new paid liability; there is no null reset on this endpoint. A limit below existing commitment is rejected. Writes append actor history and never change company funds.",
         "security": [
           {
             "bearerAuth": []
@@ -6069,7 +6035,6 @@
             }
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
         "tags": [
           "Customer balances"
         ],
@@ -6086,9 +6051,9 @@
     },
     "/api/v1/workspaces/{workspace}/spending-limit/{currency}/history": {
       "get": {
-        "operationId": "listWorkspaceSpendingLimitHistoryByWorkspace",
+        "operationId": "listWorkspaceSpendingLimitHistory",
         "summary": "List workspace spending revisions",
-        "description": "Workspace read permission required. Descending immutable history. before_revision is exclusive. next_before_revision is a decimal string or null; an exactly full final page can yield an empty following page. Baseline timestamps and actor data may be null. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Workspace read permission required. Descending immutable history. before_revision is exclusive. next_before_revision is a decimal string or null; an exactly full final page can yield an empty following page. Baseline timestamps and actor data may be null.",
         "security": [
           {
             "bearerAuth": []
@@ -6178,7 +6143,6 @@
             "description": "Workspace unavailable in the authorized scope"
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history",
         "tags": [
           "Customer balances"
         ],
@@ -6195,9 +6159,9 @@
     },
     "/api/v1/workspaces/{workspace}/units/limit": {
       "get": {
-        "operationId": "getWorkspaceCustomerUnitSpendingLimitByWorkspace",
+        "operationId": "getWorkspaceCustomerUnitSpendingLimit",
         "summary": "Read the workspace Credits spending limit and commitment",
-        "description": "Workspace read permission required. Returns the workspace's explicit Credits atom limit, policy revision, committed atoms (settled charges minus original-range restorations plus unresolved holds and known overrun liabilities), remaining allowance, and whether an existing monetary workspace limit is preserved. A preserved monetary limit blocks Credits admission until an explicit Credits workspace limit revision (integer atoms or null for unlimited) is published. Never exposes company balance or procurement costs. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Workspace read permission required. Returns the workspace's explicit Credits atom limit, policy revision, committed atoms (settled charges minus original-range restorations plus unresolved holds and known overrun liabilities), remaining allowance, and whether an existing monetary workspace limit is preserved. A preserved monetary limit blocks Credits admission until an explicit Credits workspace limit revision (integer atoms or null for unlimited) is published. Never exposes company balance or procurement costs.",
         "security": [
           {
             "bearerAuth": []
@@ -6330,7 +6294,6 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/units/limit",
         "tags": [
           "Branded consumption units"
         ],
@@ -6345,9 +6308,9 @@
         }
       },
       "put": {
-        "operationId": "setWorkspaceCustomerUnitSpendingLimitByWorkspace",
+        "operationId": "setWorkspaceCustomerUnitSpendingLimit",
         "summary": "Set the workspace Credits spending limit",
-        "description": "Workspace/company owner or installation administrator required and rechecked under lock. Sets an exact Credits atom cap or explicit null for unlimited, using optimistic revision checking and durable idempotency. Lowering below committed workspace liability (charges minus restorations plus unresolved holds and known overrun liabilities) returns 402. Preserves existing monetary workspace limits for currency mode while replacing their blocking effect in Credits admission. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Workspace/company owner or installation administrator required and rechecked under lock. Sets an exact Credits atom cap or explicit null for unlimited, using optimistic revision checking and durable idempotency. Lowering below committed workspace liability (charges minus restorations plus unresolved holds and known overrun liabilities) returns 402. Preserves existing monetary workspace limits for currency mode while replacing their blocking effect in Credits admission.",
         "security": [
           {
             "bearerAuth": []
@@ -6490,7 +6453,6 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/units/limit",
         "tags": [
           "Branded consumption units"
         ],
@@ -6507,9 +6469,9 @@
     },
     "/api/v1/workspaces/{workspace}/units/limit/history": {
       "get": {
-        "operationId": "listWorkspaceCustomerUnitSpendingLimitHistoryByWorkspace",
+        "operationId": "listWorkspaceCustomerUnitSpendingLimitHistory",
         "summary": "List workspace Credits spending limit history",
-        "description": "Workspace read permission required. Returns descending immutable revisions with exclusive before_revision pagination. Never exposes internal actor identifiers. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Workspace read permission required. Returns descending immutable revisions with exclusive before_revision pagination. Never exposes internal actor identifiers.",
         "security": [
           {
             "bearerAuth": []
@@ -6638,7 +6600,6 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/units/limit/history",
         "tags": [
           "Branded consumption units"
         ],
@@ -6655,9 +6616,9 @@
     },
     "/api/v1/workspaces/{workspace}/keys/{key}/units/limit": {
       "get": {
-        "operationId": "getKeyCustomerUnitSpendingLimitByWorkspace",
+        "operationId": "getKeyCustomerUnitSpendingLimit",
         "summary": "Read an API key's Credits spending limit and commitment",
-        "description": "Workspace read permission required. Rotated keys share their original spending root identity. Returns the key lineage's explicit Credits atom limit, policy revision, committed atoms (settled charges minus restorations plus unresolved holds and known overrun liabilities), remaining allowance, and whether an existing monetary key limit is preserved. A preserved monetary key limit blocks Credits admission until an explicit Credits key limit revision is published. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Workspace read permission required. Rotated keys share their original spending root identity. Returns the key lineage's explicit Credits atom limit, policy revision, committed atoms (settled charges minus restorations plus unresolved holds and known overrun liabilities), remaining allowance, and whether an existing monetary key limit is preserved. A preserved monetary key limit blocks Credits admission until an explicit Credits key limit revision is published.",
         "security": [
           {
             "bearerAuth": []
@@ -6799,7 +6760,6 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit",
         "tags": [
           "API keys"
         ],
@@ -6814,9 +6774,9 @@
         }
       },
       "put": {
-        "operationId": "setKeyCustomerUnitSpendingLimitByWorkspace",
+        "operationId": "setKeyCustomerUnitSpendingLimit",
         "summary": "Set an API key's Credits spending limit",
-        "description": "Workspace/company owner or installation administrator required and rechecked under lock. Updates the shared spending root identity across secret rotations using optimistic revision checking and durable idempotency. Lowering below committed key liability returns 402. Preserves existing monetary key limits for currency mode while replacing their blocking effect in Credits admission. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Workspace/company owner or installation administrator required and rechecked under lock. Updates the shared spending root identity across secret rotations using optimistic revision checking and durable idempotency. Lowering below committed key liability returns 402. Preserves existing monetary key limits for currency mode while replacing their blocking effect in Credits admission.",
         "security": [
           {
             "bearerAuth": []
@@ -6968,7 +6928,6 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit",
         "tags": [
           "API keys"
         ],
@@ -6985,9 +6944,9 @@
     },
     "/api/v1/workspaces/{workspace}/keys/{key}/units/limit/history": {
       "get": {
-        "operationId": "listKeyCustomerUnitSpendingLimitHistoryByWorkspace",
+        "operationId": "listKeyCustomerUnitSpendingLimitHistory",
         "summary": "List API key Credits spending limit history",
-        "description": "Workspace read permission required. Returns descending immutable revisions shared across key rotations, with exclusive before_revision pagination. Never exposes internal actor identifiers. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Workspace read permission required. Returns descending immutable revisions shared across key rotations, with exclusive before_revision pagination. Never exposes internal actor identifiers.",
         "security": [
           {
             "bearerAuth": []
@@ -7125,7 +7084,6 @@
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit/history",
         "tags": [
           "API keys"
         ],
@@ -7142,9 +7100,9 @@
     },
     "/api/v1/workspaces/{workspace}/requests": {
       "get": {
-        "operationId": "listProjectGatewayActivityByWorkspace",
+        "operationId": "listProjectGatewayActivity",
         "summary": "Read automatically retained gateway request activity",
-        "description": "Returns metadata for model attempts admitted by Niu, newest first by default, with the requested sort applied to the whole range. Request and response bodies, prompts and completions are not included. Pages are bounded to at most 100 entries. Pass the previous response's next_cursor as after to read older matching entries; traversal is a live view, not a cross-page snapshot. Optional filters apply to the whole workspace scope. summary totals cover the selected filters independent of page. Rows and summary in one response share a database snapshot. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines. An absent task_id means the caller did not supply X-Niu-Task-ID. Missing usage remains unknown. All workspace responses exclude Provider expenses and platform margins, including for installation administrators. Customer-facing charges and nullable observed request phase timing are included. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Returns metadata for model attempts admitted by Niu, newest first by default, with the requested sort applied to the whole range. Request and response bodies, prompts and completions are not included. Pages are bounded to at most 100 entries. Pass the previous response's next_cursor as after to read older matching entries; traversal is a live view, not a cross-page snapshot. Optional filters apply to the whole workspace scope. summary totals cover the selected filters independent of page. Rows and summary in one response share a database snapshot. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines. An absent task_id means the caller did not supply X-Niu-Task-ID. Missing usage remains unknown. All workspace responses exclude Provider expenses and platform margins, including for installation administrators. Customer-facing charges and nullable observed request phase timing are included.",
         "security": [
           {
             "bearerAuth": []
@@ -7854,13 +7812,9 @@
           },
           "401": {
             "description": "Administrator authentication required."
-          },
-          "404": {
-            "description": "Resource missing or outside authorized workspace/owner scope."
           }
         },
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/requests",
         "tags": [
           "Request logs and usage"
         ],
@@ -7877,9 +7831,9 @@
     },
     "/api/v1/workspaces/{workspace}/requests/{attempt}": {
       "get": {
-        "operationId": "getGatewayRequestByWorkspace",
+        "operationId": "getGatewayRequest",
         "summary": "Read a recorded gateway request",
-        "description": "Scoped workspace read access required. Accepts a durable run reference or a legacy attempt UUID. Returns persisted metadata, usage, timing, safe failure classification and customer charges without prompts, response bodies or Provider procurement costs. Missing or foreign attempts return 404. Unknown values remain null. Legacy correlation fields are opaque metadata. Does not contact the upstream service or change billing. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Scoped workspace read access required. Accepts a durable run reference or a legacy attempt UUID. Returns persisted metadata, usage, timing, safe failure classification and customer charges without prompts, response bodies or Provider procurement costs. Missing or foreign attempts return 404. Unknown values remain null. Legacy correlation fields are opaque metadata. Does not contact the upstream service or change billing. Reporting reads use a one-second database lock timeout and a five-second timeout per SQL statement. Timeout returns a sanitized 503 error, never partial results; these are not whole-request deadlines.",
         "security": [
           {
             "bearerAuth": []
@@ -7943,7 +7897,6 @@
             "description": "Workspace or request unavailable in this scope"
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}",
         "tags": [
           "Request logs and usage"
         ],
@@ -7965,8 +7918,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "listKeySpendingLimitsByWorkspace",
-        "description": "Scoped readers may inspect customer commitments. Rotated keys share the original spending identity. Personal upstream routes do not consume customer funds. No Provider costs or company balance are exposed. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "listKeySpendingLimits",
+        "description": "Scoped readers may inspect customer commitments. Rotated keys share the original spending identity. Personal upstream routes do not consume customer funds. No Provider costs or company balance are exposed.",
         "responses": {
           "200": {
             "description": "Account currencies and lifetime key commitments; null limit means unlimited and null revision means never configured.",
@@ -8060,7 +8013,6 @@
         ],
         "x-niu-implementation": "implemented",
         "summary": "List API key spending limits",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit",
         "tags": [
           "API keys"
         ],
@@ -8082,8 +8034,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "setKeySpendingLimitByWorkspace",
-        "description": "Workspace/company owner or installation administrator. Cap includes settled customer charges minus refunds plus unreleased reservations, across secret rotations. Lowering below committed liability is rejected. Account and workspace limits still apply. Writes do not add funds. Null explicitly restores unlimited; omission is rejected. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "setKeySpendingLimit",
+        "description": "Workspace/company owner or installation administrator. Cap includes settled customer charges minus refunds plus unreleased reservations, across secret rotations. Lowering below committed liability is rejected. Account and workspace limits still apply. Writes do not add funds. Null explicitly restores unlimited; omission is rejected.",
         "requestBody": {
           "required": true,
           "content": {
@@ -8189,7 +8141,6 @@
         ],
         "x-niu-implementation": "implemented",
         "summary": "Set API key spending limit",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}",
         "tags": [
           "API keys"
         ],
@@ -8211,7 +8162,7 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "listKeySpendingLimitHistoryByWorkspace",
+        "operationId": "listKeySpendingLimitHistory",
         "parameters": [
           {
             "name": "workspace",
@@ -8259,7 +8210,7 @@
             }
           }
         ],
-        "description": "Descending immutable revision history shared across rotations. Use the last returned revision as before_revision for the next page. Returns currency, nullable limit_nanos, revision, recorded_at, actor_kind and actor_name; never an internal actor identifier. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Descending immutable revision history shared across rotations. Use the last returned revision as before_revision for the next page. Returns currency, nullable limit_nanos, revision, recorded_at, actor_kind and actor_name; never an internal actor identifier.",
         "responses": {
           "200": {
             "description": "Data array of policy revisions",
@@ -8336,7 +8287,6 @@
         },
         "x-niu-implementation": "implemented",
         "summary": "List API key spending history",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history",
         "tags": [
           "API keys"
         ],
@@ -8358,8 +8308,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "getKeyIpPolicyByWorkspace",
-        "description": "Scoped readers may inspect the policy shared across secret rotations. Storage reads use a read-only snapshot with transaction-local 250 ms lock and 2 s statement limits. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "getKeyIpPolicy",
+        "description": "Scoped readers may inspect the policy shared across secret rotations. Storage reads use a read-only snapshot with transaction-local 250 ms lock and 2 s statement limits.",
         "responses": {
           "200": {
             "description": "Null revision means never configured. Null networks permit all sources; an empty array denies all sources.",
@@ -8439,7 +8389,6 @@
         ],
         "x-niu-implementation": "implemented",
         "summary": "Read API key source policy",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy",
         "tags": [
           "API keys"
         ],
@@ -8459,8 +8408,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "setKeyIpPolicyByWorkspace",
-        "description": "Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "setKeyIpPolicy",
+        "description": "Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests.",
         "requestBody": {
           "required": true,
           "content": {
@@ -8564,7 +8513,6 @@
         ],
         "x-niu-implementation": "implemented",
         "summary": "Set API key source policy",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy",
         "tags": [
           "API keys"
         ],
@@ -8586,8 +8534,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "listKeyIpPolicyHistoryByWorkspace",
-        "description": "Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor. Storage reads use a read-only snapshot with transaction-local 250 ms lock and 2 s statement limits. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "listKeyIpPolicyHistory",
+        "description": "Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor. Storage reads use a read-only snapshot with transaction-local 250 ms lock and 2 s statement limits.",
         "parameters": [
           {
             "name": "workspace",
@@ -8705,7 +8653,6 @@
         },
         "x-niu-implementation": "implemented",
         "summary": "List API key source policy history",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history",
         "tags": [
           "API keys"
         ],
@@ -8727,8 +8674,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "getKeyRequestRateLimitByWorkspace",
-        "description": "Scoped readers may inspect the policy shared across secret rotations. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "getKeyRequestRateLimit",
+        "description": "Scoped readers may inspect the policy shared across secret rotations.",
         "responses": {
           "200": {
             "description": "Null revision means never configured. Null removes the limit; zero denies dispatch.",
@@ -8780,7 +8727,6 @@
         ],
         "summary": "Read API key request rate policy",
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit",
         "tags": [
           "API keys"
         ],
@@ -8800,8 +8746,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "setKeyRequestRateLimitByWorkspace",
-        "description": "Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "setKeyRequestRateLimit",
+        "description": "Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests.",
         "requestBody": {
           "required": true,
           "content": {
@@ -8896,7 +8842,6 @@
         ],
         "summary": "Set API key request rate policy",
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit",
         "tags": [
           "API keys"
         ],
@@ -8918,8 +8863,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "listKeyRequestRateLimitHistoryByWorkspace",
-        "description": "Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "listKeyRequestRateLimitHistory",
+        "description": "Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.",
         "parameters": [
           {
             "name": "workspace",
@@ -9025,7 +8970,6 @@
         },
         "summary": "List API key request rate policy history",
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history",
         "tags": [
           "API keys"
         ],
@@ -9047,8 +8991,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "getKeyTokenUsageWindowByWorkspace",
-        "description": "Scoped reader access. Dispatches in the rolling 60 seconds ending at window_end, across secret rotations. Known subtotals exclude unknown requests; zero known tokens does not mean zero actual usage. This endpoint does not enforce TPM and exposes no Provider cost. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "getKeyTokenUsageWindow",
+        "description": "Scoped reader access. Dispatches in the rolling 60 seconds ending at window_end, across secret rotations. Known subtotals exclude unknown requests; zero known tokens does not mean zero actual usage. This endpoint does not enforce TPM and exposes no Provider cost.",
         "responses": {
           "200": {
             "description": "One consistent database snapshot, including an empty window for an unused key.",
@@ -9139,7 +9083,6 @@
         ],
         "summary": "Read API key token usage window",
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-usage-window",
         "tags": [
           "API keys"
         ],
@@ -9161,8 +9104,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "getKeyConcurrencyLimitByWorkspace",
-        "description": "Scoped readers may inspect the policy shared across secret rotations. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "getKeyConcurrencyLimit",
+        "description": "Scoped readers may inspect the policy shared across secret rotations.",
         "responses": {
           "200": {
             "description": "Null revision means never configured. Null removes the limit; zero denies dispatch.",
@@ -9214,7 +9157,6 @@
         ],
         "summary": "Read API key concurrency policy",
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit",
         "tags": [
           "API keys"
         ],
@@ -9234,8 +9176,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "setKeyConcurrencyLimitByWorkspace",
-        "description": "Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "setKeyConcurrencyLimit",
+        "description": "Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests.",
         "requestBody": {
           "required": true,
           "content": {
@@ -9330,7 +9272,6 @@
         ],
         "summary": "Set API key concurrency policy",
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit",
         "tags": [
           "API keys"
         ],
@@ -9352,8 +9293,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "listKeyConcurrencyLimitHistoryByWorkspace",
-        "description": "Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "listKeyConcurrencyLimitHistory",
+        "description": "Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.",
         "parameters": [
           {
             "name": "workspace",
@@ -9459,7 +9400,6 @@
         },
         "summary": "List API key concurrency policy history",
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history",
         "tags": [
           "API keys"
         ],
@@ -9476,9 +9416,9 @@
     },
     "/api/v1/workspaces/{workspace}/keys/{key}/capacity": {
       "get": {
-        "operationId": "listKeyCapacityRequestsByWorkspace",
+        "operationId": "listKeyCapacityRequests",
         "summary": "Inspect requests contributing unresolved key capacity",
-        "description": "Workspace read authority required. Includes the full secret-rotation lineage. Concurrency uses unresolved dispatched requests. Tokens uses reservations and unbounded usage from unresolved dispatches plus completed unknown-usage requests in the rolling 60-second window, matching the token-budget calculation; known recent usage is not returned here. Each page has a fresh statement snapshot. UUID keyset cursor is internal; rows may resolve between pages. Refresh to restart investigation. This read does not contact Providers, reconcile usage, release reservations or retry requests. No credentials, prompt content or procurement data. Cache-Control no-store. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "description": "Workspace read authority required. Includes the full secret-rotation lineage. Concurrency uses unresolved dispatched requests. Tokens uses reservations and unbounded usage from unresolved dispatches plus completed unknown-usage requests in the rolling 60-second window, matching the token-budget calculation; known recent usage is not returned here. Each page has a fresh statement snapshot. UUID keyset cursor is internal; rows may resolve between pages. Refresh to restart investigation. This read does not contact Providers, reconcile usage, release reservations or retry requests. No credentials, prompt content or procurement data. Cache-Control no-store.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -9644,7 +9584,6 @@
             "description": "Cursor unavailable; restart pagination"
           }
         },
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/capacity",
         "tags": [
           "API keys"
         ],
@@ -9666,8 +9605,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "getKeyTokenRateLimitByWorkspace",
-        "description": "Scoped readers may inspect the policy shared across secret rotations. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "getKeyTokenRateLimit",
+        "description": "Scoped readers may inspect the policy shared across secret rotations.",
         "responses": {
           "200": {
             "description": "Null revision means never configured. Null removes the limit; zero denies dispatch.",
@@ -9719,7 +9658,6 @@
         ],
         "summary": "Read API key token rate policy",
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit",
         "tags": [
           "API keys"
         ],
@@ -9739,8 +9677,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "setKeyTokenRateLimitByWorkspace",
-        "description": "Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "setKeyTokenRateLimit",
+        "description": "Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests.",
         "requestBody": {
           "required": true,
           "content": {
@@ -9835,7 +9773,6 @@
         ],
         "summary": "Set API key token rate policy",
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit",
         "tags": [
           "API keys"
         ],
@@ -9857,8 +9794,8 @@
             "bearerAuth": []
           }
         ],
-        "operationId": "listKeyTokenRateLimitHistoryByWorkspace",
-        "description": "Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor. The server resolves the organization from the authorized workspace. Foreign or missing workspaces return 404. The compatibility route remains supported with identical payload, owner, revision and replay semantics.",
+        "operationId": "listKeyTokenRateLimitHistory",
+        "description": "Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.",
         "parameters": [
           {
             "name": "workspace",
@@ -9964,7 +9901,6 @@
         },
         "summary": "List API key token rate policy history",
         "x-niu-implementation": "implemented",
-        "x-niu-compatibility-route": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history",
         "tags": [
           "API keys"
         ],
@@ -9979,7 +9915,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/media/operations": {
+    "/api/v1/workspaces/{workspace}/media/operations": {
       "get": {
         "operationId": "listHistoricalWorkspaceProviderAssetOperations",
         "summary": "List historical native material operations",
@@ -9994,16 +9930,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -10133,7 +10060,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/media/operations/{id}": {
+    "/api/v1/workspaces/{workspace}/media/operations/{id}": {
       "get": {
         "operationId": "getHistoricalWorkspaceProviderAssetOperation",
         "summary": "Read historical native material operations",
@@ -10148,16 +10075,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -10264,7 +10182,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/media/operations/by-idempotency/{id}": {
+    "/api/v1/workspaces/{workspace}/media/operations/by-idempotency/{id}": {
       "get": {
         "operationId": "getHistoricalWorkspaceProviderAssetOperationByIdempotency",
         "summary": "Read historical native material operations",
@@ -10279,16 +10197,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -10395,7 +10304,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/media/operations/{id}/cancel": {
+    "/api/v1/workspaces/{workspace}/media/operations/{id}/cancel": {
       "post": {
         "operationId": "cancelPreparedWorkspaceProviderAssetOperation",
         "summary": "Abandon an unclaimed native operation after key expiry",
@@ -10410,16 +10319,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -10509,7 +10409,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors": {
+    "/api/v1/workspaces/{workspace}/guardrails/media-detectors": {
       "get": {
         "operationId": "listWorkspaceMediaDetectors",
         "summary": "List workspace-authorized media inspection configurations",
@@ -10521,16 +10421,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -10838,9 +10729,111 @@
           "required_capability": "write",
           "scope": "workspace"
         }
+      },
+      "get": {
+        "operationId": "resolveWorkspaceRoute",
+        "summary": "Get an authorized workspace by UUID or canonical slug",
+        "description": "Exact persisted workspace UUID, slug, or alias lookup independent of workspace list limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "workspace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 81
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized workspace identity.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "organization_id",
+                    "name",
+                    "route_slug",
+                    "slug",
+                    "slug_aliases"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "organization_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "route_slug": {
+                      "type": "string",
+                      "maxLength": 81,
+                      "description": "Deprecated compatibility alias for slug.",
+                      "deprecated": true
+                    },
+                    "slug": {
+                      "type": "string",
+                      "maxLength": 81,
+                      "description": "Stable, readable workspace slug. Use in dashboard URLs; renaming preserves it."
+                    },
+                    "slug_aliases": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Previously issued slugs accepted for existing bookmarks."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or inference-only credential."
+          },
+          "403": {
+            "description": "Credential lacks read permission."
+          },
+          "404": {
+            "description": "No authorized workspace matches the reference."
+          }
+        },
+        "tags": [
+          "Companies and workspaces"
+        ],
+        "x-niu-authority": {
+          "audience": "customer-management",
+          "principals": [
+            "operator_session",
+            "installation_admin"
+          ],
+          "required_capability": "read",
+          "scope": "workspace"
+        }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials": {
+    "/api/v1/workspaces/{workspace}/guardrails/dispatch-denials": {
       "get": {
         "operationId": "listGuardrailDispatchDenials",
         "summary": "Read latest 100 workspace dispatch policy exceptions",
@@ -10853,16 +10846,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -11297,7 +11281,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions": {
+    "/api/v1/workspaces/{workspace}/guardrails/detector-decisions": {
       "get": {
         "operationId": "listInputDetectorDecisions",
         "summary": "Read latest 100 workspace input detector decisions",
@@ -11310,16 +11294,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -11469,7 +11444,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview": {
+    "/api/v1/workspaces/{workspace}/guardrails/image-detectors/{detector}/preview": {
       "post": {
         "operationId": "previewWorkspaceImageDetector",
         "summary": "Preview explicitly consented workspace image processing",
@@ -11482,16 +11457,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -11637,7 +11603,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors": {
+    "/api/v1/workspaces/{workspace}/guardrails/image-detectors": {
       "get": {
         "operationId": "listWorkspaceImageDetectors",
         "summary": "List authorized workspace image detector declarations",
@@ -11650,16 +11616,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -11809,7 +11766,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/guardrails/detectors": {
+    "/api/v1/workspaces/{workspace}/guardrails/detectors": {
       "get": {
         "operationId": "listWorkspaceDetectors",
         "summary": "List authorized workspace text detector declarations",
@@ -11822,16 +11779,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -12486,7 +12434,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/guardrails/denials": {
+    "/api/v1/workspaces/{workspace}/guardrails/denials": {
       "get": {
         "operationId": "listGuardrailPreparationDenials",
         "summary": "Read latest 100 workspace preparation refusals",
@@ -12499,16 +12447,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -12666,19 +12605,10 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails": {
+    "/api/v1/workspaces/{workspace}/requests/{attempt}/guardrails": {
       "parameters": [
         {
-          "name": "organization",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        {
-          "name": "project",
+          "name": "workspace",
           "in": "path",
           "required": true,
           "schema": {
@@ -12962,19 +12892,10 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/guardrails/output-preview": {
+    "/api/v1/workspaces/{workspace}/guardrails/output-preview": {
       "parameters": [
         {
-          "name": "organization",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        {
-          "name": "project",
+          "name": "workspace",
           "in": "path",
           "required": true,
           "schema": {
@@ -13173,19 +13094,10 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/guardrails/input-preview": {
+    "/api/v1/workspaces/{workspace}/guardrails/input-preview": {
       "parameters": [
         {
-          "name": "organization",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        {
-          "name": "project",
+          "name": "workspace",
           "in": "path",
           "required": true,
           "schema": {
@@ -13362,19 +13274,10 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history": {
+    "/api/v1/workspaces/{workspace}/keys/{key}/guardrail/history": {
       "parameters": [
         {
-          "name": "organization",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        {
-          "name": "project",
+          "name": "workspace",
           "in": "path",
           "required": true,
           "schema": {
@@ -13439,19 +13342,10 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail": {
+    "/api/v1/workspaces/{workspace}/keys/{key}/guardrail": {
       "parameters": [
         {
-          "name": "organization",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        {
-          "name": "project",
+          "name": "workspace",
           "in": "path",
           "required": true,
           "schema": {
@@ -13582,19 +13476,10 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/guardrails/revisions/{revision}": {
+    "/api/v1/workspaces/{workspace}/guardrails/revisions/{revision}": {
       "parameters": [
         {
-          "name": "organization",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        {
-          "name": "project",
+          "name": "workspace",
           "in": "path",
           "required": true,
           "schema": {
@@ -13680,19 +13565,10 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/guardrails/history": {
+    "/api/v1/workspaces/{workspace}/guardrails/history": {
       "parameters": [
         {
-          "name": "organization",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        {
-          "name": "project",
+          "name": "workspace",
           "in": "path",
           "required": true,
           "schema": {
@@ -13811,19 +13687,10 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/guardrails/rollback": {
+    "/api/v1/workspaces/{workspace}/guardrails/rollback": {
       "parameters": [
         {
-          "name": "organization",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        {
-          "name": "project",
+          "name": "workspace",
           "in": "path",
           "required": true,
           "schema": {
@@ -13899,19 +13766,10 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/guardrails": {
+    "/api/v1/workspaces/{workspace}/guardrails": {
       "parameters": [
         {
-          "name": "organization",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        {
-          "name": "project",
+          "name": "workspace",
           "in": "path",
           "required": true,
           "schema": {
@@ -14013,19 +13871,10 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/guardrails/preview": {
+    "/api/v1/workspaces/{workspace}/guardrails/preview": {
       "parameters": [
         {
-          "name": "organization",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        {
-          "name": "project",
+          "name": "workspace",
           "in": "path",
           "required": true,
           "schema": {
@@ -14101,19 +13950,10 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads": {
+    "/api/v1/workspaces/{workspace}/requests/{attempt}/payloads": {
       "parameters": [
         {
-          "name": "organization",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        {
-          "name": "project",
+          "name": "workspace",
           "in": "path",
           "required": true,
           "schema": {
@@ -14569,7 +14409,7 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 64,
-                    "pattern": "^[A-Za-z0-9.-]+$",
+                    "pattern": "^[A-Za-z0-9._-]+$",
                     "description": "Must be enabled for the configured merchant."
                   },
                   "idempotency_key": {
@@ -15488,7 +15328,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/billing/invoices": {
+    "/api/v1/workspaces/{workspace}/billing/invoices": {
       "get": {
         "operationId": "listCustomerInvoices",
         "summary": "Page complete workspace customer invoice history",
@@ -15500,16 +15340,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -15685,7 +15516,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}": {
+    "/api/v1/workspaces/{workspace}/billing/invoices/{invoice}": {
       "get": {
         "security": [
           {
@@ -15695,16 +15526,7 @@
         "operationId": "getCustomerInvoiceLines",
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -16084,7 +15906,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/media/asset-operation-models": {
+    "/api/v1/workspaces/{workspace}/media/asset-operation-models": {
       "get": {
         "operationId": "listHistoricalWorkspaceProviderAssetModels",
         "summary": "Discover saved native-operation model contexts",
@@ -16096,16 +15918,7 @@
         ],
         "parameters": [
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "description": "Workspace under the legacy API field name.",
@@ -16283,61 +16096,49 @@
         }
       }
     },
-    "/api/v1/metrics": {
+    "/api/v1/credits": {
       "get": {
-        "operationId": "adminGetMetrics",
-        "summary": "Read in-process request and token counters",
+        "operationId": "getOrganizationCredits",
+        "summary": "Read customer-facing balance summary for the active or selected organization",
+        "description": "Requires an authorized member session or installation credential. Defaults to the caller's active organization; installation callers may pass organization_id. Returns customer-facing balance summaries only, never Provider purchase costs or platform margins.",
         "security": [
           {
-            "adminBearerAuth": []
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Optional organization UUID. Defaults to the active session organization."
           }
         ],
         "responses": {
           "200": {
-            "description": "Process-local counters keyed by instance_id and started_at_ms so multi-instance scrapers can distinguish replicas and detect counter resets on process restart. Token totals cover only complete provider-reported usage. Unknown attempts include missing or invalid usage, failures, cancellations, native adapter calls without usage provenance, and streams without trustworthy usage/termination evidence. Durable attempt evidence is stored separately; this metrics endpoint is process-local.",
+            "description": "Customer balance summary for the resolved organization.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "data"
+                  ],
                   "properties": {
-                    "instance_id": {
-                      "type": "string",
-                      "description": "Unique process/replica identifier (configured via NIU_INSTANCE_ID or generated per process startup)."
-                    },
-                    "started_at_ms": {
-                      "type": "integer",
-                      "format": "int64",
-                      "description": "Process startup timestamp in Unix milliseconds for counter-reset detection."
-                    },
-                    "requests_total": {
-                      "type": "integer"
-                    },
-                    "requests_failed": {
-                      "type": "integer"
-                    },
-                    "prompt_tokens": {
-                      "type": "integer"
-                    },
-                    "completion_tokens": {
-                      "type": "integer"
-                    },
-                    "usage": {
-                      "type": "object",
-                      "properties": {
-                        "attempts_total": {
-                          "type": "integer"
-                        },
-                        "attempts_unknown": {
-                          "type": "integer"
-                        },
-                        "attempts_provider_reported": {
-                          "type": "integer"
-                        },
-                        "prompt_tokens": {
-                          "type": "integer"
-                        },
-                        "completion_tokens": {
-                          "type": "integer"
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "currency"
+                        ],
+                        "properties": {
+                          "currency": {
+                            "type": "string"
+                          }
                         }
                       }
                     }
@@ -16345,10 +16146,20 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Installation caller omitted organization_id."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "404": {
+            "description": "Organization missing or outside authorized scope."
           }
         },
+        "x-niu-implementation": "implemented",
         "tags": [
-          "Request logs and usage"
+          "Customer balances"
         ],
         "x-niu-authority": {
           "audience": "customer-management",
@@ -16361,115 +16172,11 @@
         }
       }
     },
-    "/api/v1/workspaces/by-route/{route_slug}": {
-      "get": {
-        "operationId": "resolveWorkspaceRoute",
-        "summary": "Resolve an authorized canonical workspace route",
-        "description": "Exact persisted route lookup independent of workspace list limits. Renames preserve the route. Historical name aliases are not supported. Foreign, missing and malformed references return the same 404.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "x-niu-implementation": "implemented",
-        "parameters": [
-          {
-            "name": "route_slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 81
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Authorized workspace identity.",
-            "headers": {
-              "Cache-Control": {
-                "schema": {
-                  "type": "string",
-                  "const": "no-store"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "organization_id",
-                    "name",
-                    "route_slug",
-                    "slug",
-                    "slug_aliases"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "organization_id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "route_slug": {
-                      "type": "string",
-                      "maxLength": 81,
-                      "description": "Deprecated compatibility alias for slug.",
-                      "deprecated": true
-                    },
-                    "slug": {
-                      "type": "string",
-                      "maxLength": 81,
-                      "description": "Stable, readable workspace slug. Use in dashboard URLs; renaming preserves it."
-                    },
-                    "slug_aliases": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      },
-                      "description": "Previously issued slugs accepted for existing bookmarks."
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Invalid or inference-only credential."
-          },
-          "403": {
-            "description": "Credential lacks read permission."
-          },
-          "404": {
-            "description": "No authorized workspace matches the reference."
-          }
-        },
-        "tags": [
-          "Companies and workspaces"
-        ],
-        "x-niu-authority": {
-          "audience": "customer-management",
-          "principals": [
-            "operator_session",
-            "installation_admin"
-          ],
-          "required_capability": "read",
-          "scope": "workspace"
-        }
-      }
-    },
-    "/api/v1/organizations/by-route/{route_slug}": {
+    "/api/v1/organizations/{organization}": {
       "get": {
         "operationId": "resolveOrganizationRoute",
-        "summary": "Resolve an authorized canonical organization route",
-        "description": "Exact persisted organization slug or alias lookup independent of directory page limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.",
+        "summary": "Get an authorized organization by UUID or canonical slug",
+        "description": "Exact persisted organization UUID, slug, or alias lookup independent of directory page limits. Renames preserve the slug. Foreign, missing and malformed references return the same 404.",
         "security": [
           {
             "bearerAuth": []
@@ -16478,7 +16185,7 @@
         "x-niu-implementation": "implemented",
         "parameters": [
           {
-            "name": "route_slug",
+            "name": "organization",
             "in": "path",
             "required": true,
             "schema": {
@@ -16528,9 +16235,7 @@
           "required_capability": "read",
           "scope": "organization"
         }
-      }
-    },
-    "/api/v1/organizations/{organization}": {
+      },
       "patch": {
         "operationId": "renameOrganization",
         "summary": "Rename an organization",
@@ -16613,7 +16318,7 @@
       "get": {
         "operationId": "listWorkspaces",
         "summary": "List an authorized page of workspaces",
-        "description": "Requires installation or member read authorization. Member company/workspace scope is enforced server-side. Stable company/workspace creation order; renaming does not move entries. Follow next_cursor as after with unchanged credentials until null. Pages reflect live state, not a snapshot; restart traversal if a cursor workspace is deleted. UUIDs are routing identifiers, not display labels.",
+        "description": "Requires installation or member read authorization. Member company/workspace scope is enforced server-side. Optional organization_id filters by organization within authorized scope (foreign organizations return 404). Stable company/workspace creation order; renaming does not move entries. Follow next_cursor as after with unchanged credentials until null. Pages reflect live state, not a snapshot; restart traversal if a cursor workspace is deleted. UUIDs are routing identifiers, not display labels.",
         "security": [
           {
             "bearerAuth": []
@@ -16621,6 +16326,15 @@
         ],
         "x-niu-implementation": "implemented",
         "parameters": [
+          {
+            "name": "organization_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Optional organization identifier to filter workspaces within authorized scope."
+          },
           {
             "name": "after",
             "in": "query",
@@ -16817,6 +16531,20 @@
                     "type": "string",
                     "pattern": "^[A-Z]{3}$",
                     "default": "USD"
+                  },
+                  "account_kind": {
+                    "type": "string",
+                    "enum": [
+                      "personal",
+                      "organization"
+                    ],
+                    "default": "organization",
+                    "description": "Account kind. Personal accounts require platform administration."
+                  },
+                  "attach_creator": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "When false (platform administrators only), creates a standalone customer account without adding the caller as a member."
                   }
                 }
               }
@@ -16999,7 +16727,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/requests/export": {
+    "/api/v1/workspaces/{workspace}/requests/export": {
       "get": {
         "operationId": "exportWorkspaceRequests",
         "summary": "Export filtered customer-safe request metadata as CSV",
@@ -17045,16 +16773,7 @@
             }
           },
           {
-            "name": "organization",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "project",
+            "name": "workspace",
             "in": "path",
             "required": true,
             "schema": {
@@ -17173,7 +16892,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/asset-group-intents": {
+    "/api/v1/workspaces/{workspace}/asset-group-intents": {
       "get": {
         "operationId": "listAssetGroupRequests",
         "summary": "Discover saved asset group creation requests",
@@ -17320,7 +17039,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request": {
+    "/api/v1/workspaces/{workspace}/asset-group-intents/{intent}/request": {
       "get": {
         "operationId": "getAssetGroupRequest",
         "summary": "Read customer-safe asset request content and retention status",
@@ -22030,43 +21749,6 @@
           }
         }
       },
-      "ApiErrorResponse": {
-        "type": "object",
-        "required": [
-          "error"
-        ],
-        "description": "Gateway application error envelope. This does not describe framework body/path parsing failures or a proxy-generated response. Branch on error.type and HTTP status rather than matching message text.",
-        "properties": {
-          "error": {
-            "type": "object",
-            "required": [
-              "message",
-              "type",
-              "param",
-              "code"
-            ],
-            "properties": {
-              "message": {
-                "type": "string",
-                "description": "Safe human-readable explanation; not a stable programmatic identifier."
-              },
-              "type": {
-                "type": "string",
-                "description": "Machine-readable failure category; new categories may be added."
-              },
-              "param": {
-                "type": "null"
-              },
-              "code": {
-                "type": "integer",
-                "minimum": 400,
-                "maximum": 599,
-                "description": "HTTP status code, not a separate application error number."
-              }
-            }
-          }
-        }
-      },
       "WorkspaceKeyDetailPage": {
         "type": "object",
         "required": [
@@ -22349,6 +22031,43 @@
             ],
             "pattern": "^[0-9]+$",
             "description": "Decimal policy revision; null means no saved policy."
+          }
+        }
+      },
+      "ApiErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "description": "Gateway application error envelope. This does not describe framework body/path parsing failures or a proxy-generated response. Branch on error.type and HTTP status rather than matching message text.",
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "message",
+              "type",
+              "param",
+              "code"
+            ],
+            "properties": {
+              "message": {
+                "type": "string",
+                "description": "Safe human-readable explanation; not a stable programmatic identifier."
+              },
+              "type": {
+                "type": "string",
+                "description": "Machine-readable failure category; new categories may be added."
+              },
+              "param": {
+                "type": "null"
+              },
+              "code": {
+                "type": "integer",
+                "minimum": 400,
+                "maximum": 599,
+                "description": "HTTP status code, not a separate application error number."
+              }
+            }
           }
         }
       },

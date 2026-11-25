@@ -3,7 +3,7 @@ title: "Receive a signed Stripe checkout notification"
 description: "POST /payments/stripe/notify"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /payments/stripe/notify`
 

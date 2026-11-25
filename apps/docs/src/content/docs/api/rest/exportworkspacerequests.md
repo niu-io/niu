@@ -1,11 +1,11 @@
 ---
 title: "Export filtered customer-safe request metadata as CSV"
-description: "GET /api/v1/organizations/{organization}/projects/{project}/requests/export"
+description: "GET /api/v1/workspaces/{workspace}/requests/export"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/organizations/{organization}/projects/{project}/requests/export`
+`GET /api/v1/workspaces/{workspace}/requests/export`
 
 Requires workspace read access. Checks the row limit and reads the filtered range in one consistent database snapshot, newest first by default, with the requested sort applied to the whole range. Excludes internal identifiers, payloads, credentials and Provider costs. Unknown values remain empty, exact quantities remain decimal text, and formula-like text is neutralized. Pagination parameters are rejected; more than 10000 matched requests fails without a partial download.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/requests/export" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/requests/export" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
 ```
 
@@ -74,18 +74,7 @@ Location: **query**. Optional. Full-range order. Known latency/token values prec
 }
 ```
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

@@ -1,6 +1,6 @@
 {
   "name": "@niu-io/agent-connect",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "Workspace-scoped coding-agent connectors for Niu",
   "license": "MIT",
   "type": "module",
@@ -19,11 +19,12 @@
   "files": [
     "dist",
     "bin",
+    "LICENSE",
     "README.md",
     "src/auth"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node -e \"import('node:fs').then(({ rmSync }) => rmSync('dist', { recursive: true, force: true }))\" && tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm build && node --test test/*.test.mjs"
   },

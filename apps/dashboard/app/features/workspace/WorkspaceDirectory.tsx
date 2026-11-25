@@ -43,12 +43,18 @@ export default function WorkspaceDirectory({context}: {context: DashboardContext
       : context.workspaces.length === 0 ? <Empty><EmptyHeader><EmptyMedia variant="icon"><IconBuildings size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{t('No workspaces available.', '暂无可用工作空间。')}</EmptyTitle></EmptyHeader></Empty>
       : <Table aria-label={uiT("Workspaces")}>
         <TableHeader><TableRow><TableHead>{t('Name', '名称')}</TableHead><TableHead className="hidden sm:table-cell text-right">{t('Active keys', '有效密钥')}</TableHead><TableHead className="hidden sm:table-cell text-right">{t('Requests · 30 days', '近 30 天请求数')}</TableHead><TableHead className="hidden sm:table-cell">{t('Last request', '最近请求')}</TableHead><TableHead className="w-12 text-right"><span className="sr-only">{t('Actions', '操作')}</span></TableHead></TableRow></TableHeader>
-        <TableBody>{context.workspaces.map(workspace => {
+        <TableBody>{(() => {
+          const orgById = new Map(context.organizations.map(item => [item.id, item]));
+          const showOrganization =
+            context.organizations.length > 1 ||
+            new Set(context.workspaces.map(item => item.organization_id)).size > 1;
+          return context.workspaces.map(workspace => {
           const name = workspaceDisplayName(workspace.name);
           const path = `/workspaces/${workspacePathSegment(workspace, context.workspaces)}`;
+          const orgMeta = orgById.get(workspace.organization_id);
           return <TableRow key={workspace.id}>
             <TableCell className="whitespace-normal min-w-48"><Link to={path} className="font-medium hover:underline break-words">{name}</Link>{workspace.is_default && <Badge variant="secondary" className="ml-2">{t('Default', '默认')}</Badge>}
-              <p className="mt-1 text-xs text-muted-foreground">{organizationDisplayName(workspace.organization_name)}</p>
+              {showOrganization && <p className="mt-1 text-xs text-muted-foreground">{organizationDisplayName(workspace.organization_name, orgMeta?.account_kind)}</p>}
 
               {workspace.created_at_ms != null && <p className="mt-1 text-xs text-muted-foreground">{isZh ? `创建于 ${date(workspace.created_at_ms)}` : uiF("Created {0}", [date(workspace.created_at_ms)])}</p>}
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:hidden">
@@ -70,7 +76,7 @@ export default function WorkspaceDirectory({context}: {context: DashboardContext
               </DropdownMenuContent>
             </DropdownMenu></TableCell>
           </TableRow>;
-        })}</TableBody>
+        }); })()}</TableBody>
       </Table>}
     <WorkspaceCreateDialog context={context} open={creating} onOpenChange={setCreating}/>
   </>;

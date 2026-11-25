@@ -119,4 +119,4 @@ Submit evaluator judgments via `POST /v1/evaluations/{slug}/runs` (`record_evalu
 - **`compare_evaluation_runs`**: intersects verified sample references having matching `request_sha256` **only** when `task`, `protocol`, and `rubric` agree. Reports evaluator changes (`kind`/`name`/`version`) and shared underlying `operation_id` values (re-judging the same operation is not an independent model run).
 - `cost_per_accepted_sample` is computed only when customer charge coverage is complete across matched samples, at least one sample is accepted, and all matched charges share a single compatible dimension; otherwise it remains unavailable rather than emitting misleading numbers or declaring a universal winner.
 
-Related contracts: [Install](/docs/install.md) · [Capabilities](/docs/agents.md) · [Model inference](/docs/inference.md) · [Workspace routing](/docs/pools.md) · [Events](/docs/events.md) · [OpenAPI](/docs/openapi/public.json)
+Related contracts: [Install](/docs/install.md) · [Capabilities](/docs/agents.md) · [Model inference](/docs/inference.md) · [Workspace routing](/docs/routing.md) · [Events](/docs/events.md) · [OpenAPI](/docs/openapi/public.json)

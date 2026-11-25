@@ -3,7 +3,7 @@ title: "Request a Limited Preview account pending administrator approval"
 description: "POST /api/v1/auth/registrations"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/auth/registrations`
 

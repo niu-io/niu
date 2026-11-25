@@ -3,7 +3,7 @@ title: "Exchange an approved agent request for scoped access"
 description: "POST /api/v1/auth/agents/token"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/auth/agents/token`
 

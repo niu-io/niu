@@ -3,7 +3,7 @@ title: "Preview a signed-in recipient's invitation"
 description: "POST /api/v1/invitations/preview"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/invitations/preview`
 

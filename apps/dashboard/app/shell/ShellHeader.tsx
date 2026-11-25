@@ -1,5 +1,5 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import {
   IconLayoutSidebarLeftCollapse as PanelLeftClose,
@@ -159,19 +159,46 @@ export default function ShellHeader({
       trimmedPath === `/admin/suppliers/${encodeURIComponent(adminSupplierId)}`
     ),
   );
+  const isProviderTabSurface = Boolean(
+    isProviderOverview ||
+    (adminSupplierId && (
+      trimmedPath === `/admin/providers/${encodeURIComponent(adminSupplierId)}/usage` ||
+      trimmedPath === `/admin/providers/${encodeURIComponent(adminSupplierId)}/settlements` ||
+      trimmedPath === `/admin/suppliers/${encodeURIComponent(adminSupplierId)}/usage` ||
+      trimmedPath === `/admin/suppliers/${encodeURIComponent(adminSupplierId)}/settlements`
+    )),
+  );
   useEffect(() => {
     if (!adminSupplierId || !adminSupplierName) return;
     document.title = isProviderOverview
       ? `${adminSupplierName} · ${brandingName}`
       : `${title} · ${adminSupplierName} · ${brandingName}`;
   }, [adminSupplierId, adminSupplierName, brandingName, isProviderOverview, title]);
+  const headerRef = useRef<HTMLElement>(null);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const scroller = headerRef.current?.closest<HTMLElement>('.main-panel') ?? null;
+    const syncScroll = () => {
+      const panelTop = scroller ? scroller.scrollTop : 0;
+      setScrolled(panelTop > 8 || window.scrollY > 8);
+    };
+    syncScroll();
+    scroller?.addEventListener('scroll', syncScroll, { passive: true });
+    window.addEventListener('scroll', syncScroll, { passive: true });
+    return () => {
+      scroller?.removeEventListener('scroll', syncScroll);
+      window.removeEventListener('scroll', syncScroll);
+    };
+  }, [location.pathname]);
+
   const scopedWorkspaces = organization
     ? workspaces.filter(item => item.organization_id === organization.id)
     : workspaces;
   const headerWorkspaces = scopedWorkspaces.length ? scopedWorkspaces : workspaces;
 
   return (
-    <header className="dashboard-page-header">
+    <header ref={headerRef} className="dashboard-page-header" data-scrolled={scrolled ? 'true' : undefined}>
       {(hasSidebar || modelFiltersAvailable) && (
         <WorkspaceSidebarToggle
           buttonRef={toggleRef}
@@ -262,6 +289,42 @@ export default function ShellHeader({
                 <BreadcrumbSeparator>/</BreadcrumbSeparator>
               </>
             )}
+            {activePath.startsWith('routing/') && (
+              <>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <ProductRailLink to={`${activeWorkspacePath}/routing`}>
+                      {t('Routing', '模型路由')}
+                    </ProductRailLink>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator>/</BreadcrumbSeparator>
+              </>
+            )}
+            {activePath.startsWith('evaluations/') && (
+              <>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <ProductRailLink to={`${activeWorkspacePath}/evaluations`}>
+                      {t('Evaluations', '评估')}
+                    </ProductRailLink>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator>/</BreadcrumbSeparator>
+              </>
+            )}
+            {activePath.startsWith('events/') && (
+              <>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <ProductRailLink to={`${activeWorkspacePath}/events`}>
+                      {t('Events', '事件订阅')}
+                    </ProductRailLink>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator>/</BreadcrumbSeparator>
+              </>
+            )}
             <BreadcrumbItem className="min-w-0">
               <h1 key={location.pathname} className="dashboard-route-title">{title}</h1>
             </BreadcrumbItem>
@@ -276,7 +339,7 @@ export default function ShellHeader({
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator className="hidden sm:block" />
-            {isProviderOverview ? (
+            {isProviderTabSurface ? (
               <BreadcrumbItem className="min-w-0">
                 <h1 key={location.pathname} className="dashboard-route-title truncate" aria-current="page">
                   {adminSupplierName || t('Loading Provider…', '正在加载供应商…')}
@@ -302,6 +365,22 @@ export default function ShellHeader({
                 </BreadcrumbItem>
               </>
             )}
+          </BreadcrumbList>
+        </Breadcrumb>
+      ) : location.pathname.startsWith('/admin/customers/') ? (
+        <Breadcrumb aria-label={uiT("Breadcrumb")} className="breadcrumbs">
+          <BreadcrumbList className="flex-nowrap gap-1.5 sm:gap-2.5">
+            <BreadcrumbItem className="hidden sm:inline-flex">
+              <BreadcrumbLink asChild>
+                <ProductRailLink to="/admin/customers">{t('Customers', '客户管理')}</ProductRailLink>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator className="hidden sm:block" />
+            <BreadcrumbItem className="min-w-0">
+              <h1 key={location.pathname} className="dashboard-route-title truncate" aria-current="page">
+                {title}
+              </h1>
+            </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
       ) : (
@@ -346,6 +425,10 @@ export default function ShellHeader({
           </BreadcrumbList>
         </Breadcrumb>
       )}
+      <div
+        id="dashboard-page-tabs"
+        className="dashboard-page-tabs"
+      />
       <div
         id="dashboard-page-actions"
         className="dashboard-page-actions"

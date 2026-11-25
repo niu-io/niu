@@ -1,11 +1,11 @@
 ---
 title: "Publish a versioned Credits media consumption tariff"
-description: "POST /api/v1/platform/units/media/tariffs"
+description: "POST /api/v1/admin/units/media/tariffs"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`POST /api/v1/platform/units/media/tariffs`
+`POST /api/v1/admin/units/media/tariffs`
 
 Platform administration required and rechecked transactionally for operators. Publish atom-denominated media consumption rates independently of purchase conversion and monetary media rate cards. New publication requires the current unit definition and installation revision. Concurrent stale writes conflict. Equal idempotent retries return their original normalized publication; changed input conflicts. Explicit zero is valid; absence of a publication is unavailable. Publishing a tariff does not activate billing mode, issue Credits, convert money balances, admit requests or change prior request bindings.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/platform/units/media/tariffs" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/units/media/tariffs" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

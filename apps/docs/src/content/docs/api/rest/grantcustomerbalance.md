@@ -3,7 +3,7 @@ title: "Issue administrator noncash customer credit"
 description: "POST /api/v1/organizations/{organization}/billing/accounts/{currency}/grants"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/organizations/{organization}/billing/accounts/{currency}/grants`
 

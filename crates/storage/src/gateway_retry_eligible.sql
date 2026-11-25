@@ -13,7 +13,15 @@ SELECT EXISTS (
         AND a.dispatch_provider='openrouter'
         AND f.kind='upstream_http_error' AND f.upstream_http_status=401
         AND m.vendor_id<>$3
-        AND m.pool_alias IS NOT NULL AND m.pool_alias=$4
+        AND (
+            (m.pool_alias IS NOT NULL AND m.pool_alias=$4)
+            OR (
+                m.pool_alias IS NULL
+                AND $4::text IS NULL
+                AND m.model_alias=$5
+                AND niu_vendor_serves_model($3, m.model_alias)
+            )
+        )
         AND NOT EXISTS (
             SELECT 1 FROM gateway_retry_attempts successor
             WHERE successor.operation_id=a.operation_id AND successor.ordinal=2

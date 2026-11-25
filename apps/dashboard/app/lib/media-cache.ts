@@ -218,6 +218,7 @@ export async function fetchMediaBlob(
         return blob;
       } finally { if (inFlight.get(fullKey) === entry) inFlight.delete(fullKey); }
     })();
+    void entry.promise.catch(() => { /* Shared download rejections are observed by active callers; cache eviction or clear must not emit unhandled rejections. */ });
     inFlight.set(fullKey, entry); shared = entry;
   } else if (!callerSignal) shared.keepAlive = true;
   if (!callerSignal) return shared.promise;

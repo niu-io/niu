@@ -3,9 +3,9 @@ title: "ProviderProfileUpdate"
 description: "Generated TypeScript declaration for ProviderProfileUpdate"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
+[SDK source](https://github.com/niu-io/niu/blob/release/0.4/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
 export type ProviderProfileUpdate = {
@@ -13,6 +13,10 @@ export type ProviderProfileUpdate = {
     description?: string | null;
     website_url?: string | null;
     logo_url?: string | null;
+    model_access_mode?: ProviderModelAccessMode | null;
+    default_discount_bps?: number | null;
+    allowlisted_models?: string[] | null;
+    blocklisted_models?: string[] | null;
     expected_revision?: number | null;
 };
 ```

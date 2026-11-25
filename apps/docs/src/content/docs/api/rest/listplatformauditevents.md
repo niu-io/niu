@@ -1,11 +1,11 @@
 ---
 title: "List platform operation audit logs"
-description: "GET /api/v1/platform/audit-events"
+description: "GET /api/v1/admin/audit"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/platform/audit-events`
+`GET /api/v1/admin/audit`
 
 Platform administrators only. Aggregates saved operator, Provider configuration, Provider, branding, payment gateway and platform-access journals. Metadata only: no credentials, configuration values, request content or procurement prices. password_login_succeeded records verified password login; session_created records session issuance and does not prove login. Historical actor attribution may be unknown, and displayed names are current names. No historical completeness or failed-login coverage is asserted. Source-qualified keyset pagination orders newest first, using source and event ID for ties. Changing category requires restarting without a cursor. Successful responses are not cached. Includes immutable standard-price/promotion changes, text/media workspace enrollment, noncash grants and route media-liability qualification. Publishes and exact idempotent retries share the same saved event; no history is fabricated. Freeform reasons, quantities, schedules, balances and monetary values are not returned. New commercial sources remain platform-only; a cursor from another category is rejected.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/platform/audit-events" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/audit" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

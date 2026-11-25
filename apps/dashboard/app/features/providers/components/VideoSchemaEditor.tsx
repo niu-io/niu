@@ -1,10 +1,10 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { useState, type FormEvent } from 'react';
-import { IconChevronDown as ChevronDown } from '@tabler/icons-react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { IconArrowLeft, IconChevronDown as ChevronDown } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,11 +65,20 @@ function positiveInteger(value: string) {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
-export default function VideoSchemaEditor({ modelAlias, upstreamModel, schema, onClose, onApply }: {
+export default function VideoSchemaEditor({ modelAlias, upstreamModel, schema, onClose, onApply, inline = false }: {
   modelAlias: string; upstreamModel: string; schema?: VideoSchema;
   onClose: () => void; onApply: (schema: VideoSchema | undefined) => void;
+  inline?: boolean;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
+  const inlineRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!inline) return;
+    const frame = requestAnimationFrame(() => {
+      (inlineRef.current?.querySelector<HTMLElement>('input:not([disabled]), button:not([disabled])') ?? inlineRef.current)?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [inline]);
   const [advanced, setAdvanced] = useState(false);
   const [presetId, setPresetId] = useState<VideoPresetId | ''>('');
   const [tab, setTab] = useState('general');
@@ -272,9 +281,7 @@ export default function VideoSchemaEditor({ modelAlias, upstreamModel, schema, o
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Video configuration is invalid.'); }
   }
 
-  return <Dialog open onOpenChange={open => {if (!open) onClose();}}><DialogContent className="niu-modal vendor-dialog">
-    <DialogHeader><DialogTitle>{uiT("Video configuration")}</DialogTitle><DialogDescription>{modelAlias}{" "}{uiT("· Changes are saved with the model mapping. Configuration does not qualify a live route.")}</DialogDescription></DialogHeader>
-    <form onSubmit={apply} className="grid min-w-0 gap-4">
+  const form = <form onSubmit={apply} className="grid min-w-0 gap-4">
       {!advanced && <div className="grid gap-5">
         <section className="grid gap-3 rounded-xl bg-muted/55 p-3.5">
           <div className="grid gap-1">
@@ -415,7 +422,22 @@ export default function VideoSchemaEditor({ modelAlias, upstreamModel, schema, o
       </Collapsible>
       {advanced && <p className="text-xs text-muted-foreground">{uiT("Raw overrides replace the simple choices in this dialog. Switching back keeps the current draft.")}</p>}
       {error && <p role="alert" className="text-sm text-destructive">{uiT(error)}</p>}
-      <DialogFooter className="flex-wrap gap-2">{schema && <Button type="button" variant="ghost" onClick={() => onApply(undefined)}>{uiT("Remove configuration")}</Button>}<Button type="button" variant="outline" onClick={onClose}>{uiT("Cancel")}</Button><Button type="submit">{uiT("Apply configuration")}</Button></DialogFooter>
-    </form>
+      <div className="flex flex-wrap justify-end gap-2">{schema && <Button type="button" variant="ghost" onClick={() => onApply(undefined)}>{uiT("Remove configuration")}</Button>}<Button type="button" variant="outline" onClick={onClose}>{uiT("Cancel")}</Button><Button type="submit">{uiT("Apply configuration")}</Button></div>
+    </form>;
+
+  if (inline) {
+    return <section ref={inlineRef} tabIndex={-1} aria-labelledby="video-schema-editor-title" className="grid min-w-0 gap-4">
+      <Button type="button" variant="ghost" size="sm" className="justify-self-start" data-dialog-back onClick={onClose}><IconArrowLeft size={16} aria-hidden="true" />{uiT("Back to model", "返回模型配置")}</Button>
+      <header className="space-y-1">
+        <h3 id="video-schema-editor-title" className="text-base font-semibold">{uiT("Video configuration")}</h3>
+        <p className="text-sm text-muted-foreground">{modelAlias}{" "}{uiT("· Changes are saved with the model mapping. Configuration does not qualify a live route.")}</p>
+      </header>
+      {form}
+    </section>;
+  }
+
+  return <Dialog open onOpenChange={open => {if (!open) onClose();}}><DialogContent className="niu-modal vendor-dialog">
+    <DialogHeader><DialogTitle>{uiT("Video configuration")}</DialogTitle><DialogDescription>{modelAlias}{" "}{uiT("· Changes are saved with the model mapping. Configuration does not qualify a live route.")}</DialogDescription></DialogHeader>
+    {form}
   </DialogContent></Dialog>;
 }

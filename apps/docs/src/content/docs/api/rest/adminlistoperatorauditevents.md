@@ -1,11 +1,11 @@
 ---
 title: "Read immutable operator and session lifecycle events"
-description: "GET /api/v1/operators/{operator}/events"
+description: "GET /api/v1/members/{operator}/events"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/operators/{operator}/events`
+`GET /api/v1/members/{operator}/events`
 
 Requires a scoped owner for the target operator or an installation bootstrap credential. Cursor UUIDs are accepted only when they belong to the requested target operator. Events include actor class/identity and target tenant metadata, never session tokens, token hashes or request bodies.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/operators/{operator}/events" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/members/{operator}/events" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
 ```
 

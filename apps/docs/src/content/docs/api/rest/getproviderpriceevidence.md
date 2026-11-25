@@ -1,11 +1,11 @@
 ---
 title: "Read an immutable Provider quote version"
-description: "GET /api/v1/providers/{provider}/pricing/{revision}"
+description: "GET /api/v1/admin/providers/{provider}/pricing/{revision}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/providers/{provider}/pricing/{revision}`
+`GET /api/v1/admin/providers/{provider}/pricing/{revision}`
 
 Platform administration required. Returns original source evidence without fetching or repricing. A version from another Provider is unavailable. Historical versions remain readable after a later adapter change.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/providers/{provider}/pricing/{revision}" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/providers/{provider}/pricing/{revision}" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

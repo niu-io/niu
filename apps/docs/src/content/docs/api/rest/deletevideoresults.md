@@ -3,7 +3,7 @@ title: "Permanently remove locally saved result references"
 description: "DELETE /v1/video/jobs/{id}/results"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `DELETE /v1/video/jobs/{id}/results`
 

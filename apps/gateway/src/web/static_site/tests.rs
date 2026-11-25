@@ -24,7 +24,7 @@ impl Fixture {
                 "website/workspaces/default/index.html",
                 "must not shadow dashboard",
             ),
-            ("website/admin/v1/missing", "must not shadow APIs"),
+            ("website/api/v1/missing", "must not shadow APIs"),
             ("website/site-assets/brand.png", "marketing image"),
             ("website/_astro/style.css", "marketing CSS"),
             ("website/robots.txt", "marketing robots"),
@@ -100,8 +100,8 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
         ("/docs/llms.txt", "llms index"),
         ("/login", "workspace shell"),
         ("/login/", "workspace shell"),
-        ("/installation", "workspace shell"),
-        ("/installation/", "workspace shell"),
+        ("/setup", "workspace shell"),
+        ("/setup/", "workspace shell"),
         ("/admin", "workspace shell"),
         ("/admin/", "workspace shell"),
         ("/admin/reports", "workspace shell"),
@@ -191,7 +191,7 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
         assert_eq!(body(&app, path, StatusCode::OK).await, expected);
     }
     for path in [
-        "/admin/v1/missing",
+        "/api/v1/missing",
         "/v1/missing",
         "/enterprise/api/v1/missing",
         "/missing",
@@ -285,8 +285,8 @@ async fn dashboard_entry_documents_require_revalidation() {
         "/activity/logs/",
         "/login",
         "/login/",
-        "/installation",
-        "/installation/",
+        "/setup",
+        "/setup/",
         "/admin",
         "/admin/",
         "/admin/reports",
@@ -486,4 +486,24 @@ async fn zh_root_prefers_website_zh_artifact_when_present() {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn admin_detail_and_registrations_routes_survive_direct_reload() {
+    let fixture = Fixture::new();
+    for with_site in [false, true] {
+        let app = fixture.router(with_site);
+        for path in [
+            "/admin/customers/ea0806ce-cc1d-46ec-b3f3-32d25c5ccf1e",
+            "/admin/customers/personal-workspace",
+            "/admin/registrations",
+            "/admin/settings/registration",
+        ] {
+            assert_eq!(
+                body(&app, path, StatusCode::OK).await,
+                "workspace shell",
+                "{path} with_site={with_site}"
+            );
+        }
+    }
 }

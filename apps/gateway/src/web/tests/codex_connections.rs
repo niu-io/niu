@@ -217,10 +217,7 @@ async fn private_codex_dispatch_is_scoped_encrypted_and_buffers_terminal_usage(p
     )
     .await;
     assert_eq!(status, StatusCode::NOT_IMPLEMENTED);
-    let path = format!(
-        "/admin/v1/organizations/{org}/projects/{}/codex-connections",
-        scope.project_id
-    );
+    let path = format!("/api/v1/workspaces/{}/codex-connections", scope.project_id);
     let (status, view) = call(&app, &key.token, "GET", &path, Value::Null).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     assert!(view["data"].is_null());

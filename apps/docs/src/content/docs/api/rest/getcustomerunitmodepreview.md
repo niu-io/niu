@@ -1,11 +1,11 @@
 ---
 title: "Preview installation billing-mode incompatibilities"
-description: "GET /api/v1/platform/units/mode"
+description: "GET /api/v1/admin/units/mode"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/platform/units/mode`
+`GET /api/v1/admin/units/mode`
 
 Platform administration required. One current database statement reports incompatible customer balances, credit facilities, pending checkouts, unposted charges, unresolved customer requests and reservations, unapplied monetary grant intents and remaining unexpired Credits. Enabling Credits additionally requires a unit definition and matching platform-currency purchase rule. Each category includes complete counts and at most 100 affected company accounts, with explicit truncation. Original tariffs and monetary limits are retained and summarized, never converted. Existing monetary limits still require explicit compatible Credits configuration before those workspaces or keys can spend Credits. This is advisory only: blockers_empty does not activate billing mode, prove route readiness or authorize a later switch. Any mode publication must revalidate current state atomically. Reads never modify accounts or history. Same-mode previews still report current incompatibilities. No procurement amounts or credentials are included. Internal account identifiers are routing references, not display labels.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/platform/units/mode" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/units/mode" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   --url-query 'target=<TARGET>'
 ```

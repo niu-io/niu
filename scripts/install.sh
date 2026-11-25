@@ -3,11 +3,12 @@
 # Supports: install, upgrade, rollback, status
 set -euo pipefail
 
-DEFAULT_VERSION="v0.3.1"
+DEFAULT_VERSION="v0.4.0"
 DEFAULT_DIR="${NIU_INSTALL_DIR:-/opt/niu}"
 DEFAULT_PORT="${NIU_HOST_PORT:-2555}"
 IMAGE_REPO="ghcr.io/niu-io/niu"
-GITHUB_REPO_RAW="https://raw.githubusercontent.com/niu-io/niu"
+GITHUB_REPO_RAW="${NIU_GITHUB_RAW_URL:-https://raw.githubusercontent.com/niu-io/niu}"
+GITHUB_RELEASES_URL="${NIU_RELEASES_URL:-https://github.com/niu-io/niu/releases/download}"
 
 usage() {
   cat <<EOF
@@ -22,7 +23,7 @@ Commands:
 
 Options:
   --version <vX.Y.Z>   Target Niu release tag (default: ${DEFAULT_VERSION})
-  --dir <path>         Installation directory (default: /opt/niu, or current directory if compose.yaml exists)
+  --dir <path>         Installation directory (default: /opt/niu, or current directory if compose.yaml with .env or VERSION exists)
   --port <port>        Host port to bind (default: 2555)
   --keep-data          rollback only: do not restore NIU_PREVIOUS_BACKUP
   --help               Show this help message
@@ -36,14 +37,29 @@ require_cmd() {
   fi
 }
 
+require_docker_compose() {
+  docker compose version >/dev/null 2>&1 || {
+    echo "error: 'docker compose' plugin is required." >&2
+    exit 1
+  }
+}
+
 random_secret() {
   local bytes="${1:-32}"
   if command -v openssl >/dev/null 2>&1; then
-    openssl rand -base64 "$bytes" | tr -d '\n/+=' | cut -c1-"$bytes"
+    local raw_bytes=$(( bytes * 2 ))
+    local secret
+    secret="$(openssl rand -base64 "$raw_bytes" | tr -d '\n/+=')"
+    printf '%s' "${secret:0:$bytes}"
   elif command -v python3 >/dev/null 2>&1; then
-    python3 -c "import secrets; print(secrets.token_urlsafe($bytes)[:$bytes])"
+    python3 -c "import secrets, sys; n = int(sys.argv[1]); print(secrets.token_urlsafe(n)[:n], end='')" "$bytes"
   else
-    LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "$bytes"
+    local secret="" chunk
+    while (( ${#secret} < bytes )); do
+      chunk="$(dd if=/dev/urandom bs=256 count=1 2>/dev/null | LC_ALL=C tr -dc 'A-Za-z0-9')"
+      secret+="$chunk"
+    done
+    printf '%s' "${secret:0:$bytes}"
   fi
 }
 
@@ -63,11 +79,88 @@ resolve_install_dir() {
   local requested="$1"
   if [[ -n "$requested" ]]; then
     printf '%s' "$requested"
-  elif [[ -f "./compose.yaml" && -f "./VERSION" ]]; then
-    pwd
+  elif [[ -f "./compose.yaml" && ( -f "./.env" || -f "./VERSION" ) ]]; then
+    printf '%s' "$(pwd)"
   else
     printf '%s' "$DEFAULT_DIR"
   fi
+}
+
+canonicalize_file_path() {
+  local path="$1"
+  if [[ "$path" == /* ]]; then
+    printf '%s' "$path"
+  else
+    printf '%s/%s' "$(cd "$(dirname "$path")" && pwd)" "$(basename "$path")"
+  fi
+}
+
+sha256_file() {
+  local file="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{print tolower($1)}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$file" | awk '{print tolower($1)}'
+  elif command -v openssl >/dev/null 2>&1; then
+    openssl dgst -sha256 "$file" | awk '{print tolower($NF)}'
+  else
+    echo "error: required SHA-256 tool ('sha256sum', 'shasum', or 'openssl') is not installed." >&2
+    return 1
+  fi
+}
+
+lookup_sha256() {
+  local sums_file="$1"
+  local asset_name="$2"
+  local expected
+  if ! expected="$(awk -v target="$asset_name" '
+    NF >= 2 {
+      hash = tolower($1)
+      name = $2
+      sub(/^\*/, "", name)
+      if (name == target) {
+        print hash
+        found = 1
+        exit 0
+      }
+    }
+    END { if (!found) exit 1 }
+  ' "$sums_file")"; then
+    echo "error: SHA256SUMS does not contain an entry for '${asset_name}'." >&2
+    return 1
+  fi
+  if [[ ! "$expected" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "error: invalid SHA-256 checksum for '${asset_name}' in SHA256SUMS." >&2
+    return 1
+  fi
+  printf '%s' "$expected"
+}
+
+download_atomic() {
+  local url="$1"
+  local dest="$2"
+  local expected_sha="${3:-}"
+  local dest_dir tmp actual_sha
+  dest_dir="$(dirname "$dest")"
+  tmp="$(mktemp "${dest_dir}/.$(basename "$dest").tmp.XXXXXXXX")"
+  if ! curl --fail --silent --show-error --location "$url" -o "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if [[ -n "$expected_sha" ]]; then
+    if ! actual_sha="$(sha256_file "$tmp")"; then
+      rm -f "$tmp"
+      return 1
+    fi
+    if [[ "$actual_sha" != "$expected_sha" ]]; then
+      echo "error: SHA-256 mismatch for $(basename "$dest") (expected ${expected_sha}, got ${actual_sha})." >&2
+      rm -f "$tmp"
+      return 1
+    fi
+  fi
+  # The non-root gateway reads public template files through bind mounts.
+  chmod 644 "$tmp"
+  mv "$tmp" "$dest"
 }
 
 set_env_var() {
@@ -118,16 +211,61 @@ ensure_files() {
   local tag="$2"
   mkdir -p "${dir}/config" "${dir}/backups"
 
-  if [[ ! -f "${dir}/compose.yaml" ]]; then
-    curl --fail --silent --show-error --location \
-      "${GITHUB_REPO_RAW}/${tag}/compose.yaml" -o "${dir}/compose.yaml"
+  local need_compose=0
+  local need_config=0
+  [[ ! -f "${dir}/compose.yaml" ]] && need_compose=1
+  [[ ! -f "${dir}/config/niu.example.toml" ]] && need_config=1
+
+  if (( need_compose == 0 && need_config == 0 )); then
+    return 0
   fi
 
-  if [[ ! -f "${dir}/config/niu.example.toml" ]]; then
-    curl --fail --silent --show-error --location \
-      "${GITHUB_REPO_RAW}/${tag}/config/niu.example.toml" -o "${dir}/config/niu.example.toml"
-    # The non-root gateway reads this public template through a bind mount.
-    chmod 644 "${dir}/config/niu.example.toml"
+  local sums_file status expected_sha
+  sums_file="$(mktemp)"
+  if ! status="$(curl --silent --show-error --location --output "$sums_file" --write-out '%{http_code}' \
+    "${GITHUB_RELEASES_URL}/${tag}/SHA256SUMS")"; then
+    rm -f "$sums_file"
+    return 1
+  fi
+
+  if [[ "$status" == 200 ]]; then
+    if (( need_compose == 1 )); then
+      if ! expected_sha="$(lookup_sha256 "$sums_file" "compose.yaml")"; then
+        rm -f "$sums_file"
+        return 1
+      fi
+      if ! download_atomic "${GITHUB_RELEASES_URL}/${tag}/compose.yaml" "${dir}/compose.yaml" "$expected_sha"; then
+        rm -f "$sums_file"
+        return 1
+      fi
+    fi
+    if (( need_config == 1 )); then
+      if ! expected_sha="$(lookup_sha256 "$sums_file" "niu.example.toml")"; then
+        rm -f "$sums_file"
+        return 1
+      fi
+      if ! download_atomic "${GITHUB_RELEASES_URL}/${tag}/niu.example.toml" "${dir}/config/niu.example.toml" "$expected_sha"; then
+        rm -f "$sums_file"
+        return 1
+      fi
+    fi
+    rm -f "$sums_file"
+  elif [[ "$status" == 404 ]]; then
+    rm -f "$sums_file"
+    if [[ ! "$tag" =~ ^v0\.([012]\.[0-9]+|3\.0)(-[0-9A-Za-z.-]+)?$ ]]; then
+      echo "error: release ${tag} requires a published SHA256SUMS manifest." >&2
+      return 1
+    fi
+    if (( need_compose == 1 )); then
+      download_atomic "${GITHUB_REPO_RAW}/${tag}/compose.yaml" "${dir}/compose.yaml"
+    fi
+    if (( need_config == 1 )); then
+      download_atomic "${GITHUB_REPO_RAW}/${tag}/config/niu.example.toml" "${dir}/config/niu.example.toml"
+    fi
+  else
+    rm -f "$sums_file"
+    echo "error: cannot read release SHA256SUMS manifest (HTTP ${status})." >&2
+    return 1
   fi
 }
 
@@ -157,7 +295,7 @@ release_image() {
   local manifest status image
   manifest="$(mktemp)"
   if ! status="$(curl --silent --show-error --location --output "$manifest" --write-out '%{http_code}' \
-    "https://github.com/niu-io/niu/releases/download/${tag}/IMAGE_DIGEST")"; then
+    "${GITHUB_RELEASES_URL}/${tag}/IMAGE_DIGEST")"; then
     rm -f "$manifest"
     return 1
   fi
@@ -191,16 +329,14 @@ cmd_install() {
   local port="$3"
 
   require_cmd docker
+  require_docker_compose
   require_cmd curl
-  docker compose version >/dev/null 2>&1 || {
-    echo "error: 'docker compose' plugin is required." >&2
-    exit 1
-  }
 
   local target_image
   target_image="$(release_image "$tag")"
 
   ensure_files "$dir" "$tag"
+  dir="$(cd "$dir" && pwd)"
   local env_file="${dir}/.env"
   touch "$env_file"
   chmod 600 "$env_file"
@@ -237,7 +373,7 @@ cmd_install() {
   echo ""
   echo "Niu ${tag} is running at http://127.0.0.1:${port}"
   echo "  Dashboard:      http://127.0.0.1:${port}/workspaces/default/"
-  echo "  Setup Console:  http://127.0.0.1:${port}/installation"
+  echo "  Setup Console:  http://127.0.0.1:${port}/setup"
   echo "  Model Catalog:  http://127.0.0.1:${port}/models/"
   echo "  Documentation:  http://127.0.0.1:${port}/docs/"
 }
@@ -264,10 +400,14 @@ restore_database() {
   local dir="$1"
   local env_file="$2"
   local backup="$3"
+  require_cmd gzip
   if [[ ! -s "$backup" ]]; then
     echo "error: pre-upgrade database backup is missing or empty: ${backup}" >&2
     return 1
   fi
+  backup="$(canonicalize_file_path "$backup")"
+  env_file="$(canonicalize_file_path "$env_file")"
+  dir="$(cd "$dir" && pwd)"
   echo "Restoring PostgreSQL from ${backup}." >&2
   echo "WARNING: records written after this backup will be lost." >&2
   (cd "$dir" && docker compose --env-file "$env_file" stop niu >/dev/null 2>&1 || true)
@@ -295,7 +435,9 @@ cmd_upgrade() {
   local target_tag="$2"
 
   require_cmd docker
+  require_docker_compose
   require_cmd curl
+  require_cmd gzip
   local env_file="${dir}/.env"
   if [[ ! -f "$env_file" || ! -f "${dir}/compose.yaml" ]]; then
     echo "error: no existing Niu installation found in ${dir} (missing .env or compose.yaml)." >&2
@@ -394,11 +536,21 @@ cmd_upgrade() {
 cmd_rollback() {
   local dir="$1"
   local keep_data="${2:-0}"
-  local env_file="${dir}/.env"
-  if [[ ! -f "$env_file" ]]; then
-    echo "error: no .env found in ${dir}" >&2
+
+  require_cmd docker
+  require_docker_compose
+  require_cmd curl
+  if [[ "$keep_data" != "1" ]]; then
+    require_cmd gzip
+  fi
+
+  if [[ ! -d "$dir" || ! -f "${dir}/.env" || ! -f "${dir}/compose.yaml" ]]; then
+    echo "error: no existing Niu installation found in ${dir} (missing .env or compose.yaml)." >&2
     exit 1
   fi
+  dir="$(cd "$dir" && pwd)"
+  local env_file="${dir}/.env"
+
   local prev_image
   prev_image="$(get_env_var "$env_file" NIU_PREVIOUS_IMAGE)"
   if [[ -z "$prev_image" ]]; then
@@ -449,6 +601,10 @@ cmd_rollback() {
 
 cmd_status() {
   local dir="$1"
+  require_cmd curl
+  if [[ -d "$dir" ]]; then
+    dir="$(cd "$dir" && pwd)"
+  fi
   local env_file="${dir}/.env"
   local version="unknown"
   local image="unknown"
@@ -464,11 +620,23 @@ cmd_status() {
   echo "Version:   ${version:-unknown}"
   echo "Image:     ${image:-unknown}"
   if [[ -f "${dir}/compose.yaml" ]]; then
+    require_cmd docker
+    require_docker_compose
     (cd "$dir" && docker compose ps)
   fi
   echo -n "Readiness: "
   curl --silent --max-time 3 "http://127.0.0.1:${port}/readyz" || echo "unreachable"
   echo ""
+}
+
+require_option_value() {
+  local opt="$1"
+  local remaining="$2"
+  if (( remaining < 2 )); then
+    echo "error: option '${opt}' requires a value." >&2
+    usage >&2
+    exit 1
+  fi
 }
 
 main() {
@@ -488,14 +656,31 @@ main() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --version)
+        require_option_value "$1" "$#"
+        if [[ -z "$2" ]]; then
+          echo "error: option '$1' requires a value." >&2
+          usage >&2
+          exit 1
+        fi
         version="$(normalize_tag "$2")"
         shift 2
         ;;
       --dir)
+        require_option_value "$1" "$#"
+        if [[ -z "$2" ]]; then
+          echo "error: option '$1' requires a non-empty path." >&2
+          usage >&2
+          exit 1
+        fi
         requested_dir="$2"
         shift 2
         ;;
       --port)
+        require_option_value "$1" "$#"
+        if [[ ! "$2" =~ ^[0-9]+$ ]] || (( 10#$2 < 1 || 10#$2 > 65535 )); then
+          echo "error: --port must be an integer between 1 and 65535 (got '$2')." >&2
+          exit 1
+        fi
         port="$2"
         shift 2
         ;;
@@ -543,4 +728,6 @@ main() {
   esac
 }
 
-main "$@"
+if [[ "${NIU_INSTALL_SH_SOURCE_ONLY:-0}" != "1" ]]; then
+  main "$@"
+fi

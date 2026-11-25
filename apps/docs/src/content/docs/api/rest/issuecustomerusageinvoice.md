@@ -1,11 +1,11 @@
 ---
 title: "Issue an immutable itemized usage statement"
-description: "POST /api/v1/organizations/{organization}/projects/{project}/billing/invoices"
+description: "POST /api/v1/workspaces/{workspace}/billing/invoices"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`POST /api/v1/organizations/{organization}/projects/{project}/billing/invoices`
+`POST /api/v1/workspaces/{workspace}/billing/invoices`
 
 Installation only. Half-open UTC dispatch interval [from_ms, to_ms), maximum 366 days, one currency. Includes text and media charges. Rejects unresolved priced usage, unsettled media balance debits, overlapping periods and empty periods. Exact idempotent retries return the same invoice. Does not collect money or calculate tax. Cache-Control is no-store.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/billing/invoices" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/workspaces/{workspace}/billing/invoices" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
@@ -36,18 +36,7 @@ curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/p
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

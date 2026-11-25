@@ -21,7 +21,8 @@ if (agent === 'list' || agent === '--help' || agent === '-h' || !agent) {
     'Route mode uses the selected workspace key and the provider account configured in Niu.',
     'It pins the Niu URL, key, and alias, and ignores Aider provider settings from repository config and .env files.',
     'Aider chat and input history stay in private per-user state outside the workspace.',
-    'Collection mode keeps Claude Code auth and request routing unchanged; it forwards metadata-only OTLP logs.',
+    'Collection mode is a legacy pre-0.3 prototype targeting /admin/v1/.../executions (removed in Niu 0.3, where it returns HTTP 404).',
+    'For Niu 0.3 coding-agent integrations, use niu-login with @niu-io/mcp or the native agent plugin archives (https://niu.io/docs/install.md).',
     'Prompt and tool content are disabled for the wrapped process. Neither mode records accepted task outcomes.',
     '',
   ].join('\n'));
@@ -210,6 +211,7 @@ async function runClaudeCollection(rawArgs) {
     },
   });
   const local = await receiver.listen();
+  process.stderr.write(`Warning: claude collect targets the legacy pre-0.3 /executions API, which is removed in Niu 0.3 (HTTP 404). For Niu 0.3, use niu-login and @niu-io/mcp instead.\n`);
   process.stderr.write(`Claude Code ${version}: collecting metadata for this process. Provider sign-in and routing are unchanged; prompt and tool content are off.\n`);
   const childEnvironment = claudeTelemetryEnvironment(process.env, local);
   const child = spawn(command, agentArgs, { env: childEnvironment, stdio: 'inherit' });

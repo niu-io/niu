@@ -34,7 +34,8 @@ export function requestSuffix(request: Request): string {
 export function LegacyProviderPortalRedirect() {
   const { provider, supplier, section } = useParams();
   const location = useLocation();
-  const suffix = section ? `/${providerSectionPath(section)}` : '';
+  const mapped = section ? providerSectionPath(section) : '';
+  const suffix = mapped ? `/${mapped}` : '';
   return (
     <Navigate
       replace
@@ -46,7 +47,8 @@ export function LegacyProviderPortalRedirect() {
 export function legacyProviderPortalLoader({ request, params, context }: LoaderFunctionArgs) {
   if (shouldDeferLegacyRedirect(request, context)) return null;
   const target = params.provider ?? params.supplier ?? '';
-  const suffix = params.section ? `/${providerSectionPath(params.section)}` : '';
+  const mapped = params.section ? providerSectionPath(params.section) : '';
+  const suffix = mapped ? `/${mapped}` : '';
   return redirect(`/admin/providers/${encodeURIComponent(target)}${suffix}${requestSuffix(request)}`);
 }
 
@@ -98,9 +100,10 @@ export function legacyProviderOverviewLoader({ request, context }: LoaderFunctio
 export function LegacyProviderSectionRedirect() {
   const { section } = useParams();
   const location = useLocation();
+  const mapped = providerSectionPath(section ?? '');
   return (
     <Navigate
-      to={`/admin/providers/${providerSectionPath(section ?? '')}${location.search}${location.hash}`}
+      to={`/admin/providers${mapped ? `/${mapped}` : ''}${location.search}${location.hash}`}
       replace
     />
   );
@@ -108,7 +111,8 @@ export function LegacyProviderSectionRedirect() {
 
 export function legacyProviderSectionLoader({ request, params, context }: LoaderFunctionArgs) {
   if (shouldDeferLegacyRedirect(request, context)) return null;
-  return redirect(`/admin/providers/${providerSectionPath(params.section ?? '')}${requestSuffix(request)}`);
+  const mapped = providerSectionPath(params.section ?? '');
+  return redirect(`/admin/providers${mapped ? `/${mapped}` : ''}${requestSuffix(request)}`);
 }
 
 export function LegacyAdminProviderSectionRedirect({ section }: { section: string }) {
@@ -117,11 +121,12 @@ export function LegacyAdminProviderSectionRedirect({ section }: { section: strin
   const provider = search.get('provider') ?? search.get('supplier');
   search.delete('provider');
   search.delete('supplier');
+  const mapped = providerSectionPath(section);
   return (
     <Navigate
       to={`${
         provider
-          ? `/admin/providers/${encodeURIComponent(provider)}/${providerSectionPath(section)}`
+          ? `/admin/providers/${encodeURIComponent(provider)}${mapped ? `/${mapped}` : ''}`
           : '/admin/providers'
       }${search.size ? '?' + search.toString() : ''}${location.hash}`}
       replace
@@ -137,10 +142,11 @@ export function legacyAdminProviderSectionLoader(section: string) {
     const provider = search.get('provider') ?? search.get('supplier');
     search.delete('provider');
     search.delete('supplier');
+    const mapped = providerSectionPath(section);
     return redirect(
       `${
         provider
-          ? `/admin/providers/${encodeURIComponent(provider)}/${providerSectionPath(section)}`
+          ? `/admin/providers/${encodeURIComponent(provider)}${mapped ? `/${mapped}` : ''}`
           : '/admin/providers'
       }${search.size ? '?' + search.toString() : ''}${url.hash || getActiveNavigationHash()}`,
     );
@@ -150,7 +156,8 @@ export function legacyAdminProviderSectionLoader(section: string) {
 export function LegacyAdminSupplierDetailRedirect() {
   const { supplierId, section } = useParams();
   const location = useLocation();
-  const suffix = section ? `/${providerSectionPath(section)}` : '';
+  const mapped = section ? providerSectionPath(section) : '';
+  const suffix = mapped ? `/${mapped}` : '';
   return (
     <Navigate
       to={`/admin/providers/${encodeURIComponent(supplierId ?? '')}${suffix}${location.search}${location.hash}`}
@@ -161,14 +168,16 @@ export function LegacyAdminSupplierDetailRedirect() {
 
 export function legacyAdminSupplierDetailLoader({ request, params, context }: LoaderFunctionArgs) {
   if (shouldDeferLegacyRedirect(request, context)) return null;
-  const suffix = params.section ? `/${providerSectionPath(params.section)}` : '';
+  const mapped = params.section ? providerSectionPath(params.section) : '';
+  const suffix = mapped ? `/${mapped}` : '';
   return redirect(`/admin/providers/${encodeURIComponent(params.supplierId ?? '')}${suffix}${requestSuffix(request)}`);
 }
 
 export function LegacyProviderAccountRedirect() {
   const { provider, section } = useParams();
   const location = useLocation();
-  const suffix = section ? `/${providerSectionPath(section)}` : '';
+  const mapped = section ? providerSectionPath(section) : '';
+  const suffix = mapped ? `/${mapped}` : '';
   return (
     <Navigate
       to={`/providers/${encodeURIComponent(provider ?? '')}${suffix}${location.search}${location.hash}`}
@@ -179,7 +188,8 @@ export function LegacyProviderAccountRedirect() {
 
 export function legacyProviderAccountLoader({ request, params, context }: LoaderFunctionArgs) {
   if (shouldDeferLegacyRedirect(request, context)) return null;
-  const suffix = params.section ? `/${providerSectionPath(params.section)}` : '';
+  const mapped = params.section ? providerSectionPath(params.section) : '';
+  const suffix = mapped ? `/${mapped}` : '';
   return redirect(`/providers/${encodeURIComponent(params.provider ?? '')}${suffix}${requestSuffix(request)}`);
 }
 

@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { expect, it, vi } from 'vitest';
 import PlatformSettingsRoute from '@/features/platform-settings/page';
 import { PlatformUnitsSetting } from '@/features/platform-settings/platform-units';
@@ -31,8 +32,8 @@ it('shows a clean purchase rate and one billing-mode switch without atom or scal
   };
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
     const path = String(input);
-    if (path === '/api/v1/platform/units') return Response.json({ data: configuration });
-    if (path.startsWith('/api/v1/platform/units/mode')) return Response.json({ data: mode });
+    if (path === '/api/v1/admin/units') return Response.json({ data: configuration });
+    if (path.startsWith('/api/v1/admin/units/mode')) return Response.json({ data: mode });
     return Response.json({ error: { message: `Unexpected ${path}` } }, { status: 404 });
   }));
   render(<PlatformUnitsSetting token="units-test-token" />);
@@ -58,15 +59,20 @@ it('shows a clean purchase rate and one billing-mode switch without atom or scal
   await waitFor(() => expect(document.activeElement).toBe(editDefBtn));
 });
 
-it('separates General and Branded Credits & billing mode into tabs on Admin Settings', async () => {
+it('organizes Admin Settings tabs cleanly and navigates to the dedicated Billing mode tab instead of inline details sprawl', async () => {
   saveLocale('en');
   const user = userEvent.setup();
-  render(<PlatformSettingsRoute />);
-  expect(screen.getByRole('tab', { name: 'General' }).getAttribute('aria-selected')).toBe('true');
-  expect(screen.getByRole('tab', { name: 'Branded Credits & billing mode' }).getAttribute('aria-selected')).toBe('false');
+  const { container } = render(<MemoryRouter><PlatformSettingsRoute /></MemoryRouter>);
+  expect(screen.getByRole('tab', { name: 'General & currency' }).getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByRole('tab', { name: 'Registration policy' }).getAttribute('aria-selected')).toBe('false');
+  expect(screen.getByRole('tab', { name: 'Branding' }).getAttribute('aria-selected')).toBe('false');
+  expect(screen.getByRole('tab', { name: 'Payments' }).getAttribute('aria-selected')).toBe('false');
+  expect(screen.getByRole('tab', { name: 'Billing mode' }).getAttribute('aria-selected')).toBe('false');
+  expect(container.querySelector('details')).toBeNull();
   expect(screen.getByRole('region', { name: 'Platform currency' })).toBeTruthy();
+  expect(screen.queryByRole('region', { name: 'Branded Credits and billing mode' })).toBeNull();
 
-  await user.click(screen.getByRole('tab', { name: 'Branded Credits & billing mode' }));
-  expect(screen.getByRole('tab', { name: 'Branded Credits & billing mode' }).getAttribute('aria-selected')).toBe('true');
-  expect(screen.getByRole('region', { name: 'Branded Credits and billing mode' })).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Manage billing mode' }));
+  expect(screen.getByRole('tab', { name: 'Billing mode' }).getAttribute('aria-selected')).toBe('true');
+  expect(await screen.findByRole('region', { name: 'Branded Credits and billing mode' })).toBeTruthy();
 });

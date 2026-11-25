@@ -54,13 +54,13 @@ export default defineConfig({
           { label: 'Single-container deployment', slug: 'deployment/single-container' },
           { label: 'Security & access', slug: 'security/overview' },
         ] },
-        { label: 'API', collapsed: true, items: [
+        { label: 'API', collapsed: false, items: [
           { label: 'REST specification', slug: 'api/rest' },
           { label: 'API explorer', slug: 'api/explorer' },
           { label: 'Model discovery', slug: 'api/rest/listmodels' },
           { label: 'Chat completions', slug: 'api/rest/createchatcompletion' },
         ] },
-        { label: 'SDK', collapsed: true, items: [
+        { label: 'SDK', collapsed: false, items: [
           { label: 'Interfaces & types', slug: 'api/sdk' },
           { label: 'NiuClient', slug: 'api/sdk/niuclient' },
           { label: 'NiuAdminClient', slug: 'api/sdk/niuadminclient' },

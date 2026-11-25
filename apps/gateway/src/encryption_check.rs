@@ -17,6 +17,7 @@ pub(crate) async fn run() -> Result<(), Box<dyn std::error::Error>> {
     crate::vendors::validate_saved_credentials(&store, cipher.as_ref()).await?;
     crate::payments::validate_saved_configuration(&store, cipher.as_ref()).await?;
     crate::resource_events::validate_saved_signing_credentials(&store, cipher.as_ref()).await?;
+    crate::admin::validate_saved_api_key_secrets(&store, cipher.as_ref()).await?;
     crate::vendors::validate_retained_content(&store, cipher.as_ref()).await?;
     println!(
         "Retained encrypted data authenticated. No migration, bootstrap, cleanup or upstream request was performed."

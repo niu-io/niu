@@ -10,7 +10,7 @@ describe('sign-in destination restoration', () => {
     ['/login?returnTo=%2Fmodels', { from: '/workspaces/research/keys?sort=activity' }, '/workspaces/research/keys', '?sort=activity', ''],
     ['/login?returnTo=%2F%2Fexample.invalid', null, '/workspaces/default/', '', ''],
     ['/login?returnTo=%2Flogin', null, '/workspaces/default/', '', ''],
-    ['/login?returnTo=%2Finstallation', null, '/workspaces/default/', '', ''],
+    ['/login?returnTo=%2Fsetup', null, '/workspaces/default/', '', ''],
     ['/login', { from: '/\\example.invalid/' }, '/workspaces/default/', '', ''],
   ])('restores only safe destinations from %s', async (initial, state, pathname, search, hash) => {
     vi.stubGlobal('fetch', vi.fn(async input => {

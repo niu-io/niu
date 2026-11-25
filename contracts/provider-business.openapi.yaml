@@ -8,15 +8,15 @@ servers:
 security:
   - operatorBearer: []
 paths:
-  /api/v1/providers/{provider}/offers/{offer}/authorization:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1authorization'
-  /api/v1/providers/{provider}/offers/{offer}/authorization/{authorization}:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1authorization~1{authorization}'
-  /api/v1/providers/{provider}/offers/{offer}/revisions:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1revisions'
-  /api/v1/providers/{provider}/members:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1members'
-  /api/v1/providers/{provider}/media-offer-models:
+  /api/v1/admin/providers/{provider}/offers/{offer}/authorization:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1{provider}~1offers~1{offer}~1authorization'
+  /api/v1/admin/providers/{provider}/offers/{offer}/authorization/{authorization}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1{provider}~1offers~1{offer}~1authorization~1{authorization}'
+  /api/v1/admin/providers/{provider}/offers/{offer}/revisions:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1{provider}~1offers~1{offer}~1revisions'
+  /api/v1/admin/providers/{provider}/members:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1{provider}~1members'
+  /api/v1/admin/providers/{provider}/media-offer-models:
     parameters:
       - $ref: '#/components/parameters/provider'
     get:
@@ -68,7 +68,7 @@ paths:
         '401': { description: Valid management session required }
         '403': { description: Installation administration required }
         '503': { description: Durable storage unavailable }
-  /api/v1/providers/{provider}/media-offers:
+  /api/v1/admin/providers/{provider}/media-offers:
     parameters:
       - $ref: '#/components/parameters/provider'
     post:
@@ -121,7 +121,7 @@ paths:
         '413': { description: Publication exceeds 4 KiB }
         '422': { description: Malformed JSON document or unexpected fields }
         '503': { description: Durable storage unavailable }
-  /api/v1/providers/{provider}/media-rates/replace:
+  /api/v1/admin/providers/{provider}/media-rates/replace:
     parameters:
       - $ref: '#/components/parameters/provider'
     post:
@@ -160,7 +160,7 @@ paths:
         '409': { description: "Original or current binding unavailable, cutoff conflict or changed replay" }
         '413': { description: Configuration exceeds 128 KiB }
         '503': { description: Durable storage unavailable }
-  /api/v1/providers/{provider}/media-rate-models:
+  /api/v1/admin/providers/{provider}/media-rate-models:
     parameters:
       - $ref: '#/components/parameters/provider'
     get:
@@ -204,7 +204,7 @@ paths:
         '401': { description: Valid management session required }
         '403': { description: Installation administration required }
         '503': { description: Durable storage unavailable }
-  /api/v1/providers/{provider}/media-rates:
+  /api/v1/admin/providers/{provider}/media-rates:
     parameters:
       - $ref: '#/components/parameters/provider'
     get:
@@ -273,7 +273,7 @@ paths:
         '413': { description: Body exceeds 128 KiB }
         '422': { description: Malformed typed JSON }
         '503': { description: Durable storage unavailable }
-  /api/v1/providers/{provider}/media-rates/{revision}/retire:
+  /api/v1/admin/providers/{provider}/media-rates/{revision}/retire:
     parameters:
       - $ref: '#/components/parameters/provider'
       - { name: revision, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 256 } }
@@ -315,20 +315,20 @@ paths:
         '413': { description: Body exceeds 1 KiB }
         '422': { description: Malformed typed JSON }
         '503': { description: Durable storage unavailable }
-  /api/v1/provider-memberships:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1provider-memberships'
-  /api/v1/providers:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers'
-  /api/v1/providers/{provider}:
+  /api/v1/admin/providers/memberships:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1memberships'
+  /api/v1/admin/providers:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers'
+  /api/v1/admin/providers/{provider}:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}/get'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1{provider}/get'
     parameters:
       - $ref: '#/components/parameters/provider'
     patch:
-      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}/patch'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1{provider}/patch'
     delete:
-      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}/delete'
-  /api/v1/providers/{provider}/members/{operator}:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1{provider}/delete'
+  /api/v1/admin/providers/{provider}/members/{operator}:
     parameters:
       - $ref: '#/components/parameters/provider'
       - { name: operator, in: path, required: true, schema: { type: string, format: uuid } }
@@ -350,16 +350,16 @@ paths:
         '200': { description: Membership saved and audited }
         '403': { description: Installation access required }
         '409': { description: Provider or active operator does not exist }
-  /api/v1/providers/{provider}/offers:
+  /api/v1/admin/providers/{provider}/offers:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers/get'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1{provider}~1offers/get'
     parameters:
       - $ref: '#/components/parameters/provider'
     post:
-      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers/post'
-  /api/v1/providers/{provider}/offers/{offer}/revisions/{revision}:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1offers~1{offer}~1revisions~1{revision}'
-  /api/v1/providers/{provider}/offers/{offer}:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1{provider}~1offers/post'
+  /api/v1/admin/providers/{provider}/offers/{offer}/revisions/{revision}:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1{provider}~1offers~1{offer}~1revisions~1{revision}'
+  /api/v1/admin/providers/{provider}/offers/{offer}:
     parameters:
       - $ref: '#/components/parameters/provider'
       - { name: offer, in: path, required: true, schema: { type: string, format: uuid } }
@@ -381,20 +381,20 @@ paths:
         '200': { description: Availability saved and audited }
         '403': { description: Active platform administration required }
         '409': { description: Offer unavailable in Provider scope }
-  /api/v1/providers/{provider}/dashboard:
+  /api/v1/admin/providers/{provider}/dashboard:
     parameters:
       - $ref: '#/components/parameters/provider'
       - $ref: '#/components/parameters/days'
     get:
       operationId: getProviderDashboard
       summary: Provider-scoped earnings and operations; active explicit membership required
-      description: Returns one repeatable-read snapshot in data. Balances group by currency and include all-time earned_nanos, unpaid_nanos, paid_nanos and period_nanos. All amounts and usage totals are decimal integer strings. Traffic includes admitted requests, completed requests, reported tokens and unresolved earnings in the selected rolling period. Daily earnings use UTC. Offers include rate_kind (text or media), model identity and availability (up to 1000); offers_has_more explicitly identifies truncation, and GET /api/v1/providers/{provider}/offers traverses the complete current directory. Text offers retain agreed currency, prompt_rate and completion_rate strings plus nullable cached_prompt_rate, cache_write_prompt_rate and reasoning_completion_rate. Consumption includes nullable cached_prompt_tokens, cache_write_prompt_tokens and reasoning_completion_tokens for separately priced categories. Media offers return null for text-price fields; their independent specification-selected purchase cards are available through media-rates. Consumption groups verified text tokens, request counts, agreed rates, earnings and unpaid amounts by model, payout revision and selected context_minimum_input_tokens (null for base rates); media_consumption separately groups media meter quantities, specifications, agreed purchase prices and earnings. Media earnings have null text-token categories and use the same exact external-payment settlement ledger; no request identifiers, customer identities, workspaces or task references are returned; settlements contain the latest 100 all-time external payment records; GET /api/v1/providers/{provider}/settlements provides filtered keyset pagination beyond this preview. No customer identity, prompt, credential, endpoint or customer charges are returned. This is an accrual ledger, not a guarantee of payment eligibility or schedule.
+      description: Returns one repeatable-read snapshot in data. Balances group by currency and include all-time earned_nanos, unpaid_nanos, paid_nanos and period_nanos. All amounts and usage totals are decimal integer strings. Traffic includes admitted requests, completed requests, reported tokens and unresolved earnings in the selected rolling period. Daily earnings use UTC. Offers include rate_kind (text or media), model identity and availability (up to 1000); offers_has_more explicitly identifies truncation, and GET /api/v1/admin/providers/{provider}/offers traverses the complete current directory. Text offers retain agreed currency, prompt_rate and completion_rate strings plus nullable cached_prompt_rate, cache_write_prompt_rate and reasoning_completion_rate. Consumption includes nullable cached_prompt_tokens, cache_write_prompt_tokens and reasoning_completion_tokens for separately priced categories. Media offers return null for text-price fields; their independent specification-selected purchase cards are available through media-rates. Consumption groups verified text tokens, request counts, agreed rates, earnings and unpaid amounts by model, payout revision and selected context_minimum_input_tokens (null for base rates); media_consumption separately groups media meter quantities, specifications, agreed purchase prices and earnings. Media earnings have null text-token categories and use the same exact external-payment settlement ledger; no request identifiers, customer identities, workspaces or task references are returned; settlements contain the latest 100 all-time external payment records; GET /api/v1/admin/providers/{provider}/settlements provides filtered keyset pagination beyond this preview. No customer identity, prompt, credential, endpoint or customer charges are returned. This is an accrual ledger, not a guarantee of payment eligibility or schedule.
       responses:
         '200': { description: Provider dashboard in data }
         '400': { description: "Period must be 7, 30, or 90 days" }
         '403': { description: Active platform administration required }
         '404': { description: Provider not found }
-  /api/v1/providers/{provider}/administration:
+  /api/v1/admin/providers/{provider}/administration:
     parameters:
       - $ref: '#/components/parameters/provider'
       - $ref: '#/components/parameters/days'
@@ -406,18 +406,18 @@ paths:
         '409': { description: Provider is missing or deleted }
         '200': { description: Same dashboard snapshot as the Provider endpoint }
         '403': { description: Installation access required }
-  /api/v1/providers/{provider}/earnings:
+  /api/v1/admin/providers/{provider}/earnings:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1earnings/get'
-  /api/v1/providers/{provider}/settlements/preview:
-    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1settlements~1preview'
-  /api/v1/providers/{provider}/settlements:
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1{provider}~1earnings/get'
+  /api/v1/admin/providers/{provider}/settlements/preview:
+    $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1{provider}~1settlements~1preview'
+  /api/v1/admin/providers/{provider}/settlements:
     get:
-      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1settlements/get'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1{provider}~1settlements/get'
     parameters:
       - $ref: '#/components/parameters/provider'
     post:
-      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1providers~1{provider}~1settlements/post'
+      $ref: './generated/handler-operations.json#/paths/~1api~1v1~1admin~1providers~1{provider}~1settlements/post'
 
 components:
   schemas:

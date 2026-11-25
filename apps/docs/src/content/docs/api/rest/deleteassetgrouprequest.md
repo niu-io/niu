@@ -1,11 +1,11 @@
 ---
 title: "Delete saved asset-creation request content"
-description: "DELETE /api/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request"
+description: "DELETE /api/v1/workspaces/{workspace}/asset-group-intents/{intent}/request"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`DELETE /api/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request`
+`DELETE /api/v1/workspaces/{workspace}/asset-group-intents/{intent}/request`
 
 Requires workspace write access. Erases active-database request content while preserving reconciliation metadata and an immutable deletion event. Repeated or absent intent deletion returns 204 without disclosing existence. Does not delete upstream assets, backups or credentials. Prepared intents cannot dispatch after content deletion; already dispatched intents remain reconciliation work.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request" \
+curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/workspaces/{workspace}/asset-group-intents/{intent}/request" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
 ```
 

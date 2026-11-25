@@ -6,14 +6,14 @@ Thank you for contributing to **Niu** (牛元), the open-source AI model gateway
 
 `niu-io/niu` contains the complete self-hosted open-source product:
 
-- `apps/gateway`: Single-process Rust HTTP gateway (`/v1` inference data plane, `/api/v1` control plane, `/catalog/v1` retired empty catalog list, and `/api/plugins/v1` plugin proxy)
+- `apps/gateway`: Single-process Rust HTTP gateway (`/v1` inference data plane, `/api/v1` control plane, `/catalog/v1` opt-in public model catalog, and `/api/plugins/v1` plugin proxy)
 - `apps/dashboard`: Workspace, Provider, and platform management UI (React + TypeScript + Vite)
-- `apps/catalog`: Brand assets served at `/catalog-assets/`. `/models/` is the signed-in dashboard catalog.
+- `apps/catalog`: Brand assets served at `/catalog-assets/`. `/models/` is the public and workspace model catalog.
 - `apps/docs`: Developer documentation site (`/docs/`, Astro Starlight)
 - `contracts`: OpenAPI 3.1 specifications and test fixtures
-- `crates`: Storage, execution, cost calculation, benchmark, `plugin-api`, and `plugin-sdk` crates
+- `crates`: Storage, media, metered-cost, payments, upstream, execution, cost calculation, benchmark, `plugin-api`, and `plugin-sdk` crates
 - `plugins`: Built-in open-source plugins (`hello-echo`, `request-tagger`, `webhook-audit`)
-- `sdks`: JavaScript (`sdks/javascript`) and Agent Connect (`sdks/agent-connect`) client SDKs
+- `sdks`: JavaScript (`sdks/javascript`), Agent Connect (`sdks/agent-connect`), MCP server (`sdks/mcp`), and Agent Observability (`sdks/agent-observability`) packages
 
 See [`docs/architecture/repository-ownership.md`](docs/architecture/repository-ownership.md) for route and repository boundaries. Marketing pages for `niu.io` live in the separate `niu-io/website` repository; community builds of `niu-io/niu` have zero dependency on website or private plugin repositories.
 

@@ -8,7 +8,7 @@ test('draft offer choices use scoped bounded reads and preserve exact revisions'
  const page={data:[{model_alias:'video/model',api_key_name:'Video credential',vendor_id:id,vendor_revision:'9007199254740993',model_revision:'2',schema_revision:'schema-one',channel:'ark-direct-v1',offer_revision:null}],has_more:false,next_after:null};
  const client=new NiuAdminClient({adminToken:'fixture',fetch:async(url,init)=>{calls.push({url,init});return Response.json(page);}});
  assert.deepEqual(await client.listSupplierMediaOfferModels(id,{after:'video/model',limit:1},{signal:abort.signal}),page);
- assert.ok(calls[0].url.endsWith(`/providers/${id}/media-offer-models?after=video%2Fmodel&limit=1`));
+ assert.ok(calls[0].url.endsWith(`/admin/providers/${id}/media-offer-models?after=video%2Fmodel&limit=1`));
  assert.equal(calls[0].init.method,'GET');assert.equal(calls[0].init.body,undefined);assert.equal(calls[0].init.signal,abort.signal);
  for(const limit of [0,101,1.5])assert.throws(()=>client.listSupplierMediaOfferModels(id,{limit}));
  for(const after of [' bad','🦉'.repeat(65),'bad\u0000'])assert.throws(()=>client.listSupplierMediaOfferModels(id,{after}));
@@ -23,7 +23,7 @@ test('offer publication sends only pinned bindings and explicitly replays one re
  assert.deepEqual(await client.publishSupplierMediaOffer(id,input),{data:{revision:id,offer_id:id}});
  assert.equal(calls.length,2);assert.equal(calls[0].init.body,calls[1].init.body);
  assert.deepEqual(JSON.parse(calls[0].init.body),input);
- assert.ok(calls[0].url.endsWith(`/providers/${id}/media-offers`));assert.equal(calls[0].init.method,'POST');assert.equal(calls[0].init.signal,abort.signal);
+ assert.ok(calls[0].url.endsWith(`/admin/providers/${id}/media-offers`));assert.equal(calls[0].init.method,'POST');assert.equal(calls[0].init.signal,abort.signal);
 });
 test('invalid or lossy offer bindings never produce a request',()=>{
  let calls=0;const client=new NiuAdminClient({adminToken:'fixture',fetch:async()=>{calls++;return Response.json({});}});

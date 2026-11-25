@@ -10,8 +10,8 @@ import { IconBook as CircleHelp } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { settingsHref } from '@/features/account/settings-routes';
 import { prefetchRouteIntent } from './prefetch';
-import { workspaceModelsHref } from './workspace-route';
-import { IconChartLine, IconExternalLink, IconSettings, IconShieldLock, IconUser } from '@tabler/icons-react';
+import { organizationDisplayName, workspaceModelsHref } from './workspace-route';
+import { IconChartLine, IconSettings, IconShieldLock, IconUser } from '@tabler/icons-react';
 import { SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -39,9 +39,9 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
     if (compactNavigation) window.requestAnimationFrame(() => setOpenMobile(false));
   };
 
-  const accountAvatar = <Avatar className="size-[18px] shrink-0 text-[11px]">
+  const accountAvatar = <Avatar className="size-6 shrink-0 text-xs">
     <AvatarImage src={profile?.avatar_data_url ?? undefined} alt="" />
-    <AvatarFallback className={profile ? undefined : "bg-primary text-primary-foreground"}>{avatarInitial}</AvatarFallback>
+    <AvatarFallback>{avatarInitial}</AvatarFallback>
   </Avatar>;
 
   return <DropdownMenu open={accountMenuOpen} onOpenChange={setAccountMenuOpen}>
@@ -62,7 +62,7 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
               <DropdownMenuItem asChild><Link onClick={dismissMobileSidebar} to={modelsHref}><Boxes />{t('Models', '模型')}</Link></DropdownMenuItem>
             </>}
             {platformAdmin && <DropdownMenuItem asChild><Link onClick={dismissMobileSidebar} to="/admin/providers"><IconShieldLock />{t('Admin', '管理后台')}</Link></DropdownMenuItem>}
-            <DropdownMenuItem asChild><a href={`${import.meta.env.BASE_URL}docs/`} target="_blank" rel="noopener" aria-label={t('Docs (opens in a new tab)', '文档（在新标签页打开）')}><CircleHelp />{t('Docs', '文档')}<IconExternalLink className="ml-auto" aria-hidden="true" /></a></DropdownMenuItem>
+            <DropdownMenuItem asChild><a href={`${import.meta.env.BASE_URL}docs/`} target="_blank" rel="noopener" aria-label={t('Docs (opens in a new tab)', '文档（在新标签页打开）')}><CircleHelp />{t('Docs', '文档')}</a></DropdownMenuItem>
             <DropdownMenuSeparator />
           </>}
           <DropdownMenuLabel className="account-identity">
@@ -86,23 +86,26 @@ export default function AccountMenu({ context, workspacePath, supplierArea = fal
             {roles.active === 'admin' && !location.pathname.startsWith('/admin') && <DropdownMenuItem asChild><Link onClick={() => { setAccountMenuOpen(false); dismissMobileSidebar(); }} to="/admin/providers"><IconShieldLock />{t('Open Admin console', '打开管理后台')}</Link></DropdownMenuItem>}
           </>}
           {roles?.error && <DropdownMenuLabel role="alert" className="text-destructive whitespace-normal">{uiT(roles.error)}</DropdownMenuLabel>}
-          {!supplierOnly && token && organizations.length > 0 && <>
+          {!supplierOnly && token && organizations.length > 1 && <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs text-muted-foreground" aria-live="polite">{organizationSwitching ? t('Switching workspace…', '正在切换工作空间…') : t('Workspaces', '工作空间')}</DropdownMenuLabel>
-            <DropdownMenuRadioGroup className="account-organizations" aria-label={uiT("Workspaces")} value={organization?.id ?? ''} onValueChange={id => {
+            <DropdownMenuLabel className="text-xs text-muted-foreground" aria-live="polite">{organizationSwitching ? t('Switching organization…', '正在切换组织…') : t('Organizations', '组织')}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup className="account-organizations" aria-label={uiT("Organizations")} value={organization?.id ?? ''} onValueChange={id => {
               const next = organizations.find(item => item.id === id);
               if (next) selectOrganization(next);
             }}>
-              {organizations.map(item => <DropdownMenuRadioItem key={item.id} value={item.id} disabled={workspaceLoading || Boolean(organizationSwitching) || Boolean(workspaceError && workspaceError.kind !== 'missing')}>
-                <Building2 /><span className="min-w-0 truncate" title={item.name}>{item.name}</span>
-              </DropdownMenuRadioItem>)}
+              {organizations.map(item => {
+                const orgLabel = organizationDisplayName(item.name, item.account_kind);
+                return <DropdownMenuRadioItem key={item.id} value={item.id} disabled={workspaceLoading || Boolean(organizationSwitching) || Boolean(workspaceError && workspaceError.kind !== 'missing')}>
+                  <Building2 /><span className="min-w-0 truncate" title={orgLabel}>{orgLabel}</span>
+                </DropdownMenuRadioItem>;
+              })}
             </DropdownMenuRadioGroup>
           </>}
           {organizationSwitchError && <DropdownMenuLabel role="alert" className="text-destructive whitespace-normal">{uiT(organizationSwitchError)}</DropdownMenuLabel>}
           {(!supplierOnly && organization) && <DropdownMenuSeparator />}
-          <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Account & preferences', '个人账户与偏好')}</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-xs text-muted-foreground">{t('Account & organization', '账户与组织')}</DropdownMenuLabel>
           {!supplierOnly && token && (!showDestinations || !mobile) && <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent('/activity')} onFocus={() => prefetchRouteIntent('/activity')} onClick={dismissMobileSidebar} to="/activity"><IconChartLine size={18}/>{t('Activity', '活动')}</Link></DropdownMenuItem>}
-          <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent(settingsHref(!token || installation ? 'appearance' : 'account'))} onFocus={() => prefetchRouteIntent(settingsHref(!token || installation ? 'appearance' : 'account'))} onClick={dismissMobileSidebar} state={{settingsReturnTo: location.pathname + location.search + location.hash}} to={settingsHref(!token || installation ? 'appearance' : 'account')}><IconSettings size={18}/>{t('Settings', '设置')}</Link></DropdownMenuItem>
+          <DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent(settingsHref(!token || installation ? 'appearance' : 'account'))} onFocus={() => prefetchRouteIntent(settingsHref(!token || installation ? 'appearance' : 'account'))} onClick={dismissMobileSidebar} state={{settingsReturnTo: location.pathname + location.search + location.hash}} to={settingsHref(!token || installation ? 'appearance' : 'account')}><IconSettings size={18}/>{t('Account & org settings', '账户与组织设置')}</Link></DropdownMenuItem>
           {!token && <><DropdownMenuSeparator /><DropdownMenuItem asChild><Link onMouseEnter={() => prefetchRouteIntent('/login')} onFocus={() => prefetchRouteIntent('/login')} onClick={dismissMobileSidebar} to="/login" state={{ from: `${location.pathname}${location.search}${location.hash}` }}><KeyRound size={18}/>{t('Sign in', '登录')}</Link></DropdownMenuItem></>}
           {token && <><DropdownMenuSeparator/><DropdownMenuItem onSelect={signOut}><LogOut/>{t('Sign out', '退出登录')}</DropdownMenuItem></>}
         </DropdownMenuContent>

@@ -635,4 +635,51 @@ test('supports native tool loops, anthropicBeta, and streamGenerateContent SSE a
   assert.equal(sseChunks[1].usageMetadata.totalTokenCount, 5);
 });
 
+test('NiuClient.send enforces redirect: error to prevent cross-origin credential leakage', async () => {
+  const redirects = [];
+  const client = new NiuClient({
+    apiKey: 'niu-secret-key',
+    keyId: '11111111-1111-4111-8111-111111111111',
+    credentialHeader: 'x-niu-api-key',
+    baseURL: 'https://gateway.example.test/v1',
+    fetch: async (url, init) => {
+      redirects.push({ url: String(url), redirect: init?.redirect });
+      if (String(url).endsWith('/models')) {
+        return Response.json({ object: 'list', data: [] });
+      }
+      if (String(url).includes(':generateContent')) {
+        return Response.json({ candidates: [] });
+      }
+      return Response.json({ id: 'chat-1', choices: [] });
+    },
+  });
+  await client.models.list();
+  await client.chat.completions({ model: 'fast', messages: [{ role: 'user', content: 'Hi' }] });
+  await client.generateContent('gemini-2.5', { contents: [{ role: 'user', parts: [{ text: 'Hi' }] }] });
+  assert.equal(redirects.length, 3);
+  for (const call of redirects) {
+    assert.equal(call.redirect, 'error', `expected redirect: error for ${call.url}`);
+  }
+});
+
+test('SDK package includes LICENSE, synced version, and zero orphaned dist files', async () => {
+  const { existsSync, readdirSync, readFileSync } = await import('node:fs');
+  const pkgRoot = new URL('..', import.meta.url);
+  const pkg = JSON.parse(readFileSync(new URL('package.json', pkgRoot), 'utf8'));
+  assert.ok(pkg.files.includes('LICENSE'), 'package.json files must include LICENSE');
+  assert.ok(existsSync(new URL('LICENSE', pkgRoot)), 'LICENSE file must exist in sdks/javascript');
+  const srcModules = new Set(
+    readdirSync(new URL('src', pkgRoot))
+      .filter((name) => name.endsWith('.ts'))
+      .map((name) => name.slice(0, -3)),
+  );
+  const distJsFiles = readdirSync(new URL('dist', pkgRoot)).filter((name) => name.endsWith('.js'));
+  assert.ok(distJsFiles.length > 0);
+  for (const file of distJsFiles) {
+    const stem = file.slice(0, -3);
+    assert.ok(srcModules.has(stem), `orphaned dist artifact without src/${stem}.ts: dist/${file}`);
+  }
+});
+
+
 

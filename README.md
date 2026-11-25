@@ -9,15 +9,15 @@
 
 Niu provides model information, request evidence and authorized management capabilities so coding agents can choose and manage models for their tasks. Agents own task completion and quality/cost tradeoffs; Niu provides the controls and evidence, not a guarantee of optimal value.
 
-Start with [Build with Niu](https://niu.io/docs/guides/personal-assistant/). See the [product principles](docs/product/agent-oriented-principles.md) for the agreed direction and current integration limits; native coding-agent plugins and agent-managed event subscriptions are not claimed as shipped.
+Start with [Build with Niu](https://niu.io/docs/guides/personal-assistant/). See the [product principles](docs/product/agent-oriented-principles.md) for the agreed direction and authorization boundaries; [native integration contracts](integrations/coding-agents/README.md) describe the qualified host versions and current limits for shipped coding-agent bundles, and [resource events](https://niu.io/docs/events.md) documents workspace event streams and signed webhook subscriptions.
 
-For the **0.3.1 source candidate**, give your coding agent this instruction:
+For **Niu v0.3.2**, give your coding agent this instruction:
 
 ```text
 Install and configure Niu by following https://niu.io/docs/install.md.
 ```
 
-The installation contract checks package and deployment availability first. This candidate is not published; use a matching source checkout and development deployment only when explicitly selected. [Native integration contracts](integrations/coding-agents/README.md) describe the qualified host versions and current limits. The [runnable source example](examples/personal-assistant/README.md) gives the agent a concrete starting point.
+The installation contract verifies release identity (`SHA256SUMS` and `SOURCE_COMMIT`) and checks package and deployment availability before installing. The [runnable source example](examples/personal-assistant/README.md) gives the agent a concrete starting point.
 
 This repository is the complete self-hosted monorepo: single-process Rust gateway, workspace and Provider management dashboard, opt-in public model catalog, developer documentation, OpenAPI 3.1 contracts, client SDKs, built-in open-source plugins, and container packaging.
 
@@ -50,10 +50,10 @@ Release acceptance is maintained in the [release checklist](docs/release-checkli
 
 ### 1. Self-Hosted Installation (Docker Compose)
 
-The command below targets the unpublished `v0.3.1` candidate. Run it only after that exact release and its checksum-verified image are available; before publication, use an explicitly selected matching source build. The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the versioned image (`ghcr.io/niu-io/niu:v0.3.1`), starts PostgreSQL and the gateway, and verifies `/readyz`:
+The installer generates `.env` secrets (`NIU_ADMIN_TOKENS`, `NIU_VENDOR_ENCRYPTION_KEY`, and PostgreSQL credentials), pulls the checksum-verified versioned image (`ghcr.io/niu-io/niu:v0.4.0`), starts PostgreSQL and the gateway, and verifies `/readyz`:
 
 ```sh
-./scripts/install.sh install --version v0.3.1 --dir /opt/niu
+./scripts/install.sh install --version v0.4.0 --dir /opt/niu
 ```
 
 For the 0.3 source line, deployment policy is selected with `NIU_OPERATING_MODE`: omitted or `internal` starts Internal use; only explicit `resale` enables commercial operation. There is no dashboard switch. New Internal use installations start with an empty model list: sign in as installation administrator, choose a preset Provider and enter its key to import models. No customer pricing, currency setup or simulated recharge is required. End-user BYOK is a separate future capability. Hosted Niu Cloud explicitly uses `resale`.
@@ -110,7 +110,7 @@ curl http://localhost:2555/v1/chat/completions \
 
 ```sh
 # Upgrade an existing installation to a pinned release
-./scripts/install.sh upgrade --version v0.3.1 --dir /opt/niu
+./scripts/install.sh upgrade --version v0.4.0 --dir /opt/niu
 
 # Roll back to the previous image version or inspect deployment health
 ./scripts/install.sh rollback --dir /opt/niu
@@ -136,7 +136,10 @@ niu/
 ├── contracts/            # Versioned OpenAPI 3.1 specifications (niu.v1.json) and fixtures
 ├── crates/
 │   ├── storage/          # PostgreSQL persistence, migrations, encrypted credentials, budget reservations
+│   ├── media/            # Video & media asset metadata, bounds, and metering helpers
 │   ├── metered-cost/     # Exact integer rational media pricing engine
+│   ├── payments/         # Payment gateway protocol verification and transport adapters
+│   ├── upstream/         # Upstream HTTP transport utilities
 │   ├── execution/        # Compatibility vocabulary for imported task records
 │   ├── cost/             # Standalone pinned LiteLLM floating-point cost reference (not linked by gateway)
 │   ├── benchmark/        # Standalone paired-experiment CLI (retired from gateway runtime)
@@ -145,7 +148,9 @@ niu/
 ├── plugins/              # Built-in open-source plugins (hello-echo, request-tagger, webhook-audit)
 ├── sdks/
 │   ├── javascript/       # @niu-io/sdk client library
-│   └── agent-connect/    # @niu-io/agent-connect telemetry & correlation helper
+│   ├── agent-connect/    # @niu-io/agent-connect browser device-auth & credential persistence helper
+│   ├── mcp/              # @niu-io/mcp local stdio MCP server (niu-mcp)
+│   └── agent-observability/ # @niu-io/collector opt-in metadata telemetry companion for coding agents
 ├── vendor/litellm-rust/  # Selectively imported, checksum-verified LiteLLM Rust protocol crates
 ├── branding/             # Shared Niu brand assets, theme tokens, and public header contracts
 ├── scripts/              # Dev runner, self-hosted installer, OpenAPI checks, and boundary verifiers

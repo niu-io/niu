@@ -183,11 +183,11 @@ describe('session identity and effective authority isolation (niu-8hv.1)', () =>
     expect(workspaceFetches).toBe(1);
 
     // Seed a workspace-scoped cached resource under Alice's owner authority
-    primeQuery('niu-browser-member-session', '/api/v1/organizations/org-acme/projects/ws-team/keys', {
+    primeQuery('niu-browser-member-session', '/api/v1/workspaces/ws-team/keys', {
       data: [{ id: 'secret-owner-key' }],
     });
     expect(
-      peekQuery('niu-browser-member-session', '/api/v1/organizations/org-acme/projects/ws-team/keys'),
+      peekQuery('niu-browser-member-session', '/api/v1/workspaces/ws-team/keys'),
     ).toBeDefined();
 
     // Admin downgrades Alice to viewer restricted to dev-sandbox only:
@@ -212,7 +212,7 @@ describe('session identity and effective authority isolation (niu-8hv.1)', () =>
     );
     expect(workspaceFetches).toBe(2);
     expect(
-      peekQuery('niu-browser-member-session', '/api/v1/organizations/org-acme/projects/ws-team/keys'),
+      peekQuery('niu-browser-member-session', '/api/v1/workspaces/ws-team/keys'),
     ).toBeUndefined();
 
     // Reduced viewer authority must NEVER render with the stale owner workspace list

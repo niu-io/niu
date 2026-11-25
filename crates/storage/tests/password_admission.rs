@@ -134,3 +134,45 @@ async fn password_admission_storage_failure_rolls_back_and_expired_rows_are_boun
     );
     assert_eq!(sqlx::query_scalar::<_, i64>("SELECT count(*) FROM password_login_admission WHERE window_start<now()-interval '24 hours'").fetch_one(&pool).await.unwrap(), 0);
 }
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL"]
+async fn password_admission_combines_ip_email_and_global_in_single_transaction(pool: PgPool) {
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool.clone());
+
+    // A shared NAT IP must allow >5 distinct users per minute (limit is 30/min)
+    // and increment the global counter exactly once per login attempt.
+    for index in 0..30 {
+        assert!(
+            store
+                .admit_member_password_login_with_ip(
+                    &format!("nat-user-{index}@example.test"),
+                    Some("203.0.113.10"),
+                )
+                .await
+                .unwrap(),
+            "attempt {index} from shared IP should be admitted"
+        );
+    }
+    let global_after_30: i32 =
+        sqlx::query_scalar("SELECT attempts FROM password_login_admission WHERE kind='global'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(global_after_30, 30);
+
+    // 31st attempt from the same IP is rejected, while a different IP is still admitted.
+    assert!(
+        !store
+            .admit_member_password_login_with_ip("nat-user-30@example.test", Some("203.0.113.10"))
+            .await
+            .unwrap()
+    );
+    assert!(
+        store
+            .admit_member_password_login_with_ip("other-office@example.test", Some("203.0.113.11"))
+            .await
+            .unwrap()
+    );
+}

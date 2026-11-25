@@ -18,7 +18,7 @@ import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import PageHeader from '@/components/PageHeader';
 import { formatUnitAtoms, money } from '@/lib/money';
 import { usePlatformCurrency } from '@/shell/platform-currency';
-import { cachedKeyGet, formatMaskedKey, keyRequest, keyStatus, keyLastUsed, peekCachedKeyGet, projectKeyPath, workspaceKeyPath, workspacePath, type ProjectKey } from '../api';
+import { cachedKeyGet, formatMaskedKey, keyRequest, keyStatus, keyLastUsed, peekCachedKeyGet, workspaceKeyPath, workspacePath, type ProjectKey } from '../api';
 import GatewayActivity from '@/features/executions/components/GatewayActivity';
 import KeyHistoryDialog from './KeyHistoryDialog';
 import KeyLimits from './KeyLimits';
@@ -52,7 +52,7 @@ export default function KeyDetailView({ token, models, canWrite, canConfigureSpe
   const navigate = useNavigate();
   const root = workspacePath(location.pathname);
   const collectionPath = initialScope ? workspaceKeyPath(initialScope.projectId) : '';
-  const adminCollectionPath = initialScope ? projectKeyPath(initialScope.organizationId, initialScope.projectId) : '';
+  const adminCollectionPath = collectionPath;
   const scopeIdentity = JSON.stringify([token, collectionPath]);
   const initialCachedKeys = collectionPath ? peekCachedKeyGet<{ data: ProjectKey[] }>(token, collectionPath) ?? initialData : undefined;
   const [keys, setKeys] = useState<ProjectKey[]>(() => initialCachedKeys?.data ?? []);

@@ -111,6 +111,8 @@ pub struct KeyMetadataUpdate<'a> {
     pub actor: &'a str,
 }
 
+pub type KeySecretSealer<'a> = dyn Fn(Uuid, &str) -> Result<Vec<u8>, StoreError> + Send + Sync + 'a;
+
 impl Store {
     pub async fn issue_key(
         &self,
@@ -132,9 +134,22 @@ impl Store {
         models: &[String],
         ttl_seconds: Option<i64>,
     ) -> Result<IssuedKey, StoreError> {
+        self.issue_key_with_expiry_and_sealer(scope, name, models, ttl_seconds, None)
+            .await
+    }
+
+    pub async fn issue_key_with_expiry_and_sealer(
+        &self,
+        scope: TenantScope,
+        name: &str,
+        models: &[String],
+        ttl_seconds: Option<i64>,
+        sealer: Option<&KeySecretSealer<'_>>,
+    ) -> Result<IssuedKey, StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         let issued =
-            Self::issue_key_with_expiry_in_tx(&mut tx, scope, name, models, ttl_seconds).await?;
+            Self::issue_key_with_expiry_in_tx(&mut tx, scope, name, models, ttl_seconds, sealer)
+                .await?;
         crate::commit_tx(tx).await?;
         Ok(issued)
     }
@@ -148,9 +163,33 @@ impl Store {
         policies: UnifiedKeyPoliciesInput,
         actor: crate::OperatorAuditActor,
     ) -> Result<IssuedKey, StoreError> {
+        self.issue_key_with_policies_and_sealer(
+            scope,
+            name,
+            models,
+            ttl_seconds,
+            policies,
+            actor,
+            None,
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn issue_key_with_policies_and_sealer(
+        &self,
+        scope: TenantScope,
+        name: &str,
+        models: &[String],
+        ttl_seconds: Option<i64>,
+        policies: UnifiedKeyPoliciesInput,
+        actor: crate::OperatorAuditActor,
+        sealer: Option<&KeySecretSealer<'_>>,
+    ) -> Result<IssuedKey, StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
         let issued =
-            Self::issue_key_with_expiry_in_tx(&mut tx, scope, name, models, ttl_seconds).await?;
+            Self::issue_key_with_expiry_in_tx(&mut tx, scope, name, models, ttl_seconds, sealer)
+                .await?;
         Self::apply_key_policies_in_tx(&mut tx, scope, issued.id, policies, actor).await?;
         crate::commit_tx(tx).await?;
         Ok(issued)
@@ -158,7 +197,7 @@ impl Store {
 
     /// Idempotent issuance for clients that must recover from a lost response.
     /// Request identity is scoped to a workspace; the intent digest prevents
-    /// reusing it with changed input. No retrievable secret is stored.
+    /// reusing it with changed input.
     #[allow(clippy::too_many_arguments)]
     pub async fn issue_key_request(
         &self,
@@ -170,6 +209,31 @@ impl Store {
         policies: UnifiedKeyPoliciesInput,
         actor: crate::OperatorAuditActor,
     ) -> Result<KeyMutationResult, StoreError> {
+        self.issue_key_request_with_sealer(
+            scope,
+            request,
+            name,
+            models,
+            ttl_seconds,
+            policies,
+            actor,
+            None,
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn issue_key_request_with_sealer(
+        &self,
+        scope: TenantScope,
+        request: Uuid,
+        name: &str,
+        models: &[String],
+        ttl_seconds: Option<i64>,
+        policies: UnifiedKeyPoliciesInput,
+        actor: crate::OperatorAuditActor,
+        sealer: Option<&KeySecretSealer<'_>>,
+    ) -> Result<KeyMutationResult, StoreError> {
         let intent = serde_json::json!({"action":"create","name":name,"models":models,"ttl_seconds":ttl_seconds,"policies":policies});
         let digest = Sha256::digest(intent.to_string().as_bytes()).to_vec();
         let mut tx = self.begin_bounded_recording().await?;
@@ -178,7 +242,8 @@ impl Store {
             return Ok(KeyMutationResult { id, token: None });
         }
         let issued =
-            Self::issue_key_with_expiry_in_tx(&mut tx, scope, name, models, ttl_seconds).await?;
+            Self::issue_key_with_expiry_in_tx(&mut tx, scope, name, models, ttl_seconds, sealer)
+                .await?;
         Self::apply_key_policies_in_tx(&mut tx, scope, issued.id, policies, actor).await?;
         Self::record_key_request_in_tx(&mut tx, scope, request, "create", &digest, issued.id)
             .await?;
@@ -195,13 +260,24 @@ impl Store {
         request: Uuid,
         old: Uuid,
     ) -> Result<KeyMutationResult, StoreError> {
+        self.rotate_key_request_with_sealer(scope, request, old, None)
+            .await
+    }
+
+    pub async fn rotate_key_request_with_sealer(
+        &self,
+        scope: TenantScope,
+        request: Uuid,
+        old: Uuid,
+        sealer: Option<&KeySecretSealer<'_>>,
+    ) -> Result<KeyMutationResult, StoreError> {
         let digest = Sha256::digest(format!("rotate:{old}").as_bytes()).to_vec();
         let mut tx = self.begin_bounded_recording().await?;
         if let Some(id) = Self::recover_key_request_in_tx(&mut tx, scope, request, &digest).await? {
             crate::commit_tx(tx).await?;
             return Ok(KeyMutationResult { id, token: None });
         }
-        let issued = Self::rotate_key_in_tx(&mut tx, scope, old).await?;
+        let issued = Self::rotate_key_in_tx(&mut tx, scope, old, sealer).await?;
         Self::record_key_request_in_tx(&mut tx, scope, request, "rotate", &digest, issued.id)
             .await?;
         crate::commit_tx(tx).await?;
@@ -324,6 +400,7 @@ impl Store {
         name: &str,
         models: &[String],
         ttl_seconds: Option<i64>,
+        sealer: Option<&KeySecretSealer<'_>>,
     ) -> Result<IssuedKey, StoreError> {
         if name.trim().is_empty()
             || name.len() > 200
@@ -339,10 +416,11 @@ impl Store {
         // separate from the secret and is safe to expose for administration.
         let token = format!("niu_{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
         let hash = Sha256::digest(token.as_bytes()).to_vec();
+        let ciphertext = sealer.map(|seal| seal(id, &token)).transpose()?;
         // Issuance and its audit record commit together; bound contention on
         // either write so a failed request never leaves an undisclosed key.
-        sqlx::query("INSERT INTO api_keys (id, organization_id, project_id, name, token_hash, token_secret, allowed_models, expires_at, slug) VALUES ($1,$2,$3,$4,$5,$6,$7,CASE WHEN $8::double precision IS NULL THEN 'infinity'::timestamptz ELSE clock_timestamp() + $8 * interval '1 second' END,$9)")
-            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(hash).bind(&token).bind(models).bind(ttl_seconds.map(|ttl| ttl as f64)).bind(crate::workspace_creation::workspace_slug_from_name(name))
+        sqlx::query("INSERT INTO api_keys (id, organization_id, project_id, name, token_hash, token_secret_ciphertext, allowed_models, expires_at, slug) VALUES ($1,$2,$3,$4,$5,$6,$7,CASE WHEN $8::double precision IS NULL THEN 'infinity'::timestamptz ELSE clock_timestamp() + $8 * interval '1 second' END,$9)")
+            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(hash).bind(ciphertext).bind(models).bind(ttl_seconds.map(|ttl| ttl as f64)).bind(crate::workspace_creation::workspace_slug_from_name(name))
             .execute(&mut **tx).await?;
         sqlx::query("INSERT INTO key_audit_events (id,organization_id,project_id,key_id,action) VALUES ($1,$2,$3,$4,'issued')")
             .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut **tx).await?;
@@ -1248,8 +1326,17 @@ impl Store {
     /// Rotation revokes the old key and creates its replacement atomically.
     /// Permissions and absolute expiry are preserved; only one racer can win.
     pub async fn rotate_key(&self, scope: TenantScope, old: Uuid) -> Result<IssuedKey, StoreError> {
+        self.rotate_key_with_sealer(scope, old, None).await
+    }
+
+    pub async fn rotate_key_with_sealer(
+        &self,
+        scope: TenantScope,
+        old: Uuid,
+        sealer: Option<&KeySecretSealer<'_>>,
+    ) -> Result<IssuedKey, StoreError> {
         let mut tx = self.begin_bounded_recording().await?;
-        let issued = Self::rotate_key_in_tx(&mut tx, scope, old).await?;
+        let issued = Self::rotate_key_in_tx(&mut tx, scope, old, sealer).await?;
         crate::commit_tx(tx).await?;
         Ok(issued)
     }
@@ -1258,17 +1345,19 @@ impl Store {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         scope: TenantScope,
         old: Uuid,
+        sealer: Option<&KeySecretSealer<'_>>,
     ) -> Result<IssuedKey, StoreError> {
         let id = Uuid::new_v4();
         let token = format!("niu_{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
         let hash = Sha256::digest(token.as_bytes()).to_vec();
-        let changed = sqlx::query("UPDATE api_keys SET revoked_at=clock_timestamp(), token_secret=NULL WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
+        let ciphertext = sealer.map(|seal| seal(id, &token)).transpose()?;
+        let changed = sqlx::query("UPDATE api_keys SET revoked_at=clock_timestamp(), token_secret_ciphertext=NULL WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
             .bind(scope.organization_id).bind(scope.project_id).bind(old).execute(&mut **tx).await?.rows_affected();
         if changed != 1 {
             return Err(StoreError::Conflict);
         }
-        sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,token_secret,allowed_models,expires_at,spending_root_id,slug,invocation_allowed,invocation_protocols) SELECT $1,organization_id,project_id,name,$2,$3,allowed_models,expires_at,spending_root_id,slug,invocation_allowed,invocation_protocols FROM api_keys WHERE id=$4")
-            .bind(id).bind(hash).bind(&token).bind(old).execute(&mut **tx).await?;
+        sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,token_secret_ciphertext,allowed_models,expires_at,spending_root_id,slug,invocation_allowed,invocation_protocols) SELECT $1,organization_id,project_id,name,$2,$3,allowed_models,expires_at,spending_root_id,slug,invocation_allowed,invocation_protocols FROM api_keys WHERE id=$4")
+            .bind(id).bind(hash).bind(ciphertext).bind(old).execute(&mut **tx).await?;
         sqlx::query("INSERT INTO agent_key_capabilities (key_id,capability,authorization_id) SELECT $1,c.capability,c.authorization_id FROM agent_key_capabilities c JOIN api_keys k ON k.id=c.key_id JOIN agent_authorizations a ON a.id=c.authorization_id JOIN admin_operators o ON o.id=a.approved_by WHERE c.key_id=$2 AND k.organization_id=$3 AND k.project_id=$4 AND a.organization_id=k.organization_id AND a.project_id=k.project_id AND o.revoked_at IS NULL AND o.role IN ('owner','admin') AND o.organization_id=k.organization_id AND (o.project_id IS NULL OR o.project_id=k.project_id)")
             .bind(id).bind(old).bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
         sqlx::query("UPDATE workspace_event_subscriptions SET issuer_key_id=$1 WHERE organization_id=$2 AND project_id=$3 AND issuer_key_id=$4 AND EXISTS(SELECT 1 FROM agent_key_capabilities WHERE key_id=$1 AND capability='events:write')")
@@ -1291,7 +1380,7 @@ impl Store {
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         if !revoked {
             sqlx::query(
-                "UPDATE api_keys SET revoked_at=clock_timestamp(), token_secret=NULL WHERE id=$1",
+                "UPDATE api_keys SET revoked_at=clock_timestamp(), token_secret_ciphertext=NULL WHERE id=$1",
             )
             .bind(id)
             .execute(&mut *tx)
@@ -1303,54 +1392,96 @@ impl Store {
         Ok(())
     }
 
-    /// Attaches persisted plaintext API key secrets (`token` and `token_preview`)
-    /// to active workspace key detail payloads when requested by an authorized
-    /// workspace operator with write permission.
-    pub async fn attach_key_secrets(
+    /// Fetches encrypted API key secret ciphertexts strictly scoped to the
+    /// requested active key IDs and atomically records an immutable reveal audit
+    /// event for each returned key. Decryption stays in the gateway layer.
+    pub async fn reveal_key_secrets(
         &self,
         scope: TenantScope,
-        details: &mut [serde_json::Value],
-    ) -> Result<(), StoreError> {
-        if details.is_empty() {
-            return Ok(());
+        key_ids: &[Uuid],
+        actor: &str,
+    ) -> Result<std::collections::HashMap<Uuid, Vec<u8>>, StoreError> {
+        if key_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
         }
-        let mut tx = self.begin_bounded_read_snapshot().await?;
-        let rows: Vec<(Uuid, String)> = sqlx::query_as(
-            "SELECT id, token_secret FROM api_keys WHERE organization_id = $1 AND project_id = $2 AND revoked_at IS NULL AND expires_at > clock_timestamp() AND token_secret IS NOT NULL",
+        let mut tx = self.begin_bounded_recording().await?;
+        let rows: Vec<(Uuid, Vec<u8>)> = sqlx::query_as(
+            "SELECT id, token_secret_ciphertext FROM api_keys \
+             WHERE organization_id = $1 AND project_id = $2 AND id = ANY($3) \
+               AND revoked_at IS NULL AND expires_at > clock_timestamp() \
+               AND token_secret_ciphertext IS NOT NULL",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
+        .bind(key_ids)
         .fetch_all(&mut *tx)
         .await?;
-        crate::commit_tx(tx).await?;
-        let secrets: std::collections::HashMap<Uuid, String> = rows.into_iter().collect();
-        for detail in details {
-            let Some(obj) = detail.as_object_mut() else {
-                continue;
-            };
-            let Some(id_str) = obj.get("id").and_then(|v| v.as_str()) else {
-                continue;
-            };
-            let Ok(id) = Uuid::parse_str(id_str) else {
-                continue;
-            };
-            if let Some(secret) = secrets.get(&id) {
-                let preview = if secret.len() >= 12 {
-                    format!("{}••••••••{}", &secret[..8], &secret[secret.len() - 4..])
-                } else {
-                    "niu_••••••••".to_string()
-                };
-                obj.insert(
-                    "token".to_string(),
-                    serde_json::Value::String(secret.clone()),
-                );
-                obj.insert(
-                    "token_preview".to_string(),
-                    serde_json::Value::String(preview),
-                );
-            }
+        for (id, _) in &rows {
+            sqlx::query(
+                "INSERT INTO key_audit_events (id, organization_id, project_id, key_id, action, actor) \
+                 VALUES ($1, $2, $3, $4, 'revealed', $5)",
+            )
+            .bind(Uuid::new_v4())
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(*id)
+            .bind(actor)
+            .execute(&mut *tx)
+            .await?;
         }
-        Ok(())
+        crate::commit_tx(tx).await?;
+        Ok(rows.into_iter().collect())
+    }
+
+    /// Clears encrypted revealable key secrets once a key has expired or been
+    /// revoked so retired bearer credentials do not linger at rest.
+    pub async fn purge_expired_key_secrets(&self) -> Result<u64, StoreError> {
+        let mut tx = self.begin_tx().await?;
+        let cleared = sqlx::query(
+            "UPDATE api_keys SET token_secret_ciphertext = NULL \
+             WHERE id IN ( \
+                 SELECT id FROM api_keys \
+                 WHERE token_secret_ciphertext IS NOT NULL \
+                   AND (revoked_at IS NOT NULL OR expires_at <= clock_timestamp()) \
+                 LIMIT 256 FOR UPDATE SKIP LOCKED \
+             )",
+        )
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+        crate::commit_tx(tx).await?;
+        Ok(cleared)
+    }
+
+    /// Paginated inventory of persisted API key secret ciphertexts for offline
+    /// encryption verification and key rotation.
+    pub async fn api_key_secret_page(
+        &self,
+        after: Option<Uuid>,
+    ) -> Result<Vec<(Uuid, TenantScope, Vec<u8>)>, StoreError> {
+        let rows: Vec<(Uuid, Uuid, Uuid, Vec<u8>)> = sqlx::query_as(
+            "SELECT id, organization_id, project_id, token_secret_ciphertext \
+             FROM api_keys \
+             WHERE token_secret_ciphertext IS NOT NULL \
+               AND ($1::uuid IS NULL OR id > $1) \
+             ORDER BY id LIMIT 128",
+        )
+        .bind(after)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|(id, organization_id, project_id, ciphertext)| {
+                (
+                    id,
+                    TenantScope {
+                        organization_id,
+                        project_id,
+                    },
+                    ciphertext,
+                )
+            })
+            .collect())
     }
 
     /// Permission recheck and dispatch intent commit in one transaction. A key

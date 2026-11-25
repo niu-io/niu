@@ -1,11 +1,11 @@
 ---
 title: "Update Provider business profile"
-description: "PATCH /api/v1/providers/{provider}"
+description: "PATCH /api/v1/admin/providers/{provider}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`PATCH /api/v1/providers/{provider}`
+`PATCH /api/v1/admin/providers/{provider}`
 
 Requires platform write authority. Name is required. Omitted or null description/URL fields retain saved values; an empty string clears them. All text is trimmed. Supply the integer expected_revision to reject stale edits; omission or null preserves legacy unconditional updates. Every accepted update increments the profile revision and atomically records the authorized actor and resulting Provider name in its audit event, even if values are unchanged. URLs are stored metadata and are not fetched by this operation.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PATCH "$NIU_ORIGIN/api/v1/providers/{provider}" \
+curl --fail-with-body -X PATCH "$NIU_ORIGIN/api/v1/admin/providers/{provider}" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
@@ -107,6 +107,50 @@ Location: **path**. **Required.**
         "null"
       ],
       "description": "Empty to clear, null/omitted to preserve. Nonempty values must be HTTP(S) URLs with a host, no credentials or control characters and at most 2,048 UTF-8 bytes after trimming."
+    },
+    "model_access_mode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "all",
+        "allowlist",
+        "blocklist",
+        null
+      ],
+      "description": "Optional Provider model availability policy (all, allowlist or blocklist); null/omitted preserves saved policy."
+    },
+    "default_discount_bps": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 10,
+      "maximum": 100000,
+      "description": "Optional default purchase rate percentage in basis points (10000 = 100%, no discount); null/omitted preserves saved value."
+    },
+    "allowlisted_models": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 2000,
+      "description": "Optional replacement allowlist of model aliases; null/omitted preserves saved list."
+    },
+    "blocklisted_models": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 2000,
+      "description": "Optional replacement blocklist of model aliases; null/omitted preserves saved list."
     }
   }
 }
@@ -134,6 +178,10 @@ Content type: `application/json`.
         "description",
         "website_url",
         "logo_url",
+        "model_access_mode",
+        "default_discount_bps",
+        "allowlisted_models",
+        "blocklisted_models",
         "id",
         "revision",
         "slug"
@@ -150,6 +198,35 @@ Content type: `application/json`.
         },
         "logo_url": {
           "type": "string"
+        },
+        "model_access_mode": {
+          "type": "string",
+          "enum": [
+            "all",
+            "allowlist",
+            "blocklist"
+          ],
+          "description": "Provider model availability policy: all (default), allowlist or blocklist."
+        },
+        "default_discount_bps": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 100000,
+          "description": "Default purchase rate percentage in basis points (10000 = 100%, no discount)."
+        },
+        "allowlisted_models": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Explicitly enabled model aliases when model_access_mode is allowlist."
+        },
+        "blocklisted_models": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Explicitly excluded model aliases when model_access_mode is blocklist."
         },
         "id": {
           "type": "string",

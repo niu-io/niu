@@ -1,8 +1,9 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { IconChevronDown } from '@tabler/icons-react';
+import { IconAlertTriangle, IconChevronDown } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -16,10 +17,10 @@ import type { RetailPriceRecord, RetailPublicationResult, RetailStandardPublicat
 import { categories, ratesFrom, checkedRates, type Rates, type Tier } from './text-terms';
 
 /** Full text selling terms; optional categories stay distinct from explicit zero. */
-export function TextStandardEditor({ token, previous, open = true, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; open?: boolean; onClose: (pending: boolean) => void; onSaved: () => void }) {
+export function TextStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean) => void; onSaved: () => void }) {
   const { t: uiT } = useUILocale();
   const original = previous?.schedule.kind === 'text' ? previous.schedule : undefined;
-  const [model, setModel] = useState(previous?.model_alias ?? '');
+  const [model, setModel] = useState(previous?.model_alias ?? initialModel);
   const {currency:platformCurrency}=usePlatformCurrency();
   const currency=previous?.currency ?? platformCurrency;
   const [models, setModels] = useState<string[]>([]), [modelsError, setModelsError] = useState(''), [query, setQuery] = useState('');
@@ -27,8 +28,16 @@ export function TextStandardEditor({ token, previous, open = true, onClose, onSa
   const [tiers, setTiers] = useState<Tier[]>(() => (original?.context_tiers ?? []).map(tier => ({ minimum_input_tokens: tier.minimum_input_tokens, rates: ratesFrom(tier) })));
   const [fee, setFee] = useState(amountFromNanos(original?.request_fee_nanos ?? '0')), [minimum, setMinimum] = useState(amountFromNanos(original?.minimum_charge_nanos ?? '0'));
   const [reason, setReason] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [conflict, setConflict] = useState(false);
+  const [zeroConfirmed, setZeroConfirmed] = useState(false);
   const [attempt, setAttempt] = useState<RetailStandardPublication | null>(null);
   const key = useRef(crypto.randomUUID());
+  const isZeroRateText = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    try { return amountToNanos(trimmed, true) === '0'; } catch { return false; }
+  };
+  const hasZeroBaseRate = isZeroRateText(rates.prompt_rate) || isZeroRateText(rates.completion_rate);
+  useEffect(() => { setZeroConfirmed(false); }, [rates.prompt_rate, rates.completion_rate]);
   useEffect(() => {
     if (previous) return;
     const controller = new AbortController();
@@ -56,7 +65,7 @@ export function TextStandardEditor({ token, previous, open = true, onClose, onSa
     }
     setAttempt(input); setBusy(true); setError('');
     try {
-      const result = await request<{ data: RetailPublicationResult }>(token, '/api/v1/pricing/standard-prices', 'POST', input);
+      const result = await request<{ data: RetailPublicationResult }>(token, '/api/v1/admin/pricing/standard-prices', 'POST', input);
       if (!result.data?.price_id || !result.data.revision || typeof result.data.version !== 'string' || !/^\d+$/.test(result.data.version) || BigInt(result.data.version) !== BigInt(input.expected_version) + 1n) throw new Error('Publication response could not be confirmed.');
       onSaved();
     } catch (failure) {
@@ -68,7 +77,7 @@ export function TextStandardEditor({ token, previous, open = true, onClose, onSa
       setError((failure instanceof Error ? failure.message : 'Publication outcome unavailable.') + (uncertain ? ' Retry this submission to confirm the original outcome before starting another publication.' : failure instanceof ProviderRequestError && failure.status === 409 ? ' Close and refresh current prices before editing again.' : ' Correct the fields and submit again. Your draft has been preserved.'));
     } finally { setBusy(false); }
   }
-  return <Dialog open={open} onOpenChange={value => { if (!value) onClose(!!attempt && !conflict); }}><DialogContent className="w-[calc(100vw-2rem)] sm:max-w-3xl max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{previous ? uiT("Revise text standard price") : uiT("Publish text standard price")}</DialogTitle><DialogDescription>{uiT("Customer selling terms in")}{" "}{currency || uiT("the platform currency")}{uiT(". These prices apply across workspaces. Existing requests and promotions keep their original prices. Model availability and access are managed separately.")}</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={event => void publish(event)}>
+  return <Dialog open={open} onOpenChange={value => { if (!value) onClose(!!attempt && !conflict); }}><DialogContent onCloseAutoFocus={onCloseAutoFocus} className="w-[calc(100vw-2rem)] sm:max-w-3xl"><DialogHeader><DialogTitle>{previous ? uiT("Revise text standard price") : uiT("Publish text standard price")}</DialogTitle><DialogDescription>{uiT("Customer selling terms in")}{" "}{currency || uiT("the platform currency")}{uiT(". These prices apply across workspaces. Existing requests and promotions keep their original prices. Model availability and access are managed separately.")}</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={event => void publish(event)}>
     <div className="space-y-2"><Label>{uiT("Model")}</Label>{previous ? <p className="break-words">{model}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={locked || !!modelsError} aria-label={uiT("Standard price model")}>{model || uiT("Choose registered model")}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><Input aria-label={uiT("Filter registered models")} placeholder={uiT("Filter models")} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key.length === 1 || event.key === 'Backspace' || event.key === 'Delete') event.stopPropagation(); }} /><DropdownMenuRadioGroup value={model} onValueChange={setModel}>{models.filter(name => name.toLowerCase().includes(query.trim().toLowerCase())).map(name => <DropdownMenuRadioItem key={name} value={name}>{name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>{!models.length && <p className="p-2 text-sm">{uiT("No registered shared models loaded.")}</p>}</DropdownMenuContent></DropdownMenu>}</div>
     {modelsError && <Alert variant="destructive"><AlertDescription>{uiT(modelsError)}</AlertDescription></Alert>}
     <p className="text-sm text-muted-foreground">{uiT("Currency:")}{" "}{currency || uiT("configure in Admin")}</p>
@@ -76,7 +85,31 @@ export function TextStandardEditor({ token, previous, open = true, onClose, onSa
     <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="standard-fee">{uiT("Request fee")}</Label><Input id="standard-fee" value={fee} disabled={locked} inputMode="decimal" onChange={event => setFee(event.target.value)} /></div><div className="space-y-2"><Label htmlFor="standard-minimum">{uiT("Minimum charge")}</Label><Input id="standard-minimum" value={minimum} disabled={locked} inputMode="decimal" onChange={event => setMinimum(event.target.value)} /></div></div>
     <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium">{uiT("Context tiers")}</p><Button type="button" variant="outline" disabled={locked || tiers.length >= 128} onClick={() => setTiers(current => [...current, { minimum_input_tokens: '', rates: ratesFrom() }])}>{uiT("Add tier")}</Button></div>{tiers.map((tier, index) => <section key={index} className="space-y-3 border-b pb-4"><div className="flex flex-wrap items-end gap-2"><div className="space-y-2"><Label htmlFor={'tier-threshold-' + index}>{uiT("Minimum input tokens")}</Label><Input id={'tier-threshold-' + index} inputMode="numeric" disabled={locked} value={tier.minimum_input_tokens} onChange={event => setTiers(current => current.map((value, i) => i === index ? { ...value, minimum_input_tokens: event.target.value } : value))} /></div><Button type="button" variant="outline" disabled={locked} onClick={() => setTiers(current => current.filter((_, i) => i !== index))}>{uiT("Remove tier")}{" "}{index + 1}</Button></div><div className="grid gap-4 sm:grid-cols-2">{categories.map(([field, label]) => <div key={field} className="space-y-2"><Label htmlFor={`tier-${index}-${field}`}>{uiT(label)}</Label><Input id={`tier-${index}-${field}`} inputMode="decimal" value={tier.rates[field]} disabled={locked} onChange={event => setTiers(current => current.map((value, i) => i === index ? { ...value, rates: { ...value.rates, [field]: event.target.value } } : value))} /></div>)}</div></section>)}</div>
     <div className="space-y-2"><Label htmlFor="standard-reason">{uiT("Note (optional)")}</Label><Input id="standard-reason" value={reason} maxLength={500} disabled={locked} onChange={event => setReason(event.target.value)} /></div>
+    {hasZeroBaseRate && (
+      <Alert variant="destructive">
+        <IconAlertTriangle size={16} aria-hidden="true" />
+        <AlertDescription className="space-y-3">
+          <p>
+            {uiT(
+              "Input or output rate is set to 0. Publishing this standard price will offer this model free to all workspaces even if the upstream Provider charges for usage.",
+              "输入或输出单价为 0。发布后所有工作空间将按免费单价调用此模型，即使上游供应商实际收费也会由平台承担全部成本。",
+            )}
+          </p>
+          <div className="flex items-start gap-2">
+            <Checkbox
+              id="standard-confirm-zero"
+              checked={zeroConfirmed}
+              disabled={locked}
+              onCheckedChange={checked => setZeroConfirmed(checked === true)}
+            />
+            <Label htmlFor="standard-confirm-zero" className="text-sm font-medium text-foreground">
+              {uiT("I confirm this $0.00 (free) customer selling rate is intentional", "我确认有意将该模型的客户售价设为 0（免费）")}
+            </Label>
+          </div>
+        </AlertDescription>
+      </Alert>
+    )}
     {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
-    <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" onClick={() => onClose(!!attempt && !conflict)}>{uiT("Close")}</Button><Button type="submit" disabled={busy || conflict || !model}>{busy ? uiT("Publishing…") : attempt ? uiT("Retry exact publication") : uiT("Publish standard price")}</Button></div>
+    <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" onClick={() => onClose(!!attempt && !conflict)}>{uiT("Close")}</Button><Button type="submit" disabled={busy || conflict || !model || (hasZeroBaseRate && !zeroConfirmed)}>{busy ? uiT("Publishing…") : attempt ? uiT("Retry exact publication") : uiT("Publish standard price")}</Button></div>
   </form></DialogContent></Dialog>;
 }

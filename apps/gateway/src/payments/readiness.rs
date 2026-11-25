@@ -252,7 +252,7 @@ fn authorized_organization(
 
 // Match registered route templates rather than user-supplied path spellings.
 /// ```openapi
-/// {"path":"/api/v1/platform/payments/stripe/verification","method":"get","operation":{"operationId":"getStripeVerification","summary":"Read Stripe verification evidence","x-niu-implementation":"implemented","description":"Installation administrator only. Reads evidence bound to current effective Stripe configuration and currency. Account and callback verification are separate; no merchant identity or credentials are returned. Does not contact Stripe.","security":[{"bearerAuth":[]}],"responses":{"200":{"description":"Current configuration-bound verification","content":{"application/json":{"schema":{"type":"object","properties":{"data":{"type":"object","properties":{"account_verified":{"type":"boolean"},"callback_verified":{"type":"boolean"}}}}}}}},"403":{"description":"Installation administrator required"},"400":{"description":"Real Stripe checkout is not configured"}}}}
+/// {"path":"/api/v1/admin/payments/stripe/verification","method":"get","operation":{"operationId":"getStripeVerification","summary":"Read Stripe verification evidence","x-niu-implementation":"implemented","description":"Installation administrator only. Reads evidence bound to current effective Stripe configuration and currency. Account and callback verification are separate; no merchant identity or credentials are returned. Does not contact Stripe.","security":[{"bearerAuth":[]}],"responses":{"200":{"description":"Current configuration-bound verification","content":{"application/json":{"schema":{"type":"object","properties":{"data":{"type":"object","properties":{"account_verified":{"type":"boolean"},"callback_verified":{"type":"boolean"}}}}}}}},"403":{"description":"Installation administrator required"},"400":{"description":"Real Stripe checkout is not configured"}}}}
 /// ```
 pub(crate) async fn stripe_verification(
     State(state): State<AppState>,
@@ -275,7 +275,7 @@ pub(crate) async fn stripe_verification(
     ))
 }
 /// ```openapi
-/// {"path":"/api/v1/platform/payments/stripe/verification","method":"post","operation":{"operationId":"verifyStripeAccount","summary":"Check the configured Stripe account","x-niu-implementation":"implemented","description":"Installation administrator write permission required. Performs a bounded read-only Stripe account check and persists evidence for the current configuration for ten minutes. Does not create checkout, charge money, or assert callback verification. Transient check failure preserves prior evidence only until its original expiry; credential rejection or disabled charges revokes it immediately. Mock mode is excluded. Merchant errors are sanitized.","security":[{"bearerAuth":[]}],"responses":{"200":{"description":"Account check result","content":{"application/json":{"schema":{"type":"object","properties":{"data":{"type":"object","properties":{"result":{"type":"string","enum":["account_enabled","account_disabled","credentials_rejected","check_unavailable"]}}}}}}}},"403":{"description":"Installation administrator required"},"400":{"description":"Real Stripe checkout is not configured"}}}}
+/// {"path":"/api/v1/admin/payments/stripe/verification","method":"post","operation":{"operationId":"verifyStripeAccount","summary":"Check the configured Stripe account","x-niu-implementation":"implemented","description":"Installation administrator write permission required. Performs a bounded read-only Stripe account check and persists evidence for the current configuration for ten minutes. Does not create checkout, charge money, or assert callback verification. Transient check failure preserves prior evidence only until its original expiry; credential rejection or disabled charges revokes it immediately. Mock mode is excluded. Merchant errors are sanitized.","security":[{"bearerAuth":[]}],"responses":{"200":{"description":"Account check result","content":{"application/json":{"schema":{"type":"object","properties":{"data":{"type":"object","properties":{"result":{"type":"string","enum":["account_enabled","account_disabled","credentials_rejected","check_unavailable"]}}}}}}}},"403":{"description":"Installation administrator required"},"400":{"description":"Real Stripe checkout is not configured"}}}}
 /// ```
 pub(crate) async fn verify_stripe_account(
     State(state): State<AppState>,
@@ -395,7 +395,7 @@ async fn current_stripe_verification(
 fn customer_feature(path: &str) -> bool {
     if matches!(
         path,
-        "/v1/currency" | "/v1/branding" | "/v1/key" | "/v1/models"
+        "/api/v1/public/currency" | "/api/v1/public/branding" | "/v1/key" | "/v1/models"
     ) {
         return false;
     }
@@ -426,33 +426,22 @@ fn customer_feature(path: &str) -> bool {
         || path.starts_with("/v1/")
         || path == "/v1beta"
         || path.starts_with("/v1beta/")
-        || ["/api/v1/", "/admin/v1/"].iter().any(|prefix| {
-            path.strip_prefix(prefix).is_some_and(|path| {
-                path == "workspaces"
-                    || path.starts_with("workspaces/")
-                    || (path.starts_with("organizations/") && path.contains("/projects"))
-            })
-        })
+        || path
+            .strip_prefix("/api/v1/")
+            .is_some_and(|path| path == "workspaces" || path.starts_with("workspaces/"))
 }
 
 // These operations maintain existing credentials; they do not admit spending.
 // Match registered templates and methods so key creation and limit writes remain gated.
 fn credential_maintenance(path: &str, method: &axum::http::Method) -> bool {
-    let workspace = "/api/v1/workspaces/{workspace}/keys";
-    let project_api = "/api/v1/organizations/{organization}/projects/{project}/keys";
-    let project_admin = "/admin/v1/organizations/{organization}/projects/{project}/keys";
-    [workspace, project_api, project_admin].iter().any(|root| {
-        let Some(rest) = path.strip_prefix(root) else {
-            return false;
-        };
-        (rest.is_empty() && *method == axum::http::Method::GET)
-            || (rest == "/{key}"
-                && (*method == axum::http::Method::GET || *method == axum::http::Method::DELETE))
-            || (rest == "/{key}/rotate" && *method == axum::http::Method::POST)
-            || (rest == "/requests/{request}"
-                && *method == axum::http::Method::GET
-                && *root == workspace)
-    })
+    let Some(rest) = path.strip_prefix("/api/v1/workspaces/{workspace}/keys") else {
+        return false;
+    };
+    (rest.is_empty() && *method == axum::http::Method::GET)
+        || (rest == "/{key}"
+            && (*method == axum::http::Method::GET || *method == axum::http::Method::DELETE))
+        || (rest == "/{key}/rotate" && *method == axum::http::Method::POST)
+        || (rest == "/requests/{request}" && *method == axum::http::Method::GET)
 }
 
 // Existing request history remains readable without funding. Individual
@@ -468,73 +457,26 @@ fn saved_history(path: &str, method: &axum::http::Method) -> bool {
         "/v1/incidents/{reference}"
             | "/api/v1/workspaces/{workspace}/incidents"
             | "/api/v1/workspaces/{workspace}/billing"
-            | "/api/v1/organizations/{organization}/projects/{project}/billing"
-            | "/admin/v1/organizations/{organization}/projects/{project}/billing"
-            | "/api/v1/organizations/{organization}/projects/{project}/billing/invoices"
-            | "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices"
-            | "/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}"
-            | "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}"
+            | "/api/v1/workspaces/{workspace}/billing/invoices"
+            | "/api/v1/workspaces/{workspace}/billing/invoices/{invoice}"
+            | "/api/v1/workspaces/{workspace}/video/draft"
     ) {
         return true;
     }
-    let request_history = [
-        "/api/v1/organizations/{organization}/projects/{project}/requests",
-        "/admin/v1/organizations/{organization}/projects/{project}/requests",
-        "/api/v1/workspaces/{workspace}/requests",
-    ]
-    .iter()
-    .any(|root| {
-        path.strip_prefix(root).is_some_and(|rest| {
-            matches!(rest, "" | "/{attempt}" | "/{attempt}/payloads" | "/export")
-        })
-    });
-    request_history
-        || [
-            "/api/v1/workspaces/{workspace}/video/draft",
-            "/api/v1/organizations/{organization}/projects/{project}/video/draft",
-            "/admin/v1/organizations/{organization}/projects/{project}/video/draft",
-        ]
-        .contains(&path)
-        || [
-            "/api/v1/workspaces/{workspace}/chats",
-            "/api/v1/organizations/{organization}/projects/{project}/chats",
-            "/admin/v1/organizations/{organization}/projects/{project}/chats",
-        ]
-        .iter()
-        .any(|root| {
-            path.strip_prefix(root)
-                .is_some_and(|rest| matches!(rest, "" | "/draft" | "/{id}" | "/{id}/export"))
-        })
-        || [
-            "/api/v1/workspaces/{workspace}/sessions",
-            "/api/v1/organizations/{organization}/projects/{project}/generations",
-            "/admin/v1/organizations/{organization}/projects/{project}/generations",
-        ]
-        .iter()
-        .any(|root| {
-            path.strip_prefix(root)
-                .is_some_and(|rest| matches!(rest, "" | "/{session}"))
-        })
-        || [
-            "/api/v1/workspaces/{workspace}/video/intents",
-            "/api/v1/organizations/{organization}/projects/{project}/video/intents",
-            "/admin/v1/organizations/{organization}/projects/{project}/video/intents",
-        ]
-        .iter()
-        .any(|root| {
-            path.strip_prefix(root)
-                .is_some_and(|rest| matches!(rest, "" | "/{intent}"))
-        })
-        || [
-            "/api/v1/workspaces/{workspace}/tasks",
-            "/api/v1/organizations/{organization}/projects/{project}/generations/tasks",
-            "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks",
-        ]
-        .iter()
-        .any(|root| {
-            path.strip_prefix(root)
-                .is_some_and(|rest| matches!(rest, "" | "/{task}" | "/{task}/diagnostics"))
-        })
+    path.strip_prefix("/api/v1/workspaces/{workspace}/requests")
+        .is_some_and(|rest| matches!(rest, "" | "/{attempt}" | "/{attempt}/payloads" | "/export"))
+        || path
+            .strip_prefix("/api/v1/workspaces/{workspace}/chats")
+            .is_some_and(|rest| matches!(rest, "" | "/draft" | "/{id}" | "/{id}/export"))
+        || path
+            .strip_prefix("/api/v1/workspaces/{workspace}/sessions")
+            .is_some_and(|rest| matches!(rest, "" | "/{session}"))
+        || path
+            .strip_prefix("/api/v1/workspaces/{workspace}/video/intents")
+            .is_some_and(|rest| matches!(rest, "" | "/{intent}"))
+        || path
+            .strip_prefix("/api/v1/workspaces/{workspace}/tasks")
+            .is_some_and(|rest| matches!(rest, "" | "/{task}" | "/{task}/diagnostics"))
 }
 
 pub(crate) async fn gate(
@@ -549,26 +491,13 @@ pub(crate) async fn gate(
         .unwrap_or(request.uri().path())
         .to_owned();
     // Directory and creation handlers enforce their own scope and write access.
-    let directory = ["/api/v1/workspaces", "/admin/v1/workspaces"].contains(&path.as_str())
-        || ((request.method() == axum::http::Method::GET
-            || request.method() == axum::http::Method::POST)
-            && [
-                "/api/v1/organizations/{organization}/projects",
-                "/admin/v1/organizations/{organization}/projects",
-            ]
-            .contains(&path.as_str()));
+    let directory = path == "/api/v1/workspaces";
     let workspace_management = matches!(
         *request.method(),
         axum::http::Method::PATCH | axum::http::Method::DELETE
-    ) && matches!(
-        path.as_str(),
-        "/api/v1/workspaces/{workspace}"
-            | "/admin/v1/workspaces/{workspace}"
-            | "/api/v1/organizations/{organization}/projects/{project}"
-            | "/admin/v1/organizations/{organization}/projects/{project}"
-    );
-    let lookup = path.ends_with("/workspaces/by-route/{route_slug}")
-        && request.method() == axum::http::Method::GET;
+    ) && path == "/api/v1/workspaces/{workspace}";
+    let lookup =
+        path == "/api/v1/workspaces/{workspace}" && request.method() == axum::http::Method::GET;
     if customer_feature(&path)
         && !directory
         && !workspace_management
@@ -764,20 +693,19 @@ async fn qualify_test_gateway(state: &AppState, currency: &str) {
 mod tests {
     use super::*;
     #[test]
-    fn gates_customer_features_and_legacy_aliases_but_preserves_setup_and_funding() {
+    fn gates_customer_features_but_preserves_setup_and_funding() {
         for path in [
             "/api/v1/workspaces",
             "/api/v1/workspaces/{workspace}/keys",
-            "/admin/v1/workspaces/{workspace}",
-            "/api/v1/organizations/{organization}/projects/{project}/chats",
-            "/admin/v1/organizations/{organization}/projects/{project}/keys",
+            "/api/v1/workspaces/{workspace}",
+            "/api/v1/workspaces/{workspace}/chats",
             "/v1/chat/completions",
             "/v1beta/models/{model_action}",
         ] {
             assert!(customer_feature(path), "{path}");
         }
         for path in [
-            "/v1/currency",
+            "/api/v1/public/currency",
             "/v1/key",
             "/v1/models",
             "/v1/routing",
@@ -785,12 +713,12 @@ mod tests {
             "/v1/events/example/test",
             "/api/v1/workspaces/{workspace}/routing/{slug}",
             "/api/v1/payments/readiness",
-            "/api/v1/platform/payments/epay",
-            "/api/v1/platform/currency",
+            "/api/v1/admin/payments/epay",
+            "/api/v1/admin/currency",
             "/api/v1/session",
             "/api/v1/auth/browser/login",
             "/api/v1/organizations/{organization}/billing/topups",
-            "/api/v1/providers",
+            "/api/v1/admin/providers",
             "/catalog/v1/models",
             "/payments/stripe/notify",
         ] {
@@ -815,17 +743,6 @@ mod tests {
             "/api/v1/workspaces/{workspace}/keys/{key}/guardrail",
         ] {
             assert!(!credential_maintenance(spending, &Method::PUT));
-        }
-        for keys in [
-            "/api/v1/organizations/{organization}/projects/{project}/keys",
-            "/admin/v1/organizations/{organization}/projects/{project}/keys",
-        ] {
-            assert!(credential_maintenance(keys, &Method::GET));
-            assert!(!credential_maintenance(keys, &Method::POST));
-            assert!(credential_maintenance(
-                &format!("{keys}/{{key}}/rotate"),
-                &Method::POST
-            ));
         }
         // Saved history is read-only; a write must still pass the gate.
         let history = "/api/v1/workspaces/{workspace}/requests/{attempt}/payloads";
@@ -951,7 +868,7 @@ mod tests {
             }),
         }));
         let app = crate::web::router(state.clone());
-        let path = "/api/v1/platform/payments/stripe/verification";
+        let path = "/api/v1/admin/payments/stripe/verification";
         let denied = app
             .clone()
             .oneshot(axum::http::Request::post(path).body(Body::empty()).unwrap())
@@ -1261,7 +1178,7 @@ mod tests {
         // its own tenant.
         for (path, token, status) in [
             (
-                "/api/v1/platform/configuration".into(),
+                "/api/v1/admin/configuration".into(),
                 owner.token.as_str(),
                 403,
             ),
@@ -1277,14 +1194,6 @@ mod tests {
             ),
             (
                 format!("/api/v1/workspaces/{}/keys", foreign.project_id),
-                owner.token.as_str(),
-                404,
-            ),
-            (
-                format!(
-                    "/api/v1/organizations/{other}/projects/{}/keys",
-                    foreign.project_id
-                ),
                 owner.token.as_str(),
                 404,
             ),
@@ -1335,7 +1244,7 @@ mod tests {
         let configuration = app
             .clone()
             .oneshot(
-                Request::get("/api/v1/platform/configuration")
+                Request::get("/api/v1/admin/configuration")
                     .header("authorization", "Bearer funding-fixture-installation-token")
                     .body(Body::empty())
                     .unwrap(),
@@ -2055,7 +1964,7 @@ mod tests {
         for (path, expected) in [
             (keys.as_str(), axum::http::StatusCode::OK),
             ("/api/v1/payments/readiness", axum::http::StatusCode::OK),
-            ("/api/v1/platform/payments/epay", axum::http::StatusCode::OK),
+            ("/api/v1/admin/payments/epay", axum::http::StatusCode::OK),
         ] {
             let response = app
                 .clone()

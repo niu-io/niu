@@ -142,6 +142,23 @@ impl Inventory<'_> {
                 after = Some(id);
             }
         }
+        let mut after = None;
+        loop {
+            let page = self
+                .store
+                .api_key_secret_page(after)
+                .await
+                .map_err(|_| "Cannot inventory revealable API key secrets")?;
+            if page.is_empty() {
+                break;
+            }
+            for (id, scope, ciphertext) in page {
+                let aad = CredentialCipher::api_key_secret_aad(scope, id);
+                self.record(Target::ApiKeySecret(id), &aad, &ciphertext)
+                    .await?;
+                after = Some(id);
+            }
+        }
         if let Some((_, ciphertext)) = self
             .store
             .payment_gateway_configuration()

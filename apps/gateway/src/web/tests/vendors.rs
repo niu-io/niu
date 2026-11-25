@@ -35,13 +35,13 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
     let stripe_runtime = state.stripe_payments.clone();
     let store = state.store.clone();
     let app = router(state);
-    let (status, first) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN,
+    let (status, first) = call(&app, Method::POST, "/api/v1/admin/providers/connections", ADMIN,
         json!({"name":"Independent Supplier", "adapter":"openai", "api_base":endpoints[0], "api_key":"fixture-primary-key", "create_supplier":true})).await;
     assert_eq!(status, StatusCode::CREATED);
     let first_id: Uuid = first["data"]["id"].as_str().unwrap().parse().unwrap();
     let supplier = store.vendor_supplier(first_id).await.unwrap().unwrap();
     let supplier_id = supplier["id"].as_str().unwrap();
-    let (status, second) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN,
+    let (status, second) = call(&app, Method::POST, "/api/v1/admin/providers/connections", ADMIN,
         json!({"name":"Restricted key", "adapter":"openai", "api_base":endpoints[1], "api_key":"fixture-restricted-key", "supplier_id":supplier_id})).await;
     assert_eq!(status, StatusCode::CREATED);
     let second_id: Uuid = second["data"]["id"].as_str().unwrap().parse().unwrap();
@@ -52,7 +52,7 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
     ];
     for (id, alias, upstream_model, _) in routes {
         let (status, _) = call(&app, Method::POST,
-            &format!("/admin/v1/vendors/{id}/models"), ADMIN,
+            &format!("/api/v1/admin/providers/connections/{id}/models"), ADMIN,
             json!({"alias":alias,"upstream_model":upstream_model,"enabled":true,"public_catalog":true,"capabilities":{},"pricing":{"currency":"USD","api_prompt_rate":1000000000,"api_completion_rate":2000000000,"cash_prompt_rate":1000000000,"cash_completion_rate":2000000000,"max_input_tokens":64,"max_output_tokens":10}})).await;
         assert_eq!(status, StatusCode::OK);
     }
@@ -117,7 +117,7 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
     for (phase, secret) in [(0, "fixture-primary-key"), (1, "fixture-rotated-key")] {
         if phase == 1 {
             let (status, _) = call(&app, Method::PUT,
-                &format!("/admin/v1/vendors/{first_id}"), ADMIN,
+                &format!("/api/v1/admin/providers/connections/{first_id}"), ADMIN,
                 json!({"name":"Independent Supplier","api_base":endpoints[0],"api_key":secret,"enabled":true,"expected_revision":first["data"]["revision"]})).await;
             assert_eq!(status, StatusCode::OK);
             for (vendor, offer, revision) in &offers {
@@ -144,7 +144,7 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
             // A stale editor cannot replace the rotated credential or disable
             // this key; neither action may affect the other Supplier key.
             let (status, _) = call(&app, Method::PUT,
-                &format!("/admin/v1/vendors/{first_id}"), ADMIN,
+                &format!("/api/v1/admin/providers/connections/{first_id}"), ADMIN,
                 json!({"name":"Stale update","api_base":endpoints[0],"api_key":"fixture-stale-key","enabled":false,"expected_revision":first["data"]["revision"]})).await;
             assert_eq!(status, StatusCode::CONFLICT);
             assert_eq!(
@@ -206,8 +206,8 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
         &app,
         Method::POST,
         &format!(
-            "/admin/v1/organizations/{}/projects/{}/keys/{}/rotate",
-            scope.organization_id, scope.project_id, key.id
+            "/api/v1/workspaces/{}/keys/{}/rotate",
+            scope.project_id, key.id
         ),
         ADMIN,
         json!({}),
@@ -315,7 +315,7 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
     );
 
     let current = store.vendor(first_id).await.unwrap().unwrap();
-    assert_eq!(call(&app, Method::PUT, &format!("/admin/v1/vendors/{first_id}"), ADMIN,
+    assert_eq!(call(&app, Method::PUT, &format!("/api/v1/admin/providers/connections/{first_id}"), ADMIN,
         json!({"name":current.name,"api_base":current.api_base,"enabled":false,"expected_revision":current.revision})).await.0, StatusCode::OK);
     let mut reloaded_state = make_state();
     reloaded_state.stripe_payments = stripe_runtime.clone();
@@ -375,7 +375,7 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
     // Re-enabling without supplying a secret retains the rotated credential
     // and restores only this key's routes after process-local state is rebuilt.
     let disabled = store.vendor(first_id).await.unwrap().unwrap();
-    assert_eq!(call(&app, Method::PUT, &format!("/admin/v1/vendors/{first_id}"), ADMIN,
+    assert_eq!(call(&app, Method::PUT, &format!("/api/v1/admin/providers/connections/{first_id}"), ADMIN,
         json!({"name":disabled.name,"api_base":disabled.api_base,"enabled":true,"expected_revision":disabled.revision})).await.0, StatusCode::OK);
     let mut reloaded_state = make_state();
     reloaded_state.stripe_payments = stripe_runtime.clone();
@@ -422,10 +422,7 @@ async fn supplier_keys_dispatch_independent_model_subsets_after_rotation_and_rel
         store.vendor_supplier(first_id).await.unwrap().unwrap(),
         supplier
     );
-    let revoke_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys/{}",
-        scope.organization_id, scope.project_id, key.id
-    );
+    let revoke_path = format!("/api/v1/workspaces/{}/keys/{}", scope.project_id, key.id);
     assert_eq!(
         call(&app, Method::DELETE, &revoke_path, ADMIN, Value::Null)
             .await
@@ -488,10 +485,7 @@ async fn key_creation_uses_active_database_and_static_models(pool: PgPool) {
     ));
     let scope = state.store.default_workspace().await.unwrap();
     let app = router(state);
-    let key_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys",
-        scope.organization_id, scope.project_id
-    );
+    let key_path = format!("/api/v1/workspaces/{}/keys", scope.project_id);
     let key_input =
         |alias: &str| json!({"name":"client", "allowed_models":[alias], "ttl_seconds":3600});
     assert_eq!(
@@ -500,11 +494,11 @@ async fn key_creation_uses_active_database_and_static_models(pool: PgPool) {
             .0,
         StatusCode::CREATED
     );
-    let (status, vendor) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN,
+    let (status, vendor) = call(&app, Method::POST, "/api/v1/admin/providers/connections", ADMIN,
         json!({"name":"Managed", "adapter":"openrouter", "api_base":"https://openrouter.ai/api/v1", "api_key":"test-vendor-credential"})).await;
     assert_eq!(status, StatusCode::CREATED);
     let id = vendor["data"]["id"].as_str().unwrap();
-    let model_path = format!("/admin/v1/vendors/{id}/models");
+    let model_path = format!("/api/v1/admin/providers/connections/{id}/models");
     for (alias, enabled) in [("managed-only", true), ("disabled", false), ("fast", false)] {
         assert_eq!(
             call(
@@ -567,7 +561,7 @@ async fn key_creation_uses_active_database_and_static_models(pool: PgPool) {
             StatusCode::BAD_REQUEST
         );
     }
-    assert_eq!(call(&app, Method::PUT, &format!("/admin/v1/vendors/{id}"), ADMIN,
+    assert_eq!(call(&app, Method::PUT, &format!("/api/v1/admin/providers/connections/{id}"), ADMIN,
         json!({"name":"Managed", "api_base":"https://openrouter.ai/api/v1", "enabled":false, "expected_revision":vendor["data"]["revision"]})).await.0, StatusCode::OK);
     assert_eq!(
         call(
@@ -627,7 +621,7 @@ async fn provider_connection_retirement_is_auditable_and_idempotent(pool: PgPool
         .unwrap();
     let app = router(state);
     let id = vendor.id.to_string();
-    let path = format!("/admin/v1/vendors/{id}/retire");
+    let path = format!("/api/v1/admin/providers/connections/{id}/retire");
     let (status, _) = call(&app, Method::POST, &path, "", json!({})).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     let second = app.clone();
@@ -674,7 +668,10 @@ async fn provider_connection_retirement_is_auditable_and_idempotent(pool: PgPool
     let (status, _) = call(
         &app,
         Method::POST,
-        &format!("/admin/v1/vendors/{}/retire", Uuid::new_v4()),
+        &format!(
+            "/api/v1/admin/providers/connections/{}/retire",
+            Uuid::new_v4()
+        ),
         ADMIN,
         json!({}),
     )
@@ -759,7 +756,7 @@ async fn vendor_management_persists_and_controls_new_inference_requests(pool: Pg
         let (status, _) = call(
             &app,
             Method::POST,
-            "/admin/v1/vendors",
+            "/api/v1/admin/providers/connections",
             token,
             create.clone(),
         )
@@ -769,12 +766,19 @@ async fn vendor_management_persists_and_controls_new_inference_requests(pool: Pg
             StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN
         ));
     }
-    let (status, vendor) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN, create).await;
+    let (status, vendor) = call(
+        &app,
+        Method::POST,
+        "/api/v1/admin/providers/connections",
+        ADMIN,
+        create,
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED);
     assert!(!vendor.to_string().contains("secret"));
     assert_eq!(vendor["data"]["has_credential"], true);
     let id = vendor["data"]["id"].as_str().unwrap();
-    let model_path = format!("/admin/v1/vendors/{id}/models");
+    let model_path = format!("/api/v1/admin/providers/connections/{id}/models");
     let mapping = json!({"alias":"fast","upstream_model":"maker/first","public_catalog":true,"enabled":true,"capabilities":{"catalog":{"name":"Friendly model", "description":"Descriptive metadata", "input_price":"0.12345", "output_price":"0.54321"}}});
     assert_eq!(
         call(&app, Method::POST, &model_path, ADMIN, mapping.clone())
@@ -803,8 +807,7 @@ async fn vendor_management_persists_and_controls_new_inference_requests(pool: Pg
     assert!(!public_catalog.to_string().contains("0.12345"));
     assert!(!public_catalog.to_string().contains("maker/first"));
     for auth in [ADMIN, operator.token.as_str()] {
-        let (status, catalog) =
-            call(&app, Method::GET, "/admin/v1/models", auth, Value::Null).await;
+        let (status, catalog) = call(&app, Method::GET, "/api/v1/models", auth, Value::Null).await;
         assert_eq!(status, StatusCode::OK);
         let model = catalog["data"]
             .as_array()
@@ -843,7 +846,7 @@ async fn vendor_management_persists_and_controls_new_inference_requests(pool: Pg
             .windows(b"vendor-test-first-secret".len())
             .any(|v| v == b"vendor-test-first-secret")
     );
-    let vendor_path = format!("/admin/v1/vendors/{id}");
+    let vendor_path = format!("/api/v1/admin/providers/connections/{id}");
     let revision = vendor["data"]["revision"].as_i64().unwrap();
     let update = json!({"name":"OpenRouter","api_base":api_base,"enabled":true,"expected_revision":revision,"api_key":"vendor-test-rotated-secret"});
     let (status, updated) = call(&app, Method::PUT, &vendor_path, ADMIN, update.clone()).await;
@@ -940,7 +943,7 @@ async fn vendor_management_persists_and_controls_new_inference_requests(pool: Pg
         call(
             &app,
             Method::GET,
-            "/admin/v1/vendors",
+            "/api/v1/admin/providers/connections",
             &operator.token,
             Value::Null
         )
@@ -965,11 +968,11 @@ async fn metadata_updates_preserve_exact_prices_without_browser_roundtripping(po
         crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap(),
     ));
     let app = router(state);
-    let (status, vendor) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN,
+    let (status, vendor) = call(&app, Method::POST, "/api/v1/admin/providers/connections", ADMIN,
         json!({"name":"Priced","adapter":"openrouter","api_base":"https://openrouter.ai/api/v1","api_key":"test-price-key"})).await;
     assert_eq!(status, StatusCode::CREATED);
     let path = format!(
-        "/admin/v1/vendors/{}/models",
+        "/api/v1/admin/providers/connections/{}/models",
         vendor["data"]["id"].as_str().unwrap()
     );
     let pricing = json!({"currency":"USD","api_prompt_rate":9_007_199_254_740_993_i64,"api_completion_rate":0,"cash_prompt_rate":0,"cash_completion_rate":0,"max_input_tokens":1,"max_output_tokens":1});
@@ -1058,7 +1061,7 @@ async fn provider_model_check_is_bounded_sanitized_and_does_not_follow_redirects
     let (status, vendor) = call(
         &app,
         Method::POST,
-        "/admin/v1/vendors",
+        "/api/v1/admin/providers/connections",
         ADMIN,
         json!({
             "name":"Fixture",
@@ -1070,7 +1073,7 @@ async fn provider_model_check_is_bounded_sanitized_and_does_not_follow_redirects
     .await;
     assert_eq!(status, StatusCode::CREATED);
     let vendor_id = vendor["data"]["id"].as_str().unwrap();
-    let catalog_path = format!("/admin/v1/vendors/{vendor_id}/catalog");
+    let catalog_path = format!("/api/v1/admin/providers/connections/{vendor_id}/catalog");
     assert_eq!(
         call(&app, Method::GET, &catalog_path, "invalid", Value::Null)
             .await
@@ -1088,7 +1091,7 @@ async fn provider_model_check_is_bounded_sanitized_and_does_not_follow_redirects
         fixture.authorization.lock().unwrap().as_deref(),
         Some("Bearer vendor-check-secret")
     );
-    let models_path = format!("/admin/v1/vendors/{vendor_id}/models");
+    let models_path = format!("/api/v1/admin/providers/connections/{vendor_id}/models");
     assert_eq!(
         call(
             &app,
@@ -1101,7 +1104,7 @@ async fn provider_model_check_is_bounded_sanitized_and_does_not_follow_redirects
         .0,
         StatusCode::OK
     );
-    let check_path = format!("/admin/v1/vendors/{vendor_id}/check");
+    let check_path = format!("/api/v1/admin/providers/connections/{vendor_id}/check");
     let (status, result) = call(
         &app,
         Method::POST,
@@ -1286,7 +1289,7 @@ async fn supplier_configuration_association_requires_installation_access(pool: P
         .await
         .unwrap();
     let app = router(state.clone());
-    let path = format!("/admin/v1/vendors/{}/supplier", vendor.id);
+    let path = format!("/api/v1/admin/providers/connections/{}/supplier", vendor.id);
     let body = json!({"supplier_id":supplier,"expected_revision":vendor.revision});
     for token in ["invalid", key.token.as_str()] {
         assert_eq!(
@@ -1306,7 +1309,7 @@ async fn supplier_configuration_association_requires_installation_access(pool: P
             StatusCode::FORBIDDEN
         );
     }
-    let dashboard = format!("/admin/v1/providers/{supplier}/dashboard");
+    let dashboard = format!("/api/v1/admin/providers/{supplier}/dashboard");
     assert_eq!(
         call(&app, Method::GET, &dashboard, &member.token, json!({}))
             .await
@@ -1318,7 +1321,7 @@ async fn supplier_configuration_association_requires_installation_access(pool: P
         .create_provider_business("Foreign business")
         .await
         .unwrap();
-    let foreign_dashboard = format!("/admin/v1/providers/{foreign_supplier}/dashboard");
+    let foreign_dashboard = format!("/api/v1/admin/providers/{foreign_supplier}/dashboard");
     assert_eq!(
         call(
             &app,
@@ -1331,7 +1334,7 @@ async fn supplier_configuration_association_requires_installation_access(pool: P
         .0,
         StatusCode::FORBIDDEN
     );
-    let filtered_member = format!("/admin/v1/vendors?supplier={supplier}");
+    let filtered_member = format!("/api/v1/admin/providers/connections?supplier={supplier}");
     assert_eq!(
         call(
             &app,
@@ -1360,13 +1363,16 @@ async fn supplier_configuration_association_requires_installation_access(pool: P
     assert_eq!(status, StatusCode::OK);
     assert_eq!(result["data"]["name"], "Agreed business");
     assert_eq!(result["data"].as_object().unwrap().len(), 2);
-    let filtered = format!("/admin/v1/vendors?supplier={supplier}");
+    let filtered = format!("/api/v1/admin/providers/connections?supplier={supplier}");
     let (status, own) = call(&app, Method::GET, &filtered, ADMIN, json!({})).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(own["data"].as_array().unwrap().len(), 1);
     assert_eq!(own["data"][0]["id"], vendor.id.to_string());
     assert!(own["data"][0].get("credential_ciphertext").is_none());
-    let unknown = format!("/admin/v1/vendors?supplier={}", Uuid::new_v4());
+    let unknown = format!(
+        "/api/v1/admin/providers/connections?supplier={}",
+        Uuid::new_v4()
+    );
     assert_eq!(
         call(&app, Method::GET, &unknown, ADMIN, json!({})).await.1["data"],
         json!([])
@@ -1393,7 +1399,7 @@ async fn supplier_creation_http_is_atomic_and_legacy_compatible(pool: PgPool) {
         call(
             &app,
             Method::POST,
-            "/admin/v1/vendors",
+            "/api/v1/admin/providers/connections",
             "invalid",
             input.clone()
         )
@@ -1404,7 +1410,7 @@ async fn supplier_creation_http_is_atomic_and_legacy_compatible(pool: PgPool) {
     let (status, response) = call(
         &app,
         Method::POST,
-        "/admin/v1/vendors",
+        "/api/v1/admin/providers/connections",
         ADMIN,
         input.clone(),
     )
@@ -1419,7 +1425,7 @@ async fn supplier_creation_http_is_atomic_and_legacy_compatible(pool: PgPool) {
     );
     let owner = store.vendor_supplier(id).await.unwrap().unwrap();
     let supplier: Uuid = owner["id"].as_str().unwrap().parse().unwrap();
-    let (second_status, second) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN,
+    let (second_status, second) = call(&app, Method::POST, "/api/v1/admin/providers/connections", ADMIN,
         json!({"name":"Supplier second key", "adapter":"openai", "api_base":"https://api.openai.com/v1", "api_key":"second-fixture-key", "supplier_id":supplier})).await;
     assert_eq!(second_status, StatusCode::CREATED);
     assert!(second["data"].get("api_key").is_none());
@@ -1432,7 +1438,7 @@ async fn supplier_creation_http_is_atomic_and_legacy_compatible(pool: PgPool) {
     let (list_status, listed) = call(
         &app,
         Method::GET,
-        &format!("/admin/v1/vendors?supplier={supplier}"),
+        &format!("/api/v1/admin/providers/connections?supplier={supplier}"),
         ADMIN,
         Value::Null,
     )
@@ -1450,7 +1456,7 @@ async fn supplier_creation_http_is_atomic_and_legacy_compatible(pool: PgPool) {
         call(
             &app,
             Method::POST,
-            "/admin/v1/vendors",
+            "/api/v1/admin/providers/connections",
             ADMIN,
             contradictory
         )
@@ -1459,12 +1465,18 @@ async fn supplier_creation_http_is_atomic_and_legacy_compatible(pool: PgPool) {
         StatusCode::BAD_REQUEST
     );
     assert_eq!(
-        call(&app, Method::POST, "/admin/v1/vendors", ADMIN, input)
-            .await
-            .0,
+        call(
+            &app,
+            Method::POST,
+            "/api/v1/admin/providers/connections",
+            ADMIN,
+            input
+        )
+        .await
+        .0,
         StatusCode::CONFLICT
     );
-    let (status, legacy) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN,
+    let (status, legacy) = call(&app, Method::POST, "/api/v1/admin/providers/connections", ADMIN,
         json!({"name":"Legacy setup", "adapter":"openrouter", "api_base":"https://openrouter.ai/api/v1", "api_key":"fixture-key"})).await;
     assert_eq!(status, StatusCode::CREATED);
     let id: Uuid = legacy["data"]["id"].as_str().unwrap().parse().unwrap();
@@ -1496,11 +1508,11 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
     let store = state.store.clone();
     let scope = store.default_prepaid_workspace().await.unwrap();
     let app = router(state.clone());
-    let (status, vendor) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN,
+    let (status, vendor) = call(&app, Method::POST, "/api/v1/admin/providers/connections", ADMIN,
         json!({"name":"Personal test key","adapter":"openai","api_base":api_base,"api_key":"personal-fixture-secret","enabled":true})).await;
     assert_eq!(status, StatusCode::CREATED);
     let vendor_id: Uuid = vendor["data"]["id"].as_str().unwrap().parse().unwrap();
-    let (status, _) = call(&app, Method::POST, &format!("/admin/v1/vendors/{vendor_id}/models"), ADMIN,
+    let (status, _) = call(&app, Method::POST, &format!("/api/v1/admin/providers/connections/{vendor_id}/models"), ADMIN,
         json!({"alias":"fast","upstream_model":"personal-upstream","enabled":true,"public_catalog":true,"capabilities":{}})).await;
     assert_eq!(status, StatusCode::OK);
     let revision: i64 = sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1")
@@ -1508,8 +1520,18 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         .fetch_one(&pool)
         .await
         .unwrap();
-    let owner_path = format!("/admin/v1/vendors/{vendor_id}/personal-owner");
+    let owner_path = format!("/api/v1/admin/providers/connections/{vendor_id}/personal-owner");
     let owner_input = json!({"organization_id":scope.organization_id,"expected_revision":revision});
+    // Resale mode refuses personal-owner assignment over HTTP.
+    assert_eq!(
+        call(&app, Method::PUT, &owner_path, ADMIN, owner_input.clone())
+            .await
+            .0,
+        StatusCode::BAD_REQUEST
+    );
+    let mut internal_state = state.clone();
+    internal_state.operating_mode = crate::state::OperatingMode::Internal;
+    let internal_app = router(internal_state);
     let operator = store
         .create_operator(
             OperatorScope {
@@ -1525,7 +1547,7 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         .unwrap();
     assert_eq!(
         call(
-            &app,
+            &internal_app,
             Method::PUT,
             &owner_path,
             "invalid",
@@ -1537,7 +1559,7 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
     );
     assert_eq!(
         call(
-            &app,
+            &internal_app,
             Method::PUT,
             &owner_path,
             &operator.token,
@@ -1549,7 +1571,7 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
     );
     assert_eq!(
         call(
-            &app,
+            &internal_app,
             Method::PUT,
             &owner_path,
             ADMIN,
@@ -1560,14 +1582,20 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         StatusCode::CONFLICT
     );
     for _ in 0..2 {
-        let (status, assigned) =
-            call(&app, Method::PUT, &owner_path, ADMIN, owner_input.clone()).await;
+        let (status, assigned) = call(
+            &internal_app,
+            Method::PUT,
+            &owner_path,
+            ADMIN,
+            owner_input.clone(),
+        )
+        .await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(assigned, json!({"assigned":true}));
     }
     assert_eq!(
         call(
-            &app,
+            &internal_app,
             Method::PUT,
             &owner_path,
             ADMIN,
@@ -1578,13 +1606,13 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         StatusCode::CONFLICT
     );
     for (token, path, visible) in [
-        (ADMIN, "/admin/v1/models".to_owned(), false),
+        (ADMIN, "/api/v1/models".to_owned(), false),
         (
             ADMIN,
-            format!("/admin/v1/models?organization_id={}", scope.organization_id),
+            format!("/api/v1/models?organization_id={}", scope.organization_id),
             true,
         ),
-        (operator.token.as_str(), "/admin/v1/models".to_owned(), true),
+        (operator.token.as_str(), "/api/v1/models".to_owned(), true),
     ] {
         let (status, listed) = call(&app, Method::GET, &path, token, Value::Null).await;
         assert_eq!(status, StatusCode::OK);
@@ -1605,7 +1633,7 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         call(
             &app,
             Method::GET,
-            &format!("/admin/v1/models?organization_id={}", Uuid::new_v4()),
+            &format!("/api/v1/models?organization_id={}", Uuid::new_v4()),
             &operator.token,
             Value::Null
         )
@@ -1617,7 +1645,7 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         &app,
         Method::GET,
         &format!(
-            "/admin/v1/models?organization_id={}&project_id={}",
+            "/api/v1/models?organization_id={}&project_id={}",
             scope.organization_id, scope.project_id
         ),
         &operator.token,
@@ -1802,8 +1830,14 @@ async fn personal_gateway_inference_is_owner_scoped_and_never_debits_prepaid(poo
         assert_eq!(count, 0, "{table}");
     }
     let current = store.vendor(vendor_id).await.unwrap().unwrap();
-    let (status, updated) = call(&app, Method::PUT, &format!("/admin/v1/vendors/{vendor_id}"), ADMIN,
-        json!({"name":current.name,"api_base":current.api_base,"enabled":current.enabled,"expected_revision":current.revision})).await;
+    let path = format!("/api/v1/admin/providers/connections/{vendor_id}");
+    let update = json!({
+        "name":current.name,"api_base":current.api_base,
+        "enabled":true,"expected_revision":current.revision
+    });
+    let (status, _) = call(&app, Method::PUT, &path, ADMIN, update.clone()).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, updated) = call(&internal_app, Method::PUT, &path, ADMIN, update).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(updated["data"]["owner_funded"], true);
     server.abort();
@@ -1827,7 +1861,7 @@ async fn personal_gateway_inference_supports_opt_in_responses_and_embeddings(poo
     let store = state.store.clone();
     let scope = store.default_prepaid_workspace().await.unwrap();
     let app = router(state.clone());
-    let (status, vendor) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN,
+    let (status, vendor) = call(&app, Method::POST, "/api/v1/admin/providers/connections", ADMIN,
         json!({"name":"Personal protocol fixture","adapter":"openai","api_base":api_base,"api_key":"personal-protocol-secret","enabled":true})).await;
     assert_eq!(status, StatusCode::CREATED);
     let vendor_id: Uuid = vendor["data"]["id"].as_str().unwrap().parse().unwrap();
@@ -1835,7 +1869,7 @@ async fn personal_gateway_inference_supports_opt_in_responses_and_embeddings(poo
         ("personal-responses", json!({"supports_responses":true})),
         ("personal-embeddings", json!({"supports_embeddings":true})),
     ] {
-        let (status, _) = call(&app, Method::POST, &format!("/admin/v1/vendors/{vendor_id}/models"), ADMIN,
+        let (status, _) = call(&app, Method::POST, &format!("/api/v1/admin/providers/connections/{vendor_id}/models"), ADMIN,
             json!({"alias":alias,"upstream_model":"provider-secret-model","enabled":true,"capabilities":capabilities})).await;
         assert_eq!(status, StatusCode::OK);
     }
@@ -2035,7 +2069,10 @@ async fn asset_management_admin_configuration_is_encrypted_scoped_and_durable(po
         })
         .await
         .unwrap();
-    let path = format!("/admin/v1/vendors/{}/asset-management", vendor.id);
+    let path = format!(
+        "/api/v1/admin/providers/connections/{}/asset-management",
+        vendor.id
+    );
     let app = router(state.clone());
     let input = json!({"expected_revision":0,"upstream_project":"original-project","access_key":"AKEXAMPLE","secret_key":"fixture-management-secret"});
     for token in [&owner.token, &key.token, "invalid"] {
@@ -2201,7 +2238,10 @@ async fn asset_management_admin_revocation_requires_confirmation_and_denies_cust
         })
         .await
         .unwrap();
-    let path = format!("/admin/v1/vendors/{}/asset-management", vendor.id);
+    let path = format!(
+        "/api/v1/admin/providers/connections/{}/asset-management",
+        vendor.id
+    );
     let app = router(state.clone());
     let setup = json!({"expected_revision":0,"upstream_project":"bound-project","access_key":"AKEXAMPLE","secret_key":"fixture-management-secret"});
     assert_eq!(
@@ -2333,12 +2373,12 @@ async fn asset_management_request_delete_api_requires_workspace_write_access(poo
         .unwrap();
     let app = router(state.clone());
     let detail_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/asset-group-intents/{}/request",
-        scope.organization_id, scope.project_id, intent.id
+        "/api/v1/workspaces/{}/asset-group-intents/{}/request",
+        scope.project_id, intent.id
     );
     let list_path = format!(
-        "/admin/v1/organizations/{}/projects/{}/asset-group-intents",
-        scope.organization_id, scope.project_id
+        "/api/v1/workspaces/{}/asset-group-intents",
+        scope.project_id
     );
     for path in [&list_path, &detail_path] {
         let response = app
@@ -2447,8 +2487,8 @@ async fn asset_management_request_delete_api_requires_workspace_write_access(poo
                 Request::builder()
                     .method(Method::DELETE)
                     .uri(format!(
-                        "/admin/v1/organizations/{}/projects/{}/asset-group-intents/{}/request",
-                        target.organization_id, target.project_id, intent.id
+                        "/api/v1/workspaces/{}/asset-group-intents/{}/request",
+                        target.project_id, intent.id
                     ))
                     .header("authorization", format!("Bearer {token}"))
                     .body(axum::body::Body::empty())
@@ -2498,8 +2538,8 @@ async fn asset_management_request_delete_api_requires_workspace_write_access(poo
     assert!(deleted["name"].is_null());
     assert_eq!(deleted["request_content_status"], "deleted");
     let foreign_list = format!(
-        "/admin/v1/organizations/{}/projects/{}/asset-group-intents",
-        other.organization_id, other.project_id
+        "/api/v1/workspaces/{}/asset-group-intents",
+        other.project_id
     );
     assert_eq!(
         call(&app, Method::GET, &foreign_list, &viewer.token, json!(null))
@@ -2566,7 +2606,7 @@ async fn asset_operation_authorization_admin_controls_are_scoped_and_durable(poo
         .await
         .unwrap();
     let path = format!(
-        "/admin/v1/vendors/{}/asset-management/authorizations",
+        "/api/v1/admin/providers/connections/{}/asset-management/authorizations",
         vendor.id
     );
     let input = json!({"organization_id":scope.organization_id,"project_id":scope.project_id,"vendor_revision":1,"credential_revision":1,"rights_sha256":"11".repeat(32),"protocol_sha256":"22".repeat(32),"data_handling_sha256":"33".repeat(32),"free_operation_sha256":"44".repeat(32),"valid_for_seconds":3600});
@@ -2639,7 +2679,7 @@ async fn asset_operation_authorization_admin_controls_are_scoped_and_durable(poo
     assert_eq!(listed["data"][0]["revoked"], false);
     assert!(!listed.to_string().contains("ciphertext"));
     let wrong = format!(
-        "/admin/v1/vendors/{}/asset-management/authorizations/{id}",
+        "/api/v1/admin/providers/connections/{}/asset-management/authorizations/{id}",
         Uuid::new_v4()
     );
     assert_eq!(
@@ -3299,7 +3339,10 @@ async fn asset_group_runtime_dispatch_is_durable_bounded_and_never_replays(pool:
         .await
         .unwrap();
     let app = router(state.clone());
-    let path = format!("/admin/v1/vendors/{}/asset-management/groups", vendor.id);
+    let path = format!(
+        "/api/v1/admin/providers/connections/{}/asset-management/groups",
+        vendor.id
+    );
     let input = json!({"organization_id":scope.organization_id,"project_id":scope.project_id,"idempotency_key":Uuid::new_v4(),"vendor_revision":1,"credential_revision":1,"name":"Character"});
     assert_eq!(
         call(&app, Method::POST, &path, &principal.token, input.clone())
@@ -3517,7 +3560,7 @@ async fn asset_group_reads_dispatch_original_account_and_finish_after_disconnect
     let preparation_app = router(state.clone());
     let update = Uuid::new_v4();
     let update_path = format!(
-        "/admin/v1/vendors/{}/asset-management/group-updates",
+        "/api/v1/admin/providers/connections/{}/asset-management/group-updates",
         vendor.id
     );
     let patch_input = json!({"organization_id":scope.organization_id,"project_id":scope.project_id,"intent_id":intent.id,"update_id":update,"name":"Encrypted rename"});
@@ -4300,7 +4343,7 @@ async fn asset_group_reads_dispatch_original_account_and_finish_after_disconnect
     assert!(!result.to_string().contains("group-original"));
     assert!(!result.to_string().contains("original-project"));
     let recovered_path = format!(
-        "/admin/v1/vendors/{}/asset-management/group-reads/{read_id}?organization_id={}&project_id={}",
+        "/api/v1/admin/providers/connections/{}/asset-management/group-reads/{read_id}?organization_id={}&project_id={}",
         vendor.id, scope.organization_id, scope.project_id
     );
     let mut fresh = test_state(None, pool.clone());
@@ -4415,7 +4458,7 @@ async fn asset_group_reads_dispatch_original_account_and_finish_after_disconnect
         .is_err()
     );
     let path = format!(
-        "/admin/v1/vendors/{}/asset-management/group-reads",
+        "/api/v1/admin/providers/connections/{}/asset-management/group-reads",
         vendor.id
     );
     assert_eq!(call(&router(state.clone()),Method::POST,&path,"invalid",json!({"organization_id":scope.organization_id,"project_id":scope.project_id,"intent_id":intent.id,"read_id":Uuid::new_v4()})).await.0,StatusCode::UNAUTHORIZED);
@@ -4669,7 +4712,7 @@ async fn asset_group_reads_dispatch_original_account_and_finish_after_disconnect
             .unwrap();
     assert_eq!(recorded, "succeeded");
     let history_path = format!(
-        "/admin/v1/vendors/{}/asset-management/group-reads?organization_id={}&project_id={}",
+        "/api/v1/admin/providers/connections/{}/asset-management/group-reads?organization_id={}&project_id={}",
         vendor.id, scope.organization_id, scope.project_id
     );
     let (status, history) = call(&reopened, Method::GET, &history_path, ADMIN, json!({})).await;
@@ -4979,7 +5022,7 @@ async fn asset_listing_runtime_encrypts_recovers_erases_and_withholds_revoked_pa
         .is_err()
     );
     let lookup_result_path = format!(
-        "/admin/v1/vendors/{}/asset-management/lookups/{}?organization_id={}&project_id={}",
+        "/api/v1/admin/providers/connections/{}/asset-management/lookups/{}?organization_id={}&project_id={}",
         vendor.id, lookup_id, scope.organization_id, scope.project_id
     );
     let lookup_app = router(state.clone());
@@ -5059,7 +5102,7 @@ async fn asset_listing_runtime_encrypts_recovers_erases_and_withholds_revoked_pa
         saved_lookup
     );
     let wrong_lookup_scope = format!(
-        "/admin/v1/vendors/{}/asset-management/lookups/{}?organization_id={}&project_id={}",
+        "/api/v1/admin/providers/connections/{}/asset-management/lookups/{}?organization_id={}&project_id={}",
         vendor.id,
         lookup_id,
         scope.organization_id,
@@ -5118,7 +5161,7 @@ async fn asset_listing_runtime_encrypts_recovers_erases_and_withholds_revoked_pa
     });
     erase_entered_rx.await.unwrap();
     let erased_path = format!(
-        "/admin/v1/vendors/{}/asset-management/lookups/{}?organization_id={}&project_id={}",
+        "/api/v1/admin/providers/connections/{}/asset-management/lookups/{}?organization_id={}&project_id={}",
         vendor.id, erase_in_flight, scope.organization_id, scope.project_id
     );
     assert_eq!(
@@ -5344,7 +5387,10 @@ async fn asset_listing_runtime_encrypts_recovers_erases_and_withholds_revoked_pa
             .unwrap();
     assert!(erased.is_none());
     let lookup_app = router(state.clone());
-    let lookup_base = format!("/admin/v1/vendors/{}/asset-management/lookups", vendor.id);
+    let lookup_base = format!(
+        "/api/v1/admin/providers/connections/{}/asset-management/lookups",
+        vendor.id
+    );
     let lookup_history = format!(
         "{lookup_base}?organization_id={}&project_id={}&limit=1",
         scope.organization_id, scope.project_id
@@ -5487,14 +5533,14 @@ async fn asset_listing_runtime_encrypts_recovers_erases_and_withholds_revoked_pa
     recovered_state.vendor_cipher = Some(cipher.clone());
     let app = router(recovered_state);
     let path = format!(
-        "/admin/v1/vendors/{}/asset-management/listings/{}?organization_id={}&project_id={}",
+        "/api/v1/admin/providers/connections/{}/asset-management/listings/{}?organization_id={}&project_id={}",
         vendor.id, listing, scope.organization_id, scope.project_id
     );
     let (status, recovered) = call(&app, Method::GET, &path, ADMIN, json!({})).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(recovered, result);
     let child_path = format!(
-        "/admin/v1/vendors/{}/asset-management/listings/{}?organization_id={}&project_id={}",
+        "/api/v1/admin/providers/connections/{}/asset-management/listings/{}?organization_id={}&project_id={}",
         vendor.id, child, scope.organization_id, scope.project_id
     );
     let (status, recovered_child) = call(&app, Method::GET, &child_path, ADMIN, json!({})).await;
@@ -5505,7 +5551,10 @@ async fn asset_listing_runtime_encrypts_recovers_erases_and_withholds_revoked_pa
         call(&app, Method::GET, &path, "invalid", json!({})).await.0,
         StatusCode::UNAUTHORIZED
     );
-    let base = format!("/admin/v1/vendors/{}/asset-management/listings", vendor.id);
+    let base = format!(
+        "/api/v1/admin/providers/connections/{}/asset-management/listings",
+        vendor.id
+    );
     assert_eq!(call(&app,Method::POST,&base,"invalid",json!({"organization_id":scope.organization_id,"project_id":scope.project_id,"intent_id":intent.id,"listing_id":Uuid::new_v4(),"maximum_items":2})).await.0,StatusCode::UNAUTHORIZED);
     // Workspace authority is deliberately insufficient for platform asset management.
     for role in [
@@ -6036,7 +6085,9 @@ async fn deletion_consent_api_is_platform_scoped_revocable_and_never_dispatches(
         .unwrap();
     let id = Uuid::new_v4();
     let input = json!({"organization_id":scope.organization_id,"project_id":scope.project_id,"intent_id":intent.id,"consent_id":id,"authorization_id":grant,"valid_for_seconds":900,"confirm_cascade":true});
-    let base = format!("/admin/v1/vendors/{vendor}/asset-management/group-deletion-consents");
+    let base = format!(
+        "/api/v1/admin/providers/connections/{vendor}/asset-management/group-deletion-consents"
+    );
     let detail = format!(
         "{base}/{id}?organization_id={}&project_id={}",
         scope.organization_id, scope.project_id
@@ -6061,7 +6112,7 @@ async fn deletion_consent_api_is_platform_scoped_revocable_and_never_dispatches(
         StatusCode::BAD_REQUEST
     );
     let wrong = format!(
-        "/admin/v1/vendors/{}/asset-management/group-deletion-consents",
+        "/api/v1/admin/providers/connections/{}/asset-management/group-deletion-consents",
         Uuid::new_v4()
     );
     assert_eq!(
@@ -6244,7 +6295,9 @@ async fn deletion_dispatch_is_one_shot_and_finishes_after_disconnect(pool: PgPoo
         .unwrap();
     let id = Uuid::new_v4();
     let input = json!({"organization_id":scope.organization_id,"project_id":scope.project_id,"intent_id":intent.id,"consent_id":id,"authorization_id":grant,"valid_for_seconds":900,"confirm_cascade":true});
-    let base = format!("/admin/v1/vendors/{vendor}/asset-management/group-deletion-consents");
+    let base = format!(
+        "/api/v1/admin/providers/connections/{vendor}/asset-management/group-deletion-consents"
+    );
     let detail = format!(
         "{base}/{id}?organization_id={}&project_id={}",
         scope.organization_id, scope.project_id
@@ -8110,7 +8163,7 @@ async fn model_setup_reads_saved_configuration_and_rechecks_revisions(pool: PgPo
         .await
         .unwrap();
     let app = router(state.clone());
-    let (status, created) = call(&app, Method::POST, "/api/v1/vendors", ADMIN,
+    let (status, created) = call(&app, Method::POST, "/api/v1/admin/providers/connections", ADMIN,
         json!({"name":"Model setup key","adapter":"openai","api_base":"https://example.test/v1","api_key":"fixture-original-secret","enabled":true,"create_supplier":true})).await;
     assert_eq!(status, StatusCode::CREATED, "{created}");
     let id = created["data"]["id"].as_str().unwrap();
@@ -8121,8 +8174,8 @@ async fn model_setup_reads_saved_configuration_and_rechecks_revisions(pool: PgPo
         .unwrap()
         .unwrap();
     let provider_id = provider["id"].as_str().unwrap();
-    let collection = format!("/api/v1/vendors?supplier={provider_id}");
-    let models_path = format!("/api/v1/vendors/{id}/models");
+    let collection = format!("/api/v1/admin/providers/connections?supplier={provider_id}");
+    let models_path = format!("/api/v1/admin/providers/connections/{id}/models");
     let mapping = json!({"alias":"review/model","upstream_model":"upstream/original","enabled":true,"public_catalog":false,"capabilities":{},"expected_revision":null});
     let (status, result) = call(&app, Method::POST, &models_path, ADMIN, mapping).await;
     assert_eq!(status, StatusCode::OK, "{result}");
@@ -8138,7 +8191,7 @@ async fn model_setup_reads_saved_configuration_and_rechecks_revisions(pool: PgPo
     let (_, supply) = call(
         &reloaded,
         Method::GET,
-        &format!("/api/v1/providers/{provider_id}/administration?days=90"),
+        &format!("/api/v1/admin/providers/{provider_id}/administration?days=90"),
         ADMIN,
         Value::Null,
     )
@@ -8158,7 +8211,7 @@ async fn model_setup_reads_saved_configuration_and_rechecks_revisions(pool: PgPo
         StatusCode::CONFLICT
     );
     let credential = json!({"name":"Updated model key","api_base":"https://example.test/v1","enabled":true,"api_key":"fixture-rotated-secret","expected_revision":inventory["data"][0]["revision"]});
-    let credential_path = format!("/api/v1/vendors/{id}");
+    let credential_path = format!("/api/v1/admin/providers/connections/{id}");
     assert_eq!(
         call(
             &reloaded,
@@ -8338,7 +8391,8 @@ async fn generation_catalog_uses_current_video_routes_not_stale_modalities(pool:
             "fixture-text",
             json!({"catalog":{"output_modalities":["text"]}}),
         ),
-        ("legacy-unknown", "fixture-unknown", json!({})),
+        ("openai-chat", "deepseek-v3", json!({})),
+        ("legacy-unknown", "grok-imagine-video", json!({})),
         (
             "declared-dual",
             "fixture-dual",
@@ -8371,6 +8425,7 @@ async fn generation_catalog_uses_current_video_routes_not_stale_modalities(pool:
     for (alias, chat, video) in [
         ("stale-video", json!(false), true),
         ("declared-text", json!(true), false),
+        ("openai-chat", json!(true), false),
         ("legacy-unknown", Value::Null, false),
         ("declared-dual", json!(true), false),
     ] {
@@ -8451,7 +8506,14 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
     let scope = store.default_workspace().await.unwrap();
     let app = router(state);
     let input = json!({"name":"DeepSeek official","adapter":"openai","api_base":base,"api_key":"fixture-only-upstream-key","create_supplier":true,"personal_organization_id":scope.organization_id});
-    let (status, created) = call(&app, Method::POST, "/api/v1/vendors", ADMIN, input.clone()).await;
+    let (status, created) = call(
+        &app,
+        Method::POST,
+        "/api/v1/admin/providers/connections",
+        ADMIN,
+        input.clone(),
+    )
+    .await;
     assert_eq!(status, StatusCode::CREATED, "{created}");
     assert_eq!(created["data"]["owner_funded"], true);
     assert!(!created.to_string().contains("fixture-only-upstream-key"));
@@ -8460,7 +8522,7 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
         store.personal_vendor_organization(id).await.unwrap(),
         Some(scope.organization_id)
     );
-    let path = format!("/api/v1/vendors/{id}/import");
+    let path = format!("/api/v1/admin/providers/connections/{id}/import");
     for expected in [2, 0] {
         let (status, result) = call(&app, Method::POST, &path, ADMIN, json!({})).await;
         assert_eq!(status, StatusCode::OK, "{result}");
@@ -8593,7 +8655,7 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
         ),
         "{denied}"
     );
-    let (status, _) = call(&app, Method::POST, &format!("/api/v1/vendors/{id}/models"), ADMIN, json!({"alias":"deepseek-official/second","upstream_model":"maker/second","enabled":false,"public_catalog":false,"capabilities":{},"expected_revision":1})).await;
+    let (status, _) = call(&app, Method::POST, &format!("/api/v1/admin/providers/connections/{id}/models"), ADMIN, json!({"alias":"deepseek-official/second","upstream_model":"maker/second","enabled":false,"public_catalog":false,"capabilities":{},"expected_revision":1})).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         call(&app, Method::POST, &path, ADMIN, json!({})).await.1["data"]["imported"],
@@ -8621,9 +8683,15 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
     invalid["name"] = json!("Must roll back");
     invalid["personal_organization_id"] = json!(Uuid::new_v4());
     assert_eq!(
-        call(&app, Method::POST, "/api/v1/vendors", ADMIN, invalid)
-            .await
-            .0,
+        call(
+            &app,
+            Method::POST,
+            "/api/v1/admin/providers/connections",
+            ADMIN,
+            invalid
+        )
+        .await
+        .0,
         StatusCode::CONFLICT
     );
     assert!(
@@ -8640,7 +8708,7 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
     let (status, body) = call(
         &app,
         Method::POST,
-        "/api/v1/vendors",
+        "/api/v1/admin/providers/connections",
         ADMIN,
         json!({"name":"Unscoped internal","adapter":"openai","api_base":base,"api_key":"fixture-only-upstream-key","create_supplier":true}),
     )
@@ -8667,7 +8735,7 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
     let (status, shared_created) = call(
         &app,
         Method::POST,
-        "/api/v1/vendors",
+        "/api/v1/admin/providers/connections",
         ADMIN,
         json!({"name":"DeepSeek shared","adapter":"openai","api_base":base,"api_key":"fixture-only-shared-key","create_supplier":true,"access_scope":"internal","personal_organization_id":scope.organization_id}),
     )
@@ -8689,7 +8757,7 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
         call(
             &app,
             Method::POST,
-            &format!("/api/v1/vendors/{shared_id}/import"),
+            &format!("/api/v1/admin/providers/connections/{shared_id}/import"),
             ADMIN,
             json!({})
         )
@@ -8757,7 +8825,7 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
     let (status, updated) = call(
         &app,
         Method::POST,
-        &format!("/api/v1/vendors/{shared_id}/models"),
+        &format!("/api/v1/admin/providers/connections/{shared_id}/models"),
         ADMIN,
         json!({"alias":shared_alias,"upstream_model":shared_model.upstream_model,"enabled":true,"public_catalog":false,"capabilities":{},"expected_revision":1}),
     )
@@ -8792,7 +8860,7 @@ async fn internal_provider_import_is_private_idempotent_and_bill_safe(pool: PgPo
     let (status, _) = call(
         &resale_app,
         Method::POST,
-        "/api/v1/vendors",
+        "/api/v1/admin/providers/connections",
         ADMIN,
         json!({"name":"Resale internal","adapter":"openai","api_base":base,"api_key":"fixture-only-upstream-key","create_supplier":true,"access_scope":"internal","personal_organization_id":scope.organization_id}),
     )
@@ -8867,7 +8935,7 @@ async fn resale_provider_import_is_disabled_unpriced_private_and_idempotent(pool
     let (status, created) = call(
         &app,
         Method::POST,
-        "/api/v1/vendors",
+        "/api/v1/admin/providers/connections",
         ADMIN,
         json!({
             "name":"Resale discovery",
@@ -8884,7 +8952,7 @@ async fn resale_provider_import_is_disabled_unpriced_private_and_idempotent(pool
     assert!(!created.to_string().contains(secret));
     let id: Uuid = created["data"]["id"].as_str().unwrap().parse().unwrap();
 
-    let path = format!("/api/v1/vendors/{id}/import");
+    let path = format!("/api/v1/admin/providers/connections/{id}/import");
     assert_eq!(
         call(&app, Method::POST, &path, "invalid", json!({}))
             .await
@@ -8980,19 +9048,19 @@ async fn legacy_provider_qualification_routes_are_removed(pool: PgPool) {
     for (method, path) in [
         (
             Method::PUT,
-            format!("/admin/v1/providers/{provider}/qualification"),
+            format!("/api/v1/admin/providers/{provider}/qualification"),
         ),
         (
             Method::POST,
-            format!("/admin/v1/providers/{provider}/qualification/revoke"),
+            format!("/api/v1/admin/providers/{provider}/qualification/revoke"),
         ),
         (
             Method::PUT,
-            format!("/admin/v1/providers/{provider}/offers/{offer}/qualification"),
+            format!("/api/v1/admin/providers/{provider}/offers/{offer}/qualification"),
         ),
         (
             Method::POST,
-            format!("/admin/v1/providers/{provider}/offers/{offer}/qualification/revoke"),
+            format!("/api/v1/admin/providers/{provider}/offers/{offer}/qualification/revoke"),
         ),
     ] {
         let (status, _) = call(&app, method, &path, ADMIN, json!({})).await;
@@ -9029,7 +9097,7 @@ async fn public_catalog_publishes_qualified_commercial_and_shared_models_without
     let (status, commercial_vendor) = call(
         &app,
         Method::POST,
-        "/admin/v1/vendors",
+        "/api/v1/admin/providers/connections",
         ADMIN,
         json!({
             "name": "Commercial Provider",
@@ -9060,7 +9128,7 @@ async fn public_catalog_publishes_qualified_commercial_and_shared_models_without
     let (status, added) = call(
         &app,
         Method::POST,
-        &format!("/admin/v1/vendors/{comm_vendor_id}/models"),
+        &format!("/api/v1/admin/providers/connections/{comm_vendor_id}/models"),
         ADMIN,
         json!({
             "alias": "comm/chat",
@@ -9094,7 +9162,7 @@ async fn public_catalog_publishes_qualified_commercial_and_shared_models_without
     let (status, disabled_add) = call(
         &app,
         Method::POST,
-        &format!("/admin/v1/vendors/{comm_vendor_id}/models"),
+        &format!("/api/v1/admin/providers/connections/{comm_vendor_id}/models"),
         ADMIN,
         json!({
             "alias": "comm/unqualified",
@@ -9158,11 +9226,12 @@ async fn public_catalog_publishes_qualified_commercial_and_shared_models_without
         .await
         .unwrap();
 
-    // Personal route belonging to a customer workspace must never enter /catalog/v1/models.
-    let (status, personal_vendor) = call(
+    // Resale mode rejects creating owner-funded personal connections via HTTP,
+    // and any preexisting DB personal route still never enters /catalog/v1/models.
+    let (status, rejected_personal) = call(
         &app,
         Method::POST,
-        "/admin/v1/vendors",
+        "/api/v1/admin/providers/connections",
         ADMIN,
         json!({
             "name": "Personal Provider",
@@ -9173,12 +9242,33 @@ async fn public_catalog_publishes_qualified_commercial_and_shared_models_without
         }),
     )
     .await;
-    assert_eq!(status, StatusCode::CREATED, "{personal_vendor}");
-    let personal_id = personal_vendor["data"]["id"].as_str().unwrap();
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{rejected_personal}");
+    let personal_uuid = Uuid::new_v4();
+    let cipher = crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap();
+    let personal_vendor = store
+        .create_vendor_with_access_scope(
+            niu_storage::VendorInput {
+                id: personal_uuid,
+                name: "Personal Provider".into(),
+                adapter: "openai".into(),
+                api_base: "https://personal.example.invalid/v1".into(),
+                enabled: true,
+                credential_ciphertext: cipher
+                    .seal(personal_uuid, "fixture-secret-personal-key")
+                    .unwrap(),
+            },
+            false,
+            None,
+            Some(scope.organization_id),
+            niu_storage::VendorAccessScope::Personal,
+        )
+        .await
+        .unwrap();
+    let personal_id = personal_vendor.id.to_string();
     let (status, priv_added) = call(
         &app,
         Method::POST,
-        &format!("/admin/v1/vendors/{personal_id}/models"),
+        &format!("/api/v1/admin/providers/connections/{personal_id}/models"),
         ADMIN,
         json!({
             "alias": "priv/chat",
@@ -9195,13 +9285,14 @@ async fn public_catalog_publishes_qualified_commercial_and_shared_models_without
     let (status, pub_pool) = call(
         &app,
         Method::PUT,
-        "/admin/v1/routing",
+        "/api/v1/admin/routing",
         ADMIN,
         json!({
             "alias": "pool/public",
             "organization_id": null,
             "display_name": "Shared Routing Pool",
             "public_catalog": true,
+            "billing_mode": "candidate_tariff",
             "enabled": true,
             "expected_revision": 0,
             "candidates": [{"alias": "comm/chat", "priority": 100, "weight": 100, "enabled": true}]
@@ -9213,7 +9304,7 @@ async fn public_catalog_publishes_qualified_commercial_and_shared_models_without
     let (status, org_pool) = call(
         &app,
         Method::PUT,
-        "/admin/v1/routing",
+        "/api/v1/admin/routing",
         ADMIN,
         json!({
             "alias": "pool/org-private",

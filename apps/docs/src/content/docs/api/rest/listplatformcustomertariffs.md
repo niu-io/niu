@@ -1,11 +1,11 @@
 ---
 title: "Page current customer selling tariffs"
-description: "GET /api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs"
+description: "GET /api/v1/admin/pricing/organizations/{organization}/workspaces/{project}/tariffs"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs`
+`GET /api/v1/admin/pricing/organizations/{organization}/workspaces/{project}/tariffs`
 
 Explicit platform administration required; ordinary company/workspace roles do not grant access. Configuration only, without usage, balances, statements, content, credentials or procurement. Keyset order is workspace UUID ascending for targets, model alias ascending for tariffs. Pass next_after unchanged as after; null means complete. Limit defaults to 50, maximum 100. Each page is one database snapshot; concurrent inserts before the cursor require refreshing the first page. Missing cursor returns 409. Identifiers are API references, never display labels. Cache-Control no-store. Tariff token rates are exact nanounits per million tokens; minimum and request fees are exact currency nanounits. Empty valid workspace returns an empty page.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/pricing/organizations/{organization}/workspaces/{project}/tariffs" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 
@@ -245,6 +245,25 @@ Content type: `application/json`.
             "properties": {
               "advisory": {
                 "type": "boolean"
+              },
+              "supply_status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "inactive",
+                  "unconfigured"
+                ],
+                "description": "Current commercial Provider supply readiness for this model alias: active (enabled route, credential and qualified offer), inactive (route configured but disabled or missing credential/offer), or unconfigured (no commercial Provider route)."
+              },
+              "active_supply_routes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "active_providers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               },
               "checks": {
                 "type": "array",

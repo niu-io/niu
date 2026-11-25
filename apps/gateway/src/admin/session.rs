@@ -118,7 +118,48 @@ pub struct AdminModeInput {
     enabled: bool,
 }
 
-pub async fn update_admin_mode(
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionPatchInput {
+    role: Option<SessionRole>,
+    #[serde(alias = "organization_id")]
+    organization: Option<String>,
+}
+
+/// Unified session mutation endpoint (`PATCH /api/v1/session`) for switching
+/// active role (`user` | `admin`) and/or active organization scope.
+pub async fn patch_session(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<SessionPatchInput>,
+) -> Result<Json<Value>, ApiError> {
+    if input.role.is_none() && input.organization.is_none() {
+        return Err(ApiError::invalid_request(
+            "Provide at least one session field to update (role or organization)",
+        ));
+    }
+    if let Some(organization) = input.organization {
+        let _ = switch_session_organization(
+            State(state.clone()),
+            headers.clone(),
+            Json(SessionOrganizationInput { organization }),
+        )
+        .await?;
+    }
+    if let Some(role) = input.role {
+        return update_admin_mode(
+            State(state),
+            headers,
+            Json(AdminModeInput {
+                enabled: matches!(role, SessionRole::Admin),
+            }),
+        )
+        .await;
+    }
+    current_session(State(state), headers).await
+}
+
+async fn update_admin_mode(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(input): Json<AdminModeInput>,

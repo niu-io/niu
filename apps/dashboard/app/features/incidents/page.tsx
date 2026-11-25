@@ -73,12 +73,22 @@ export default function ConnectionIncidents() {
   const identity = `${context.token}:${context.session?.kind}:${context.session?.operator?.id ?? ''}`;
   const connectionReference = query.get('connection');
   if (connectionReference !== null) return <IncidentConnection key={connectionReference} reference={connectionReference} />;
-  return <div className="w-full min-w-0 space-y-6">
-    <PageHeader title={t('Connection incidents', '连接事故')} action={<Button variant="outline" onClick={() => setRefresh(value => value + 1)}><IconRefresh size={16} />{t('Refresh', '刷新')}</Button>} />
-    <p className="text-sm text-muted-foreground">{t('Review upstream access failures and evidence of recovery. Configuration changes alone do not confirm recovery.', '查看上游访问失败及恢复证据。仅修改配置不能确认恢复。')}</p>
-    <p className="text-sm text-muted-foreground">{t('Detection uses requests actually sent to Providers. No proactive upstream probe is configured, so an idle connection can be unhealthy without an incident here.', '检测依据实际发送给 Provider 的请求。当前未配置主动上游探测，因此空闲连接可能已不可用但没有事故记录。')}</p>
+  return <div className="w-full min-w-0 space-y-5">
     <Tabs value={status} onValueChange={value => setQuery(current => { const next = new URLSearchParams(current); if (value === 'resolved') next.set('status', value); else next.delete('status'); return next; })}>
-      <TabsList variant="line"><TabsTrigger value="active">{t('Needs attention', '待处理')}</TabsTrigger><TabsTrigger value="resolved">{t('History', '历史记录')}</TabsTrigger></TabsList>
+      <PageHeader
+        title={t('Connection incidents', '连接事故')}
+        tabs={
+          <TabsList variant="line" aria-label={t('Connection incident sections', '连接事故分区')}>
+            <TabsTrigger value="active">{t('Needs attention', '待处理')}</TabsTrigger>
+            <TabsTrigger value="resolved">{t('History', '历史记录')}</TabsTrigger>
+          </TabsList>
+        }
+        action={<Button variant="outline" onClick={() => setRefresh(value => value + 1)}><IconRefresh size={16} />{t('Refresh', '刷新')}</Button>}
+      />
+      <div className="space-y-2 pb-2">
+        <p className="text-sm text-muted-foreground">{t('Review upstream access failures and evidence of recovery. Configuration changes alone do not confirm recovery.', '查看上游访问失败及恢复证据。仅修改配置不能确认恢复。')}</p>
+        <p className="text-sm text-muted-foreground">{t('Detection uses requests actually sent to Providers. No proactive upstream probe is configured, so an idle connection can be unhealthy without an incident here.', '检测依据实际发送给 Provider 的请求。当前未配置主动上游探测，因此空闲连接可能已不可用但没有事故记录。')}</p>
+      </div>
       <TabsContent value="active"><IncidentList key={`${identity}:active:${refresh}`} token={context.token} status="active" /></TabsContent>
       <TabsContent value="resolved"><IncidentList key={`${identity}:resolved:${refresh}`} token={context.token} status="resolved" /></TabsContent>
     </Tabs>

@@ -121,3 +121,27 @@ test('unsent metadata survives process restart in a private queue and retries id
     await rm(stateDirectory, { recursive: true, force: true });
   }
 });
+
+test('HTTP 404 from legacy /executions emits an explicit Niu 0.3 compatibility notice and retains queued records', async () => {
+  const stateDirectory = await mkdtemp(join(tmpdir(), 'niu-agent-connect-404-'));
+  const notices = [];
+  const receiver = new ClaudeCollectionReceiver({
+    gatewayBaseURL: 'https://gateway.example.test/v1',
+    organizationId,
+    projectId,
+    collectorKey,
+    stateDirectory,
+    fetch: async () => new Response(JSON.stringify({ error: 'not found' }), { status: 404 }),
+    onStatus: status => notices.push(status),
+  });
+  try {
+    const local = await receiver.listen();
+    assert.equal((await postLogs(receiver, local)).status, 200);
+    await receiver.flush();
+    assert.equal(await receiver.queueLength(), 1);
+    assert.ok(notices.some(n => n.type === 'warning' && /Niu 0\.3/.test(n.message) && /404/.test(n.message)));
+  } finally {
+    await receiver.close();
+    await rm(stateDirectory, { recursive: true, force: true });
+  }
+});

@@ -24,6 +24,8 @@ pub(crate) struct Registry {
     pub routes: BTreeMap<String, CompiledRoute>,
     pub pools: BTreeMap<String, ModelRoutePool>,
     pub offers: BTreeMap<String, RouteRegistryOffer>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pooled_vendors: Vec<niu_storage::VendorPoolMember>,
 }
 
 pub(crate) struct Compiler {
@@ -112,6 +114,7 @@ impl RouteRegistryCompiler for Compiler {
             routes,
             pools,
             offers,
+            pooled_vendors: inputs.pooled_vendors,
         })
         .map_err(|_| StoreError::InvalidVendor)
     }
@@ -226,6 +229,13 @@ pub(crate) async fn catalog_inputs(
         .route_registry_live_eligibility()
         .await
         .map_err(ApiError::from_store)?;
+    let text_offer_aliases = published
+        .registry
+        .offers
+        .values()
+        .filter(|offer| offer.active && offer.rate_kind.as_deref() != Some("media"))
+        .map(|offer| offer.model_alias.clone())
+        .collect();
     Ok((
         published.registry.static_models.clone(),
         niu_storage::VendorCatalogInputs {
@@ -238,13 +248,15 @@ pub(crate) async fn catalog_inputs(
             pools: published.registry.pools.values().cloned().collect(),
             unavailable,
             cooling_down,
+            text_offer_aliases,
+            pooled_vendors: published.registry.pooled_vendors.clone(),
         },
     ))
 }
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing-registry",
+///   "path": "/api/v1/admin/routing/registry",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getRoutingRegistryStatus",

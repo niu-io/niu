@@ -108,13 +108,44 @@ describe('Global Chat', () => {
       <Route path="/workspaces/:workspace/keys" element={<Target/>}/>
     </Routes></MemoryRouter></SidebarProvider>);
     const prompt=await screen.findByLabelText('Prompt for all selected models');
-    await waitFor(()=>expect(prompt).toHaveProperty('disabled',false));
-    await user.type(prompt,'Keep this draft');
+    await waitFor(()=>expect(prompt).toHaveProperty('disabled',true));
+    expect(screen.getByRole('button',{name:'Send to 1 model'})).toHaveProperty('disabled',true);
     expect(await screen.findByText('Create an API key to start using models in this workspace.')).toBeTruthy();
     expect(screen.queryByLabelText('Key secret')).toBeNull();
     await user.click(screen.getByRole('button',{name:'Create API key'}));
     expect(JSON.parse((await screen.findByTestId('key-handoff')).textContent!)).toEqual({createKey:true,returnTo:'/generations/chat-42?workspace=workspace-a'});
-    expect([...serverDrafts.values()].some(draft=>(draft.payload as {prompt:string})?.prompt==='Keep this draft')).toBe(true);
+  });
+  it('enables message entry only after explicit key creation', async () => {
+    let created = false;
+    stubFetch(vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/keys') && init?.method === 'POST') {
+        created = true;
+        return jsonResponse({ id: 'key-auto', token: 'niu_auto_secret', allowed_models: ['*'], key: { id: 'key-auto', slug: 'playground', name: 'Playground', allowed_models: ['*'], invocation_allowed: true, revoked: false, expired: false } });
+      }
+      if (url.endsWith('/keys')) {
+        return jsonResponse({ data: created ? [{ id: 'key-auto', slug: 'playground', name: 'Playground', allowed_models: ['*'], revoked: false, expired: false }] : [] });
+      }
+      if (url === '/v1/chat/completions') {
+        return streamResponse('fast', 12, 'att-auto-1');
+      }
+      if (url.includes('/requests/att-auto-1')) {
+        return jsonResponse({ data: { attempt_id: 'att-auto-1', customer_charge_status: 'owner_funded', customer_charge_nanos: null, customer_charge_currency: null } });
+      }
+      return jsonResponse({ data: [] });
+    }));
+    const user = userEvent.setup();
+    renderPlayground(['fast']);
+    const prompt = await screen.findByLabelText('Prompt for all selected models');
+    expect(prompt).toHaveProperty('disabled', true);
+    await user.click(await screen.findByRole('button', { name: 'Auto-create key' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Auto-create key' }));
+    await waitFor(() => expect(prompt).toHaveProperty('disabled', false));
+    await user.type(prompt, 'Hello with a key');
+    await user.click(screen.getByRole('button', { name: 'Send to 1 model' }));
+    expect(await screen.findByText(/response/)).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'API key: Playground' })).toBeTruthy();
   });
   it('consumes new-generation intent and restores an unsent server draft after remount', async () => {
     stubFetch(vi.fn(async () => jsonResponse({data:[]})));
@@ -130,21 +161,55 @@ describe('Global Chat', () => {
     expect(vi.mocked(fetch).mock.calls.some(([path])=>String(path).includes('/v1/chat/completions'))).toBe(false);
   });
   it('opens Video via a distinct mode switch link without offering it as a prompt filter tab', async () => {
-    stubFetch(vi.fn(async () => jsonResponse({data:[]})));
+    stubFetch(vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/keys')) return jsonResponse({data:[{id:'key-video',slug:'video-key',name:'Video key',allowed_models:['*'],revoked:false,expired:false}]});
+      if (url === '/v1/video/models') return jsonResponse({data:[{id:'video/fast'}]});
+      return jsonResponse({data:[]});
+    }));
     render(<SidebarProvider><MemoryRouter initialEntries={['/generations?new=1']}>
       <PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/>
     </MemoryRouter></SidebarProvider>);
     const videoLink = await screen.findByRole('link', {name:'Video',exact:true});
     expect(videoLink.getAttribute('href')).toContain('new=video');
+    expect(videoLink.getAttribute('href')).toContain('key=video-key');
     expect(screen.queryByRole('tab', {name:'Video'})).toBeNull();
     expect(screen.queryByRole('button', {name:/Video generation/})).toBeNull();
     await userEvent.click(videoLink);
     expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).value).toBe('');
     expect(vi.mocked(fetch).mock.calls.some(([path])=>String(path).includes('/v1/chat/completions'))).toBe(false);
   });
+
+  it('keeps Chat-to-Video switcher visible and links to the discovered video key slug when workspace splits text-only and video keys', async () => {
+    stubFetch(vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const headers = new Headers(init?.headers);
+      if (url.endsWith('/keys')) {
+        return jsonResponse({
+          data: [
+            { id: 'key-text', slug: 'text-only', name: 'Text only', allowed_models: ['fast'], revoked: false, expired: false },
+            { id: 'key-video', slug: 'video-studio', name: 'Video studio', allowed_models: ['seedance/2.0'], revoked: false, expired: false },
+          ],
+        });
+      }
+      if (url === '/v1/video/models') {
+        const keyHeader = headers.get('x-niu-key-id');
+        return jsonResponse({ data: keyHeader === 'key-video' ? [{ id: 'seedance/2.0' }] : [] });
+      }
+      return jsonResponse({ data: [] });
+    }));
+    render(<SidebarProvider><MemoryRouter initialEntries={['/generations?new=1&key=text-only']}>
+      <PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/>
+    </MemoryRouter></SidebarProvider>);
+    await screen.findByRole('button', { name: 'API key: Text only' });
+    const videoLink = await screen.findByRole('link', { name: 'Video', exact: true });
+    expect(videoLink.getAttribute('href')).toContain('new=video');
+    expect(videoLink.getAttribute('href')).toContain('key=video-studio');
+    expect(videoLink.getAttribute('href')).not.toContain('key=text-only');
+  });
   it.each(['older', 'missing'])('opens only the explicitly requested saved session: %s', async requested => {
     for (const [id, prompt, createdAt] of [['latest', 'Latest conversation', 2], ['older', 'Requested conversation', 1]] as const) {
-      serverChats.set(`/api/v1/organizations/org-a/projects/workspace-a/chats/${id}`, {
+      serverChats.set(`/api/v1/workspaces/workspace-a/chats/${id}`, {
         id, prompt, createdAt, results: [],
       });
     }
@@ -233,7 +298,7 @@ describe('Global Chat', () => {
     stubFetch(vi.fn(async()=>jsonResponse({data:[]})));
     const user=userEvent.setup();renderPlayground(['fast','other']);
     await waitFor(()=>expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).disabled).toBe(false));
-    serverDrafts.set('/api/v1/organizations/org-a/projects/workspace-a/chats/draft',{revision:1,payload:{sessionId:null,prompt:'Other tab',models:['fast'],attachments:[],settings:{systemPrompt:'Remote instructions',maxTokens:512,temperature:0.7,logPayloads:true}}});
+    serverDrafts.set('/api/v1/workspaces/workspace-a/chats/draft',{revision:1,payload:{sessionId:null,prompt:'Other tab',models:['fast'],attachments:[],settings:{systemPrompt:'Remote instructions',maxTokens:512,temperature:0.7,logPayloads:true}}});
     await user.type(screen.getByLabelText('Prompt for all selected models'),'My local draft');
     await user.click(screen.getByRole('button',{name:'Chat settings',exact:true}));
     await user.type(screen.getByLabelText('System instructions'),'My local instructions');
@@ -300,7 +365,7 @@ describe('Global Chat', () => {
   });
 
   it('preserves a saved model selection while the account catalog reloads', async () => {
-    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chats/saved', {
+    serverChats.set('/api/v1/workspaces/workspace-a/chats/saved', {
       id: 'saved', prompt: 'Saved selection', createdAt: 1,
       results: [{ model: 'fast', content: 'Saved answer', phase: 'complete', elapsedMs: 10,
         promptTokens: 1, completionTokens: 1, totalTokens: 2, attemptId: null, error: null }],
@@ -345,7 +410,7 @@ describe('Global Chat', () => {
     });
     expect(JSON.parse(content)).toEqual(exported);
     const call = fetch.mock.calls.find(([input]) => String(input).endsWith('/export'));
-    expect(String(call?.[0])).toBe('/api/v1/organizations/org-a/projects/workspace-a/chats/saved/export');
+    expect(String(call?.[0])).toBe('/api/v1/workspaces/workspace-a/chats/saved/export');
   });
   it('keeps history and reports failed export without downloading', async () => {
     const item = { id: 'saved', prompt: 'Saved diagnosis', createdAt: 1, results: [] };
@@ -360,7 +425,7 @@ describe('Global Chat', () => {
     expect(screen.getByRole('button', { name: 'Actions for Saved diagnosis' })).toBeTruthy();
   });
   it('restores customer charge states without displaying legacy Provider accounting', async () => {
-    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chats/accounting', {
+    serverChats.set('/api/v1/workspaces/workspace-a/chats/accounting', {
       id: 'accounting', prompt: 'Customer accounting', createdAt: 1,
       results: ['charged', 'pending', 'unpriced', 'not_charged', 'owner_funded'].map((status, index) => ({
         model: ['fast', 'strong', 'balanced', 'unused', 'personal'][index], content: 'Fixture response', phase: 'complete', elapsedMs: 10,
@@ -419,7 +484,7 @@ describe('Global Chat', () => {
     ]);
   });
   it('confirms server deletion and clears the active conversation after success', async () => {
-    const url = '/api/v1/organizations/org-a/projects/workspace-a/chats/saved';
+    const url = '/api/v1/workspaces/workspace-a/chats/saved';
     serverChats.set(url, { id: 'saved', prompt: 'Saved diagnosis', createdAt: 1, results: [] });
     stubFetch(vi.fn(async () => jsonResponse({ data: [] })));
     const user = userEvent.setup();
@@ -457,7 +522,7 @@ describe('Global Chat', () => {
     expect(screen.getByRole('button', { name: 'Actions for Saved diagnosis' })).toBeTruthy();
   });
   it('opens a catalog model in a fresh draft while preserving earlier conversations', async () => {
-    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chats/older', {
+    serverChats.set('/api/v1/workspaces/workspace-a/chats/older', {
       id:'older', prompt:'Earlier task', createdAt:1,
       results:[{model:'other',content:'Earlier response',phase:'complete',elapsedMs:10,promptTokens:null,completionTokens:null,totalTokens:null,attemptId:null,error:null}],
     });
@@ -471,7 +536,7 @@ describe('Global Chat', () => {
   });
   it.each(['one-key','one-model'])('starts a fresh single-model draft from key setup (%s) without replacing saved history', async (keyReference) => {
     function KeyLocation() { const location=useLocation(); return <output data-testid="key-location">{location.search}</output>; }
-    serverChats.set('/api/v1/organizations/org-a/projects/workspace-a/chats/older', {
+    serverChats.set('/api/v1/workspaces/workspace-a/chats/older', {
       id: 'older', prompt: 'Earlier task', createdAt: 1,
       results: [{ model: 'other', content: 'Earlier response', phase: 'complete', elapsedMs: 10,
         promptTokens: null, completionTokens: null, totalTokens: null, attemptId: null,
@@ -713,11 +778,11 @@ describe('Global Chat', () => {
     await waitFor(() => expect(dispatches).toHaveLength(1));
     await user.click(screen.getByRole('button', { name: 'Stop generating' }));
     await waitFor(() => expect(dispatches[0].signal?.aborted).toBe(true));
-    await waitFor(() => expect(chatWrites).toHaveLength(2));
+    await waitFor(() => expect(chatWrites.at(-1)?.body.results.every(result => result.phase === 'cancelled')).toBe(true));
     expect(dispatches).toHaveLength(1);
-    expect(chatWrites[0].body.id).toBe(chatWrites[1].body.id);
+    expect(new Set(chatWrites.map(write => write.body.id)).size).toBe(1);
     expect(chatWrites[0].body.results.every(result => result.phase === 'connecting')).toBe(true);
-    expect(chatWrites[1].body.results.every(result => result.phase === 'cancelled')).toBe(true);
+    expect(chatWrites.at(-1)?.body.results.every(result => result.phase === 'cancelled')).toBe(true);
     expect(await screen.findByText('Cancelled')).toBeTruthy();
   });
 
@@ -756,9 +821,9 @@ describe('Global Chat', () => {
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
     expect(chatWrites).toHaveLength(1);
     await act(async () => { releaseSave(jsonResponse({saved:true,reference:'chat-double'})); });
-    await waitFor(() => expect(chatWrites).toHaveLength(2));
+    await waitFor(() => expect(chatWrites.length).toBeGreaterThanOrEqual(2));
     expect(new Set(chatWrites.map(write => write.url)).size).toBe(1);
-    expect(chatWrites[0].body.id).toBe(chatWrites[1].body.id);
+    expect(new Set(chatWrites.map(write => write.body.id)).size).toBe(1);
   });
 
   it('does not send inference when durable session creation fails', async () => {
@@ -782,7 +847,8 @@ describe('Global Chat', () => {
 
   it('keeps the selected key visible while the picker refreshes', async () => {
     let calls = 0;
-    stubFetch(vi.fn(async () => {
+    stubFetch(vi.fn(async (input: RequestInfo | URL) => {
+      if (!String(input).endsWith('/keys')) return jsonResponse({ data: [] });
       calls += 1;
       if (calls === 1) return jsonResponse({ data: [{ id: 'key-a', name: 'Default', allowed_models: ['*'], revoked: false, expired: false }] });
       return new Promise<Response>(() => {});
@@ -791,7 +857,8 @@ describe('Global Chat', () => {
     renderPlayground(['fast', 'strong']);
     await user.click(await screen.findByRole('button', { name: 'API key: Default' }));
     await waitFor(() => expect(calls).toBe(2));
-    expect(screen.getByRole('button', { name: 'API key', exact: true }).textContent).toContain('Default');
+    expect(screen.getByRole('button', { name: 'API key: Default', hidden: true }).textContent).toContain('Default');
+    expect(screen.getByRole('menuitemradio', { name: 'Default' })).toBeTruthy();
     expect(screen.queryByLabelText('Key secret')).toBeNull();
     await user.keyboard('{Escape}');
     expect(screen.getByRole('button', { name: 'API key: Default' })).toBeTruthy();
@@ -968,7 +1035,7 @@ describe('Global Chat', () => {
           if (pendingInference.length === 3) allInferenceStarted();
         });
       }
-      if (url.startsWith(`/api/v1/organizations/${scope.organizationId}/projects/${scope.workspaceId}/requests/`)) {
+      if (url.startsWith(`/api/v1/workspaces/${scope.workspaceId}/requests/`)) {
         const attempt = url.split('/').at(-1);
         const entries = [
           { attempt_id: 'attempt-fast', customer_charge_status: 'charged', customer_charge_nanos: '1000000', customer_charge_currency: 'USD', cash_nanos: '999999999999', api_equivalent_nanos: '999999999999', currency: 'EUR' },
@@ -978,6 +1045,7 @@ describe('Global Chat', () => {
         return Promise.resolve(entry ? jsonResponse({data:entry}) : new Response('', {status:404}));
       }
       if (url.endsWith('/keys')) return Promise.resolve(jsonResponse({ data: [{ id: 'key-a', name: 'Default', allowed_models: ['*'], revoked: false, expired: false }] }));
+      if (url === '/v1/video/models') return Promise.resolve(jsonResponse({ data: [{ id: 'video/fast' }] }));
       return Promise.reject(new Error(`Unexpected request: ${url}`));
     }));
 
@@ -999,7 +1067,7 @@ describe('Global Chat', () => {
     expect(within(screen.getByRole('tablist',{name:'Task category'})).getAllByRole('tab')).toHaveLength(4);
     expect(screen.queryByRole('tablist',{name:'Generation type'})).toBeNull();
     await user.click(screen.getByRole('tab',{name:'All tasks'}));
-    expect(screen.getByRole('link',{name:'Video',exact:true})).toBeTruthy();
+    expect(await screen.findByRole('link',{name:'Video',exact:true})).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Choose models' }));
     await user.click(screen.getByRole('button', { name: 'balanced' }));
@@ -1096,15 +1164,16 @@ describe('Global Chat', () => {
     await waitFor(()=>expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).disabled).toBe(false));
     await user.type(screen.getByLabelText('Prompt for all selected models'), 'Stop this comparison.');
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
-    expect(await screen.findByRole('heading', { name: 'API key' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Manage keys' }).getAttribute('href')).toBe('/workspaces/workspace-a/keys');
+    const keyDialog = await screen.findByRole('dialog');
+    expect(within(keyDialog).getByText('Create an API key first')).toBeTruthy();
+    expect(within(keyDialog).getByRole('button', { name: 'Auto-create key & send' })).toBeTruthy();
     expect(screen.queryByLabelText('Key secret')).toBeNull();
-    expect(screen.queryByText('Choose a workspace API key before sending this prompt.')).toBeNull();
-    expect(screen.queryByText('Select a workspace API key to send requests')).toBeNull();
-    expect(screen.queryByText(/Create a key on the API keys page/)).toBeNull();
     expect(requests.filter(request => request.url === '/v1/chat/completions')).toHaveLength(0);
-    await screen.findByRole('button', { name: 'API key', exact: true });
-    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await user.click(within(keyDialog).getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: /API key:/i }));
+    const keyMenu = await screen.findByRole('menu', { name: /API key:/i });
+    expect(within(keyMenu).getByRole('menuitem', { name: 'Manage keys' }).getAttribute('href')).toBe('/workspaces/workspace-a/keys');
+    await user.click(await within(keyMenu).findByRole('menuitemradio', { name: 'Default' }));
     await user.click(screen.getByRole('button', { name: 'Send to 2 models' }));
     await waitFor(() => expect(requests.filter(request => request.url === '/v1/chat/completions')).toHaveLength(2));
     await user.click(screen.getByRole('button', { name: 'Stop generating' }));
@@ -1264,7 +1333,7 @@ it('keeps archived content when restore fails and distinguishes archive read err
 
 it('persists existing chat settings on panel dismissal without sending another message', async () => {
  serverChats.clear();
- const url='/api/v1/organizations/org-a/projects/workspace-a/chats/settings-only';
+ const url='/api/v1/workspaces/workspace-a/chats/settings-only';
  const originalResponse={model:'fast',content:'Original answer',phase:'complete',elapsedMs:10,promptTokens:1,completionTokens:1,totalTokens:2,attemptId:null,error:null};
  serverChats.set(url,{id:'settings-only',prompt:'Saved conversation',createdAt:1,results:[originalResponse],settings:{systemPrompt:'',maxTokens:512,temperature:0.7,logPayloads:true}});
  stubFetch(vi.fn(async ()=>jsonResponse({data:[]})));
@@ -1350,11 +1419,16 @@ it('keeps a cleared temperature invalid until the user enters a value', async ()
 });
 
  it('keeps empty Chat setup guidance within customer permissions', async () => {
-  vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({data: []})));
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith('/keys')) return jsonResponse({ data: [{ id: 'key-video', slug: 'video-only', name: 'Video only', allowed_models: ['video/fast'], revoked: false, expired: false }] });
+    if (url === '/v1/video/models') return jsonResponse({ data: [{ id: 'video/fast' }] });
+    return jsonResponse({ data: [] });
+  }));
   renderPlayground([]);
   expect(await screen.findByRole('heading', {name: 'What would you like to create?'})).toBeTruthy();
   expect(screen.getByText('No text models are available. Ask a platform administrator to add a model route to the catalog.')).toBeTruthy();
-  expect(screen.getByRole('link',{name:'Video',exact:true})).toBeTruthy();
+  expect(await screen.findByRole('link',{name:'Video',exact:true})).toBeTruthy();
   expect(screen.queryByRole('link', {name: 'Connect provider'})).toBeNull();
  });
 
@@ -1499,7 +1573,7 @@ it('uses the server reference in a newly saved Chat history link without reloadi
 });
 
 it('restores the latest or selected conversation without flickering the sidebar highlight when returning to Generations', async () => {
-  const base='/api/v1/organizations/org-a/projects/workspace-a';
+  const base='/api/v1/workspaces/workspace-a';
   serverChats.set(`${base}/chats/latest`,{id:'latest',reference:'chat-1002',prompt:'Latest conversation',createdAt:200,results:[{model:'fast',content:'Latest answer',phase:'complete',elapsedMs:10,error:null}]});
   serverChats.set(`${base}/chats/older`,{id:'older',reference:'chat-1001',prompt:'Earlier conversation',createdAt:100,results:[{model:'fast',content:'Earlier answer',phase:'complete',elapsedMs:10,error:null}]});
   serverDrafts.set(`${base}/chats/draft`,{revision:1,payload:{sessionId:null,prompt:'',models:['fast'],attachments:[],settings:{systemPrompt:'',maxTokens:512,temperature:0.7,logPayloads:true}}});
@@ -1519,4 +1593,77 @@ it('restores the latest or selected conversation without flickering the sidebar 
   expect(screen.getByRole('link',{name:'Latest conversation'}).getAttribute('data-active')).toBe('false');
   await waitFor(()=>expect(serverDrafts.get(`${base}/chats/draft`)?.payload).toMatchObject({sessionId:'older'}));
   expect(screen.getByRole('link',{name:'Earlier conversation'}).getAttribute('data-active')).toBe('true');
+});
+
+it('keeps the unified API key picker stable while loading keys', async () => {
+  const resolvers: Array<(response: Response) => void> = [];
+  stubFetch(vi.fn((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith('/keys')) return new Promise<Response>(resolve => { resolvers.push(resolve); });
+    return Promise.resolve(jsonResponse({ data: [] }));
+  }));
+  const user = userEvent.setup();
+  renderPlayground(['fast']);
+  const trigger = await screen.findByRole('button', { name: /API key: Choose API key/i }) as HTMLButtonElement;
+  expect(trigger.getAttribute('aria-busy')).toBe('true');
+  expect(trigger.textContent).toContain('Loading keys…');
+  await user.click(trigger);
+  const menu = await screen.findByRole('menu', { name: /API key:/i });
+  expect(menu.textContent).toContain('Loading keys…');
+  expect(within(menu).getByRole('menuitem', { name: 'Manage keys' })).toBeTruthy();
+
+  await act(async () => {
+    while (resolvers.length > 0) {
+      resolvers.shift()!(jsonResponse({ data: [{ id: 'key-a', slug: 'default', name: 'Default', allowed_models: ['*'], revoked: false, expired: false }] }));
+    }
+  });
+
+  await waitFor(() => expect(trigger.getAttribute('aria-busy')).toBeNull());
+  expect(trigger.isConnected).toBe(true);
+  expect(trigger.textContent).toContain('Default');
+  expect(await within(menu).findByRole('menuitemradio', { name: 'Default' })).toBeTruthy();
+});
+
+it('offers Choose API key directly inside the blocked composer cover when another active key exists', async () => {
+  stubFetch(vi.fn(async (input: RequestInfo | URL) => String(input).endsWith('/keys')
+    ? jsonResponse({ data: [{ id: 'key-a', slug: 'default', name: 'Default', allowed_models: ['*'], revoked: false, expired: false }] })
+    : jsonResponse({ data: [] })));
+  const user = userEvent.setup();
+  render(<SidebarProvider><MemoryRouter initialEntries={['/generations?key=unavailable-reference&new=1']}><PlaygroundView token="admin-session" models={['fast']} initialScope={scope} /></MemoryRouter></SidebarProvider>);
+  const coverMessage = await screen.findByText('This API key is invalid. Choose another or create a new one to continue.');
+  const cover = coverMessage.closest('.composer-cover') as HTMLElement;
+  expect(cover).toBeTruthy();
+  await user.click(within(cover).getByRole('button', { name: 'Choose API key' }));
+  const menu = await screen.findByRole('menu', { name: /API key:/i });
+  expect(within(menu).getByRole('menuitemradio', { name: 'Default' })).toBeTruthy();
+});
+
+it('switches between saved Chat sessions immediately without showing a saving-draft notice', async () => {
+  const base = '/api/v1/workspaces/workspace-a';
+  serverChats.set(`${base}/chats/latest`, { id: 'latest', reference: 'chat-1002', prompt: 'Latest conversation', createdAt: 200, results: [{ model: 'fast', content: 'Latest answer', phase: 'complete', elapsedMs: 10, error: null }] });
+  serverChats.set(`${base}/chats/older`, { id: 'older', reference: 'chat-1001', prompt: 'Earlier conversation', createdAt: 100, results: [{ model: 'fast', content: 'Earlier answer', phase: 'complete', elapsedMs: 10, error: null }] });
+  let resolvePut: ((response: Response) => void) | null = null;
+  vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith('/chats/draft')) {
+      if (init?.method === 'PUT') return new Promise<Response>(resolve => { resolvePut = resolve; });
+      return Promise.resolve(jsonResponse({ data: { payload: null, revision: 0 } }));
+    }
+    if (url.includes('/chats')) {
+      if (!url.endsWith('/chats')) {
+        const saved = serverChats.get(url);
+        return Promise.resolve(saved ? jsonResponse({ data: saved }) : new Response(null, { status: 404 }));
+      }
+      return Promise.resolve(jsonResponse({ data: [...serverChats.entries()].filter(([k]) => k.startsWith(url + '/')).map(([, v]) => v) }));
+    }
+    return Promise.resolve(jsonResponse({ data: [] }));
+  }));
+  const user = userEvent.setup();
+  renderPlayground(['fast']);
+  await screen.findByRole('heading', { name: 'Latest conversation', level: 1 });
+  await user.click(screen.getByRole('link', { name: 'Earlier conversation' }));
+  expect(screen.getByRole('heading', { name: 'Earlier conversation', level: 1 })).toBeTruthy();
+  expect(screen.queryByText('Saving draft before leaving…')).toBeNull();
+  expect(screen.queryByText('Loading saved draft…')).toBeNull();
+  if (resolvePut) resolvePut(jsonResponse({ data: { payload: null, revision: 1 } }));
 });

@@ -36,7 +36,7 @@ function jsonResponse(value: unknown, status = 200) {
 }
 
 function isRenameRequest(input: RequestInfo | URL, init?: RequestInit) {
-  return String(input).includes('/api/v1/organizations/') && init?.method === 'PATCH';
+  return String(input).includes('/api/v1/workspaces/') && init?.method === 'PATCH';
 }
 
 function renameRequests() {
@@ -126,7 +126,7 @@ beforeEach(() => {
 describe('workspace settings', () => {
   it('renders general settings and workspace spending limits directly without external billing shortcut buttons', async () => {
     renderSettings();
-    await screen.findByRole('heading', { name: 'General' });
+    await screen.findByRole('heading', { name: 'Workspace profile' });
     expect(screen.getByText('Example workspace')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Rename workspace' })).toBeTruthy();
     expect(screen.queryByLabelText('Workspace name')).toBeNull();
@@ -355,7 +355,7 @@ describe('workspace settings', () => {
     context = { ...context, workspace: { ...workspace, name: 'Renamed default', is_default: true } };
     snapshot(context);
     renderSettings();
-    expect(await screen.findByRole('heading', { name: 'General' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Workspace profile' })).toBeTruthy();
     expect(screen.getByText('Renamed default')).toBeTruthy();
     expect(screen.queryByText('The default workspace cannot be deleted.')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete workspace' })).toBeNull();
@@ -388,7 +388,7 @@ describe('workspace settings', () => {
     operator.project_id = workspace.id;
     snapshot(context);
     renderSettings();
-    await screen.findByRole('heading', { name: 'General' });
+    await screen.findByRole('heading', { name: 'Workspace profile' });
     expect(screen.queryByRole('button', { name: 'Delete workspace' })).toBeNull();
   });
 
@@ -423,7 +423,7 @@ describe('workspace settings', () => {
     };
     snapshot(context);
     renderSettings();
-    await screen.findByRole('heading', { name: 'General' });
+    await screen.findByRole('heading', { name: 'Workspace profile' });
     expect(screen.getByText('Example workspace')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Rename workspace' })).toBeNull();
     expect(screen.queryByLabelText('Workspace name')).toBeNull();

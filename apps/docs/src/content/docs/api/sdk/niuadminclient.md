@@ -3,9 +3,9 @@ title: "NiuAdminClient"
 description: "Generated TypeScript declaration for NiuAdminClient"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
+[SDK source](https://github.com/niu-io/niu/blob/release/0.4/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
 
 ## Constructor and members
 
@@ -821,8 +821,17 @@ deleteWorkspace(scope: TenantScope | string, options?: RequestOptions): Promise<
 ### resolveWorkspaceRoute
 
 ```typescript
-/** Exact persisted route lookup; missing and out-of-scope workspaces both return 404. */
+/** Exact persisted workspace UUID or slug lookup; missing and out-of-scope workspaces both return 404. */
 resolveWorkspaceRoute(routeSlug: string, options?: RequestOptions): Promise<WorkspaceRoute>;
+```
+
+### getCredits
+
+```typescript
+/** Read customer-facing balance summary for the active or selected organization. */
+getCredits(organizationId?: string, options?: RequestOptions): Promise<{
+    data: CustomerBalance[];
+}>;
 ```
 
 ### listProviderMemberships
@@ -861,7 +870,7 @@ listPaymentIntegrations(options?: RequestOptions): Promise<{
 ### getPlatformEPayConfiguration
 
 ```typescript
-/** Platform administrator read. Public display settings also exist at GET /v1/branding. */
+/** Platform administrator read. Public display settings also exist at GET /api/v1/public/branding. */
 getPlatformEPayConfiguration(options?: RequestOptions): Promise<{
     data: EPayConfiguration;
 }>;
@@ -1772,6 +1781,17 @@ listCustomerTopups(organizationId: string, options?: RequestOptions & {
         created_at: string;
     })[];
     next_cursor: string | null;
+}>;
+```
+
+### recordSettledFunding
+
+```typescript
+/** Platform administration settled top-up; idempotent on (channel, payment_reference). */
+recordSettledFunding(organizationId: string, input: SettledCustomerFundingInput, options?: RequestOptions): Promise<{
+    data: {
+        recorded: true;
+    };
 }>;
 ```
 
@@ -3905,23 +3925,6 @@ deleteAssetGroupRequest(scope: TenantScope, intentId: string, options?: RequestO
 
 ```typescript
 deleteRequestPayload(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<void>;
-```
-
-### listAccounts
-
-```typescript
-listAccounts(scope: TenantScope, options?: RequestOptions): Promise<{
-    data: SupplierAccount[];
-}>;
-```
-
-### createAccount
-
-```typescript
-createAccount(scope: TenantScope, account: SupplierAccountInput, options?: RequestOptions): Promise<{
-    id: string;
-    health: string;
-}>;
 ```
 
 ### listWorkspaceAssets

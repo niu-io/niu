@@ -2,10 +2,8 @@ import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { workspaceDisplayName } from '@/shell/workspace-route';
-import { useState } from 'react';
-import { IconBan as Ban } from "@tabler/icons-react";
-import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
-import { IconKey as KeyRound } from "@tabler/icons-react";
+import { useEffect, useRef, useState } from 'react';
+import { IconArrowLeft, IconBan as Ban, IconChevronDown as ChevronDown, IconKey as KeyRound, IconLoader2 as Loader2, IconPencil } from "@tabler/icons-react";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -73,6 +71,9 @@ type OperatorDetailsProps = {
   credential: CredentialView | null;
   confirmTarget: ConfirmTarget;
   canChangeRole: boolean;
+  roleOpening?: boolean;
+  roleOpenError?: string;
+  onRetryRoleOpen?: () => void;
   roleRefreshError: string;
   onSaveRole: (role: Operator['role'], expectedRole: Operator['role']) => Promise<Operator>;
   onReloadRole: () => Promise<Operator>;
@@ -82,18 +83,28 @@ type OperatorDetailsProps = {
   onRevokeSession: (sessionId: string) => void;
   onRevokeOperator: () => void;
   onLoadMoreEvents: () => void;
+  onSubviewChange?: (active: boolean) => void;
 };
 
-export default function OperatorDetails({ operator, organizations, projects, sessions, sessionsLoading, events, eventsLoading, hasMoreEvents, busy, credential, confirmTarget, canChangeRole, roleRefreshError, onSaveRole, onReloadRole, onDismissCredential, onIssueSession, onConfirm, onRevokeSession, onRevokeOperator, onLoadMoreEvents }: OperatorDetailsProps) {
+export default function OperatorDetails({ operator, organizations, projects, sessions, sessionsLoading, events, eventsLoading, hasMoreEvents, busy, credential, confirmTarget, canChangeRole, roleOpening = false, roleOpenError = '', onRetryRoleOpen, roleRefreshError, onSaveRole, onReloadRole, onDismissCredential, onIssueSession, onConfirm, onRevokeSession, onRevokeOperator, onLoadMoreEvents, onSubviewChange }: OperatorDetailsProps) {
   const { t: uiT } = useUILocale();
   const [draftRole, setDraftRole] = useState<Operator['role']>(operator?.role ?? 'viewer');
   const [expectedRole, setExpectedRole] = useState<Operator['role']>(operator?.role ?? 'viewer');
   const [roleLocked, setRoleLocked] = useState(false);
   const [roleMessage, setRoleMessage] = useState('');
   const [roleBusy, setRoleBusy] = useState(false);
-  const roleConflict = roleLocked || Boolean(operator && operator.role !== expectedRole);
-  async function saveRole() {
-    if (busy || roleBusy || roleConflict || !canChangeRole || draftRole === expectedRole) return;
+  const wasRoleOpening = useRef(roleOpening);
+  useEffect(() => {
+    if (wasRoleOpening.current && !roleOpening && !roleOpenError && operator) {
+      setExpectedRole(operator.role);
+      setDraftRole(operator.role);
+    }
+    wasRoleOpening.current = roleOpening;
+  }, [roleOpening, roleOpenError, operator?.role]);
+  const roleUnavailable = roleOpening || Boolean(roleOpenError);
+  const roleConflict = !roleUnavailable && (roleLocked || Boolean(operator && operator.role !== expectedRole));
+  async function saveRole(): Promise<boolean> {
+    if (busy || roleBusy || roleUnavailable || roleConflict || !canChangeRole || draftRole === expectedRole) return false;
     setRoleBusy(true);
     setRoleMessage('');
     try {
@@ -102,11 +113,13 @@ export default function OperatorDetails({ operator, organizations, projects, ses
       setDraftRole(saved.role);
       setRoleLocked(false);
       setRoleMessage('Role saved.');
+      return true;
     } catch (reason) {
       setRoleLocked(true);
       setRoleMessage(reason instanceof AdminRequestError
         ? reason.status === 409 ? 'The role could not be saved against the current state. Reload the saved role before saving again.' : reason.message
         : 'The save could not be confirmed. Reload the saved role before saving again.');
+      return false;
     } finally { setRoleBusy(false); }
   }
   async function reloadRole() {
@@ -125,6 +138,19 @@ export default function OperatorDetails({ operator, organizations, projects, ses
   const [expiryDays, setExpiryDays] = useState(30);
   const [expandedHistoryFor, setExpandedHistoryFor] = useState<string | null>(null);
   const [tokenCopy, setTokenCopy] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const [subview, setSubview] = useState<'role' | 'token' | null>(null);
+  const subviewTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  function closeSubview() {
+    setSubview(null);
+    onConfirm(null);
+    requestAnimationFrame(() => {
+      if (subviewTriggerRef.current?.isConnected) {
+        subviewTriggerRef.current.focus();
+      }
+    });
+  }
+
   if (!operator) return <section className="operator-detail" aria-labelledby="operator-detail-title">
     <div className="operator-detail-empty"><span className="operator-empty-icon"><KeyRound size={18} /></span><h2 id="operator-detail-title">{uiT("Select a member", "选择一位成员")}</h2><p>{uiT("Review their role, create an access token, or revoke their access.")}</p></div>
   </section>;
@@ -133,33 +159,47 @@ export default function OperatorDetails({ operator, organizations, projects, ses
   const pastSessions = sessions.filter(item => sessionStatus(item) !== 'active');
   const historyExpanded = expandedHistoryFor === operator.id;
   const visibleSessions = historyExpanded ? [...activeSessions, ...pastSessions] : activeSessions;
+  const confirmSession = confirmTarget?.kind === 'session' ? sessions.find(item => item.id === confirmTarget.id) ?? null : null;
+  const confirmOperatorRevoke = confirmTarget?.kind === 'operator' && confirmTarget.id === operator.id;
+  const activeSubview = confirmSession ? 'revoke-session' : confirmOperatorRevoke ? 'revoke-operator' : subview;
+  const onSubviewChangeRef = useRef(onSubviewChange);
+  onSubviewChangeRef.current = onSubviewChange;
+  useEffect(() => {
+    onSubviewChangeRef.current?.(Boolean(activeSubview));
+    return () => onSubviewChangeRef.current?.(false);
+  }, [activeSubview]);
 
   return <section className="operator-detail" aria-labelledby="operator-detail-title">
+    <div hidden={Boolean(activeSubview)}>
     <div className="operator-detail-heading">
       <span className="operator-detail-avatar">{operator.name.trim().charAt(0).toUpperCase() || 'O'}</span>
       <div className="operator-detail-copy"><p className="eyebrow">{uiT("MEMBER", "成员")}</p><h2 className="scroll-mt-20" id="operator-detail-title">{operator.name}</h2><p>{displayScope(operator, organizations, projects)}</p></div>
-      <span className={'operator-role-chip role-' + operator.role}>{roleLabel(operator.role, uiT)}</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={'operator-role-chip role-' + operator.role}>{roleLabel(operator.role, uiT)}</span>
+        {canChangeRole && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy || roleBusy}
+            onClick={event => {
+              subviewTriggerRef.current = event.currentTarget;
+              setRoleMessage('');
+              setSubview('role');
+            }}
+          >
+            <IconPencil size={14} aria-hidden="true" />
+            {uiT("Change role", "修改角色")}
+          </Button>
+        )}
+      </div>
     </div>
     <p className="operator-scope-footnote px-4">{uiT({ viewer: 'Can read workspace data. Cannot change settings or manage user access.', admin: 'Can read and change workspace data. Cannot manage user access.', owner: 'Can read and change workspace data, add users, and revoke access.' }[operator.role])}{!operator.project_id && operator.role !== 'viewer' && <> {uiT("This organization-wide role can access organization billing and shared funds.", "此组织级角色可以访问组织账单及共享资金。")}</>}</p>
-    {canChangeRole && <div className="space-y-3 px-4 py-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="grid gap-2"><Label htmlFor="operator-role">{uiT("Role")}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button id="operator-role" variant="outline" size="sm" className="justify-between font-normal" disabled={busy || roleBusy || roleConflict}>{roleLabel(draftRole, uiT)}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
-            <DropdownMenuContent align="start"><DropdownMenuRadioGroup value={draftRole} onValueChange={value => setDraftRole(value as Operator['role'])}>
-              <DropdownMenuRadioItem value="viewer">{uiT("Viewer · read workspace data")}</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="admin">{uiT("Admin · change workspace data")}</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="owner">{uiT("Owner · manage user access")}</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup></DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <Button size="sm" disabled={busy || roleBusy || roleConflict || draftRole === expectedRole} onClick={() => void saveRole()}>{uiT("Save role")}</Button>
-        {(roleConflict || roleMessage) && <Button size="sm" variant="outline" disabled={busy || roleBusy} onClick={() => void reloadRole()}>{uiT("Reload saved role")}</Button>}
-      </div>
-      {!operator.project_id && draftRole !== 'viewer' && draftRole !== operator.role && <p className="text-sm text-muted-foreground">{uiT("This organization-wide role can access organization billing and shared funds.", "此组织级角色可以访问组织账单及共享资金。")}</p>}
-      {roleRefreshError && <p className="text-sm text-muted-foreground" role="status">{uiT(roleRefreshError)}</p>}
-      {(roleMessage || roleConflict) && <p className="text-sm text-muted-foreground" role={roleConflict ? 'alert' : 'status'}>{uiT(roleMessage) || uiT("The saved role changed. Reload it before saving again.")}</p>}
-    </div>}
+    {roleMessage && !roleConflict && !activeSubview && (
+      <p className="px-4 pt-2 text-sm text-muted-foreground" role="status">{uiT(roleMessage)}</p>
+    )}
     {credential?.operatorId === operator.id && <section className="operator-credential" aria-labelledby="operator-credential-title" role="status">
-      <div className="operator-credential-title"><span><KeyRound size={16} /></span><div><h3 id="operator-credential-title">{uiT("Save this user’s access token")}</h3><p>{uiT("Shown once · expires")}{" "}{formatExpiry(credential.session.expires_at_unix)}{uiT(". Share it securely with this user. It grants dashboard and management API access, not model API access. Existing Niu users can link this organization in Organization settings → Join an organization.", "。请安全地分享给该用户。它授予控制台与管理 API 权限，而非模型 API 权限。已有 Niu 账户的用户可在“组织设置 → 加入组织”中绑定该组织。")}</p></div></div>
+      <div className="operator-credential-title"><span><KeyRound size={16} /></span><div><h3 id="operator-credential-title">{uiT("Save this user’s access token")}</h3><p>{uiT("Shown once · expires")}{" "}{formatExpiry(credential.session.expires_at_unix)}{uiT(". Share it securely with this user. It grants management API and CLI access, not model API access or browser sign-in. For browser sign-in, use email and password or an invitation link; existing Niu users can link this organization in Organization settings → Join an organization.", "。请安全地分享给该用户。它仅用于管理 API 与 CLI 认证，不用于模型 API 调用或浏览器登录。浏览器登录请使用邮箱与密码或邀请链接；已有 Niu 账户的用户可在“组织设置 → 加入组织”中绑定该组织。")}</p></div></div>
       <Label htmlFor="new-operator-token">{uiT("Access token")}<Input id="new-operator-token" className="mono operator-token-input" readOnly value={credential.token} onFocus={event => event.target.select()} /></Label>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="outline" onClick={() => {
@@ -171,19 +211,22 @@ export default function OperatorDetails({ operator, organizations, projects, ses
         {tokenCopy === 'failed' && <span role="alert" className="text-sm text-destructive">{uiT("Copy failed. Select the token and copy it manually.")}</span>}
       </div>
     </section>}
-    <div className="flex flex-col gap-3 py-4">
+    <div className="flex flex-wrap items-center justify-between gap-3 py-4">
       <div><h3 className="text-sm font-medium">{uiT("Access sessions")}</h3><p className="mt-1 text-sm text-muted-foreground">{uiT("Revoking a session leaves this user’s other sessions active.")}</p></div>
       {operator.revoked
         ? <span className="operator-revoked-note">{uiT("User access revoked")}</span>
-        : <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="grid gap-2"><Label htmlFor="new-session-expiry">{uiT("Expires in")}</Label><DropdownMenu><DropdownMenuTrigger asChild><Button id="new-session-expiry" type="button" variant="outline" size="sm" className="w-full justify-between font-normal" disabled={busy}>{uiT(expiryChoices.find(item => item.days === expiryDays)?.label ?? "")}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={String(expiryDays)} onValueChange={value => setExpiryDays(Number(value))}>
-                {expiryChoices.map(item => <DropdownMenuRadioItem key={item.days} value={String(item.days)}>{uiT(item.label)}</DropdownMenuRadioItem>)}
-              </DropdownMenuRadioGroup></DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => onIssueSession(expiryDays * 86400)}><KeyRound size={14} />{uiT("Create access token")}</Button>
-        </div>}
+        : <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={event => {
+              subviewTriggerRef.current = event.currentTarget;
+              setSubview('token');
+            }}
+          >
+            <KeyRound size={14} />{uiT("Create access token")}
+          </Button>}
     </div>
     <div className="operator-session-table">
       {sessionsLoading
@@ -195,15 +238,12 @@ export default function OperatorDetails({ operator, organizations, projects, ses
             <TableBody>{visibleSessions.map(item => {
               const status = sessionStatus(item);
               const stateLabel = expiryStateLabel(status);
-              const confirming = confirmTarget?.kind === 'session' && confirmTarget.id === item.id;
               return <TableRow key={item.id}>
                 <TableCell>{new Date(item.created_at).toLocaleString(readUILocale())}<dl className="mt-2 space-y-2 sm:hidden"><div><dt className="text-xs text-muted-foreground">{uiT("Expires")}</dt><dd>{formatExpiry(item.expires_at_unix)}</dd></div><div><dt className="text-xs text-muted-foreground">{uiT("Status")}</dt><dd><span className={'operator-session-state state-' + status}>{stateLabel}</span></dd></div></dl></TableCell>
                 <TableCell className="hidden sm:table-cell">{formatExpiry(item.expires_at_unix)}</TableCell>
                 <TableCell className="hidden sm:table-cell"><span className={'operator-session-state state-' + status}>{stateLabel}</span></TableCell>
                 <TableCell>{status === 'active' && !operator.revoked
-                  ? confirming
-                    ? <span className="operator-confirm-actions"><Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => onRevokeSession(item.id)}>{uiT("Confirm revoke")}</Button><Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => onConfirm(null)}>{uiT("Cancel")}</Button></span>
-                    : <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => onConfirm({ kind: 'session', id: item.id })}><Ban size={14} />{uiT("Revoke")}</Button>
+                  ? <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={event => { subviewTriggerRef.current = event.currentTarget; onConfirm({ kind: 'session', id: item.id }); }}><Ban size={14} />{uiT("Revoke")}</Button>
                   : <span className="operator-no-action">—</span>}</TableCell>
               </TableRow>;
             })}</TableBody>
@@ -231,9 +271,150 @@ export default function OperatorDetails({ operator, organizations, projects, ses
       <div><strong>{uiT("Revoke user access")}</strong><p>{operator.project_id ? uiT("This user will lose access to this workspace. All of their access sessions will be revoked.") : uiT("This user will lose access to every workspace in the organization. All of their access sessions will be revoked.")}</p></div>
       {operator.revoked
         ? <span className="operator-revoked-note">{uiT("Access revoked")}</span>
-        : confirmTarget?.kind === 'operator' && confirmTarget.id === operator.id
-          ? <span className="operator-confirm-actions"><Button type="button" variant="destructive" disabled={busy} onClick={onRevokeOperator}>{uiT("Confirm revoke user access")}</Button><Button type="button" variant="ghost" disabled={busy} onClick={() => onConfirm(null)}>{uiT("Cancel")}</Button></span>
-          : <Button type="button" variant="destructive" disabled={busy} onClick={() => onConfirm({ kind: 'operator', id: operator.id })}><Ban size={14} />{uiT("Revoke access")}</Button>}
+        : <Button type="button" variant="destructive" disabled={busy} onClick={event => { subviewTriggerRef.current = event.currentTarget; onConfirm({ kind: 'operator', id: operator.id }); }}><Ban size={14} />{uiT("Revoke access")}</Button>}
     </div>
+    </div>
+
+    {activeSubview === 'role' && canChangeRole && (
+      <section className="space-y-4 py-2" aria-labelledby="operator-role-subview-title">
+        <Button type="button" variant="ghost" size="sm" data-settings-back disabled={busy || roleBusy} onClick={closeSubview}>
+          <IconArrowLeft size={16} aria-hidden="true" />
+          {uiT("Back to member", "返回成员详情")}
+        </Button>
+        <header className="space-y-1">
+          <h3 id="operator-role-subview-title" className="text-base font-semibold">{uiT("Change role", "修改角色")}</h3>
+          <p className="text-sm text-muted-foreground">{operator.name} · {displayScope(operator, organizations, projects)}</p>
+        </header>
+        <div className="grid max-w-md gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="operator-role">{uiT("Role")}</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button id="operator-role" variant="outline" size="sm" aria-busy={roleOpening || undefined} className="justify-between font-normal" disabled={busy || roleBusy || roleUnavailable || roleConflict}>
+                  {roleOpening ? <span className="inline-flex items-center gap-2 text-muted-foreground"><Loader2 size={14} className="animate-spin" aria-hidden="true" />{uiT("Loading the saved role…")}</span> : roleLabel(draftRole, uiT)}
+                  <ChevronDown size={16} aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuRadioGroup value={draftRole} onValueChange={value => setDraftRole(value as Operator['role'])}>
+                  <DropdownMenuRadioItem value="viewer">{uiT("Viewer · read workspace data")}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="admin">{uiT("Admin · change workspace data")}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="owner">{uiT("Owner · manage user access")}</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          {roleOpenError && <p className="text-sm text-destructive" role="alert">{uiT(roleOpenError)}</p>}
+          {!operator.project_id && draftRole !== 'viewer' && draftRole !== operator.role && (
+            <p className="text-sm text-muted-foreground">{uiT("This organization-wide role can access organization billing and shared funds.", "此组织级角色可以访问组织账单及共享资金。")}</p>
+          )}
+          {roleRefreshError && <p className="text-sm text-muted-foreground" role="status">{uiT(roleRefreshError)}</p>}
+          {(roleMessage || roleConflict) && (
+            <p className="text-sm text-muted-foreground" role={roleConflict ? 'alert' : 'status'}>{uiT(roleMessage) || uiT("The saved role changed. Reload it before saving again.")}</p>
+          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="outline" size="sm" disabled={busy || roleBusy} onClick={closeSubview}>{uiT("Cancel")}</Button>
+            {roleOpenError && onRetryRoleOpen && <Button size="sm" variant="outline" disabled={busy || roleBusy} onClick={onRetryRoleOpen}>{uiT("Reload saved role")}</Button>}
+            {!roleOpenError && (roleConflict || roleMessage) && <Button size="sm" variant="outline" disabled={busy || roleBusy} onClick={() => void reloadRole()}>{uiT("Reload saved role")}</Button>}
+            <Button
+              size="sm"
+              disabled={busy || roleBusy || roleUnavailable || roleConflict || draftRole === expectedRole}
+              onClick={() => void saveRole().then(ok => { if (ok) closeSubview(); })}
+            >
+              {uiT("Save role")}
+            </Button>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {activeSubview === 'token' && !operator.revoked && (
+      <section className="space-y-4 py-2" aria-labelledby="operator-token-subview-title">
+        <Button type="button" variant="ghost" size="sm" data-settings-back disabled={busy} onClick={closeSubview}>
+          <IconArrowLeft size={16} aria-hidden="true" />
+          {uiT("Back to member", "返回成员详情")}
+        </Button>
+        <header className="space-y-1">
+          <h3 id="operator-token-subview-title" className="text-base font-semibold">{uiT("Create access token")}</h3>
+          <p className="text-sm text-muted-foreground">
+            {uiT("Choose how long the new management API and CLI access token remains valid.", "选择新创建的管理 API 与 CLI 访问令牌的有效期。")}
+          </p>
+        </header>
+        <div className="grid max-w-md gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="new-session-expiry">{uiT("Expires in")}</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button id="new-session-expiry" type="button" variant="outline" size="sm" className="w-full justify-between font-normal" disabled={busy}>
+                  {uiT(expiryChoices.find(item => item.days === expiryDays)?.label ?? "")}
+                  <ChevronDown size={16} aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                <DropdownMenuRadioGroup value={String(expiryDays)} onValueChange={value => setExpiryDays(Number(value))}>
+                  {expiryChoices.map(item => <DropdownMenuRadioItem key={item.days} value={String(item.days)}>{uiT(item.label)}</DropdownMenuRadioItem>)}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="outline" size="sm" disabled={busy} onClick={closeSubview}>{uiT("Cancel")}</Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={busy}
+              onClick={() => {
+                setSubview(null);
+                onIssueSession(expiryDays * 86400);
+              }}
+            >
+              <KeyRound size={14} />{uiT("Issue access token", "签发访问令牌")}
+            </Button>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {activeSubview === 'revoke-session' && confirmSession && (
+      <section className="space-y-4 py-2" aria-labelledby="operator-revoke-session-title">
+        <Button type="button" variant="ghost" size="sm" data-settings-back disabled={busy} onClick={closeSubview}>
+          <IconArrowLeft size={16} aria-hidden="true" />
+          {uiT("Back to member", "返回成员详情")}
+        </Button>
+        <header className="space-y-1">
+          <h3 id="operator-revoke-session-title" className="text-base font-semibold">{uiT("Revoke access session?", "确定撤销此访问会话？")}</h3>
+          <p className="text-sm text-muted-foreground">{uiT("This session will stop working immediately. This user’s other sessions remain active.", "此会话将立即失效，该用户的其他会话不受影响。")}</p>
+        </header>
+        <dl className="grid max-w-md gap-2 rounded-lg bg-muted/40 p-3 text-sm">
+          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">{uiT("Created")}</dt><dd>{new Date(confirmSession.created_at).toLocaleString(readUILocale())}</dd></div>
+          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">{uiT("Expires")}</dt><dd>{formatExpiry(confirmSession.expires_at_unix)}</dd></div>
+        </dl>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={closeSubview}>{uiT("Cancel")}</Button>
+          <Button type="button" variant="destructive" size="sm" disabled={busy} onClick={() => onRevokeSession(confirmSession.id)}>{uiT("Confirm revoke")}</Button>
+        </div>
+      </section>
+    )}
+
+    {activeSubview === 'revoke-operator' && (
+      <section className="space-y-4 py-2" aria-labelledby="operator-revoke-user-title">
+        <Button type="button" variant="ghost" size="sm" data-settings-back disabled={busy} onClick={closeSubview}>
+          <IconArrowLeft size={16} aria-hidden="true" />
+          {uiT("Back to member", "返回成员详情")}
+        </Button>
+        <header className="space-y-1">
+          <h3 id="operator-revoke-user-title" className="text-base font-semibold">{uiT("Revoke user access")}</h3>
+          <p className="text-sm text-muted-foreground">
+            {operator.project_id
+              ? uiT("This user will lose access to this workspace. All of their access sessions will be revoked.")
+              : uiT("This user will lose access to every workspace in the organization. All of their access sessions will be revoked.")}
+          </p>
+        </header>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={closeSubview}>{uiT("Cancel")}</Button>
+          <Button type="button" variant="destructive" size="sm" disabled={busy} onClick={onRevokeOperator}>{uiT("Confirm revoke user access")}</Button>
+        </div>
+      </section>
+    )}
   </section>;
 }

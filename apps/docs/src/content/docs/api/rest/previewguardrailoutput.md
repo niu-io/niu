@@ -1,11 +1,11 @@
 ---
 title: "Test synthetic output against local text rules without enforcement"
-description: "POST /api/v1/organizations/{organization}/projects/{project}/guardrails/output-preview"
+description: "POST /api/v1/workspaces/{workspace}/guardrails/output-preview"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`POST /api/v1/organizations/{organization}/projects/{project}/guardrails/output-preview`
+`POST /api/v1/workspaces/{workspace}/guardrails/output-preview`
 
 Requires workspace read permission. Does not save content or policy, create requests, or call inference/detector services. Returns safe outcome codes only, with no original, transformed or matched text. Does not validate route availability or activate content controls. Responses use Cache-Control no-store. The complete synthetic request envelope is limited to 1 MiB. Uses the live buffered-full local output inspector, with a 1 MiB serialized-response and transformed-response limit; unsupported/opaque/tool content is indeterminate. This does not qualify streaming inspection or external detectors. Local tests use at most four blocking workers per gateway process with no waiting queue and a five-second response deadline; cancellation does not release a slot until computation finishes.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/guardrails/output-preview" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/workspaces/{workspace}/guardrails/output-preview" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
@@ -36,18 +36,7 @@ curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/organizations/{organization}/p
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

@@ -65,7 +65,7 @@ pub(crate) fn background_polling_enabled() -> Result<bool, &'static str> {
 /// Product support inventory, independent of merchant activation or live qualification.
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/payments/integrations",
+///   "path": "/api/v1/admin/payments/integrations",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPaymentIntegrations",
@@ -634,7 +634,7 @@ pub(crate) async fn notify(
 ///                 "type": "string",
 ///                 "minLength": 1,
 ///                 "maxLength": 64,
-///                 "pattern": "^[A-Za-z0-9.-]+$",
+///                 "pattern": "^[A-Za-z0-9._-]+$",
 ///                 "description": "Must be enabled for the configured merchant."
 ///               },
 ///               "idempotency_key": {
@@ -840,7 +840,7 @@ pub(crate) async fn create_topup(
         || !input
             .payment_method
             .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-'))
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
     {
         return Err(ApiError::invalid_request(
             "Choose an enabled payment method",
@@ -2102,7 +2102,7 @@ mod tests {
                 .clone()
                 .oneshot(
                     Request::get(format!(
-                        "/admin/v1/organizations/{organization}/billing/payment-methods"
+                        "/api/v1/organizations/{organization}/billing/payment-methods"
                     ))
                     .header(
                         "authorization",
@@ -2346,7 +2346,7 @@ mod tests {
         let response = app
             .clone()
             .oneshot(
-                Request::get(format!("/admin/v1/organizations/{company}/billing/topups"))
+                Request::get(format!("/api/v1/organizations/{company}/billing/topups"))
                     .header("authorization", format!("Bearer {}", owner.token))
                     .body(Body::empty())
                     .unwrap(),
@@ -2365,7 +2365,7 @@ mod tests {
             .clone()
             .oneshot(
                 Request::get(format!(
-                    "/admin/v1/organizations/{}/billing/topups",
+                    "/api/v1/organizations/{}/billing/topups",
                     Uuid::new_v4()
                 ))
                 .header("authorization", format!("Bearer {}", owner.token))
@@ -2375,7 +2375,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
-        let methods_path = format!("/admin/v1/organizations/{company}/billing/payment-methods");
+        let methods_path = format!("/api/v1/organizations/{company}/billing/payment-methods");
         let response = app
             .clone()
             .oneshot(
@@ -2403,7 +2403,7 @@ mod tests {
             ),
         ] {
             let mut request = Request::get(format!(
-                "/admin/v1/organizations/{organization}/billing/payment-methods"
+                "/api/v1/organizations/{organization}/billing/payment-methods"
             ));
             if let Some(token) = token {
                 request = request.header("authorization", format!("Bearer {token}"));
@@ -2416,7 +2416,7 @@ mod tests {
             assert_eq!(response.status(), expected);
         }
         let path = format!(
-            "/admin/v1/organizations/{company}/billing/topups/{}/reconcile",
+            "/api/v1/organizations/{company}/billing/topups/{}/reconcile",
             order.id
         );
         for (token, expected) in [
@@ -2445,7 +2445,7 @@ mod tests {
             "0"
         );
         let status_path = format!(
-            "/admin/v1/organizations/{company}/billing/topups/{}",
+            "/api/v1/organizations/{company}/billing/topups/{}",
             order.id
         );
         for (expected_status, checkout) in [
@@ -2538,7 +2538,7 @@ mod tests {
             .clone()
             .oneshot(
                 Request::get(format!(
-                    "/admin/v1/organizations/{company}/billing/topups/{}",
+                    "/api/v1/organizations/{company}/billing/topups/{}",
                     closed.id
                 ))
                 .header("authorization", format!("Bearer {}", owner.token))
@@ -2562,7 +2562,7 @@ mod tests {
             .clone()
             .oneshot(
                 Request::get(format!(
-                    "/admin/v1/organizations/{foreign}/billing/topups/{}",
+                    "/api/v1/organizations/{foreign}/billing/topups/{}",
                     order.id
                 ))
                 .header("authorization", format!("Bearer {}", owner.token))
@@ -2572,7 +2572,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
-        let response = app.oneshot(Request::post(format!("/admin/v1/organizations/{company}/billing/topups")).header("authorization",format!("Bearer {}", owner.token)).header("content-type","application/json").body(Body::from(json!({"amount_nanos":"1000000000","payment_method":"wxpaynative","idempotency_key":Uuid::new_v4()}).to_string())).unwrap()).await.unwrap();
+        let response = app.oneshot(Request::post(format!("/api/v1/organizations/{company}/billing/topups")).header("authorization",format!("Bearer {}", owner.token)).header("content-type","application/json").body(Body::from(json!({"amount_nanos":"1000000000","payment_method":"wxpaynative","idempotency_key":Uuid::new_v4()}).to_string())).unwrap()).await.unwrap();
         assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
         assert_eq!(
             state.store.customer_balance_summary(company).await.unwrap()[0]["balance_nanos"],
@@ -2937,7 +2937,7 @@ mod stripe_tests {
             .await
             .unwrap();
         let app = crate::web::router(state.clone());
-        let replay = app.clone().oneshot(Request::post(format!("/admin/v1/organizations/{company}/billing/topups"))
+        let replay = app.clone().oneshot(Request::post(format!("/api/v1/organizations/{company}/billing/topups"))
             .header("authorization", "Bearer stripe-test-installation-token-123456789").header("content-type", "application/json")
             .body(Body::from(json!({"amount_nanos":"2000000000","payment_method":"card","idempotency_key":order.idempotency_key}).to_string())).unwrap()).await.unwrap();
         assert_eq!(replay.status(), StatusCode::OK);
@@ -3428,7 +3428,7 @@ mod stripe_recovery_tests {
                 .into_iter()
                 .filter(|(gateway, _)| !configured_currency || *gateway == "stripe")
             {
-                let response = app.clone().oneshot(Request::get(format!("/admin/v1/organizations/{company}/billing/payment-methods?payment_gateway={gateway}&currency={currency}"))
+                let response = app.clone().oneshot(Request::get(format!("/api/v1/organizations/{company}/billing/payment-methods?payment_gateway={gateway}&currency={currency}"))
                     .header("authorization", "Bearer stripe-recovery-installation-token-123456789").body(Body::empty()).unwrap()).await.unwrap();
                 assert_eq!(response.status(), StatusCode::OK);
                 let value: Value = serde_json::from_slice(
@@ -3444,13 +3444,13 @@ mod stripe_recovery_tests {
             }
             let epay_key = Uuid::new_v4();
             for _ in 0..if configured_currency { 0 } else { 2 } {
-                let response = app.clone().oneshot(Request::post(format!("/admin/v1/organizations/{company}/billing/topups"))
+                let response = app.clone().oneshot(Request::post(format!("/api/v1/organizations/{company}/billing/topups"))
                     .header("authorization", "Bearer stripe-recovery-installation-token-123456789").header("content-type", "application/json")
                     .body(Body::from(json!({"payment_gateway":"epay","currency":"CNY","amount_nanos":"1230000000","payment_method":"alipay","idempotency_key":epay_key}).to_string())).unwrap()).await.unwrap();
                 assert_eq!(response.status(), StatusCode::OK);
             }
             for _ in 0..2 {
-                let response = app.clone().oneshot(Request::post(format!("/admin/v1/organizations/{company}/billing/topups"))
+                let response = app.clone().oneshot(Request::post(format!("/api/v1/organizations/{company}/billing/topups"))
                     .header("authorization","Bearer stripe-recovery-installation-token-123456789")
                     .header("content-type","application/json")
                     .body(Body::from(json!({"amount_nanos":"2000000000","payment_gateway":"stripe","currency":"USD","payment_method":"alipay","idempotency_key":order.idempotency_key}).to_string())).unwrap()).await.unwrap();
@@ -3478,7 +3478,7 @@ mod stripe_recovery_tests {
             let response = app
                 .oneshot(
                     Request::post(format!(
-                        "/admin/v1/organizations/{company}/billing/topups/{}/reconcile",
+                        "/api/v1/organizations/{company}/billing/topups/{}/reconcile",
                         order.id
                     ))
                     .header(
@@ -4089,7 +4089,7 @@ mod epay_tests {
             .create_prepaid_organization("Foreign funding", "CNY")
             .await
             .unwrap();
-        let path = format!("/admin/v1/organizations/{company}/billing/topups");
+        let path = format!("/api/v1/organizations/{company}/billing/topups");
         for (gateway, expected) in [
             ("stripe", StatusCode::BAD_REQUEST),
             ("unknown", StatusCode::UNPROCESSABLE_ENTITY),
@@ -4102,7 +4102,7 @@ mod epay_tests {
             assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         }
         for (currency, available) in [("CNY", true), ("USD", false)] {
-            let response = app.clone().oneshot(Request::get(format!("/admin/v1/organizations/{company}/billing/payment-methods?currency={currency}"))
+            let response = app.clone().oneshot(Request::get(format!("/api/v1/organizations/{company}/billing/payment-methods?currency={currency}"))
                 .header("authorization", format!("Bearer {}", owner.token)).body(Body::empty()).unwrap()).await.unwrap();
             assert_eq!(response.status(), StatusCode::OK);
             let payload: Value = serde_json::from_slice(
@@ -4127,7 +4127,7 @@ mod epay_tests {
             ),
             (
                 owner.token.as_str(),
-                format!("/admin/v1/organizations/{foreign}/billing/topups"),
+                format!("/api/v1/organizations/{foreign}/billing/topups"),
                 "1230000000",
                 Uuid::new_v4(),
                 StatusCode::NOT_FOUND,
@@ -4151,7 +4151,7 @@ mod epay_tests {
             assert_eq!(response.status(), expected);
         }
         for _ in 0..2 {
-            let response = app.clone().oneshot(Request::post(format!("/admin/v1/organizations/{company}/billing/topups"))
+            let response = app.clone().oneshot(Request::post(format!("/api/v1/organizations/{company}/billing/topups"))
                 .header("authorization", format!("Bearer {}", owner.token))
                 .header("content-type", "application/json")
                 .body(Body::from(json!({"payment_gateway":"epay","currency":"CNY","amount_nanos":"1230000000","payment_method":"alipay","idempotency_key":key}).to_string())).unwrap()).await.unwrap();
@@ -4268,7 +4268,7 @@ mod epay_tests {
         let response = app
             .clone()
             .oneshot(
-                Request::put("/api/v1/platform/payments/epay")
+                Request::put("/api/v1/admin/payments/epay")
                     .header("authorization", auth)
                     .header("content-type", "application/json")
                     .body(Body::from(settings.to_string()))
@@ -4303,7 +4303,7 @@ mod epay_tests {
         let response = app
             .clone()
             .oneshot(
-                Request::put("/api/v1/platform/payments/epay")
+                Request::put("/api/v1/admin/payments/epay")
                     .header("authorization", auth)
                     .header("content-type", "application/json")
                     .body(Body::from(rotated.to_string()))
@@ -4322,7 +4322,7 @@ mod epay_tests {
         let response = app
             .clone()
             .oneshot(
-                Request::put("/api/v1/platform/payments/epay")
+                Request::put("/api/v1/admin/payments/epay")
                     .header("authorization", auth)
                     .header("content-type", "application/json")
                     .body(Body::from(settings.to_string()))
@@ -4528,5 +4528,97 @@ mod epay_tests {
         .await
         .unwrap();
         assert_eq!(entries, 1);
+    }
+
+    #[sqlx::test(migrator = "niu_storage::MIGRATOR")]
+    #[ignore = "requires PostgreSQL"]
+    async fn stripe_wechat_pay_topup_accepted_by_gateway_validation_and_postgres(
+        pool: sqlx::PgPool,
+    ) {
+        let store = niu_storage::Store::from_pool(pool.clone());
+        store.configure_platform_currency("USD").await.unwrap();
+        let company = store
+            .create_prepaid_organization("Stripe WeChat Pay Org", "USD")
+            .await
+            .unwrap();
+        let idempotency_key = Uuid::new_v4();
+        let order = store
+            .create_customer_topup(
+                company,
+                &niu_storage::TopupInput {
+                    currency: "USD",
+                    amount_nanos: 2_000_000_000,
+                    aggregator: "stripe",
+                    merchant: "fixtureMerchant",
+                    payment_method: "wechat_pay",
+                    idempotency_key,
+                },
+            )
+            .await
+            .unwrap();
+        let mut state = AppState::new(
+            toml::from_str("[models]").unwrap(),
+            store.clone(),
+            crate::state::TokenSet::parse(
+                "NIU_ADMIN_TOKENS",
+                "stripe-test-installation-token-123456789".into(),
+            )
+            .unwrap(),
+            std::collections::HashMap::new(),
+        );
+        state.stripe_payments = Some(std::sync::Arc::new(StripeRuntime {
+            merchant: "fixtureMerchant".into(),
+            endpoint_secret: "whsec_fixture_only".into(),
+            live_mode: false,
+            checkout: Some(StripeCheckout {
+                client: niu_payments::stripe_transport::Client::new(
+                    "sk_test_fixture_only".into(),
+                    false,
+                )
+                .unwrap(),
+                currency: "usd".into(),
+                success_url: "https://niu.example/settings/billing".into(),
+                cancel_url: "https://niu.example/settings/billing".into(),
+                methods: vec!["card".into(), "alipay".into(), "wechat_pay".into()],
+            }),
+        }));
+        store
+            .bind_customer_topup_checkout(
+                company,
+                order.id,
+                "cs_test_wechat_fixture",
+                "https://checkout.stripe.com/c/pay/cs_test_wechat_fixture#saved",
+            )
+            .await
+            .unwrap();
+        let app = crate::web::router(state);
+        let response = app
+            .oneshot(
+                Request::post(format!("/api/v1/organizations/{company}/billing/topups"))
+                    .header(
+                        "authorization",
+                        "Bearer stripe-test-installation-token-123456789",
+                    )
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({
+                            "amount_nanos": "2000000000",
+                            "payment_method": "wechat_pay",
+                            "idempotency_key": idempotency_key
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let payload: Value = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), 16384)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(payload["data"]["payment_method"], "wechat_pay");
     }
 }

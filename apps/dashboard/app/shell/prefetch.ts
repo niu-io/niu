@@ -60,11 +60,15 @@ export const routeImporters = {
   connect: memoImport('connect', () => import('@/features/connect/page')),
   login: memoImport('login', () => import('@/features/login/page')),
   register: memoImport('register', () => import('@/features/login/register-page')),
-  installation: memoImport('installation', () => import('@/features/login/installation-page')),
+  setup: memoImport('setup', () => import('@/features/login/setup-page')),
   invite: memoImport('invite', () => import('@/features/invitations/accept-page')),
+  adminOverview: memoImport('adminOverview', () => import('@/features/admin-overview/page')),
+  adminRegistrations: memoImport('adminRegistrations', () => import('@/features/registrations/page')),
+  platformRegistrationPolicy: memoImport('platformRegistrationPolicy', () => import('@/features/platform-settings/registration-page')),
   commercialPosition: memoImport('commercialPosition', () => import('@/features/commercial-position/page')),
   platformSettings: memoImport('platformSettings', () => import('@/features/platform-settings/page')),
   customers: memoImport('customers', () => import('@/features/customers/page')),
+  customerDetail: memoImport('customerDetail', () => import('@/features/customers/detail-page')),
   retailPricing: memoImport('retailPricing', () => import('@/features/retail-pricing/page')),
   auditLogs: memoImport('auditLogs', () => import('@/features/audit-logs/page')),
   incidents: memoImport('incidents', () => import('@/features/incidents/page')),
@@ -125,7 +129,7 @@ export function preloadRouteChunk(pathname: string): void {
   const parts = clean.split('/').filter(Boolean);
 
   if (parts[0] === 'login') { void routeImporters.login(); return; }
-  if (parts[0] === 'installation') { void routeImporters.installation(); return; }
+  if (parts[0] === 'setup') { void routeImporters.setup(); return; }
   if (parts[0] === 'invite') { void routeImporters.invite(); return; }
   if (parts[0] === 'connect') { void routeImporters.connect(); return; }
   if (parts[0] === 'models') { void routeImporters.publicModels(); void routeImporters.models(); return; }
@@ -141,15 +145,19 @@ export function preloadRouteChunk(pathname: string): void {
     return;
   }
   if (parts[0] === 'admin') {
-    const sub = parts[1] ?? 'providers';
-    if (sub === 'providers' || sub === 'suppliers') void routeImporters.providers();
+    const sub = parts[1] ?? '';
+    if (!sub) void routeImporters.adminOverview();
+    else if (sub === 'providers' || sub === 'suppliers') void routeImporters.providers();
     else if (sub === 'routing' || sub === 'pools' || sub === 'route-pools' || sub === 'model-pools') void routeImporters.routePools();
     else if (sub === 'customers' || sub === 'balances' || sub === 'customer-accounts' || sub === 'account-balances') void routeImporters.customers();
+    else if (sub === 'registrations') void routeImporters.adminRegistrations();
     else if (sub === 'reports' || sub === 'commercial' || sub === 'financial-reports') void routeImporters.commercialPosition();
     else if (sub === 'pricing') void routeImporters.retailPricing();
     else if (sub === 'payments' || sub === 'payment-gateways') void routeImporters.payments();
     else if (sub === 'branding') void routeImporters.branding();
     else if (sub === 'audit' || sub === 'audit-logs') void routeImporters.auditLogs();
+    else if (sub === 'incidents') void routeImporters.incidents();
+    else if (sub === 'settings' && parts[2] === 'registration') void routeImporters.platformRegistrationPolicy();
     else if (sub === 'settings') void routeImporters.platformSettings();
     return;
   }
@@ -214,8 +222,8 @@ export function prefetchRouteData(
       prefetchGet(token, `/api/v1/organizations/${orgId}/billing/transactions`);
     } else if (section === 'members') {
       prefetchGet(token, '/api/v1/organizations');
-      prefetchGet(token, '/api/v1/operators?limit=1000');
-      if (orgId) prefetchGet(token, `/api/v1/organizations/${orgId}/projects`);
+      prefetchGet(token, '/api/v1/members?limit=1000');
+      if (orgId) prefetchGet(token, `/api/v1/workspaces?organization_id=${encodeURIComponent(orgId)}`);
     } else if (section === 'organization') {
       prefetchGet(token, '/api/v1/organizations');
       prefetchGet(token, '/api/v1/workspaces', { persist: true });
@@ -234,7 +242,7 @@ export function prefetchRouteData(
   if (parts[0] === 'activity') {
     prefetchGet(token, '/api/v1/workspaces', { persist: true });
     if (ws) {
-      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=100`);
+      prefetchGet(token, `/api/v1/workspaces/${ws.id}/requests?limit=100`);
       prefetchGet(token, workspaceKeyPath(ws.id));
     }
     return;
@@ -245,8 +253,7 @@ export function prefetchRouteData(
       prefetchGet(token, workspaceKeyPath(ws.id));
       const q = `?organization_id=${encodeURIComponent(ws.organization_id)}&project_id=${encodeURIComponent(ws.id)}`;
       prefetchGet(token, `/api/v1/models${q}`, { persist: true });
-      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/chats`, { persist: true });
-      prefetchGet(token, '/v1/video/models');
+      prefetchGet(token, `/api/v1/workspaces/${ws.id}/chats`, { persist: true });
     }
     return;
   }
@@ -254,26 +261,26 @@ export function prefetchRouteData(
   if (parts[0] === 'admin' && canManagePlatform(session)) {
     const sub = parts[1] ?? 'providers';
     if (sub === 'providers') {
-      prefetchGet(token, '/api/v1/providers', { persist: true });
-      prefetchGet(token, '/api/v1/vendors');
+      prefetchGet(token, '/api/v1/admin/providers', { persist: true });
+      prefetchGet(token, '/api/v1/admin/providers/connections');
     } else if (sub === 'customers' || sub === 'balances') {
-      prefetchGet(token, '/api/v1/platform/customer-accounts?limit=50');
+      prefetchGet(token, '/api/v1/admin/customers?limit=50');
     } else if (sub === 'routing') {
-      prefetchGet(token, '/api/v1/routing/index?limit=50');
+      prefetchGet(token, '/api/v1/admin/routing/index?limit=50');
     } else if (sub === 'pricing') {
-      prefetchGet(token, '/api/v1/pricing/standard-prices?limit=50');
-      prefetchGet(token, '/api/v1/platform/units');
-      prefetchGet(token, '/api/v1/platform/units/media/tariffs');
+      prefetchGet(token, '/api/v1/admin/pricing/standard-prices?limit=50');
+      prefetchGet(token, '/api/v1/admin/units');
+      prefetchGet(token, '/api/v1/admin/units/media/tariffs');
     } else if (sub === 'payments') {
-      prefetchGet(token, '/api/v1/platform/configuration');
-      prefetchGet(token, '/api/v1/platform/payments/epay');
-      prefetchGet(token, '/api/v1/platform/payments/mock');
+      prefetchGet(token, '/api/v1/admin/configuration');
+      prefetchGet(token, '/api/v1/admin/payments/epay');
+      prefetchGet(token, '/api/v1/admin/payments/mock');
     } else if (sub === 'branding') {
-      prefetchGet(token, '/api/v1/platform/branding');
+      prefetchGet(token, '/api/v1/admin/branding');
     } else if (sub === 'settings') {
-      prefetchGet(token, '/api/v1/platform/units');
+      prefetchGet(token, '/api/v1/admin/units');
     } else if (sub === 'audit') {
-      prefetchGet(token, '/api/v1/platform/audit-events?limit=50');
+      prefetchGet(token, '/api/v1/admin/audit?limit=50');
     }
     return;
   }
@@ -286,30 +293,30 @@ export function prefetchRouteData(
     if (!ws) return;
     const section = parts[2] ?? '';
     if (!section) {
-      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=10`);
+      prefetchGet(token, `/api/v1/workspaces/${ws.id}/requests?limit=10`);
     } else if (section === 'models') {
       const q = `?organization_id=${encodeURIComponent(ws.organization_id)}&project_id=${encodeURIComponent(ws.id)}`;
       prefetchGet(token, `/api/v1/models${q}`, { persist: true });
     } else if (section === 'keys') {
       if (parts[3] && parts[3] !== 'new') {
         prefetchGet(token, workspaceKeyPath(ws.id));
-        prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=10`);
-        prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/guardrails`);
+        prefetchGet(token, `/api/v1/workspaces/${ws.id}/requests?limit=10`);
+        prefetchGet(token, `/api/v1/workspaces/${ws.id}/guardrails`);
       } else {
         prefetchGet(token, workspaceKeyPagePath(ws.id));
-        prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=100`);
+        prefetchGet(token, `/api/v1/workspaces/${ws.id}/requests?limit=100`);
       }
     } else if (section === 'usage' || section === 'executions') {
-      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/requests?limit=100`);
+      prefetchGet(token, `/api/v1/workspaces/${ws.id}/requests?limit=100`);
       prefetchGet(token, workspaceKeyPath(ws.id));
     } else if (section === 'billing') {
-      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/billing`);
-      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/spending-limit`);
+      prefetchGet(token, `/api/v1/workspaces/${ws.id}/billing`);
+      prefetchGet(token, `/api/v1/workspaces/${ws.id}/spending-limit`);
     } else if (section === 'guardrails') {
-      prefetchGet(token, `/api/v1/organizations/${ws.organization_id}/projects/${ws.id}/guardrails`);
+      prefetchGet(token, `/api/v1/workspaces/${ws.id}/guardrails`);
     } else if (section === 'users') {
       prefetchGet(token, '/api/v1/organizations');
-      prefetchGet(token, '/api/v1/operators?limit=1000');
+      prefetchGet(token, '/api/v1/members?limit=1000');
     } else if (section === 'routing') {
       prefetchGet(token, `/api/v1/workspaces/${encodeURIComponent(ws.id)}/routing`);
     } else if (section === 'evaluations') {

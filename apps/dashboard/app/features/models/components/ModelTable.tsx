@@ -11,21 +11,23 @@ import { IconCopy as Clipboard } from "@tabler/icons-react";
 import { IconKey as KeyRound } from "@tabler/icons-react";
 import { IconX as X } from "@tabler/icons-react";
 import { IconAdjustmentsHorizontal as SlidersHorizontal, IconSearch as Search } from "@tabler/icons-react";
-import { Link, useLocation, useParams, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupContent, useSidebar } from '@/components/ui/sidebar';
 import ProviderLogo from '@/components/ProviderLogo';
-import { modelIdentity, modelDeveloper, modelProviderName, catalogTitle } from '@/lib/providers';
+import { modelIdentity, modelDeveloper, modelProviderName, catalogTitle, disambiguatedCatalogTitle } from '@/lib/providers';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { capabilityGroups, capabilityValues, emptyCapabilities, matchesCapabilities, modelCapabilityTags, type CapabilityGroup } from '../model-capabilities';
 import { Label } from '@/components/ui/label';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
+import { QuickKeyDialog, useQuickKeyProvisioner } from '@/features/generations/QuickKeyDialog';
 import type { Model } from '@/shell/dashboard-context';
 
 function ModelFilterButton({ activeCount = 0 }: { activeCount?: number }) {
@@ -96,6 +98,13 @@ function isVideoModel(model: Model) {
   const cap = generationCapability(model, 'video');
   return cap === true || (cap === null && /(?:^|\/|-)(?:seedance|wan2|kling|veo|sora|vidu|hailuo|luma|runway)(?:$|\/|-|\.)/i.test(model.id));
 }
+function modelTrialLabels(model: Model, uiT: (en: string, zh?: string) => string) {
+  const dual = (hasChatOutput(model) || canTryUnverifiedChat(model)) && isVideoModel(model);
+  return {
+    chat: dual ? uiT("Try chat") : uiT("Try"),
+    video: dual ? uiT("Try video") : uiT("Try"),
+  };
+}
 
 function requestExample(baseUrl: string, model: Model) {
   const body = isVideoModel(model)
@@ -113,16 +122,55 @@ export default function ModelTable(props: { models: Model[]; header?: ReactNode;
   return <SidebarProvider defaultOpen={false} className="min-h-0 min-w-0 w-full"><ModelTableContent {...props} /></SidebarProvider>;
 }
 
-type CatalogSource = 'catalog' | 'own_api_key';
+function isUncallable(model: Model): boolean {
+  return model.callable === false;
+}
 
-function modelSource(model: Model): CatalogSource {
-  return model.billing_source === 'own_api_key' ? 'own_api_key' : 'catalog';
+function readinessIssues(model: Model): string[] {
+  return Array.isArray(model.readiness_issues) ? model.readiness_issues : [];
+}
+
+function readinessBadgeText(model: Model, uiT: (en: string, zh?: string) => string): string {
+  const issues = readinessIssues(model);
+  const missingProcurement = issues.includes('procurement_pricing_missing');
+  const missingSelling = issues.includes('selling_price_missing');
+  if (missingProcurement && missingSelling) return uiT("Purchase rate & selling price missing");
+  if (missingSelling) return uiT("Selling price not published");
+  if (missingProcurement) return uiT("Purchase rate missing");
+  return uiT("Not callable");
+}
+
+function readinessDetailText(model: Model, isPlatformAdmin: boolean, uiT: (en: string, zh?: string) => string): string {
+  const issues = readinessIssues(model);
+  const missingProcurement = issues.includes('procurement_pricing_missing');
+  const missingSelling = issues.includes('selling_price_missing');
+  if (missingProcurement && missingSelling) {
+    return isPlatformAdmin
+      ? uiT("This commercial model cannot be invoked yet. Configure the Provider purchase rate and publish a customer selling price before customers can send requests.")
+      : uiT("This commercial model cannot be invoked yet because its purchase rate and customer selling price have not been published. Contact your platform administrator.");
+  }
+  if (missingSelling) {
+    return isPlatformAdmin
+      ? uiT("This commercial model cannot be invoked yet. Publish a customer selling price in Pricing before customers can send requests.")
+      : uiT("This commercial model cannot be invoked yet because its customer selling price has not been published. Contact your platform administrator.");
+  }
+  if (missingProcurement) {
+    return isPlatformAdmin
+      ? uiT("This commercial model cannot be invoked yet. Configure an active Provider purchase rate before customers can send requests.")
+      : uiT("This commercial model cannot be invoked yet because its Provider purchase rate is not configured. Contact your platform administrator.");
+  }
+  return isPlatformAdmin
+    ? uiT("This commercial model cannot be invoked yet. Complete its Provider and customer pricing setup before sending requests.")
+    : uiT("This commercial model cannot be invoked yet. Contact your platform administrator to complete its pricing setup.");
+}
+
+function pricingSetupHref(model: Model): string {
+  const publish = isVideoModel(model) && !hasChatOutput(model) ? 'media' : 'text';
+  return `/admin/pricing?model=${encodeURIComponent(model.id)}&publish=${publish}`;
 }
 
 function catalogTier(model: Model): number {
-  if (model.billing_source === 'own_api_key') {
-    return model.catalog ? 2 : 3;
-  }
+  if (isUncallable(model)) return 4;
   const documented =
     model.public_catalog !== false ||
     model.customer_pricing != null ||
@@ -141,7 +189,14 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     });
     setLimit(20);
   }
-  const { token, workspace, workspaces, session } = useDashboardContext();
+  const { token, workspace, workspaces, session, rememberChatKey, reloadWorkspaces } = useDashboardContext();
+  const isPlatformAdmin = Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false));
+  const canWrite = session?.permissions?.write !== false;
+  const needsApiKey = !publicMode && workspace?.active_key_count === 0;
+  const navigate = useNavigate();
+  const quickKey = useQuickKeyProvisioner();
+  const [pendingTry, setPendingTry] = useState<{ model: Model; kind: 'chat' | 'video' } | null>(null);
+  const pendingTryTriggerRef = useRef<HTMLElement | null>(null);
   const { billingMode } = usePlatformCurrency();
   const showUnitPricing = (model: Model) => model.customer_unit_pricing != null && (billingMode === 'credits' || model.customer_pricing == null);
   const params = useParams();
@@ -157,9 +212,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [authorsSelected, setAuthorsSelected] = useState<string[]>(() => searchParams.getAll('dev').filter(Boolean));
   const [providersSelected, setProvidersSelected] = useState<string[]>(() => searchParams.getAll('provider').filter(Boolean));
-  const [sourcesSelected, setSourcesSelected] = useState<CatalogSource[]>(() =>
-    searchParams.getAll('source').filter((v): v is CatalogSource => v === 'catalog' || v === 'own_api_key'),
-  );
   const [capabilities, setCapabilities] = useState<Record<CapabilityGroup, string[]>>(() => ({
     input: searchParams.getAll('input').filter(Boolean),
     output: searchParams.getAll('output').filter(Boolean),
@@ -169,7 +221,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
   const activeFilterCount =
     authorsSelected.length +
     providersSelected.length +
-    sourcesSelected.length +
     Object.values(capabilities).reduce((sum, list) => sum + list.length, 0);
   const [allAuthors, setAllAuthors] = useState(false);
   const [sort, setSort] = useState<'recommended' | 'name' | 'context'>(() => {
@@ -181,14 +232,12 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     sort?: string;
     authors?: string[];
     providers?: string[];
-    sources?: CatalogSource[];
     capabilities?: Record<CapabilityGroup, string[]>;
   } = {}) {
     const nextQuery = overrides.query ?? query;
     const nextSort = overrides.sort ?? sort;
     const nextAuthors = overrides.authors ?? authorsSelected;
     const nextProviders = overrides.providers ?? providersSelected;
-    const nextSources = overrides.sources ?? sourcesSelected;
     const nextCapabilities = overrides.capabilities ?? capabilities;
     const next = new URLSearchParams(location.search);
     next.delete('workspace');
@@ -207,7 +256,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     next.delete('provider');
     for (const item of nextProviders) next.append('provider', item);
     next.delete('source');
-    for (const item of nextSources) next.append('source', item);
     if (next.toString() !== new URLSearchParams(location.search).toString()) {
       setSearchParams(next, { replace: true });
     }
@@ -229,16 +277,12 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     const cleared = emptyCapabilities();
     setAuthorsSelected([]);
     setProvidersSelected([]);
-    setSourcesSelected([]);
     setCapabilities(cleared);
     setQuery('');
     setLimit(20);
-    syncCatalogUrl({ query: '', authors: [], providers: [], sources: [], capabilities: cleared });
+    syncCatalogUrl({ query: '', authors: [], providers: [], capabilities: cleared });
     searchInputRef.current?.focus();
   }
-  const hasMixedSources =
-    models.some(model => modelSource(model) === 'catalog') &&
-    models.some(model => modelSource(model) === 'own_api_key');
   const availableCapabilities = capabilityGroups.map(group => ({ ...group, options: group.options.filter(([value]) => models.some(model => capabilityValues(model, group.id).includes(value))) }));
   const providers = [...new Set(models.map(modelProviderName).filter((provider): provider is string => Boolean(provider)))].sort();
   const authors = useMemo(() => [...new Map(models.flatMap(model => { const identity = modelDeveloper(model); return identity ? [[identity.id, identity] as const] : []; })).values()].sort((a, b) => a.name.localeCompare(b.name)), [models]);
@@ -260,15 +304,29 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     for (const item of capabilities.features) sp.append('cap', item);
     for (const item of authorsSelected) sp.append('dev', item);
     for (const item of providersSelected) sp.append('provider', item);
-    for (const item of sourcesSelected) sp.append('source', item);
     const serialized = sp.toString();
     return serialized ? `?${serialized}` : '';
-  }, [query, sort, capabilities, authorsSelected, providersSelected, sourcesSelected]);
-  function generationHref(model: Model, kind: 'chat' | 'video') {
+  }, [query, sort, capabilities, authorsSelected, providersSelected]);
+  function generationHref(model: Model, kind: 'chat' | 'video', keyRef?: string) {
     const query = new URLSearchParams({new: kind === 'video' ? 'video' : '1', model: model.id});
-    if (!publicMode && workspace) query.set('workspace', workspacePathSegment(workspace, workspaces));
+    if (!publicMode && workspace) query.set('workspace', workspacePathSegment(workspace, workspaces ?? [workspace]));
+    if (keyRef) query.set('key', keyRef);
     const target = `/generations?${query}`;
     return publicMode ? `/login?returnTo=${encodeURIComponent(target)}` : target;
+  }
+  async function handleQuickCreateAndTry() {
+    if (!pendingTry || !token || !workspace) return;
+    const created = await quickKey.run({
+      token,
+      organizationId: workspace.organization_id,
+      workspaceId: workspace.id,
+      rememberChatKey,
+      reloadWorkspaces,
+    });
+    if (!created) return;
+    const target = generationHref(pendingTry.model, pendingTry.kind, created.slug || created.id);
+    setPendingTry(null);
+    navigate(target);
   }
   const [copyFeedback, setCopyFeedback] = useState<{model:string; error:string; copied:boolean} | null>(null);
   const [modelIdFeedback, setModelIdFeedback] = useState<{model:string; copied:boolean} | null>(null);
@@ -293,7 +351,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
         matchesCapabilities(model, capabilities) &&
         (!authorsSelected.length || authorsSelected.includes(modelDeveloper(model)?.id ?? '')) &&
         (!providersSelected.length || providersSelected.includes(modelProviderName(model) ?? '')) &&
-        (!sourcesSelected.length || sourcesSelected.includes(modelSource(model))) &&
         (!value ||
           `${model.id} ${model.catalog?.name ?? ''} ${model.catalog?.description ?? ''} ${model.provider ?? ''} ${model.upstream_model ?? ''} ${modelIdentity(model).name}`
             .toLowerCase()
@@ -306,7 +363,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
       return [...matches].sort((a, b) => (b.catalog?.context_length ?? -1) - (a.catalog?.context_length ?? -1) || (a.catalog?.name || a.id).localeCompare(b.catalog?.name || b.id, 'en', {numeric:true,sensitivity:'base'}));
     }
     return [...matches].sort((a, b) => catalogTier(a) - catalogTier(b));
-  }, [popularModels, query, authorsSelected, providersSelected, sourcesSelected, capabilities, sort]);
+  }, [popularModels, query, authorsSelected, providersSelected, capabilities, sort]);
   const visible = filtered.slice(0, limit);
   const selected = models.find(model => model.id === selectedId) ?? null;
   const showOriginalDescription = Boolean(selected?.catalog?.description) && (isZh ? !/\p{Script=Han}/u.test(selected?.catalog?.description ?? '') : /\p{Script=Han}/u.test(selected?.catalog?.description ?? ''));
@@ -404,12 +461,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
           </div>
           {authors.length > 10 && <Button variant="ghost" size="sm" onClick={() => setAllAuthors(value => !value)}>{allAuthors ? uiT("Show fewer") : uiT("Show all developers")}</Button>}
           </CollapsibleContent></Collapsible>
-          {hasMixedSources && <Collapsible className="models-filter-group" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Billing source")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Billing source filters")}><div className="models-filter-options">
-            {(['catalog', 'own_api_key'] as const).map(sourceKey => {
-              const sourceLabel = sourceKey === 'own_api_key' ? uiT("Own API key") : uiT("Niu catalog");
-              return <Label key={sourceKey}><Checkbox aria-label={sourceLabel} checked={sourcesSelected.includes(sourceKey)} onCheckedChange={() => { setSourcesSelected(current => { const nextSources = current.includes(sourceKey) ? current.filter(id => id !== sourceKey) : [...current, sourceKey]; syncCatalogUrl({ sources: nextSources }); return nextSources; }); setLimit(20); }} />{sourceLabel}<span>{models.filter(model => modelSource(model) === sourceKey).length}</span></Label>;
-            })}
-          </div></CollapsibleContent></Collapsible>}
           {providers.length > 0 && <Collapsible className="models-filter-group" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Providers")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Provider filters")}><div className="models-filter-options">
             {providers.map(provider => <Label key={provider}><Checkbox aria-label={provider} checked={providersSelected.includes(provider)} onCheckedChange={() => { setProvidersSelected(current => { const nextProviders = current.includes(provider) ? current.filter(id => id !== provider) : [...current, provider]; syncCatalogUrl({ providers: nextProviders }); return nextProviders; }); setLimit(20); }} />{provider}<span>{models.filter(model => modelProviderName(model) === provider).length}</span></Label>)}
           </div></CollapsibleContent></Collapsible>}
@@ -433,27 +484,25 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
               placeholder={uiT("Search models by name or ID…")}
             />
           </div>
-          <ModelFilterButton activeCount={activeFilterCount} />
-          <div className="models-sort-menu"><DropdownMenu><DropdownMenuTrigger asChild><Button aria-label={uiT("Sort models")} type="button" variant="outline" className="w-full justify-between font-normal">{sort === 'name' ? uiT("Name: A–Z") : sort === 'context' ? uiT("Context length") : uiT("Default order")}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={sort} onValueChange={nextSort => { const validSort = nextSort === 'name' || nextSort === 'context' ? nextSort : 'recommended'; setSort(validSort); syncCatalogUrl({ sort: validSort }); }}>
-              <DropdownMenuRadioItem value="recommended">{uiT("Default order")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="name">{uiT("Name: A–Z")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="context">{uiT("Context length")}</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup></DropdownMenuContent>
-          </DropdownMenu></div>
+          <div className="models-toolbar-controls">
+            <ModelFilterButton activeCount={activeFilterCount} />
+            <div className="models-sort-menu"><DropdownMenu><DropdownMenuTrigger asChild><Button aria-label={uiT("Sort models")} type="button" variant="outline" className="w-full justify-between font-normal">{sort === 'name' ? uiT("Name: A–Z") : sort === 'context' ? uiT("Context length") : uiT("Default order")}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={sort} onValueChange={nextSort => { const validSort = nextSort === 'name' || nextSort === 'context' ? nextSort : 'recommended'; setSort(validSort); syncCatalogUrl({ sort: validSort }); }}>
+                <DropdownMenuRadioItem value="recommended">{uiT("Default order")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="name">{uiT("Name: A–Z")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="context">{uiT("Context length")}</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup></DropdownMenuContent>
+            </DropdownMenu></div>
+          </div>
         </div>
 
-        {(authorsSelected.length > 0 || providersSelected.length > 0 || sourcesSelected.length > 0 || hasCapabilities) && <div className="flex flex-wrap gap-2 pt-3" aria-label={uiT("Active model filters")}>
+        {(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities) && <div className="flex flex-wrap gap-2 pt-3" aria-label={uiT("Active model filters")}>
           {capabilityGroups.flatMap(group => group.options.filter(([value]) => capabilities[group.id].includes(value)).map(([value, label]) => <Button key={`${group.id}-${value}`} variant="secondary" size="sm" aria-label={isZh ? uiF("Remove {0} {1} filter", [uiT(label), group.id === 'input' ? '输入' : group.id === 'output' ? '输出' : '能力']) : uiF("Remove {0} {1} filter", [label, group.id])} onClick={() => toggleCapability(group.id, value)}>{group.id === 'features' ? uiT(label) : `${uiT(group.id === 'input' ? 'Input' : 'Output')}: ${uiT(label)}`}<X size={12} aria-hidden="true" /></Button>))}
-          {sourcesSelected.map(sourceKey => {
-            const sourceLabel = sourceKey === 'own_api_key' ? uiT("Own API key") : uiT("Niu catalog");
-            return <Button key={sourceKey} variant="secondary" size="sm" aria-label={uiF("Remove {0} filter", [sourceLabel])} onClick={() => { setSourcesSelected(current => { const nextSources = current.filter(value => value !== sourceKey); syncCatalogUrl({ sources: nextSources }); return nextSources; }); setLimit(20); }}>{uiT("Billing:")}{" "}{sourceLabel}<X size={12} aria-hidden="true" /></Button>;
-          })}
           {authors.filter(author => authorsSelected.includes(author.id)).map(author => <Button key={author.id} variant="secondary" size="sm" aria-label={uiF("Remove {0} developer filter", [author.name])} onClick={() => chooseAuthor(author.id)}>{uiT("Developer:")}{" "}{author.name}<X size={12} aria-hidden="true" /></Button>)}
           {providersSelected.map(provider => <Button key={provider} variant="secondary" size="sm" aria-label={uiF("Remove {0} provider filter", [provider])} onClick={() => { setProvidersSelected(current => { const nextProviders = current.filter(value => value !== provider); syncCatalogUrl({ providers: nextProviders }); return nextProviders; }); setLimit(20); }}>{uiT("Provider:")}{" "}{provider}<X size={12} aria-hidden="true" /></Button>)}
         </div>}
-        <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString(readUILocale())} {filtered.length === 1 ? uiT("model") : uiT("models")}</span>{filtered.length > 0 && (authorsSelected.length > 0 || providersSelected.length > 0 || sourcesSelected.length > 0 || hasCapabilities || query) && <Button variant="ghost" size="sm" onClick={clearAllFilters}>{uiT("Clear filters")}</Button>}</div>
-        {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle><EmptyDescription>{uiT("Try another search or remove a filter.")}</EmptyDescription></EmptyHeader>{(authorsSelected.length > 0 || providersSelected.length > 0 || sourcesSelected.length > 0 || hasCapabilities || query) && <EmptyContent><Button variant="outline" onClick={clearAllFilters}>{uiT("Clear filters")}</Button></EmptyContent>}</Empty> : <div className="models-cards">
+        <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString(readUILocale())} {filtered.length === 1 ? uiT("model") : uiT("models")}</span>{filtered.length > 0 && (authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <Button variant="ghost" size="sm" onClick={clearAllFilters}>{uiT("Clear filters")}</Button>}</div>
+        {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle><EmptyDescription>{uiT("Try another search or remove a filter.")}</EmptyDescription></EmptyHeader>{(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <EmptyContent><Button variant="outline" onClick={clearAllFilters}>{uiT("Clear filters")}</Button></EmptyContent>}</Empty> : <div className="models-cards">
           {visible.map(model => {
-            const cardTitle = catalogTitle(model);
+            const cardTitle = disambiguatedCatalogTitle(model, models);
             const rawDesc = model.catalog?.description;
             const hasHanDesc = /\p{Script=Han}/u.test(rawDesc ?? '');
             const showDesc = Boolean(rawDesc && (isZh ? hasHanDesc : !hasHanDesc));
@@ -463,30 +512,80 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
               ? `${new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(model.catalog.context_length)} ${uiT("context")}`
               : null;
             const tags = modelCapabilityTags(model);
-            return <article className="models-card" key={model.id}>
-            <div className="models-card-top">
-              <div className="models-card-heading"><ProviderLogo provider={modelIdentity(model)} size="small" /><div className="min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-0.5"><Link className="text-foreground hover:underline" to={`${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`}>{cardTitle}</Link>{cardTitle !== model.id && <span className="truncate font-mono text-xs text-muted-foreground">{model.id}</span>}</div></div>
-              <div className="models-card-rates">
-                {contextText && <span>{contextText}</span>}
-                {model.billing_source === 'own_api_key' ? <span>{uiT("Upstream-funded · no Niu charge")}</span> : isFreeUnit || isFreeCurrency ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}
+            const uncallable = isUncallable(model);
+            const issues = readinessIssues(model);
+            const missingProcurement = issues.includes('procurement_pricing_missing');
+            const missingSelling = issues.includes('selling_price_missing');
+            const detailHref = `${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`;
+            return <article key={model.id} className="models-card">
+              <div className="models-card-header">
+                <ProviderLogo provider={modelIdentity(model)} size="default" />
+                <div className="models-card-identity">
+                  <div className="models-card-title-row">
+                    <Link className="models-card-title text-foreground hover:underline" title={cardTitle} to={detailHref}>{cardTitle}</Link>
+                    {(isFreeUnit || isFreeCurrency) && !uncallable && <Badge variant="secondary" className="models-card-tag shrink-0 font-normal">{uiT("Free")}</Badge>}
+                  </div>
+                  {tags.length > 0 ? (
+                    <div className="models-card-tags" aria-label={uiT("Model capabilities")}>
+                      {tags.map(tag => <Badge key={tag} variant="secondary" className="models-card-tag font-normal">{uiT(tag)}</Badge>)}
+                    </div>
+                  ) : cardTitle !== model.id ? (
+                    <span className="models-card-id" title={model.id}>{model.id}</span>
+                  ) : null}
+                </div>
               </div>
-            </div>
-            {showDesc && <p className="models-description">{rawDesc}</p>}
-            <div className="models-card-meta">
-              {tags.length > 0 && <div className="flex flex-wrap gap-1.5" aria-label={uiT("Model capabilities")}>{tags.map(tag => <Badge key={tag} variant="secondary" className="font-normal">{uiT(tag)}</Badge>)}</div>}
-              {hasChatOutput(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Open Generations")}</Link>}
-              {canTryUnverifiedChat(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'chat')}>{uiT("Try in Chat")}</Link>}
-              {isVideoModel(model) && <Link className="text-foreground hover:underline" to={generationHref(model, 'video')}>{uiT("Try in Video")}</Link>}
-              {!hasGenerationOutput(model) && <span>{model.catalog?.output_modalities?.length ? uiT(canTryUnverifiedChat(model) ? "Support unverified" : "Preview not supported") : uiT("Capabilities not published")}</span>}
-            </div>
-          </article>;
+
+              <div className="models-card-body">
+                {showDesc ? (
+                  <p className="models-description">{rawDesc}</p>
+                ) : tags.length > 0 && cardTitle !== model.id ? (
+                  <span className="models-card-id" title={model.id}>{model.id}</span>
+                ) : null}
+              </div>
+
+              <div className="models-card-footer">
+                <div className="models-card-rates">
+                  {uncallable ? <span className="text-muted-foreground">{readinessBadgeText(model, uiT)}</span> : model.billing_source === 'own_api_key' ? <span>{uiT("No Niu charge")}</span> : isFreeUnit || isFreeCurrency ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}
+                  {contextText && <span>{contextText}</span>}
+                </div>
+
+                <div className="models-card-meta">
+                  {uncallable ? <>
+                    <span className="text-muted-foreground">{uiT("Not published")}</span>
+                    <div className="models-card-actions">
+                      {isPlatformAdmin && missingProcurement && <Link className="text-foreground underline underline-offset-2" to="/admin/providers">{uiT("Complete Provider rate")}</Link>}
+                      {isPlatformAdmin && (missingSelling || !missingProcurement) && <Link className="text-foreground underline underline-offset-2" to={pricingSetupHref(model)}>{uiT("Publish selling price")}</Link>}
+                    </div>
+                  </> : <>
+                    {!hasGenerationOutput(model) && !canTryUnverifiedChat(model) ? (
+                      <span className="text-muted-foreground">{uiT("Preview not supported")}</span>
+                    ) : showDesc && cardTitle !== model.id ? (
+                      <span className="models-card-id-inline" title={model.id}>{model.id}</span>
+                    ) : <span />}
+                    <div className="models-card-actions">
+                      {(() => {
+                        const trial = modelTrialLabels(model, uiT);
+                        return <>
+                          {(hasChatOutput(model) || canTryUnverifiedChat(model)) && (needsApiKey
+                            ? <Button type="button" variant="outline" size="sm" className="models-card-try" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'chat' }); }}>{trial.chat}</Button>
+                            : <Button asChild variant="outline" size="sm" className="models-card-try"><Link to={generationHref(model, 'chat')}>{trial.chat}</Link></Button>)}
+                          {isVideoModel(model) && (needsApiKey
+                            ? <Button type="button" variant="outline" size="sm" className="models-card-try" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'video' }); }}>{trial.video}</Button>
+                            : <Button asChild variant="outline" size="sm" className="models-card-try"><Link to={generationHref(model, 'video')}>{trial.video}</Link></Button>)}
+                        </>;
+                      })()}
+                    </div>
+                  </>}
+                </div>
+              </div>
+            </article>;
           })}
         </div>}
         {visible.length < filtered.length && <div className="models-load-more"><Button variant="outline" onClick={() => setLimit(value => value + 20)}>{uiT("Show more models")}</Button><span>{isZh ? `已显示 ${visible.length} / 共 ${filtered.length} 个` : `${visible.length} ${uiT("of")} ${filtered.length}`}</span></div>}
       </section>
     </div>}
     {selected ? <aside className="model-route-detail" aria-label={uiF("{0} route details", [selected.id])}>
-      <Button asChild variant="ghost" size="sm" className="mb-2 w-fit px-0"><Link to={catalogPath + catalogSearch}><ArrowLeft size={15} />{uiT("All models")}</Link></Button>
+      <Button asChild variant="ghost" size="sm" className="w-fit px-0"><Link to={catalogPath + catalogSearch}><ArrowLeft size={15} />{uiT("All models")}</Link></Button>
       <div className="model-route-detail-heading"><ProviderLogo provider={modelIdentity(selected)} size="small" /><h2 className="min-w-0 break-words text-lg font-semibold">{catalogTitle(selected)}</h2></div>
       <div className="flex min-w-0 flex-wrap items-center gap-2"><code className="min-w-0 break-all text-sm text-muted-foreground">{selected.id}</code><Button type="button" variant="ghost" size="sm" aria-label={uiT("Copy model ID", "复制模型 ID")} onClick={() => void copyModelId()}><Clipboard size={14} aria-hidden="true" />{modelIdFeedback?.model === selected.id && modelIdFeedback.copied ? uiT("Copied") : uiT("Copy")}</Button></div>
       {modelIdFeedback?.model === selected.id && !modelIdFeedback.copied && <p role="alert" className="error-text">{uiT("Clipboard access is unavailable. Select and copy the model ID instead.", "无法访问剪贴板，请选择并复制模型 ID。")}</p>}
@@ -497,13 +596,22 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
         <div ref={descriptionRef} id="model-description" className={`break-words leading-6 [&_p+p]:mt-3 [&_a]:underline [&_a]:underline-offset-2${descriptionOpen ? '' : ' line-clamp-2'}`}><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({children,href}) => <a href={href} tabIndex={descriptionOpen ? undefined : -1} target="_blank" rel="noopener noreferrer">{children}</a>}}>{selected.catalog.description}</ReactMarkdown></div>
         {descriptionOverflow?.model === selectedId && descriptionOverflow.value && <CollapsibleTrigger asChild aria-controls="model-description"><Button ref={descriptionTriggerRef} variant="ghost" size="sm" className="px-0 scroll-mt-24">{descriptionOpen ? uiT("Show less") : uiT("Show more")}<ChevronDown className={descriptionOpen ? 'rotate-180' : ''} size={14} aria-hidden="true" /></Button></CollapsibleTrigger>}
       </Collapsible>)}
-      <p className="text-sm text-muted-foreground">{selected.billing_source === 'own_api_key'
-        ? uiT("Uses an administrator-managed upstream connection. Its owning account pays the Provider directly; this does not spend Niu credits. Upstream balance and model permissions still apply.")
-        : selected.billing_source === 'niu_credits'
-          ? isVideoModel(selected) && !hasChatOutput(selected)
-            ? uiT("Niu charges, when applicable, use workspace credits. Video cost depends on request settings. Open Video to estimate the cost before submitting; a valid estimate is required to generate.", "适用时，Niu 费用使用工作空间额度结算。视频费用取决于请求设置，请在提交前打开视频估算费用；生成需要有效估算。")
-            : uiT("Niu charges, when applicable, use workspace credits. Published prices do not guarantee model access or available supply; these are checked when you submit a request.", "适用时，Niu 费用使用工作空间额度结算。已发布价格不保证模型访问权限或供给可用，提交请求时会检查。")
-          : uiT("Billing information is unavailable. Refresh the catalog or ask your administrator to confirm how usage is billed before sending a request.")}</p>
+      {isUncallable(selected) ? (
+        <Alert role="status">
+          <AlertDescription className="space-y-1">
+            <p className="font-medium text-foreground">{readinessBadgeText(selected, uiT)}</p>
+            <p>{readinessDetailText(selected, isPlatformAdmin, uiT)}</p>
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <p className="text-sm text-muted-foreground">{selected.billing_source === 'own_api_key'
+          ? uiT("No Niu charge")
+          : selected.billing_source === 'niu_credits'
+            ? isVideoModel(selected) && !hasChatOutput(selected)
+              ? uiT("Niu charges, when applicable, use workspace credits. Video cost depends on request settings. Open Video to estimate the cost before submitting; a valid estimate is required to generate.", "适用时，Niu 费用使用工作空间额度结算。视频费用取决于请求设置，请在提交前打开视频估算费用；生成需要有效估算。")
+              : uiT("Niu charges, when applicable, use workspace credits. Published prices do not guarantee model access or available supply; these are checked when you submit a request.", "适用时，Niu 费用使用工作空间额度结算。已发布价格不保证模型访问权限或供给可用，提交请求时会检查。")
+            : uiT("Billing information is unavailable. Refresh the catalog or ask your administrator to confirm how usage is billed before sending a request.")}</p>
+      )}
       <dl className="model-route-facts">
         {selected.billing_source !== 'own_api_key' && (!isVideoModel(selected) || hasChatOutput(selected)) && <><div><dt>{uiT("Input price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatUnitAtoms(selected.customer_unit_pricing!.prompt_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.prompt_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div>
         {showUnitPricing(selected) && selected.customer_unit_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{formatUnitAtoms(selected.customer_unit_pricing.cached_prompt_rate, selected.customer_unit_pricing.unit_name, selected.customer_unit_pricing.display_precision)}{" "}{uiT("/M tokens")}</dd></div> : selected.customer_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{money(selected.customer_pricing.cached_prompt_rate, selected.customer_pricing.currency)}{" "}{uiT("/M tokens")}</dd></div> : null}
@@ -517,21 +625,58 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
         {modelProviderName(selected) && <div><dt>{uiT("Provider")}</dt><dd>{modelProviderName(selected)}</dd></div>}
         {selected.upstream_model && selected.upstream_model !== selected.id && <div><dt>{uiT("Upstream model")}</dt><dd>{selected.upstream_model}</dd></div>}
       </dl>
-      <div className="model-route-cta">
-        {hasChatOutput(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Open Generations")}</Link></Button>}{canTryUnverifiedChat(selected) && <Button asChild><Link to={generationHref(selected, 'chat')}>{uiT("Try in Chat")}</Link></Button>}{!hasGenerationOutput(selected) && <Button asChild variant={canTryUnverifiedChat(selected) ? 'outline' : 'default'}><a href={`${import.meta.env.BASE_URL}docs/api/explorer/`}>{uiT("View API reference")}</a></Button>}{isVideoModel(selected) && <Button asChild variant={hasChatOutput(selected) ? 'outline' : 'default'}><Link to={generationHref(selected, 'video')}>{uiT("Try in Video")}</Link></Button>}
-        {publicMode ? (
-          <Button asChild variant="outline"><Link to="/login?returnTo=%2Fworkspaces%2Fdefault%2Fkeys%2Fnew">{uiT("Sign in to get an API key", "登录获取 API 密钥")}<KeyRound size={15} /></Link></Button>
-        ) : (
-          <Button asChild variant="outline"><Link to={`${workspacePath}/keys/new`}>{uiT("Create an API key")}<KeyRound size={15} /></Link></Button>
+      {isUncallable(selected) ? (
+        isPlatformAdmin ? <div className="model-route-cta">
+          {readinessIssues(selected).includes('procurement_pricing_missing') && <Button asChild variant={readinessIssues(selected).includes('selling_price_missing') ? 'outline' : 'default'}><Link to="/admin/providers">{uiT("Complete Provider rate")}</Link></Button>}
+          {(readinessIssues(selected).includes('selling_price_missing') || !readinessIssues(selected).includes('procurement_pricing_missing')) && <Button asChild><Link to={pricingSetupHref(selected)}>{uiT("Publish selling price")}</Link></Button>}
+        </div> : null
+      ) : <>
+        {canTryUnverifiedChat(selected) && Boolean(selected.catalog?.output_modalities?.length) && <p className="text-sm text-muted-foreground">{uiT("Support unverified")}</p>}
+        {!hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{selected.catalog?.output_modalities?.length ? uiT("This model is not configured for a supported generation preview.") : uiT("Upstream did not declare input or output modalities for this model.", "上游未提供此模型的输入/输出模态说明。")}</p>}
+        {needsApiKey && (
+          <p className="text-sm text-muted-foreground" role="status">
+            {canWrite
+              ? uiT("No active API key in this workspace yet. Trying a model lets you auto-create a default Playground key in one click.", "当前工作空间暂无可用 API 密钥，点击试用时可一键自动创建默认「Playground」密钥。")
+              : uiT("No active API key in this workspace yet. Ask a workspace administrator to create one before trying models.", "当前工作空间暂无可用 API 密钥，请联系工作空间管理员创建后再试用模型。")}
+          </p>
         )}
-      </div>
-      {canTryUnverifiedChat(selected) && Boolean(selected.catalog?.output_modalities?.length) && <p className="text-sm text-muted-foreground">{uiT("Support unverified")}</p>}
-      {!hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{selected.catalog?.output_modalities?.length ? uiT("This model is not configured for a supported generation preview.") : uiT("This model’s capabilities have not been published. Ask the platform administrator to confirm the supported input and output before sending a request.")}</p>}
-      {hasGenerationOutput(selected) && <><div className="model-route-example-heading"><strong>{isVideoModel(selected) ? uiT("Generate a video with this model") : uiT("Run a chat completion with this model")}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />{uiT("Copied")}</> : uiT("Copy")}</Button></div>
-      {copyError && <p role="alert" className="error-text">{uiT(copyError)}</p>}
-      <pre className="model-route-example"><code>{requestExample(baseUrl, selected)}</code></pre>
-      <p className="model-route-example-note">{uiT("Set")}{" "}<code>NIU_API_KEY</code>{" "}{uiT("and run this request. The selected model ID is already filled in; a successful call generates output and may incur charges.")}</p></>}
+        <div className="model-route-cta">
+          {(() => {
+            const trial = modelTrialLabels(selected, uiT);
+            return <>
+              {(hasChatOutput(selected) || canTryUnverifiedChat(selected)) && (needsApiKey
+                ? <Button type="button" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model: selected, kind: 'chat' }); }}>{trial.chat}</Button>
+                : <Button asChild><Link to={generationHref(selected, 'chat')}>{trial.chat}</Link></Button>)}
+              {!hasGenerationOutput(selected) && <Button asChild variant={canTryUnverifiedChat(selected) ? 'outline' : 'default'}><a href={`${import.meta.env.BASE_URL}docs/api/explorer/`}>{uiT("View API reference")}</a></Button>}
+              {isVideoModel(selected) && (needsApiKey
+                ? <Button type="button" variant={hasChatOutput(selected) ? 'outline' : 'default'} onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model: selected, kind: 'video' }); }}>{trial.video}</Button>
+                : <Button asChild variant={hasChatOutput(selected) ? 'outline' : 'default'}><Link to={generationHref(selected, 'video')}>{trial.video}</Link></Button>)}
+            </>;
+          })()}
+          {publicMode ? (
+            <Button asChild variant="outline"><Link to="/login?returnTo=%2Fworkspaces%2Fdefault%2Fkeys%2Fnew">{uiT("Sign in to get an API key", "登录获取 API 密钥")}<KeyRound size={15} /></Link></Button>
+          ) : (
+            <Button asChild variant="outline"><Link to={`${workspacePath}/keys/new`}>{uiT("Create an API key")}<KeyRound size={15} /></Link></Button>
+          )}
+        </div>
+        {hasGenerationOutput(selected) && <><div className="model-route-example-heading"><strong>{isVideoModel(selected) ? uiT("Generate a video with this model") : uiT("Run a chat completion with this model")}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />{uiT("Copied")}</> : uiT("Copy")}</Button></div>
+        {copyError && <p role="alert" className="error-text">{uiT(copyError)}</p>}
+        <pre className="model-route-example"><code>{requestExample(baseUrl, selected)}</code></pre>
+        <p className="model-route-example-note">{uiT("Set")}{" "}<code>NIU_API_KEY</code>{" "}{uiT("and run this request. The selected model ID is already filled in; a successful call generates output and may incur charges.")}</p></>}
+      </>}
       {!publicMode && <Link className="model-activity-link" to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(selected.id)}`}>{uiT("View requests for this model")}</Link>}
     </aside> : selectedId ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Boxes aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("Model unavailable")}</EmptyTitle><EmptyDescription>{uiT("This model is no longer in the catalog.")}</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={catalogPath + catalogSearch}>{uiT("Browse models")}</Link></Button></EmptyContent></Empty> : null}
+    <QuickKeyDialog
+      open={Boolean(pendingTry)}
+      onOpenChange={open => { if (!open) setPendingTry(null); }}
+      mode="try"
+      canWrite={canWrite}
+      workspaceRoot={workspacePath}
+      returnTo={pendingTry ? generationHref(pendingTry.model, pendingTry.kind) : undefined}
+      busy={quickKey.busy}
+      error={quickKey.error}
+      onQuickCreate={() => void handleQuickCreateAndTry()}
+      triggerRef={pendingTryTriggerRef}
+    />
   </div>;
 }

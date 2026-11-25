@@ -1,10 +1,17 @@
+import {createContext,useContext,useState,type ReactNode} from 'react';
 import {afterEach,expect,it,vi} from 'vitest';
 import {render,screen,waitFor} from '@testing-library/react';
-import {MemoryRouter,useLocation,useNavigate} from 'react-router';
+import {createMemoryRouter,RouterProvider,useLocation,useNavigate} from 'react-router';
 import VideoSessionView from '@/features/generations/VideoSessionView';
 import VideoTurnResult from '@/features/generations/VideoTurnResult';
 import GenerationsContextPanel from '@/features/generations/GenerationsContextPanel';
 import type {DashboardContext} from '@/shell/dashboard-context';
+const RouterChildrenContext=createContext<ReactNode>(null);
+function RouterChildrenOutlet(){return <>{useContext(RouterChildrenContext)}</>;}
+function MemoryRouter({initialEntries=['/'],children}:{initialEntries?:string[];children:ReactNode}){
+  const [router]=useState(()=>createMemoryRouter([{path:'*',Component:RouterChildrenOutlet}],{initialEntries}));
+  return <RouterChildrenContext.Provider value={children}><RouterProvider router={router}/></RouterChildrenContext.Provider>;
+}
 vi.mock('@/shell/branding',()=>({useBranding:()=>({settings:{display_name:'Niu'}})}));
 vi.mock('@/features/generations/GenerationsLayout',()=>({GenerationSessionBindings:({title}:{title:string})=><h1>{title}</h1>,openGenerationsAssetsPanel:vi.fn()}));
 const id='11111111-1111-4111-8111-111111111111';

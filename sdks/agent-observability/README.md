@@ -104,9 +104,7 @@ Remove the local state directory to discard pending data, and use Niu's trace
 deletion controls to remove saved records. A rotated credential has a separate
 queue and cannot silently submit an earlier account's pending data.
 
-Native Codex CLI telemetry is available through the opt-in launch command below. Desktop telemetry and subscription attribution are not yet qualified. Custom
-agents can use `NiuExecutionRecorder` and `NiuAgentObservabilityClient` from
-`@niu-io/sdk` for explicitly instrumented nested traces.
+Native Codex CLI telemetry is available through the opt-in launch command below. Desktop telemetry and subscription attribution are not yet qualified.
 
 ## Native Codex CLI connection
 
@@ -167,10 +165,10 @@ codex plugin marketplace add "$(npm root -g)/@niu-io/collector"
 codex plugin add niu-collector@niu
 ```
 
-For a source checkout, register its marketplace and install the plugin:
+For a source checkout, register this package's legacy marketplace and install the plugin:
 
 ```sh
-codex plugin marketplace add /absolute/path/to/niu
+codex plugin marketplace add /absolute/path/to/niu/sdks/agent-observability
 codex plugin add niu-collector@niu
 ```
 

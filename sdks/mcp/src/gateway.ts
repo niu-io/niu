@@ -53,8 +53,14 @@ export type GatewayBinaryResult = {
   meta: GatewayMeta;
 };
 
+export type RoutingContext = {
+  task?: string;
+  stage?: string;
+};
+
 export type GatewayRequestOptions = {
   evaluation?: string;
+  routingContext?: RoutingContext;
   logPayloads?: boolean;
   taskId?: string;
   idempotencyKey?: string;
@@ -65,6 +71,7 @@ export type GatewayRequestOptions = {
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TASK_ID_PATTERN = /^[!-~]{1,200}$/;
 const VIDEO_IDEMPOTENCY_PATTERN = /^[\x21-\x7e]{1,128}$/;
+const ROUTING_CONTEXT_TOKEN_PATTERN = /^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/;
 
 export class GatewayError extends Error {
   readonly status: number;
@@ -480,6 +487,21 @@ function buildHeaders(
   if (options.evaluation !== undefined) {
     if (options.evaluation.length > 200 || !/^[a-z0-9]+(-[a-z0-9]+)*@[1-9][0-9]*\/[A-Za-z0-9_.-]+$/.test(options.evaluation)) throw new Error("Use evaluation-slug@revision/sample");
     headers["x-niu-evaluation"] = options.evaluation;
+  }
+  if (options.routingContext !== undefined) {
+    const { task, stage } = options.routingContext;
+    if (task === undefined && stage === undefined) {
+      throw new Error("routing_context requires task or stage");
+    }
+    for (const value of [task, stage]) {
+      if (value !== undefined && (typeof value !== "string" || value.length > 64 || !ROUTING_CONTEXT_TOKEN_PATTERN.test(value))) {
+        throw new Error("routing_context task and stage must be lowercase tokens up to 64 characters");
+      }
+    }
+    headers["x-niu-routing-context"] = JSON.stringify({
+      ...(task === undefined ? {} : { task }),
+      ...(stage === undefined ? {} : { stage }),
+    });
   }
   const taskId = options.taskId ?? client.taskId;
   if (taskId !== undefined) {

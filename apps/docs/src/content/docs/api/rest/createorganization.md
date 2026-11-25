@@ -3,7 +3,7 @@ title: "Create an organization and its initial zero-funded account"
 description: "POST /api/v1/organizations"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/organizations`
 
@@ -82,6 +82,20 @@ Location: **header**. Optional. Exactly one visible-ASCII identity; preserve it 
       "type": "string",
       "pattern": "^[A-Z]{3}$",
       "default": "USD"
+    },
+    "account_kind": {
+      "type": "string",
+      "enum": [
+        "personal",
+        "organization"
+      ],
+      "default": "organization",
+      "description": "Account kind. Personal accounts require platform administration."
+    },
+    "attach_creator": {
+      "type": "boolean",
+      "default": true,
+      "description": "When false (platform administrators only), creates a standalone customer account without adding the caller as a member."
     }
   }
 }

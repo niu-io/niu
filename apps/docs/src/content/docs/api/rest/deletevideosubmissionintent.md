@@ -1,11 +1,11 @@
 ---
 title: "Erase saved intent content without cancelling its job"
-description: "DELETE /api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}"
+description: "DELETE /api/v1/workspaces/{workspace}/video/intents/{intent}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`DELETE /api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}`
+`DELETE /api/v1/workspaces/{workspace}/video/intents/{intent}`
 
 Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires write permission and the expected revision. Replaying the same successful deletion is idempotent. Does not require an active selected key. Deleted identities cannot be saved or submitted again.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/video/intents/{intent}" \
+curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/workspaces/{workspace}/video/intents/{intent}" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
@@ -36,18 +36,7 @@ curl --fail-with-body -X DELETE "$NIU_ORIGIN/api/v1/organizations/{organization}
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

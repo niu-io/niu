@@ -204,7 +204,7 @@ describe('media-cache', () => {
     const c2 = new AbortController();
     const p1 = fetchMediaBlob('tok', 'task:org:ws:t2:video', fetcher, { signal: c1.signal });
     const p2 = fetchMediaBlob('tok', 'task:org:ws:t2:video', fetcher, { signal: c2.signal });
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
 
     c1.abort();
     await expect(p1).rejects.toMatchObject({ name: 'AbortError' });
@@ -216,6 +216,7 @@ describe('media-cache', () => {
     // When the sole consumer aborts, the underlying fetcher signal is aborted.
     const c3 = new AbortController();
     const p3 = fetchMediaBlob('tok', 'task:org:ws:t3:video', fetcher, { signal: c3.signal });
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
     c3.abort();
     await expect(p3).rejects.toMatchObject({ name: 'AbortError' });
     expect(signalRef?.aborted).toBe(true);

@@ -89,7 +89,7 @@ pub struct ModePublishInput {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/units/mode/previews",
+///   "path": "/api/v1/admin/units/mode/previews",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "prepareCustomerUnitMode",
@@ -377,7 +377,7 @@ pub async fn prepare_mode(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/units/mode/previews/{preview}",
+///   "path": "/api/v1/admin/units/mode/previews/{preview}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getSavedCustomerUnitModePreview",
@@ -642,7 +642,7 @@ pub async fn read_mode_preview(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/units/mode",
+///   "path": "/api/v1/admin/units/mode",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "publishCustomerUnitMode",
@@ -783,7 +783,7 @@ pub async fn publish_mode(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/units/mode",
+///   "path": "/api/v1/admin/units/mode",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getCustomerUnitModePreview",
@@ -2140,7 +2140,7 @@ pub async fn read_quote(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/units",
+///   "path": "/api/v1/admin/units",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getCustomerUnitConfiguration",
@@ -2315,7 +2315,7 @@ pub async fn read(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/units/definitions",
+///   "path": "/api/v1/admin/units/definitions",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "publishCustomerUnitDefinition",
@@ -2459,7 +2459,7 @@ pub async fn publish_definition(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/units/rules",
+///   "path": "/api/v1/admin/units/rules",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "publishCustomerUnitPurchaseRule",
@@ -2645,7 +2645,7 @@ pub struct TextTariffQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/units/tariffs",
+///   "path": "/api/v1/admin/units/tariffs",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [
@@ -2864,7 +2864,7 @@ pub async fn read_text_tariff(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/units/tariffs",
+///   "path": "/api/v1/admin/units/tariffs",
 ///   "method": "post",
 ///   "operation": {
 ///     "security": [
@@ -3244,7 +3244,7 @@ pub struct UnitLimitHistoryQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/units/limit",
+///   "path": "/api/v1/workspaces/{workspace}/units/limit",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getWorkspaceCustomerUnitSpendingLimit",
@@ -3257,16 +3257,7 @@ pub struct UnitLimitHistoryQuery {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -3422,7 +3413,7 @@ pub async fn read_workspace_limit(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/units/limit",
+///   "path": "/api/v1/workspaces/{workspace}/units/limit",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setWorkspaceCustomerUnitSpendingLimit",
@@ -3435,16 +3426,7 @@ pub async fn read_workspace_limit(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -3629,7 +3611,7 @@ pub async fn write_workspace_limit(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/units/limit/history",
+///   "path": "/api/v1/workspaces/{workspace}/units/limit/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaceCustomerUnitSpendingLimitHistory",
@@ -3642,16 +3624,7 @@ pub async fn write_workspace_limit(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -3833,7 +3806,7 @@ pub struct MediaTariffInput {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/units/media/tariffs",
+///   "path": "/api/v1/admin/units/media/tariffs",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listCustomerUnitMediaTariffs",
@@ -4035,7 +4008,7 @@ pub async fn list_media_tariffs(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/platform/units/media/tariffs",
+///   "path": "/api/v1/admin/units/media/tariffs",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "publishCustomerUnitMediaTariff",
@@ -5007,7 +4980,7 @@ pub async fn reverse_purchase(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit",
+///   "path": "/api/v1/workspaces/{workspace}/keys/{key}/units/limit",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getKeyCustomerUnitSpendingLimit",
@@ -5020,16 +4993,7 @@ pub async fn reverse_purchase(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -5194,7 +5158,7 @@ pub async fn read_key_limit(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit",
+///   "path": "/api/v1/workspaces/{workspace}/keys/{key}/units/limit",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setKeyCustomerUnitSpendingLimit",
@@ -5207,16 +5171,7 @@ pub async fn read_key_limit(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -5432,7 +5387,7 @@ pub async fn write_key_limit(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/keys/{key}/units/limit/history",
+///   "path": "/api/v1/workspaces/{workspace}/keys/{key}/units/limit/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listKeyCustomerUnitSpendingLimitHistory",
@@ -5445,16 +5400,7 @@ pub async fn write_key_limit(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

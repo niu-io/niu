@@ -119,12 +119,12 @@ const inputSection = () => within(document.getElementById("input")!);
 const outputSection = () => within(document.getElementById("output")!);
 
 describe("workspace Guardrails page", () => {
-  it("renders a read-only summary on the Policy tab and opens the editor dialog for edits", async () => {
+  it("renders a read-only summary on the Guardrails page without nested tabs and opens the editor dialog for edits", async () => {
     const { user } = setup();
     await screen.findByRole("heading", { name: "Workspace policy" });
-    expect(
-      screen.getByRole("tab", { name: /^Policy/ }).getAttribute("aria-selected"),
-    ).toBe("true");
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.getByRole("button", { name: "Blocked requests" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "History" })).toBeTruthy();
     expect(screen.queryByRole("textbox", { name: "Policy name" })).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByText(/Email addresses/)).toBeTruthy();
@@ -202,7 +202,7 @@ describe("workspace Guardrails page", () => {
     expect(screen.queryByRole("textbox", { name: "Policy name" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Create policy" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Edit policy" })).toBeNull();
-    expect(screen.getByRole("tab", { name: /^Policy/ })).toBeTruthy();
+    expect(screen.queryByRole("tablist")).toBeNull();
   });
 
   it("retains the draft inside the dialog on conflict and reloads latest revision without retrying", async () => {
@@ -369,31 +369,26 @@ describe("workspace Guardrails page", () => {
     expect(document.activeElement).toBe(testButton);
   });
 
-  it("opens a deep-linked tab from the tab query parameter", async () => {
+  it("opens a deep-linked History dialog from the tab query parameter", async () => {
     setup({ tab: "history" });
-    expect(
-      (await screen.findByRole("tab", { name: "History" })).getAttribute("aria-selected"),
-    ).toBe("true");
-    await screen.findByText("Workspace policy");
-    expect(
-      screen.getByRole("tab", { name: "History" }).getAttribute("aria-selected"),
-    ).toBe("true");
+    const dialog = await screen.findByRole("dialog", { name: "Policy history" });
+    await within(dialog).findByText("Workspace policy");
     expect(screen.queryByRole("textbox", { name: "Policy name" })).toBeNull();
   });
 
-  it("opens blocked-request evidence from the Blocked requests tab", async () => {
+  it("opens blocked-request evidence from the Blocked requests dialog without nested modals", async () => {
     const { user } = setup();
     await screen.findByRole("heading", { name: "Workspace policy" });
-    await user.click(screen.getByRole("tab", { name: "Blocked requests" }));
-    await screen.findByText("Input matched a blocking rule");
-    expect(
-      screen.getByRole("tab", { name: "Blocked requests" }).getAttribute("aria-selected"),
-    ).toBe("true");
-    const evidence = screen.getAllByRole("link", { name: "Workspace policy · Version 7" });
+    await user.click(screen.getByRole("button", { name: "Blocked requests" }));
+    const blockedDialog = await screen.findByRole("dialog", { name: "Blocked requests" });
+    await within(blockedDialog).findByText("Input matched a blocking rule");
+    const evidence = within(blockedDialog).getAllByRole("link", { name: "Workspace policy · Version 7" });
     expect(evidence[0].getAttribute("href")).toContain("?tab=history&revision=7&from=blocked");
     await user.click(evidence[0]);
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("Workspace policy")).toBeTruthy();
-    expect(within(dialog).getByText(/Version 7/)).toBeTruthy();
+    const historyDialog = await screen.findByRole("dialog", { name: "Policy history" });
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(within(historyDialog).getByText("Workspace policy")).toBeTruthy();
+    expect(within(historyDialog).getByText(/Version 7/)).toBeTruthy();
+    expect(within(historyDialog).getByRole("button", { name: "Back to history" })).toBeTruthy();
   });
 });

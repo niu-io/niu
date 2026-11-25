@@ -6,16 +6,9 @@ import {
   IconChartLine as ChartNoAxesCombined,
   IconCpu as Boxes,
   IconCreditCard as CreditCard,
-  IconHistory,
-  IconAlertTriangle,
-  IconKey as KeyRound,
   IconLayoutDashboard as LayoutDashboard,
-  IconPalette,
-  IconPlugConnected as RailSuppliers,
   IconPlus as Plus,
-  IconRoute,
   IconSelector as ChevronsUpDown,
-  IconUsers as Users,
 } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,6 +29,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { getAdminNavGroups } from './admin-navigation';
+import { AdminSidebarMenu } from './AdminSidebarMenu';
 import { request } from '@/features/providers/api';
 import { useCachedQuery } from '@/lib/query-cache';
 import { canManagePlatform, type DashboardContext } from './dashboard-context';
@@ -66,11 +61,11 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
     reload,
   } = useCachedQuery<{ data: ProviderIdentity[] }>(
     context.token,
-    platformManager && context.token ? '/api/v1/providers' : null,
+    platformManager && context.token ? '/api/v1/admin/providers' : null,
     async signal => {
       const result = await request<{ data: ProviderIdentity[] }>(
         context.token,
-        '/api/v1/providers',
+        '/api/v1/admin/providers',
         'GET',
         undefined,
         signal,
@@ -100,28 +95,15 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
   const selectedSegment = membership ? providerPathSegment(membership) : selected;
 
   const location = useLocation();
-  const entries = provider
+  const providerEntries = provider
     ? [
         { to: `/providers/${provider}`, label: 'Overview', labelZh: '概览', end: true },
         { to: `/providers/${provider}/models`, label: 'Models', labelZh: '模型', end: false },
         { to: `/providers/${provider}/usage`, label: 'Usage', labelZh: '调用量', end: false },
         { to: `/providers/${provider}/settlements`, label: 'Settlements', labelZh: '结算账单', end: false },
-      ]
-    : [
-        { to: '/admin/providers', label: 'Providers', labelZh: '模型供应商', end: false },
-        { to: '/admin/routing', label: 'Routing', labelZh: '模型路由', end: false },
-        { to: '/admin/customers', label: 'Customers', labelZh: '客户管理', end: false },
-        { to: '/admin/reports', label: 'Financial reports', labelZh: '财务报表', end: false },
-        { to: '/admin/pricing', label: 'Pricing', labelZh: '定价配置', end: false },
-        { to: '/admin/payments', label: 'Payment gateways', labelZh: '支付网关', end: false },
-        { to: '/admin/branding', label: 'Branding', labelZh: '品牌定制', end: false },
-        { to: '/admin/audit', label: 'Audit logs', labelZh: '审计日志', end: false },
-        { to: '/admin/incidents', label: 'Incidents', labelZh: '事故', end: false },
-        { to: '/admin/settings', label: 'Settings', labelZh: '实例设置', end: false },
-      ];
-  const visibleEntries = context.session?.operating_mode === 'internal'
-    ? entries.filter(item => !['/admin/reports','/admin/pricing','/admin/payments'].includes(item.to) && !item.to.endsWith('/settlements'))
-    : entries;
+      ].filter(item => context.session?.operating_mode !== 'internal' || !item.to.endsWith('/settlements'))
+    : [];
+  const adminGroups = !provider ? getAdminNavGroups(context.session?.operating_mode) : [];
 
   return (
     <>
@@ -238,51 +220,40 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
       </SidebarHeader>
       <SidebarContent className="workspace-sidebar-content">
         <nav aria-label={provider ? uiT("Provider navigation") : uiT("Admin navigation")}>
-          <SidebarMenu className="workspace-nav-menu">
-            {visibleEntries.map(item => {
-              const Icon =
-                item.label === 'Incidents' ? IconAlertTriangle : item.label === 'Settings'
-                  ? Settings2
-                  : item.label === 'Keys'
-                    ? KeyRound
-                    : item.label === 'Members' || item.label === 'Customers'
-                      ? Users
-                      : item.label === 'Providers'
-                        ? RailSuppliers
-                        : item.label === 'Routing' || item.label === 'Model pools'
-                          ? IconRoute
-                          : item.label === 'Payment gateways'
-                              ? CreditCard
-                              : item.label === 'Branding'
-                                ? IconPalette
-                                : item.label === 'Audit logs'
-                                  ? IconHistory
-                                  : item.label === 'Overview'
-                                    ? LayoutDashboard
-                                    : item.label === 'Models'
-                                      ? Boxes
-                                      : item.label === 'Settlements'
-                                        ? CreditCard
-                                        : ChartNoAxesCombined;
-              return (
-                <SidebarMenuItem key={item.to}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={
-                      location.pathname === item.to ||
-                      (!provider && location.pathname.startsWith(item.to + '/'))
-                    }
-                    className="nav-item provider-zone-item"
-                  >
-                    <ProductRailLink to={item.to} end={item.end}>
-                      <Icon className="nav-icon" aria-hidden="true" />
-                      <span>{isZh ? item.labelZh : item.label}</span>
-                    </ProductRailLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              );
-            })}
-          </SidebarMenu>
+          {provider ? (
+            <SidebarMenu className="workspace-nav-menu">
+              {providerEntries.map(item => {
+                const Icon =
+                  item.label === 'Overview'
+                    ? LayoutDashboard
+                    : item.label === 'Models'
+                      ? Boxes
+                      : item.label === 'Settlements'
+                        ? CreditCard
+                        : ChartNoAxesCombined;
+                return (
+                  <SidebarMenuItem key={item.to}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname === item.to}
+                      className="nav-item provider-zone-item"
+                    >
+                      <ProductRailLink to={item.to} end={item.end}>
+                        <Icon className="nav-icon" aria-hidden="true" />
+                        <span>{isZh ? item.labelZh : item.label}</span>
+                      </ProductRailLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          ) : (
+            <AdminSidebarMenu
+              groups={adminGroups}
+              pathname={location.pathname}
+              menuClassName="workspace-nav-menu"
+            />
+          )}
         </nav>
       </SidebarContent>
     </>

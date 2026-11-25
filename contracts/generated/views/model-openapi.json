@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Niu Model & Inference API",
-    "version": "0.1.0",
+    "version": "0.4.0",
     "description": "Model inference and management APIs for Niu. Browse the resource groups in the sidebar,\nsearch by operation or path, and expand the request and response schemas for exact fields.\n\n## Getting started\nUse the [HTTP quickstart](/docs/guides/api-quickstart/) for your first model request,\nor the [JavaScript SDK guide](/docs/guides/sdk-quickstart/) for typed clients.\n[Download the complete OpenAPI 3.1 document](/docs/openapi/public.json).\n\n## Authentication and scope\nInference uses a workspace API key. Management operations require the member session,\nplatform authority, explicit delegated workspace capability or Provider membership stated by that operation. These credentials\nare not interchangeable. See each operation's security scheme and access description.\nLegacy `project` path segments refer to workspaces; legacy `provider` paths refer to Providers.\n\n## Requests and responses\nSend the documented Content-Type and use the declared request schema. Response status codes,\nerror bodies and pagination fields are operation-specific. Follow the returned cursor rather\nthan assuming a list is complete. Streaming operations document their event format separately.\n\nMonetary amounts and large counters use the exact string representation in their schemas.\nPreserve currency and rate units; Provider purchase rates and customer charges are separate.\n\n## Writes and retries\nWhere an operation documents an idempotency key, retry an uncertain outcome with the same\nkey and identical input. Preserve expected revisions for configuration updates; reload after\na conflict. A timeout does not prove that a write or an upstream generation did not execute.\nRead the individual operation's retry and reconciliation behavior before resubmitting.\n"
   },
   "servers": [
@@ -53,7 +53,7 @@
     },
     {
       "name": "Authentication",
-      "description": "Sign-in configuration, Limited Preview registration submission, browser sessions, profile, password and appearance. Credential requirements differ by operation."
+      "description": "Initial installation setup, sign-in configuration, Limited Preview registration submission, browser sessions, profile, password and appearance. Credential requirements differ by operation."
     },
     {
       "name": "API keys",
@@ -72,6 +72,10 @@
       "description": "Generation lookups, request history, exports, diagnostics, timing and captured usage reconciliation."
     },
     {
+      "name": "Customer balances",
+      "description": "Company currency balances, limits, reservations, credit, adjustments and transaction history. Amounts are customer-facing, not Provider costs."
+    },
+    {
       "name": "Customer payments",
       "description": "Top-up methods, checkout history, payment callbacks and payment gateway integrations. Checkout creation is not confirmation of funding."
     },
@@ -81,7 +85,7 @@
     },
     {
       "name": "Service health",
-      "description": "Process health, readiness and composed extension readiness."
+      "description": "Process health, readiness, OpenAPI discovery, and composed extension readiness."
     }
   ],
   "x-tagGroups": [
@@ -118,6 +122,7 @@
       "name": "Usage and billing",
       "tags": [
         "Request logs and usage",
+        "Customer balances",
         "Customer payments"
       ]
     },
@@ -1240,7 +1245,7 @@
         }
       }
     },
-    "/v1/currency": {
+    "/api/v1/public/currency": {
       "get": {
         "operationId": "getPlatformCurrency",
         "summary": "Read the configured platform currency",
@@ -3774,6 +3779,111 @@
         }
       }
     },
+    "/api/v1/public/config": {
+      "get": {
+        "operationId": "getPublicConfig",
+        "summary": "Read public instance configuration, branding, currency, and sign-in capabilities",
+        "description": "Public safe projection combining authentication capabilities, initial setup state, registration mode, branding defaults, and configured platform currency in a single request. No credentials, actors, or commercial rates are exposed.",
+        "security": [],
+        "x-niu-implementation": "implemented",
+        "responses": {
+          "200": {
+            "description": "Public instance configuration in data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "password_login",
+                        "browser_token_login",
+                        "demo_login",
+                        "setup_required",
+                        "registration_mode",
+                        "branding",
+                        "currency",
+                        "billing_mode",
+                        "unit"
+                      ],
+                      "properties": {
+                        "password_login": {
+                          "type": "boolean"
+                        },
+                        "browser_token_login": {
+                          "type": "boolean"
+                        },
+                        "demo_login": {
+                          "type": "boolean"
+                        },
+                        "setup_required": {
+                          "type": "boolean"
+                        },
+                        "registration_mode": {
+                          "type": "string",
+                          "enum": [
+                            "disabled",
+                            "approval_required"
+                          ]
+                        },
+                        "branding": {
+                          "type": "object",
+                          "required": [
+                            "revision",
+                            "settings"
+                          ],
+                          "properties": {
+                            "revision": {
+                              "type": "string"
+                            },
+                            "settings": {
+                              "$ref": "#/components/schemas/BrandingSettings"
+                            }
+                          }
+                        },
+                        "currency": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "billing_mode": {
+                          "type": "string"
+                        },
+                        "unit": {
+                          "type": [
+                            "object",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Durable storage unavailable."
+          }
+        },
+        "tags": [
+          "Authentication"
+        ],
+        "x-niu-authority": {
+          "audience": "public",
+          "principals": [
+            "anonymous"
+          ],
+          "required_capability": "public",
+          "scope": "installation"
+        }
+      }
+    },
     "/api/v1/auth/config": {
       "get": {
         "operationId": "getMemberAuthenticationConfiguration",
@@ -3810,6 +3920,10 @@
                     },
                     "demo_login": {
                       "type": "boolean"
+                    },
+                    "setup_required": {
+                      "type": "boolean",
+                      "description": "Live deployment state: true when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /setup is required."
                     },
                     "registration_mode": {
                       "type": "string",
@@ -5037,7 +5151,7 @@
         }
       }
     },
-    "/v1/branding": {
+    "/api/v1/public/branding": {
       "get": {
         "operationId": "getPublicBranding",
         "summary": "Read public branding and theme defaults",
@@ -8626,7 +8740,7 @@
         "x-niu-implementation": "implemented",
         "x-niu-status": "Native Anthropic Messages with streaming, client tools, Extended Thinking, cache_control, unpriced image/PDF blocks, and safe anthropic-beta forwarding. output_config.format remains unsupported.",
         "summary": "Create a native Message, optionally streamed",
-        "description": "Requires supports_messages on an OpenRouter or Anthropic route. Accepts version 2023-06-01 (default when omitted) and safe capability anthropic-beta tokens (prompt-caching-2024-07-31, token-efficient-tools-2025-02-19, interleaved-thinking-2025-05-14, fine-grained-tool-streaming-2025-05-14, output-128k-2025-02-19, pdfs-2024-09-25, extended-cache-ttl-2025-04-11; host marker claude-code-20250219 is stripped; unknown or hosted-tool betas return 501). Supports Extended Thinking (thinking enabled/disabled/adaptive and output_config.effort), top_k, metadata.user_id, client function tools (auto/any/none/tool, string or bounded array tool_result.content, cache_control on tools and tool blocks), thinking/redacted_thinking history blocks, and unpriced user image/document blocks (8 MiB body cap; rejected with 400 on priced routes which keep a 1 MiB limit). Streaming enforces per-event bounds (256 KiB) and validates cumulative usage before completion.",
+        "description": "**Route and version**\n\nRequires `supports_messages` on an OpenRouter or Anthropic route. The supported version is `2023-06-01`, which is also the default when the version is omitted.\n\n**Accepted anthropic-beta tokens**\n\n- `prompt-caching-2024-07-31`\n- `token-efficient-tools-2025-02-19`\n- `interleaved-thinking-2025-05-14`\n- `fine-grained-tool-streaming-2025-05-14`\n- `output-128k-2025-02-19`\n- `pdfs-2024-09-25`\n- `extended-cache-ttl-2025-04-11`\n\nThe gateway strips the host marker `claude-code-20250219`. Unknown or hosted-tool betas return HTTP 501.\n\n**Request content**\n\n- Extended Thinking accepts enabled, disabled and adaptive thinking, plus `output_config.effort`. History can include thinking and redacted_thinking blocks.\n- Sampling and metadata support `top_k` and `metadata.user_id`.\n- Client function tools support auto, any, none and tool choices. `tool_result.content` accepts a string or bounded array. Tools and tool blocks accept `cache_control`.\n- Unpriced routes accept user image and document blocks with an 8 MiB body limit. Priced routes reject these blocks with HTTP 400 and retain a 1 MiB limit.\n\n**Streaming**\n\nEach event is limited to 256 KiB. The gateway validates cumulative usage before completion.",
         "security": [
           {
             "bearerAuth": []
@@ -10233,6 +10347,148 @@
         }
       }
     },
+    "/openapi.json": {
+      "get": {
+        "operationId": "getOpenApiJson",
+        "summary": "Download the public OpenAPI 3.1 JSON specification",
+        "description": "Public, bundled OpenAPI 3.1 JSON document covering Niu's model runtime, console, and customer management APIs with x-niu-authority metadata. Excludes confidential platform/provider procurement schemas.",
+        "security": [],
+        "x-niu-implementation": "implemented",
+        "responses": {
+          "200": {
+            "description": "Bundled OpenAPI 3.1 JSON specification.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "openapi",
+                    "info",
+                    "paths"
+                  ],
+                  "properties": {
+                    "openapi": {
+                      "type": "string"
+                    },
+                    "info": {
+                      "type": "object"
+                    },
+                    "paths": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Service health"
+        ],
+        "x-niu-authority": {
+          "audience": "public",
+          "principals": [
+            "anonymous"
+          ],
+          "required_capability": "public",
+          "scope": "installation"
+        }
+      }
+    },
+    "/openapi.yaml": {
+      "get": {
+        "operationId": "getOpenApiYaml",
+        "summary": "Download the public OpenAPI 3.1 YAML specification",
+        "description": "Public, bundled OpenAPI 3.1 YAML document covering Niu's model runtime, console, and customer management APIs with x-niu-authority metadata. Excludes confidential platform/provider procurement schemas.",
+        "security": [],
+        "x-niu-implementation": "implemented",
+        "responses": {
+          "200": {
+            "description": "Bundled OpenAPI 3.1 YAML specification.",
+            "content": {
+              "application/yaml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Service health"
+        ],
+        "x-niu-authority": {
+          "audience": "public",
+          "principals": [
+            "anonymous"
+          ],
+          "required_capability": "public",
+          "scope": "installation"
+        }
+      }
+    },
+    "/v1/credits": {
+      "get": {
+        "operationId": "getKeyCredits",
+        "summary": "Read customer-facing balance summary for the authenticated API key's organization",
+        "description": "Requires a current workspace API key. Returns customer-facing prepaid balance, reservations, and available balance per currency for the key's organization. Never exposes Provider purchase prices, upstream expenses, or platform margins.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Customer balance accounts for the authenticated key's organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "currency"
+                        ],
+                        "properties": {
+                          "currency": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, revoked, expired or invalid key."
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "tags": [
+          "Customer balances"
+        ],
+        "x-niu-authority": {
+          "audience": "model",
+          "principals": [
+            "workspace_api_key",
+            "console_key_selection"
+          ],
+          "required_capability": "read",
+          "scope": "workspace"
+        }
+      }
+    },
     "/v1/events": {
       "get": {
         "operationId": "listEventSubscriptions",
@@ -10645,7 +10901,7 @@
       "put": {
         "operationId": "setEventSubscription",
         "summary": "Create or update an event subscription",
-        "description": "Requires a current workspace API key with explicitly delegated events:write. Responses are no-store. revision zero creates; otherwise the current expected revision is required. Creation and rotate_secret return one randomly generated signing secret, encrypted at rest and bound to workspace/subscription. Destination changes require rotation. Destination/secret/enable transitions start after the current stream head; metadata edits preserve the processed cursor. Update enabled=false to revoke future deliveries while retaining history; in-flight requests cannot be recalled. Maximum 32 retained subscriptions. Requires configured encryption. No inference or immediate delivery occurs. On conflict read/reconcile; never automatically replay an uncertain secret-issuing mutation.",
+        "description": "**Before you start**\n\nUse a current workspace API key with explicitly delegated `events:write`. Encryption must be configured. A workspace can retain up to 32 subscriptions.\n\n**Create or update**\n\nRevision zero creates a subscription. Updates require the current expected revision. Responses are no-store. Creation and `rotate_secret` each return one randomly generated signing secret, encrypted at rest and bound to the workspace and subscription. Changing the destination requires rotation.\n\n**Delivery and recovery**\n\n- Changing the destination, secret or enabled state starts delivery after the current stream head. Metadata edits preserve the processed cursor.\n- Set `enabled=false` to revoke future deliveries while retaining history. In-flight requests cannot be recalled.\n- This operation performs no inference or immediate delivery.\n- On conflict, read the current state and reconcile. Never automatically replay an uncertain mutation that issues a secret.",
         "x-niu-implementation": "implemented",
         "security": [
           {

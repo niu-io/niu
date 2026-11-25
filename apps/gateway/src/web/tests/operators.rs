@@ -54,10 +54,10 @@ async fn session_roles_are_explicit_and_provider_memberships_do_not_grant_portal
     );
     assert_eq!(identity["data"]["provider_memberships"], json!([]));
     for path in [
-        "/api/v1/provider-memberships".to_owned(),
-        format!("/api/v1/providers/{provider}/dashboard"),
-        format!("/api/v1/providers/{provider}/offers"),
-        format!("/api/v1/providers/{provider}/settlements"),
+        "/api/v1/admin/providers/memberships".to_owned(),
+        format!("/api/v1/admin/providers/{provider}/dashboard"),
+        format!("/api/v1/admin/providers/{provider}/offers"),
+        format!("/api/v1/admin/providers/{provider}/settlements"),
     ] {
         assert_eq!(
             call(&app, Method::GET, &path, &issued.token, None).await.0,
@@ -89,7 +89,7 @@ async fn session_roles_are_explicit_and_provider_memberships_do_not_grant_portal
         .0,
         StatusCode::UNPROCESSABLE_ENTITY
     );
-    let grant = format!("/api/v1/operators/{}/administration", issued.operator_id);
+    let grant = format!("/api/v1/admin/members/{}/role", issued.operator_id);
     assert_eq!(
         call(
             &app,
@@ -125,7 +125,7 @@ async fn session_roles_are_explicit_and_provider_memberships_do_not_grant_portal
         call(
             &app,
             Method::GET,
-            &format!("/api/v1/providers/{provider}/dashboard"),
+            &format!("/api/v1/admin/providers/{provider}/dashboard"),
             &issued.token,
             None
         )
@@ -147,7 +147,7 @@ async fn session_roles_are_explicit_and_provider_memberships_do_not_grant_portal
         call(
             &app,
             Method::GET,
-            &format!("/api/v1/providers/{provider}/dashboard"),
+            &format!("/api/v1/admin/providers/{provider}/dashboard"),
             &issued.token,
             None
         )
@@ -193,15 +193,15 @@ async fn browser_admin_mode_defaults_to_user_and_rechecks_authority(pool: sqlx::
         call(
             &app,
             Method::PUT,
-            "/api/v1/session/mode",
+            "/api/v1/session/role",
             &issued.token,
-            Some(json!({"enabled":true}))
+            Some(json!({"role":"admin"}))
         )
         .await
         .0,
         StatusCode::FORBIDDEN
     );
-    let grant_path = format!("/api/v1/operators/{}/administration", issued.operator_id);
+    let grant_path = format!("/api/v1/admin/members/{}/role", issued.operator_id);
     assert_eq!(
         call(
             &app,
@@ -246,26 +246,38 @@ async fn browser_admin_mode_defaults_to_user_and_rechecks_authority(pool: sqlx::
         json!({"available":true,"enabled":false})
     );
     assert_eq!(
-        call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
-            .await
-            .0,
+        call(
+            &app,
+            Method::GET,
+            "/api/v1/admin/providers/connections",
+            &issued.token,
+            None
+        )
+        .await
+        .0,
         StatusCode::FORBIDDEN
     );
     for _ in 0..2 {
         let (status, admin) = call(
             &app,
             Method::PUT,
-            "/api/v1/session/mode",
+            "/api/v1/session/role",
             &issued.token,
-            Some(json!({"enabled":true})),
+            Some(json!({"role":"admin"})),
         )
         .await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(admin["data"]["permissions"]["platform_admin"], true);
         assert_eq!(
-            call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
-                .await
-                .0,
+            call(
+                &app,
+                Method::GET,
+                "/api/v1/admin/providers/connections",
+                &issued.token,
+                None
+            )
+            .await
+            .0,
             StatusCode::OK
         );
         // Reloading identity retains server-side mode and tenant scope.
@@ -278,43 +290,55 @@ async fn browser_admin_mode_defaults_to_user_and_rechecks_authority(pool: sqlx::
         let (status, user) = call(
             &app,
             Method::PUT,
-            "/api/v1/session/mode",
+            "/api/v1/session/role",
             &issued.token,
-            Some(json!({"enabled":false})),
+            Some(json!({"role":"user"})),
         )
         .await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(user["data"]["permissions"]["platform_admin"], false);
         assert_eq!(
-            call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
-                .await
-                .0,
+            call(
+                &app,
+                Method::GET,
+                "/api/v1/admin/providers/connections",
+                &issued.token,
+                None
+            )
+            .await
+            .0,
             StatusCode::FORBIDDEN
         );
     }
     call(
         &app,
         Method::PUT,
-        "/api/v1/session/mode",
+        "/api/v1/session/role",
         &issued.token,
-        Some(json!({"enabled":true})),
+        Some(json!({"role":"admin"})),
     )
     .await;
     sqlx::query("UPDATE admin_sessions SET admin_mode_until=clock_timestamp()-interval '1 second' WHERE id=$1")
         .bind(issued.session.id).execute(&pool).await.unwrap();
     assert_eq!(
-        call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
-            .await
-            .0,
+        call(
+            &app,
+            Method::GET,
+            "/api/v1/admin/providers/connections",
+            &issued.token,
+            None
+        )
+        .await
+        .0,
         StatusCode::FORBIDDEN
     );
     assert_eq!(
         call(
             &app,
             Method::PUT,
-            "/api/v1/session/mode",
+            "/api/v1/session/role",
             &issued.token,
-            Some(json!({"enabled":true}))
+            Some(json!({"role":"admin"}))
         )
         .await
         .0,
@@ -333,18 +357,24 @@ async fn browser_admin_mode_defaults_to_user_and_rechecks_authority(pool: sqlx::
         StatusCode::OK
     );
     assert_eq!(
-        call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
-            .await
-            .0,
+        call(
+            &app,
+            Method::GET,
+            "/api/v1/admin/providers/connections",
+            &issued.token,
+            None
+        )
+        .await
+        .0,
         StatusCode::FORBIDDEN
     );
     assert_eq!(
         call(
             &app,
             Method::PUT,
-            "/api/v1/session/mode",
+            "/api/v1/session/role",
             &issued.token,
-            Some(json!({"enabled":true}))
+            Some(json!({"role":"admin"}))
         )
         .await
         .0,
@@ -388,7 +418,7 @@ async fn scoped_directory_filters_before_list_limits(pool: sqlx::PgPool) {
     let (status, organizations) = call(
         &app,
         Method::GET,
-        "/admin/v1/organizations",
+        "/api/v1/organizations",
         &operator.token,
         None,
     )
@@ -402,7 +432,10 @@ async fn scoped_directory_filters_before_list_limits(pool: sqlx::PgPool) {
     let (status, projects) = call(
         &app,
         Method::GET,
-        &format!("/admin/v1/organizations/{}/projects", scope.organization_id),
+        &format!(
+            "/api/v1/workspaces?organization_id={}",
+            scope.organization_id
+        ),
         &operator.token,
         None,
     )
@@ -471,9 +504,15 @@ async fn platform_admin_session_rechecks_grants_without_expanding_customer_scope
         .unwrap();
     let app = router(state);
     assert_eq!(
-        call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
-            .await
-            .0,
+        call(
+            &app,
+            Method::GET,
+            "/api/v1/admin/providers/connections",
+            &issued.token,
+            None
+        )
+        .await
+        .0,
         StatusCode::FORBIDDEN
     );
     sqlx::query("UPDATE admin_operators SET platform_admin=true WHERE id=$1")
@@ -482,12 +521,18 @@ async fn platform_admin_session_rechecks_grants_without_expanding_customer_scope
         .await
         .unwrap();
     assert_eq!(
-        call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
-            .await
-            .0,
+        call(
+            &app,
+            Method::GET,
+            "/api/v1/admin/providers/connections",
+            &issued.token,
+            None
+        )
+        .await
+        .0,
         StatusCode::OK
     );
-    let (_, identity) = call(&app, Method::GET, "/admin/v1/session", &issued.token, None).await;
+    let (_, identity) = call(&app, Method::GET, "/api/v1/session", &issued.token, None).await;
     assert_eq!(identity["data"]["kind"], "operator");
     assert_eq!(identity["data"]["permissions"]["platform_admin"], true);
     assert_eq!(
@@ -497,7 +542,7 @@ async fn platform_admin_session_rechecks_grants_without_expanding_customer_scope
     let (_, organizations) = call(
         &app,
         Method::GET,
-        "/admin/v1/organizations",
+        "/api/v1/organizations",
         &issued.token,
         None,
     )
@@ -507,7 +552,7 @@ async fn platform_admin_session_rechecks_grants_without_expanding_customer_scope
         organizations["data"][0]["id"],
         scope.organization_id.to_string()
     );
-    let foreign = format!("/admin/v1/organizations/{}/projects", Uuid::new_v4());
+    let foreign = format!("/api/v1/workspaces?organization_id={}", Uuid::new_v4());
     assert_eq!(
         call(&app, Method::GET, &foreign, &issued.token, None)
             .await
@@ -520,12 +565,18 @@ async fn platform_admin_session_rechecks_grants_without_expanding_customer_scope
         .await
         .unwrap();
     assert_eq!(
-        call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
-            .await
-            .0,
+        call(
+            &app,
+            Method::GET,
+            "/api/v1/admin/providers/connections",
+            &issued.token,
+            None
+        )
+        .await
+        .0,
         StatusCode::FORBIDDEN
     );
-    let (_, identity) = call(&app, Method::GET, "/admin/v1/session", &issued.token, None).await;
+    let (_, identity) = call(&app, Method::GET, "/api/v1/session", &issued.token, None).await;
     assert_eq!(identity["data"]["permissions"]["platform_admin"], false);
 }
 
@@ -536,7 +587,7 @@ async fn session_identity_rechecks_role_scope_expiry_and_revocation(pool: sqlx::
     let store = state.store.clone();
     let scope = store.default_workspace().await.unwrap();
     let app = router(state);
-    let (status, identity) = call(&app, Method::GET, "/admin/v1/session", BOOTSTRAP, None).await;
+    let (status, identity) = call(&app, Method::GET, "/api/v1/session", BOOTSTRAP, None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(identity["data"]["kind"], "installation");
     assert!(identity["data"]["operator"].is_null());
@@ -564,7 +615,7 @@ async fn session_identity_rechecks_role_scope_expiry_and_revocation(pool: sqlx::
             .await
             .unwrap();
         let (status, identity) =
-            call(&app, Method::GET, "/admin/v1/session", &issued.token, None).await;
+            call(&app, Method::GET, "/api/v1/session", &issued.token, None).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(identity["data"]["kind"], "operator");
         assert_eq!(
@@ -597,7 +648,7 @@ async fn session_identity_rechecks_role_scope_expiry_and_revocation(pool: sqlx::
             .await
             .unwrap();
         assert_eq!(
-            call(&app, Method::GET, "/admin/v1/session", &issued.token, None)
+            call(&app, Method::GET, "/api/v1/session", &issued.token, None)
                 .await
                 .0,
             StatusCode::UNAUTHORIZED
@@ -612,7 +663,7 @@ async fn session_identity_rechecks_role_scope_expiry_and_revocation(pool: sqlx::
             .await
             .unwrap();
         assert_eq!(
-            call(&app, Method::GET, "/admin/v1/session", &expired.token, None)
+            call(&app, Method::GET, "/api/v1/session", &expired.token, None)
                 .await
                 .0,
             StatusCode::UNAUTHORIZED
@@ -631,14 +682,7 @@ async fn session_identity_rechecks_role_scope_expiry_and_revocation(pool: sqlx::
         )
         .await
         .unwrap();
-    let (_, identity) = call(
-        &app,
-        Method::GET,
-        "/admin/v1/session",
-        &org_owner.token,
-        None,
-    )
-    .await;
+    let (_, identity) = call(&app, Method::GET, "/api/v1/session", &org_owner.token, None).await;
     assert!(identity["data"]["operator"]["project_id"].is_null());
     let client = store
         .issue_key(scope, "inference only", &["fast".into()], 60)
@@ -646,7 +690,7 @@ async fn session_identity_rechecks_role_scope_expiry_and_revocation(pool: sqlx::
         .unwrap();
     for token in [&client.token, "invalid", ""] {
         assert_eq!(
-            call(&app, Method::GET, "/admin/v1/session", token, None)
+            call(&app, Method::GET, "/api/v1/session", token, None)
                 .await
                 .0,
             StatusCode::UNAUTHORIZED
@@ -708,7 +752,7 @@ async fn operator_http_workflow_enforces_scope_and_revokes_sessions(pool: sqlx::
             call(
                 &app,
                 Method::POST,
-                "/admin/v1/operators",
+                "/api/v1/members",
                 &owner.token,
                 Some(create(org, project, "owner"))
             )
@@ -720,7 +764,7 @@ async fn operator_http_workflow_enforces_scope_and_revokes_sessions(pool: sqlx::
     let (status, created) = call(
         &app,
         Method::POST,
-        "/admin/v1/operators",
+        "/api/v1/members",
         &owner.token,
         Some(create(
             scope.organization_id,
@@ -732,15 +776,15 @@ async fn operator_http_workflow_enforces_scope_and_revokes_sessions(pool: sqlx::
     assert_eq!(status, StatusCode::CREATED);
     let id = created["operator"]["id"].as_str().unwrap();
     let viewer_token = created["token"].as_str().unwrap();
-    let base = format!("/admin/v1/operators/{id}");
+    let base = format!("/api/v1/members/{id}");
     let sessions = format!("{base}/sessions");
     assert_eq!(
-        call(&app, Method::GET, "/admin/v1/operators", viewer_token, None)
+        call(&app, Method::GET, "/api/v1/members", viewer_token, None)
             .await
             .0,
         StatusCode::FORBIDDEN
     );
-    let (status, listed) = call(&app, Method::GET, "/admin/v1/operators", &owner.token, None).await;
+    let (status, listed) = call(&app, Method::GET, "/api/v1/members", &owner.token, None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(listed["data"].as_array().unwrap().len(), 2);
     assert!(
@@ -764,10 +808,10 @@ async fn operator_http_workflow_enforces_scope_and_revokes_sessions(pool: sqlx::
             .await
             .unwrap();
         for (method, path, payload) in [
-            (Method::GET, "/admin/v1/operators".to_owned(), None),
+            (Method::GET, "/api/v1/members".to_owned(), None),
             (
                 Method::POST,
-                "/admin/v1/operators".to_owned(),
+                "/api/v1/members".to_owned(),
                 Some(create(
                     scope.organization_id,
                     Some(scope.project_id),
@@ -792,7 +836,7 @@ async fn operator_http_workflow_enforces_scope_and_revokes_sessions(pool: sqlx::
         call(
             &app,
             Method::GET,
-            &format!("/admin/v1/operators/{}/sessions", foreign.operator_id),
+            &format!("/api/v1/members/{}/sessions", foreign.operator_id),
             &owner.token,
             None
         )
@@ -804,7 +848,7 @@ async fn operator_http_workflow_enforces_scope_and_revokes_sessions(pool: sqlx::
         call(
             &app,
             Method::DELETE,
-            &format!("/admin/v1/operators/{}", foreign.operator_id),
+            &format!("/api/v1/members/{}", foreign.operator_id),
             &owner.token,
             None
         )
@@ -833,13 +877,13 @@ async fn operator_http_workflow_enforces_scope_and_revokes_sessions(pool: sqlx::
         StatusCode::NO_CONTENT
     );
     assert_eq!(
-        call(&app, Method::GET, "/admin/v1/session", second_token, None)
+        call(&app, Method::GET, "/api/v1/session", second_token, None)
             .await
             .0,
         StatusCode::UNAUTHORIZED
     );
     assert_eq!(
-        call(&app, Method::GET, "/admin/v1/session", viewer_token, None)
+        call(&app, Method::GET, "/api/v1/session", viewer_token, None)
             .await
             .0,
         StatusCode::OK
@@ -851,7 +895,7 @@ async fn operator_http_workflow_enforces_scope_and_revokes_sessions(pool: sqlx::
         StatusCode::NO_CONTENT
     );
     assert_eq!(
-        call(&app, Method::GET, "/admin/v1/session", viewer_token, None)
+        call(&app, Method::GET, "/api/v1/session", viewer_token, None)
             .await
             .0,
         StatusCode::UNAUTHORIZED
@@ -918,10 +962,7 @@ async fn workspace_key_last_use_is_reader_safe_and_not_inference_accessible(pool
         .await
         .unwrap();
     let app = router(state);
-    let path = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys",
-        scope.organization_id, scope.project_id
-    );
+    let path = format!("/api/v1/workspaces/{}/keys", scope.project_id);
     let (status, body) = call(&app, Method::GET, &path, &reader.token, None).await;
     assert_eq!(status, StatusCode::OK);
     let keys = body["data"].as_array().unwrap();
@@ -969,10 +1010,7 @@ async fn workspace_key_last_use_is_reader_safe_and_not_inference_accessible(pool
         call(&app, Method::GET, &path, &key.token, None).await.0,
         StatusCode::UNAUTHORIZED
     );
-    let foreign = format!(
-        "/admin/v1/organizations/{}/projects/{}/keys",
-        other.organization_id, other.project_id
-    );
+    let foreign = format!("/api/v1/workspaces/{}/keys", other.project_id);
     assert_eq!(
         call(&app, Method::GET, &foreign, &reader.token, None)
             .await

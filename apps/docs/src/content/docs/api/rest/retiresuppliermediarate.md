@@ -1,11 +1,11 @@
 ---
 title: "End a Provider purchase schedule's eligibility"
-description: "POST /api/v1/providers/{provider}/media-rates/{revision}/retire"
+description: "POST /api/v1/admin/providers/{provider}/media-rates/{revision}/retire"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`POST /api/v1/providers/{provider}/media-rates/{revision}/retire`
+`POST /api/v1/admin/providers/{provider}/media-rates/{revision}/retire`
 
 Installation write permission only. Appends an immutable eligibility cutoff within the original interval; the cutoff is exclusive for original-card selection. Publish the replacement with a matching effective start before the cutoff. Exact replay is idempotent; changed cutoff or missing Provider/revision conflicts. Historical purchase snapshots, earnings and payments are unchanged. Incomplete or overlapping schedules fail closed. Retirement is not cancellation or a refund.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/providers/{provider}/media-rates/{revision}/retire" \
+curl --fail-with-body -X POST "$NIU_ORIGIN/api/v1/admin/providers/{provider}/media-rates/{revision}/retire" \
   -H "Authorization: Bearer $NIU_MEMBER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json

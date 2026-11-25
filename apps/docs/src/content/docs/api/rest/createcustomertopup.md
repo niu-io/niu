@@ -3,7 +3,7 @@ title: "Create or recover a company prepaid top-up"
 description: "POST /api/v1/organizations/{organization}/billing/topups"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /api/v1/organizations/{organization}/billing/topups`
 
@@ -86,7 +86,7 @@ Location: **path**. **Required.**
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "pattern": "^[A-Za-z0-9.-]+$",
+      "pattern": "^[A-Za-z0-9._-]+$",
       "description": "Must be enabled for the configured merchant."
     },
     "idempotency_key": {

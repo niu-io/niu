@@ -3,9 +3,11 @@ title: "SupplierMediaRateModel"
 description: "Generated TypeScript declaration for SupplierMediaRateModel"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-[SDK source](https://github.com/niu-io/niu/blob/release/0.3/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
+See [ProviderMediaRateModel](/docs/api/sdk/providermediaratemodel/) for the underlying declaration.
+
+[SDK source](https://github.com/niu-io/niu/blob/release/0.4/sdks/javascript/src/admin.ts). [All SDK types](/docs/api/sdk/).
 
 ```typescript
 export type SupplierMediaRateModel = ProviderMediaRateModel;

@@ -1,9 +1,12 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import IntegrationSettings from '@/features/providers/components/IntegrationSettings';
-import { useProviderParams } from '@/shell/provider-route';
+import { resolveProvider, useProviderParams } from '@/shell/provider-route';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useParams } from 'react-router';
 import { ChevronDown } from 'lucide-react';
 import { providerLogoPresets, providerLogoSource, providerLogoIsMonochrome } from '@/features/providers/provider-logos';
+import ProviderLogo from '@/components/ProviderLogo';
+import { identifyProvider } from '@/lib/providers';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { IconPlugConnected } from '@tabler/icons-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
@@ -15,16 +18,19 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cachedGet, peekCachedGet, ProviderRequestError, request } from '@/features/providers/api';
 
-type Profile = { name: string; description: string; website_url: string; logo_url: string; revision: number };
+type Profile = { slug?: string; name: string; description: string; website_url: string; logo_url: string; revision: number };
 const empty = { name: '', description: '', website_url: '', logo_url: '' };
 const conflictMessage = 'These details changed since you opened this page. Reload the saved details before saving again.';
 export default function ProviderSettings() {
   const { t: uiT } = useUILocale();
+  const rawParams = useParams<'providerId' | 'supplierId'>();
   const { providerId, supplierId } = useProviderParams();
   const activeProviderId = providerId ?? supplierId ?? '';
-  const { token, session } = useDashboardContext();
+  const { token, session, providerDirectory } = useDashboardContext();
+  const directoryEntry = providerDirectory ? resolveProvider(activeProviderId, providerDirectory) : undefined;
+  const rawSegment = rawParams.providerId ?? rawParams.supplierId ?? '';
   const canManageIntegration = Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session.permissions?.manage_operators !== false));
-  const path = `/api/v1/providers/${encodeURIComponent(activeProviderId)}`;
+  const path = `/api/v1/admin/providers/${encodeURIComponent(activeProviderId)}`;
   const initialProfile = token && activeProviderId ? peekCachedGet<{ data: Profile }>(token, path)?.data ?? null : null;
   const [profile, setProfile] = useState<Profile | null>(initialProfile);
   const [draft, setDraft] = useState(() => initialProfile ? { name: initialProfile.name, description: initialProfile.description, website_url: initialProfile.website_url, logo_url: initialProfile.logo_url } : empty);
@@ -73,6 +79,16 @@ export default function ProviderSettings() {
   }, [token, path, reload]);
   useEffect(() => setBrokenLogo(false), [draft.logo_url]);
   useEffect(() => setSavedLogoBroken(false), [profile?.logo_url]);
+  const resolvedSlug = (
+    profile?.slug ||
+    directoryEntry?.slug ||
+    (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawSegment) ? rawSegment : '')
+  )
+    .trim()
+    .toLowerCase();
+  const builtInBrandIdentity = ['openrouter', 'qiniu', 'deepseek', 'babelark', 'fastrouter'].includes(resolvedSlug)
+    ? identifyProvider(resolvedSlug)
+    : undefined;
   const dirty = profile && Object.keys(empty).some(key => draft[key as keyof typeof empty].trim() !== profile[key as keyof typeof empty]);
   function change(key: keyof typeof empty, value: string) { setDraft(current => ({ ...current, [key]: value })); setSaved(false); }
   function openEditDialog() {
@@ -107,28 +123,29 @@ export default function ProviderSettings() {
     } }
     finally { if (!controller.signal.aborted) setBusy(false); }
   }
-  return <section className="supplier-settings space-y-6 py-6">
-    <div className="supplier-section-heading"><h2>{uiT("Settings")}</h2><p>{uiT("Manage this provider’s identity and business information.")}</p></div>
-    {loading && !profile ? <FormSectionSkeleton fields={4} label={uiT("Loading provider details…")} /> : !profile ? <div><p role="alert">{uiT(error)}</p><Button variant="outline" onClick={() => setReload(value => value + 1)}>{uiT("Retry")}</Button></div> :
-      <div className="space-y-5 rounded-[var(--radius-panel)] bg-card p-5">
+  return <section className="supplier-settings space-y-4" aria-label={uiT("Business profile")}>
+    {loading && !profile ? <FormSectionSkeleton fields={3} label={uiT("Loading provider details…")} /> : !profile ? <div className="space-y-2"><p role="alert" className="text-sm text-destructive">{uiT(error)}</p><Button variant="outline" size="sm" onClick={() => setReload(value => value + 1)}>{uiT("Retry")}</Button></div> :
+      <div className="space-y-4 rounded-[var(--radius-panel)] bg-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
-            <h3 className="font-medium">{uiT("Business profile")}</h3>
-            <p className="text-sm text-muted-foreground">{uiT("These details identify the provider. API endpoints and credentials are managed in API keys.")}</p>
+            <h2 className="text-[15px] font-semibold">{uiT("Business profile")}</h2>
+            <p className="text-sm text-muted-foreground">{uiT("Manage this provider’s identity, website, and default upstream integration.")}</p>
           </div>
           <Button ref={editBtnRef} type="button" variant="outline" size="sm" onClick={openEditDialog}>
             {uiT('Edit profile', '编辑资料')}
           </Button>
         </div>
         <div className="flex flex-wrap items-start gap-5">
-          <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted" aria-label={uiT("Provider logo preview")}>
+          <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted" aria-label={uiT("Provider logo preview")}>
             {profile.logo_url && /^https?:\/\//i.test(profile.logo_url) && !savedLogoBroken ? (
               <img src={providerLogoSource(profile.logo_url)} alt={uiT("Provider logo")} className={`size-full object-contain${providerLogoIsMonochrome(profile.logo_url) ? ' dark:invert' : ''}`} referrerPolicy="no-referrer" onError={() => setSavedLogoBroken(true)} />
+            ) : builtInBrandIdentity?.logo ? (
+              <ProviderLogo provider={builtInBrandIdentity} />
             ) : (
-              <IconPlugConnected className="size-6 text-muted-foreground" aria-hidden="true" />
+              <IconPlugConnected className="size-5 text-muted-foreground" aria-hidden="true" />
             )}
           </div>
-          <dl className="grid min-w-0 flex-1 gap-4 text-sm sm:grid-cols-2">
+          <dl className="grid min-w-0 flex-1 gap-4 text-sm sm:grid-cols-3">
             <div className="min-w-0">
               <dt className="text-xs text-muted-foreground">{uiT("Name")}</dt>
               <dd className="mt-1 font-medium break-words">{profile.name}</dd>
@@ -137,17 +154,31 @@ export default function ProviderSettings() {
               <dt className="text-xs text-muted-foreground">{uiT("Website URL")}</dt>
               <dd className="mt-1 break-all text-muted-foreground">{profile.website_url || uiT('Not set', '未设置')}</dd>
             </div>
-            <div className="min-w-0 sm:col-span-2">
+            <div className="min-w-0">
               <dt className="text-xs text-muted-foreground">{uiT("Description")}</dt>
               <dd className="mt-1 whitespace-pre-wrap text-muted-foreground">{profile.description || uiT('No description', '暂无描述')}</dd>
             </div>
           </dl>
         </div>
         {saved && <p role="status" className="text-sm text-muted-foreground">{uiT("Provider details saved.")}</p>}
+        {canManageIntegration && (
+          <IntegrationSettings
+            compact
+            key={`${token}:${activeProviderId}`}
+            token={token}
+            resource="providers"
+            id={activeProviderId}
+            providerSlug={
+              profile.slug ||
+              directoryEntry?.slug ||
+              (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawSegment) ? rawSegment : '')
+            }
+          />
+        )}
       </div>}
     <Dialog open={editOpen && Boolean(profile)} onOpenChange={open => { if (!open) closeEditDialog(); }}>
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"
+        className="sm:max-w-xl"
         onCloseAutoFocus={event => {
           if (editBtnRef.current?.isConnected) {
             event.preventDefault();
@@ -165,7 +196,7 @@ export default function ProviderSettings() {
               <fieldset disabled={busy} className="space-y-5">
                 <div className="flex items-start gap-4">
                   <div className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden" aria-label={uiT("Provider logo preview")}>
-                    {draft.logo_url && /^https?:\/\//i.test(draft.logo_url) && !brokenLogo ? <img src={providerLogoSource(draft.logo_url)} alt={uiT("Provider logo")} className={`size-full object-contain${providerLogoIsMonochrome(draft.logo_url) ? ' dark:invert' : ''}`} referrerPolicy="no-referrer" onError={() => setBrokenLogo(true)} /> : <IconPlugConnected className="size-7 text-muted-foreground" aria-hidden="true" />}
+                    {draft.logo_url && /^https?:\/\//i.test(draft.logo_url) && !brokenLogo ? <img src={providerLogoSource(draft.logo_url)} alt={uiT("Provider logo")} className={`size-full object-contain${providerLogoIsMonochrome(draft.logo_url) ? ' dark:invert' : ''}`} referrerPolicy="no-referrer" onError={() => setBrokenLogo(true)} /> : builtInBrandIdentity?.logo ? <ProviderLogo provider={builtInBrandIdentity} size="large" /> : <IconPlugConnected className="size-7 text-muted-foreground" aria-hidden="true" />}
                   </div>
                   <div className="min-w-0 flex-1 space-y-2">
                     <Label htmlFor="supplier-logo">{uiT("Logo URL")}</Label>
@@ -203,6 +234,5 @@ export default function ProviderSettings() {
         )}
       </DialogContent>
     </Dialog>
-    {canManageIntegration && <IntegrationSettings key={`${token}:${activeProviderId}`} token={token} resource="providers" id={activeProviderId} />}
   </section>;
 }

@@ -1,0 +1,94 @@
+---
+title: "Read immutable key policy assignment history"
+description: "GET /api/v1/workspaces/{workspace}/keys/{key}/guardrail/history"
+---
+
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
+
+`GET /api/v1/workspaces/{workspace}/keys/{key}/guardrail/history`
+
+Returns at most 100 newest events with assignment/policy revisions, assignment mode, nullable policy name, readable actor name and creation time. Events created before assignment modes existed report fixed. A follow-active event has mode active and a null policy revision and name; removal remains a fixed event with a null policy revision and name. Internal actor identifiers and credentials are excluded. History before audit support was installed is not reconstructed. Cache-Control is no-store.
+
+Operation: `get--api-v1-workspaces--workspace--keys--key--guardrail-history`.
+
+## Authentication
+
+Use the credential and permission scope described above. Each object below is an alternative; schemes within one object are required together.
+
+```json
+[
+  {
+    "adminBearerAuth": []
+  }
+]
+```
+
+## HTTP request
+
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
+
+```sh
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/keys/{key}/guardrail/history" \
+  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+```
+
+## Parameters
+
+### workspace
+
+Location: **path**. **Required.**
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### key
+
+Location: **path**. **Required.**
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### before_assignment_revision
+
+Location: **query**. Optional. Exclusive cursor from next_cursor.
+
+```json
+{
+  "type": "integer",
+  "minimum": 1
+}
+```
+
+## Request body
+
+No request body is declared.
+
+## Responses
+
+### HTTP 200
+
+Data array and nullable next_cursor; an empty history returns an empty array.
+
+### HTTP 400
+
+Invalid cursor.
+
+### HTTP 401
+
+Authentication required.
+
+### HTTP 403
+
+Workspace read access required.
+
+## Behavior and supported scope
+
+Returns at most 100 newest events with assignment/policy revisions, assignment mode, nullable policy name, readable actor name and creation time. Events created before assignment modes existed report fixed. A follow-active event has mode active and a null policy revision and name; removal remains a fixed event with a null policy revision and name. Internal actor identifiers and credentials are excluded. History before audit support was installed is not reconstructed. Cache-Control is no-store.

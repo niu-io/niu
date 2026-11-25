@@ -1,11 +1,11 @@
 ---
 title: "Set the workspace Credits spending limit"
-description: "PUT /api/v1/organizations/{organization}/projects/{project}/units/limit"
+description: "PUT /api/v1/workspaces/{workspace}/units/limit"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`PUT /api/v1/organizations/{organization}/projects/{project}/units/limit`
+`PUT /api/v1/workspaces/{workspace}/units/limit`
 
 Workspace/company owner or installation administrator required and rechecked under lock. Sets an exact Credits atom cap or explicit null for unlimited, using optimistic revision checking and durable idempotency. Lowering below committed workspace liability (charges minus restorations plus unresolved holds and known overrun liabilities) returns 402. Preserves existing monetary workspace limits for currency mode while replacing their blocking effect in Credits admission.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/projects/{project}/units/limit" \
+curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/workspaces/{workspace}/units/limit" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   -H 'Content-Type: application/json' \
   --data @request.json
@@ -36,18 +36,7 @@ curl --fail-with-body -X PUT "$NIU_ORIGIN/api/v1/organizations/{organization}/pr
 
 ## Parameters
 
-### organization
-
-Location: **path**. **Required.**
-
-```json
-{
-  "type": "string",
-  "format": "uuid"
-}
-```
-
-### project
+### workspace
 
 Location: **path**. **Required.**
 

@@ -4,69 +4,66 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing unpublished release tag to build
+        required: true
+        type: string
 
 permissions:
   contents: write
   packages: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-refs/tags/${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
-  github-release:
-    name: Publish GitHub Release & Notes
+  prepare:
+    name: Verify Release Source & Build Client Assets
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      commit: ${{ steps.source.outputs.commit }}
+      tag: ${{ steps.source.outputs.tag }}
+      release_date: ${{ steps.source.outputs.release_date }}
     steps:
-      - name: Checkout repository with full history and tags
-        uses: actions/checkout@v4
+      - name: Checkout tagged release source with full history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Refuse replacement of an existing release
+      - name: Verify unpublished tag, version, changelog, boundary, imports, and migrations
+        id: source
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 scripts/release-guard.py --repository "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" --commit "$(git rev-parse HEAD)"
-
-      - name: Generate structured Release Notes
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          python3 scripts/release-version.py check --tag "${GITHUB_REF_NAME}"
-          python3 scripts/release-version.py notes --tag "${GITHUB_REF_NAME}" --output /tmp/release-notes.md
+          commit=$(git rev-parse HEAD)
+          python3 scripts/release-guard.py --repository "$GITHUB_REPOSITORY" --tag "$TAG" --commit "$commit"
+          python3 scripts/release-version.py check --tag "$TAG"
+          release_date="$(python3 scripts/release-version.py date --tag "$TAG")"
+          python3 scripts/check-public-boundary.py --root . --tracked-tree --check-build-inputs
+          python3 scripts/verify-imports.py
+          previous=$(git describe --tags --match 'v*.*.*' --abbrev=0 "${commit}^" 2>/dev/null || true)
+          if [ -n "$previous" ]; then
+            prev_dir=$(mktemp -d)
+            trap 'rm -rf "$prev_dir"' EXIT
+            git archive "$previous" crates/storage/migrations | tar -x -C "$prev_dir"
+            python3 scripts/check-migration-history.py "$prev_dir/crates/storage/migrations" crates/storage/migrations
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "release_date=$release_date" >> "$GITHUB_OUTPUT"
 
-      - uses: docker/setup-qemu-action@v4
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and publish the tagged application image
-        id: image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ghcr.io/niu-io/niu:${{ github.ref_name }}
-          build-args: |
-            NIU_CORE_GIT_COMMIT=${{ github.sha }}
-
-      - name: Require anonymous image access and matching source provenance
-        env:
-          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
-        run: |
-          mkdir -p /tmp/niu-release
-          python3 scripts/verify-release-image.py \
-            --image "ghcr.io/niu-io/niu:${GITHUB_REF_NAME}" \
-            --commit "$(git rev-parse HEAD)" --digest "$IMAGE_DIGEST" \
-            --output /tmp/niu-release/IMAGE_DIGEST
-
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 11.25.0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
 
@@ -80,8 +77,6 @@ jobs:
           done
           cp compose.yaml scripts/install.sh config/niu.example.toml /tmp/niu-release/
           git rev-parse HEAD > /tmp/niu-release/SOURCE_COMMIT
-          cd /tmp/niu-release
-          sha256sum compose.yaml install.sh niu.example.toml *.tgz SOURCE_COMMIT IMAGE_DIGEST > SHA256SUMS
 
       - name: Build native coding-agent packages
         run: |
@@ -89,13 +84,136 @@ jobs:
           python3 scripts/build-deepseek-plugin.py --output /tmp/niu-deepseek-harness
           tar -czf /tmp/niu-release/niu-agent-marketplace.tar.gz -C /tmp/niu-agent-marketplace .
           tar -czf /tmp/niu-release/niu-deepseek-harness.tar.gz -C /tmp/niu-deepseek-harness .
-          cd /tmp/niu-release
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-assets
+          path: /tmp/niu-release/
+          if-no-files-found: error
+
+  build:
+    needs: prepare
+    name: Build Linux ${{ matrix.arch }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout exact release commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build native image and push by digest
+        id: image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          outputs: type=image,name=ghcr.io/niu-io/niu,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=release-${{ matrix.arch }}
+          cache-to: type=gha,scope=release-${{ matrix.arch }},mode=min,ignore-error=true
+          build-args: |
+            NIU_CORE_GIT_COMMIT=${{ needs.prepare.outputs.commit }}
+            VITE_NIU_RELEASE_DATE=${{ needs.prepare.outputs.release_date }}
+
+      - name: Record image digest
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          mkdir -p digests
+          echo "$IMAGE_DIGEST" > "digests/$ARCH"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: digest-${{ matrix.arch }}
+          path: digests/
+          if-no-files-found: error
+
+  github-release:
+    name: Publish GitHub Release & Notes
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - name: Checkout exact release commit with full history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Generate structured Release Notes
+        run: python3 scripts/release-version.py notes --tag "$RELEASE_TAG" --output /tmp/release-notes.md
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-assets
+          path: /tmp/niu-release
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: digest-*
+          merge-multiple: true
+          path: digests
+
+      - name: Publish multi-platform index
+        id: image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/release-guard.py --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --commit "$(git rev-parse HEAD)"
+          image=ghcr.io/niu-io/niu
+          docker buildx imagetools create --metadata-file "$RUNNER_TEMP/index.json" \
+            --tag "$image:$RELEASE_TAG" "$image@$(cat digests/amd64)" "$image@$(cat digests/arm64)"
+          digest=$(jq -er '."containerimage.descriptor".digest' "$RUNNER_TEMP/index.json")
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Require anonymous image access and matching source provenance
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          python3 scripts/verify-release-image.py \
+            --image "ghcr.io/niu-io/niu:${RELEASE_TAG}" \
+            --commit "$(git rev-parse HEAD)" --digest "$IMAGE_DIGEST" \
+            --output /tmp/niu-release/IMAGE_DIGEST
+
+      - name: Generate SHA256SUMS for all release assets
+        working-directory: /tmp/niu-release
+        run: |
           sha256sum compose.yaml install.sh niu.example.toml *.tgz *.tar.gz SOURCE_COMMIT IMAGE_DIGEST > SHA256SUMS
 
       - name: Link packaged clients and plugins in the release notes
         working-directory: /tmp/niu-release
         run: |
-          download_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
+          download_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG"
           {
             printf '\n## Client and plugin downloads\n\n'
             for archive in *.tgz *.tar.gz; do
@@ -109,10 +227,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python3 scripts/release-guard.py --repository "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" --commit "$(git rev-parse HEAD)"
+          python3 scripts/release-guard.py --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --commit "$(git rev-parse HEAD)"
           printf '\nSource commit: `%s`. See SOURCE_COMMIT and SHA256SUMS for asset provenance.\n' "$(git rev-parse HEAD)" >> /tmp/release-notes.md
-          gh release create "${GITHUB_REF_NAME}" \
+          gh release create "${RELEASE_TAG}" \
             /tmp/niu-release/* \
             --verify-tag \
-            --title "Niu ${GITHUB_REF_NAME}" \
+            --title "Niu ${RELEASE_TAG}" \
             --notes-file /tmp/release-notes.md

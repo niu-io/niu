@@ -77,7 +77,6 @@ export default function PlaygroundModelPickerDialog({
     });
   }, [usableModels, query, activeCategory, catalogModels]);
 
-  const visibleModels = useMemo(() => matchedModels.slice(0, 80), [matchedModels]);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -179,7 +178,7 @@ export default function PlaygroundModelPickerDialog({
           </div>
 
           <div ref={listRef} className="playground-model-picker-list">
-            {visibleModels.map(model => {
+            {matchedModels.map(model => {
               const selected = selectedModels.includes(model);
               const modelObj = catalogModels?.find(item => item.id === model) ?? { id: model };
               const displayTitle = disambiguatedCatalogTitle(modelObj, catalogModels ?? []);
@@ -206,7 +205,7 @@ export default function PlaygroundModelPickerDialog({
                       <span className="playground-model-option-meta">
                         {showBilling && (
                           <span>
-                            {billingSource === 'own_api_key' ? uiT("Billed by your Provider") : uiT("Niu credits")}
+                            {billingSource === 'own_api_key' ? uiT("No Niu charge") : uiT("Niu credits")}
                           </span>
                         )}
                         {showBilling && unverified && <span aria-hidden="true">·</span>}
@@ -222,7 +221,7 @@ export default function PlaygroundModelPickerDialog({
                 </Button>
               );
             })}
-            {visibleModels.length === 0 &&
+            {matchedModels.length === 0 &&
               (modelsLoading ? (
                 <p className="model-no-results">{uiT("Loading models…")}</p>
               ) : (
@@ -246,11 +245,6 @@ export default function PlaygroundModelPickerDialog({
                   ? uiF("{0} of {1} selected", [selectedModels.length, maxModels])
                   : uiT("Select at least one model")}
               </span>
-              {matchedModels.length > visibleModels.length && (
-                <span className="playground-model-picker-hint">
-                  {uiF("Showing {0} of {1} models", [visibleModels.length, matchedModels.length])}
-                </span>
-              )}
             </div>
             <DialogClose asChild>
               <Button type="button" size="sm">

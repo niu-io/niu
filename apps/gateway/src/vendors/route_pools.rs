@@ -40,7 +40,7 @@ pub struct PoolInput {
     default_action: niu_storage::RoutePoolDefaultAction,
 }
 
-pub async fn get(
+async fn get(
     State(state): State<AppState>,
     headers: HeaderMap,
     Query(query): Query<PoolQuery>,
@@ -54,9 +54,10 @@ pub async fn get(
         .ok_or_else(ApiError::not_found)?;
     Ok(Json(json!({"data":pool})))
 }
+
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing",
+///   "path": "/api/v1/admin/routing",
 ///   "method": "put",
 ///   "operation": {
 ///     "operationId": "setModelRoutePool",
@@ -273,7 +274,7 @@ pub async fn put(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing/history",
+///   "path": "/api/v1/admin/routing/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listModelRoutePoolHistory",
@@ -387,7 +388,7 @@ pub struct IndexQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing/index",
+///   "path": "/api/v1/admin/routing/index",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listModelRoutePools",
@@ -516,7 +517,7 @@ pub struct CollectionQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing",
+///   "path": "/api/v1/admin/routing",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPools",
@@ -793,7 +794,7 @@ fn decode_reference(reference: &str) -> Result<String, ApiError> {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing/{reference}",
+///   "path": "/api/v1/admin/routing/{reference}",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getPool",
@@ -877,7 +878,7 @@ pub struct HistoryQuery {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing/{reference}/history",
+///   "path": "/api/v1/admin/routing/{reference}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPoolHistory",
@@ -1012,7 +1013,7 @@ pub struct PreviewRequest {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing/{reference}/preview",
+///   "path": "/api/v1/admin/routing/{reference}/preview",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "previewPool",
@@ -1232,7 +1233,8 @@ pub async fn member_preview(
             } else if route.personal_organization_id != pool.organization_id {
                 reason = Some("ownership_mismatch");
             } else if pool.organization_id.is_none()
-                && (route.model.pricing.is_none()
+                && ((route.model.pricing.is_none()
+                    && !inputs.text_offer_aliases.contains(&route.model.alias))
                     || inputs.unavailable.contains(&route.model.alias))
             {
                 reason = Some("supplier_unavailable");
@@ -1420,7 +1422,7 @@ pub struct AuditQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/routing/{reference}/audit",
+///   "path": "/api/v1/admin/routing/{reference}/audit",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "auditPool",

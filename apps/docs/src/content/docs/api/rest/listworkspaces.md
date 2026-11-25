@@ -3,11 +3,11 @@ title: "List an authorized page of workspaces"
 description: "GET /api/v1/workspaces"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/workspaces`
 
-Requires installation or member read authorization. Member company/workspace scope is enforced server-side. Stable company/workspace creation order; renaming does not move entries. Follow next_cursor as after with unchanged credentials until null. Pages reflect live state, not a snapshot; restart traversal if a cursor workspace is deleted. UUIDs are routing identifiers, not display labels.
+Requires installation or member read authorization. Member company/workspace scope is enforced server-side. Optional organization_id filters by organization within authorized scope (foreign organizations return 404). Stable company/workspace creation order; renaming does not move entries. Follow next_cursor as after with unchanged credentials until null. Pages reflect live state, not a snapshot; restart traversal if a cursor workspace is deleted. UUIDs are routing identifiers, not display labels.
 
 Operation: `listWorkspaces`.
 
@@ -33,6 +33,17 @@ curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces" \
 ```
 
 ## Parameters
+
+### organization_id
+
+Location: **query**. Optional. Optional organization identifier to filter workspaces within authorized scope.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 ### after
 
@@ -211,6 +222,6 @@ Cursor is missing, deleted or outside the authorized scope. Restart traversal.
 
 ## Behavior and supported scope
 
-Requires installation or member read authorization. Member company/workspace scope is enforced server-side. Stable company/workspace creation order; renaming does not move entries. Follow next_cursor as after with unchanged credentials until null. Pages reflect live state, not a snapshot; restart traversal if a cursor workspace is deleted. UUIDs are routing identifiers, not display labels.
+Requires installation or member read authorization. Member company/workspace scope is enforced server-side. Optional organization_id filters by organization within authorized scope (foreign organizations return 404). Stable company/workspace creation order; renaming does not move entries. Follow next_cursor as after with unchanged credentials until null. Pages reflect live state, not a snapshot; restart traversal if a cursor workspace is deleted. UUIDs are routing identifiers, not display labels.
 
 **Supported scope:** implemented

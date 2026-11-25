@@ -27,11 +27,10 @@ import {
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TableSkeleton } from '@/components/PageSkeletons';
 import { formatDateTime } from '@/features/operators/api';
-import { ApiRequestError, request } from '@/lib/api-client';
-import { invalidateQueries } from '@/lib/query-cache';
+import { ApiRequestError, cachedGet, peekCachedGet, request } from '@/lib/api-client';
+import { invalidateQueries, primeQuery } from '@/lib/query-cache';
 import { useLocale } from '@/shell/ui-locale';
 import { ApproveRegistrationDialog, RejectRegistrationDialog } from './registration-dialogs';
 
@@ -40,8 +39,8 @@ type ReviewDialogState =
   | { kind: 'reject'; record: RegistrationRequestRecord }
   | null;
 
-const REGISTRATION_POLICY_PATH = '/api/v1/platform/registration';
-const REGISTRATION_QUEUE_PATH = '/api/v1/platform/registrations';
+const REGISTRATION_POLICY_PATH = '/api/v1/admin/registration';
+const REGISTRATION_QUEUE_PATH = '/api/v1/admin/registrations';
 
 function useLocalizedMessages() {
   const { t } = useLocale();
@@ -62,7 +61,7 @@ export function RegistrationPolicySection({
   onPolicySaved?: (policy: PlatformRegistrationPolicy) => void;
 }) {
   const { t } = useLocalizedMessages();
-  const [policy, setPolicy] = useState<PlatformRegistrationPolicy | null>(null);
+  const [policy, setPolicy] = useState(() => peekCachedGet<{ data: PlatformRegistrationPolicy }>(token, REGISTRATION_POLICY_PATH)?.data ?? null);
   const [draftMode, setDraftMode] = useState<RegistrationMode>('approval_required');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -73,20 +72,14 @@ export function RegistrationPolicySection({
   const activePolicy = useRef<AbortController | null>(null);
   const editButtonRef = useRef<HTMLButtonElement>(null);
 
-  const loadPolicy = useCallback(async () => {
+  const loadPolicy = useCallback(async (force = false) => {
     activePolicy.current?.abort();
     const controller = new AbortController();
     activePolicy.current = controller;
     setLoading(true);
     setLoadFailed(false);
     try {
-      const result = await request<{ data: PlatformRegistrationPolicy }>(
-        token,
-        REGISTRATION_POLICY_PATH,
-        'GET',
-        undefined,
-        controller.signal,
-      );
+      const result = await cachedGet<{ data: PlatformRegistrationPolicy }>(token, REGISTRATION_POLICY_PATH, { signal: controller.signal, force });
       if (controller.signal.aborted) return;
       setPolicy(result.data);
       setDraftMode(result.data.mode);
@@ -121,6 +114,7 @@ export function RegistrationPolicySection({
           expected_revision: policy.revision,
         },
       );
+      primeQuery(token, REGISTRATION_POLICY_PATH, result);
       setPolicy(result.data);
       setDraftMode(result.data.mode);
       setDialogOpen(false);
@@ -130,7 +124,7 @@ export function RegistrationPolicySection({
     } catch (error) {
       if (error instanceof ApiRequestError && error.status === 409) {
         setSaveErrorKind('conflict');
-        void loadPolicy();
+        void loadPolicy(true);
       } else {
         setSaveErrorKind('failed');
       }
@@ -184,7 +178,7 @@ export function RegistrationPolicySection({
         <Alert variant="destructive">
           <AlertDescription className="flex flex-wrap items-center gap-3">
             <span>{t('Could not load registration policy.', '无法加载注册策略。')}</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => void loadPolicy()}>
+            <Button type="button" variant="outline" size="sm" onClick={() => void loadPolicy(true)}>
               {t('Retry', '重试')}
             </Button>
           </AlertDescription>
@@ -226,9 +220,7 @@ export function RegistrationPolicySection({
           }
         }}
       >
-        <DialogContent
-          className="max-h-[90dvh] overflow-y-auto"
-          onCloseAutoFocus={event => {
+        <DialogContent onCloseAutoFocus={event => {
             if (editButtonRef.current?.isConnected) {
               event.preventDefault();
               editButtonRef.current.focus();
@@ -338,6 +330,7 @@ export function RegistrationRequestsQueue({
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadedFilter, setLoadedFilter] = useState<RegistrationStatus | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [noticeKind, setNoticeKind] = useState<'approved' | 'rejected' | ''>('');
   const [dialog, setDialog] = useState<ReviewDialogState>(null);
@@ -368,6 +361,7 @@ export function RegistrationRequestsQueue({
           controller.signal,
         );
         if (controller.signal.aborted) return;
+        setLoadedFilter(filter);
         setRecords(current =>
           cursor
             ? [...current, ...page.data.filter(item => !current.some(existing => existing.id === item.id))]
@@ -397,46 +391,50 @@ export function RegistrationRequestsQueue({
 
   function handleReviewed(updated: RegistrationRequestRecord) {
     setDialog(null);
-    invalidateQueries('/api/v1/platform/customer-accounts');
+    invalidateQueries('/api/v1/admin/customers');
     invalidateQueries('/api/v1/workspaces');
-    invalidateQueries('/api/v1/operators');
+    invalidateQueries('/api/v1/members');
     if (updated.status === 'approved') {
       setNoticeKind('approved');
       onApproved?.();
     } else {
       setNoticeKind('rejected');
     }
+    window.dispatchEvent(new Event('niu:registrations-updated'));
     void loadQueue(statusFilter);
   }
 
   return (
-    <div className="space-y-8">
+    <div className={showPolicySection ? 'space-y-8' : 'empty-region space-y-8'}>
       {showPolicySection && <RegistrationPolicySection token={token} />}
 
-      <section className="space-y-4" aria-label={t('Registration requests', '注册审批队列')}>
+      <section className={showPolicySection ? 'space-y-4' : 'empty-region space-y-4'} aria-label={t('Registration requests', '注册审批队列')}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Tabs
-            value={statusFilter}
-            onValueChange={value => {
-              setNoticeKind('');
-              setStatusFilter(value as RegistrationStatus);
-            }}
-          >
-            <TabsList variant="line" aria-label={t('Registration status', '注册状态筛选')}>
-              <TabsTrigger value="pending" className="gap-2">
-                <span>{t('Pending', '待审批')}</span>
-                <Badge variant={counts.pending > 0 ? 'default' : 'secondary'}>{counts.pending}</Badge>
-              </TabsTrigger>
-              <TabsTrigger value="approved" className="gap-2">
-                <span>{t('Approved', '已批准')}</span>
-                <Badge variant="secondary">{counts.approved}</Badge>
-              </TabsTrigger>
-              <TabsTrigger value="rejected" className="gap-2">
-                <span>{t('Rejected', '已拒绝')}</span>
-                <Badge variant="secondary">{counts.rejected}</Badge>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('Registration status', '注册状态筛选')}>
+            {([
+              ['pending', 'Pending', '待审批', counts.pending],
+              ['approved', 'Approved', '已批准', counts.approved],
+              ['rejected', 'Rejected', '已拒绝', counts.rejected],
+            ] as const).map(([status, labelEn, labelZh, count]) => (
+              <Button
+                key={status}
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-pressed={statusFilter === status}
+                className="gap-1.5"
+                onClick={() => {
+                  setNoticeKind('');
+                  setStatusFilter(status);
+                }}
+              >
+                <span>{t(labelEn, labelZh)}</span>
+                <Badge variant={status === 'pending' && count > 0 ? 'default' : 'secondary'} className="h-5 px-1.5 text-[11px]">
+                  {count}
+                </Badge>
+              </Button>
+            ))}
+          </div>
 
           <Button
             type="button"
@@ -478,9 +476,9 @@ export function RegistrationRequestsQueue({
           </Alert>
         )}
 
-        {loading && !records.length ? (
+        {loadedFilter !== statusFilter && !loadFailed ? (
           <TableSkeleton columns={6} rows={4} label={t('Loading registration requests…', '正在加载注册申请…')} />
-        ) : !loading && !loadFailed && !records.length ? (
+        ) : loadedFilter === statusFilter && !loadFailed && !records.length ? (
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
@@ -506,7 +504,7 @@ export function RegistrationRequestsQueue({
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
-        ) : records.length > 0 ? (
+        ) : loadedFilter === statusFilter && records.length > 0 ? (
           <Table className="min-w-[820px]" aria-label={t('Registration requests table', '注册申请列表')}>
             <TableHeader>
               <TableRow>
@@ -609,7 +607,7 @@ export function RegistrationRequestsQueue({
           </Table>
         ) : null}
 
-        {nextCursor && (
+        {loadedFilter === statusFilter && nextCursor && (
           <Button
             type="button"
             variant="outline"

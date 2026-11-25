@@ -58,6 +58,7 @@ impl Store {
                 .bind(admission.operation_id)
                 .bind(route.vendor_id)
                 .bind(&route.pool_alias)
+                .bind(&route.model_alias)
                 .fetch_one(&mut **tx)
                 .await?;
             if !eligible {
@@ -91,14 +92,24 @@ impl Store {
                 if remaining_ms == 0 {
                     return Err(StoreError::GatewayRequestDeadlineExceeded);
                 }
+                let route = admission.managed_route.as_ref();
+                let has_retry_alternative = match route {
+                    Some(route) if route.pool_alias.is_some() => true,
+                    Some(route) => {
+                        Self::has_pooled_sibling_vendor_in_tx(
+                            tx,
+                            &route.model_alias,
+                            route.vendor_id,
+                        )
+                        .await?
+                    }
+                    None => false,
+                };
                 if admission.dispatch_provider != "openrouter"
                     || admission.api_base.as_deref().is_none_or(|base| {
                         base.trim_end_matches('/') != "https://openrouter.ai/api/v1"
                     })
-                    || admission
-                        .managed_route
-                        .as_ref()
-                        .is_none_or(|r| r.pool_alias.is_none())
+                    || !has_retry_alternative
                 {
                     return Err(StoreError::Conflict);
                 }

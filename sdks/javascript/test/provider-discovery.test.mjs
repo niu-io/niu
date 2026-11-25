@@ -15,7 +15,7 @@ test('Provider discovery and historical estimates use scoped management routes w
  await client.getProviderPriceEvidence(provider,'9007199254740993',options);
  const input={revision:'9007199254740993',model:'deepseek-example',quantities:[{meter:'input_tokens',units:'1000000',condition:'peak'}]};
  await client.estimateProviderQuoteCost(provider,input,options);
- assert.deepEqual(calls.map(call=>new URL(call.url).pathname),['/api/v1/providers/presets',`/api/v1/providers/${provider}/pricing`,`/api/v1/providers/${provider}/metadata`,`/api/v1/providers/${provider}/pricing`,`/api/v1/providers/${provider}/pricing/history`,`/api/v1/providers/${provider}/pricing/9007199254740993`,`/api/v1/providers/${provider}/estimate`]);
+ assert.deepEqual(calls.map(call=>new URL(call.url).pathname),['/api/v1/admin/providers/presets',`/api/v1/admin/providers/${provider}/pricing`,`/api/v1/admin/providers/${provider}/metadata`,`/api/v1/admin/providers/${provider}/pricing`,`/api/v1/admin/providers/${provider}/pricing/history`,`/api/v1/admin/providers/${provider}/pricing/9007199254740993`,`/api/v1/admin/providers/${provider}/estimate`]);
  assert.deepEqual(calls.map(call=>call.init.method),['GET','GET','GET','POST','GET','GET','POST']);
  assert.equal(new URL(calls[2].url).searchParams.get('credential'),credential);
  assert.equal(new URL(calls[4].url).searchParams.get('after'),'9007199254740993');

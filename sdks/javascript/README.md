@@ -67,8 +67,6 @@ const result = await niu.createDecision({
 
 `decision: null` is an explicit `abstained` outcome, never a missing value replaced with a preferred label. Invalid, missing, over-bound or timed-out output rejects with a `decision_*` gateway code and `x-niu-decision-outcome` evidence; there is no fallback to text. The model is called once through ordinary inference admission, so key grants, workspace spending caps, billing, guardrails and cancellation apply. The nested prompt is not retained as an ordinary Logs payload; use the response `x-niu-attempt-id` with `getGeneration()` for authoritative customer charges. Token counts can be estimates, and the decision is not calibrated probability or task-quality evidence.
 
-The SDK also provides a metadata-only task recorder. It is independent of the inference client and does not capture prompts, model responses, source code, tool arguments, or tool output.
-
 Use `chat.completions()` for a JSON response and `chat.stream()` for SSE:
 
 ```ts
@@ -91,7 +89,7 @@ remain available. `status` is the actual HTTP status and can be 200 for a failed
 stream. Caller cancellation throws the original `AbortSignal` reason instead.
 HTTP failures before streaming remain `NiuAPIError`.
 
-## Server-side account and quota collection
+## Server-side workspace administration and billing
 
 ### Query the charge for a completion
 
@@ -194,8 +192,7 @@ const scope = {
 const accounts = await admin.listAccounts(scope);
 // Account listing currently returns at most 1,000 entries.
 for (const account of accounts.data) {
-  const evidence = await admin.quota(scope, account.id);
-  console.log(account.provider, account.billing_mode, evidence.data);
+  console.log(account.provider, account.billing_mode);
 }
 
 let activity = await admin.listGatewayActivity(scope, { limit: 100 });
@@ -270,29 +267,8 @@ content when capture was enabled and it has not expired. It returns
 workspace write permission and deletes content without deleting accounting
 records. These methods do not enable capture or recover expired content.
 
-Use `createAccount(scope, input)` to register account metadata and an `env:` or `secret:` credential reference. Registration is not credential verification. Use `observeQuota(scope, accountId, observation)` with evidence obtained by an authorized collector. `remaining` and `maximum` are decimal strings or null, never floating-point values. Timestamps are safe-integer milliseconds. The server validates intervals, quantity bounds and tenant ownership. Identical observations may be explicitly resubmitted; conflicting evidence returns `NiuAPIError` with status 409. The SDK does not retry automatically and rejects redirects. Every method accepts an optional `{ signal }` for cancellation.
+Use `createAccount(scope, input)` to register account metadata and an `env:` or `secret:` credential reference. Registration is not credential verification. The SDK does not retry automatically and rejects redirects. Every method accepts an optional `{ signal }` for cancellation.
 
-The API reports capacity separately from monetary charges. Missing or stale quota evidence does not mean zero remaining capacity. Native provider collection remains unfinished. Workspace-scoped collector credentials are available for quota ingestion.
-
-## Quota-only collectors
-
-Provision a collector key using `admin.issueCollectorKey(scope, { name: 'quota collector', ttl_seconds: 86400 })`. Save its returned ID for `admin.revokeCollectorKey(scope, id)` and deliver its one-time token to the collector through your secret manager. Key issuance is an administrative operation; do not place the installation admin token in the collector.
-
-```ts
-import { NiuCollectorClient } from '@niu-io/sdk';
-
-const collector = new NiuCollectorClient({
-  collectorToken: process.env.NIU_COLLECTOR_TOKEN!,
-  scope: {
-    organizationId: process.env.NIU_ORGANIZATION_ID!,
-    projectId: process.env.NIU_PROJECT_ID!,
-  },
-});
-// providerObservation must come from your authorized provider integration.
-await collector.observeQuota(accountId, providerObservation);
-```
-
-The collector interface exposes only `observeQuota`. Its scope is copied at construction, and the server enforces workspace ownership, expiry and revocation on every ingestion. It cannot query quota or register accounts; use the admin client in the operator application for those operations. No retries, polling or credential refresh happen implicitly.
 ## Runnable usage investigation example
 
 After building the SDK, run `node examples/inspect-usage.mjs` from the SDK directory. Set `NIU_ADMIN_TOKEN`, `NIU_ADMIN_BASE_URL` (including `/api/v1`), `NIU_ORGANIZATION_ID`, and `NIU_WORKSPACE_ID` through the environment. For local development, the base URL is `http://localhost:2566/api/v1`. Optionally set `NIU_MODEL_ALIAS` to filter requests, or `NIU_REQUEST_STATUS=output_withheld` to investigate recorded blocked/indeterminate output. Withheld output does not cancel incurred usage or customer charges.
@@ -982,7 +958,7 @@ Every request includes its category: a UUID alone cannot distinguish stores.
 Chat writes retain the guarded Chat methods. The older
 `admin.generations(scope).sessions` facade delegates to the same methods.
 
-Pool listing uses `GET /api/v1/pools`. Member reads and history encode the exact
+Pool listing uses `GET /api/v1/routing`. Member reads and history encode the exact
 alias as unpadded base64url; callers still pass the ordinary alias to
 `getModelRoutePool` and `listModelRoutePoolHistory`. This safely handles `/`, `%`,
 `?`, `#` and other visible ASCII punctuation. The server retains the original

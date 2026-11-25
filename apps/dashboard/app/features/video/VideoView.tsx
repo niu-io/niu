@@ -5,10 +5,14 @@ import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { validateSavedVideoReferences } from './request';
 import { useGenerationKeys } from '@/features/generations/useGenerationKeys';
 import { GenerationSessionBindings, openGenerationsAssetsPanel } from '@/features/generations/GenerationsLayout';
+import GenerationComposer, { GenerationComposerCover } from '@/features/generations/GenerationComposer';
+import GenerationKeyPicker from '@/features/generations/GenerationKeyPicker';
+import { useQuickKeyProvisioner } from '@/features/generations/QuickKeyDialog';
+import ProviderLogo from '@/components/ProviderLogo';
 import { openGenerationsContextRun, type GenerationContextRunState, type GenerationsContextPanelData } from '@/features/generations/GenerationsContextPanel';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams, useNavigate, useLocation } from 'react-router';
-import { IconLoader2 as Loader, IconInfoCircle as InfoCircle, IconChevronDown as ChevronDown, IconArrowUp as ArrowUp, IconAdjustmentsHorizontal as Settings, IconKey as KeyIcon, IconRefresh as RefreshCw, IconMessageChatbot, IconVideo } from '@tabler/icons-react';
+import { IconLoader2 as Loader, IconInfoCircle as InfoCircle, IconChevronDown as ChevronDown, IconArrowRight as ArrowRight, IconArrowUp as ArrowUp, IconAdjustmentsHorizontal as Settings, IconKey as KeyIcon, IconRefresh as RefreshCw, IconSparkles, IconMessageChatbot, IconVideo } from '@tabler/icons-react';
 import { isQueryFresh, peekQuery, primeQuery } from '@/lib/query-cache';
 import {
   VIDEO_DIAGNOSTICS_FRESH_MS,
@@ -21,24 +25,23 @@ import {
   videoTaskCacheKey,
   type VideoTaskDiagnostics,
 } from '@/features/generations/video-cache';
-import { catalogTitle } from '@/lib/providers';
+import { catalogTitle, modelIdentity } from '@/lib/providers';
 import { ScanFace } from 'lucide-react';
 import type { VideoEstimate, VideoJobBilling, VideoJobState, VideoModelList, VideoTransportTimings } from '@niu-io/sdk';
 import { NiuAdminClient, type VideoIntentRequest, type VideoSubmissionIntent, type NativeProviderModule, type GenerationTask, type VideoComposerDraftPayload } from '@niu-io/sdk/admin';
 import { useVideoDraft, type VideoDraftTicket } from './useVideoDraft';
 import { useDraftNavigation } from '../playground/useDraftNavigation';
 import { VideoIntent } from './intent';
-import { prepareVideoSessionIntent } from './session-intent';
+import { boundedVideoTitle, prepareVideoSessionIntent } from './session-intent';
 import { findVideoIntent, videoSessionTitle } from './intent-history';
 import { Button } from '@/components/ui/button';
 import { FormSectionSkeleton, ListRowsSkeleton } from '@/components/PageSkeletons';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { useSidebar } from '@/components/ui/sidebar';
 import type { DashboardContext } from '@/shell/dashboard-context';
 import { workspaceDisplayName, workspacePathSegment } from '@/shell/workspace-route';
@@ -55,15 +58,8 @@ import './video.css';
 import { findSupportedProviderModule, ProviderGenerationTools } from '@/features/provider-modules/registry';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
-const statusLabel: Record<string,string> = {submission_unknown:'Submission uncertain',queued:'Queued',running:'Running',succeeded:'Succeeded',failed:'Failed',unknown:'Status unavailable',reconciliation_required:'Needs reconciliation'};
+import { videoStatusLabel as statusLabel } from './status';
 function message(error: unknown) { return error instanceof Error ? error.message : 'The request could not be completed.'; }
-function boundedVideoTitle(promptText: string, modelName: string) {
-  const line = promptText.split('\n').map(item => item.trim()).find(Boolean) ?? '';
-  let title = line || (modelName.trim() ? `${translateUI("Video")} · ${modelName.trim()}` : translateUI("Video request"));
-  const bytes = new TextEncoder();
-  while (bytes.encode(title).length > 200) title = title.slice(0, -1);
-  return title.trim() || translateUI("Video request");
-}
 class VideoHTTPError extends Error { constructor(readonly status:number, text:string) { super(text); } }
 type SavedVideoTask = Pick<GenerationTask, 'id' | 'model' | 'state' | 'reference'> & {session_id?: string; artifacts?: GenerationTask['artifacts']};
 class VideoTaskResponseError extends Error {
@@ -99,6 +95,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   const {unit:platformUnit} = usePlatformCurrency();
   const {token,workspace,workspaces,session}=context;
   const canWrite=Boolean(session?.permissions.write);
+  const quickKey=useQuickKeyProvisioner();
   const [keyPickerOpen,setKeyPickerOpen]=useState(false);
   const [providerToolsOpen,setProviderToolsOpen]=useState(false);
   const availableKeys=useGenerationKeys(context,keyPickerOpen);
@@ -150,6 +147,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   const [pendingSubmit,setPendingSubmit]=useState(false);
   const [waitingForImages,setWaitingForImages]=useState(false);
   const [unquotedConfirmation,setUnquotedConfirmation]=useState<{body:string;generation:number;job:string;intent:string}|null>(null);
+  const [attachSlot,setAttachSlot]=useState<HTMLSpanElement|null>(null);
   const [keysLoading,setKeysLoading]=useState(true);
   const [modelsLoading,setModelsLoading]=useState(false);
   const loading=keysLoading||modelsLoading;
@@ -165,6 +163,8 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   const loadedIntent=useRef<VideoIntent|null>(null);
   const restoredDraftIdentity=useRef('');
   const [submittedPrompt,setSubmittedPrompt]=useState('');
+  const submittedIntentId=useRef('');
+  const previousIntentId=useRef('');
   const lock=useRef(false);
   const historyTriggerRef=useRef<HTMLButtonElement>(null);
   const unquotedTriggerRef=useRef<HTMLElement|null>(null);
@@ -246,7 +246,18 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
       if(force)composerEdits.current={prompt:false,key:false,model:false,controls:false,references:false,images:false};
     }});
   useEffect(()=>{setDraftRestored(false);setSubmittedPrompt('');setPrompt('');setDraftReferences([]);setDraftSessionId(null);setComposerEdited(false);restoredComposer.current=null;composerEdits.current={prompt:false,key:false,model:false,controls:false,references:false,images:false};acceptDraft.current=false;dispatchAttempted.current=false;},[composerIdentity]);
-  const draftNavigation=useDraftNavigation({hasUnsavedChanges:()=>mutableComposer&&!busy&&composerEdited&&(!draft.ready||draft.dirty),flush:async()=>Boolean(await draft.flush())});
+  const draftNavigation=useDraftNavigation({
+    hasUnsavedChanges:()=>mutableComposer&&!busy&&!lock.current&&composerEdited&&(!draft.ready||draft.dirty),
+    flush:async()=>Boolean(await draft.flush()),
+    shouldBlock:({currentLocation,nextLocation})=>{
+      if(currentLocation.pathname!==nextLocation.pathname)return true;
+      const left=new URLSearchParams(currentLocation.search);
+      const right=new URLSearchParams(nextLocation.search);
+      left.delete('model');right.delete('model');left.delete('key');right.delete('key');
+      left.sort();right.sort();
+      return left.toString()!==right.toString();
+    },
+  });
   const keyScopeIdentity=JSON.stringify([token,scopePath]);
   const savedModel=intentDocument?.model??savedTask?.model;
   const submissionStopped=intentDocument?.submission_state==='not_dispatched';
@@ -378,9 +389,15 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   useEffect(()=>{estimateController.current?.abort();setQuote(null);return()=>estimateController.current?.abort();},[prompt,controls,images,draftReferences,base,modelId]);
   useEffect(()=>{
     const controller=new AbortController();
-    loadedIntent.current=null;setIntentDocument(null);setIntentError('');setRestoringIntent(false);setSubmittedPrompt('');
-    if(!retainedIntent){restoredDraftIdentity.current='';return;}
     if(busy === 'create')return;
+    const nextIntentId=retainedIntent?.id??'';
+    if(submittedIntentId.current && nextIntentId !== submittedIntentId.current)return;
+    const intentChanged=previousIntentId.current!==nextIntentId;
+    previousIntentId.current=nextIntentId;
+    loadedIntent.current=null;setIntentError('');setRestoringIntent(false);
+    if(!retainedIntent){setIntentDocument(null);setSubmittedPrompt('');submittedIntentId.current='';restoredDraftIdentity.current='';return;}
+    if(intentChanged){setIntentDocument(null);if(submittedIntentId.current!==nextIntentId)setSubmittedPrompt('');}
+    if(submittedIntentId.current===nextIntentId)submittedIntentId.current='';
     setRestoringIntent(true);setUncertain(true);
     const restoring=new VideoIntent(intentClient!,{organizationId:workspace!.organization_id,projectId:workspace!.id},intentReference);
     void restoring.restore({signal:controller.signal}).then(document=>{
@@ -568,10 +585,10 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   }, [pendingSubmit, busy, quoteMatches]);
   const autoEstimateIdentity = JSON.stringify([responseIdentity,scopePath,form.body]);
   useEffect(() => {
-    if (!mutableComposer || !canWrite || !form.body || unquotedOwnerFunded || !base || busy || uncertain || readingImages || restoringIntent || quoteMatches || lastEstimatedInput.current === autoEstimateIdentity) return;
+    if (!mutableComposer || !canWrite || !form.body || (!prompt.trim() && !images.length && !draftReferences.length) || unquotedOwnerFunded || !base || busy || uncertain || readingImages || restoringIntent || quoteMatches || lastEstimatedInput.current === autoEstimateIdentity) return;
     const timer = window.setTimeout(() => { void estimate(); }, 900);
     return () => window.clearTimeout(timer);
-  }, [autoEstimateIdentity, mutableComposer, canWrite, unquotedOwnerFunded, base, busy, uncertain, readingImages, restoringIntent, quoteMatches]);
+  }, [autoEstimateIdentity, mutableComposer, canWrite, prompt, images.length, draftReferences.length, unquotedOwnerFunded, base, busy, uncertain, readingImages, restoringIntent, quoteMatches]);
   async function saveOrSubmitRequest(action:'save'|'submit',confirmedOwnerFunded=false) {
     const submit=action==='submit';
     if(!form.body || (submit&&(submissionStopped||(!quoteMatches&&!(confirmedOwnerFunded&&unquotedOwnerFunded)))) || !base || !canWrite || lock.current || uncertain || readingImages || restoringIntent)return;
@@ -590,7 +607,7 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
         const intent=retainedIntent && !intentDocument?.job ? loadedIntent.current : new VideoIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},crypto.randomUUID());
         if(!intent)throw new Error('Restore the saved video request before submitting.');
         if(retainedIntent&&intentDocument?.session_binding===undefined)throw new Error('The saved session context could not be confirmed. Reload before continuing.');
-        ownedIntentId=intent.id;routeIntent.current=intent.id;
+        ownedIntentId=intent.id;routeIntent.current=intent.id;submittedIntentId.current=intent.id;
         const originalBinding=intentDocument?.id===intent.id?intentDocument.session_binding:null;
         const sessionId=originalBinding?.session_id??(selectedReference?followUpSessionId:search.get('session')??draftSessionId)??crypto.randomUUID();
         const turnId=originalBinding?.turn_id??search.get('turn')??crypto.randomUUID();
@@ -634,13 +651,29 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
   }
 
 
+  async function handleQuickCreateVideoKey() {
+    if (!token || !workspace || !canWrite) return;
+    const created = await quickKey.run({
+      token,
+      organizationId: workspace.organization_id,
+      workspaceId: workspace.id,
+      rememberChatKey: context.rememberChatKey,
+      reloadWorkspaces: context.reloadWorkspaces,
+    });
+    if (!created) return;
+    setKeys(current => [created, ...current.filter(item => item.id !== created.id)]);
+    setAllKeys(current => [created, ...current.filter(item => item.id !== created.id)]);
+    setKeysScope(keyScopeIdentity);
+    setKeyPickerOpen(false);
+    chooseKey(created.id);
+  }
   function reloadSaved() {setKeysRevision(value=>value+1);setRevision(value=>value+1);}
   const keyIpRestricted=/does not allow the request source address/i.test(catalogError);
   const originalKeyAllowedCidrs=originalKey?(originalKey.ip_policy?originalKey.ip_policy.allowed_cidrs:originalKey.allowed_cidrs):undefined;
   const fallbackActiveKey=keys.find(k=>k.id!==keyId&&(k.ip_policy?k.ip_policy.allowed_cidrs:k.allowed_cidrs)==null)??keys.find(k=>k.id!==keyId);
   const savedPromptText=submittedPrompt.trim() || intentDocument?.request?.content.flatMap(item=>item.type==='text' ? [item.text] : []).join('\n').trim() || '';
   const promptTitle=savedPromptText.split('\n').map(line=>line.trim()).find(Boolean)?.slice(0,120);
-  const composerCover=!workspace?null:loading?'loading':keysError?'keys':historicalReadOnly?'history':keyIpRestricted?'ip':!keysError&&!keys.length?'nokey':keys.length>0&&!model&&!error&&!keysError&&!catalogError?'model':null;
+  const composerCover=!workspace||loading?null:keysError?'keys':historicalReadOnly?'history':keyIpRestricted?'ip':!keysError&&!keys.length?'nokey':keys.length>0&&!model&&!error&&!keysError&&!catalogError?'model':null;
   const composerReturnTo=`${location.pathname}${location.search}`;
   const rawResultModel=job?.model ?? intentDocument?.model ?? '';
   const resultModelLabel=rawResultModel ? catalogTitle(rawResultModel) : uiT("Video");
@@ -678,23 +711,19 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
       }] : [],
   };
   return <div className="video-shell">
-    <Dialog open={draftNavigation.failed} onOpenChange={open=>{if(!open)draftNavigation.stay();}}><DialogContent className="max-h-[90dvh] overflow-y-auto" onCloseAutoFocus={event=>{event.preventDefault();document.getElementById('video-prompt')?.focus();}}><DialogHeader><DialogTitle>{uiT("Draft not saved")}</DialogTitle><DialogDescription>{uiT("Your latest changes are still here. Stay to review and save them, or leave without saving these changes.")}</DialogDescription></DialogHeader><DialogFooter><Button variant="ghost" onClick={draftNavigation.leave}>{uiT("Leave without saving")}</Button><Button variant="outline" onClick={draftNavigation.stay}>{uiT("Stay here")}</Button></DialogFooter></DialogContent></Dialog>
-    <GenerationSessionBindings trigger={historyTriggerRef} title={generationTitle} contextPanel={contextPanelData} actions={<div className="playground-toolbar-actions"><DropdownMenu open={keyPickerOpen} onOpenChange={setKeyPickerOpen}><DropdownMenuTrigger asChild><Button variant={originalKey ? "outline" : "default"} className="playground-key-trigger video-key-choice" aria-label={uiT("Video API key")} disabled={Boolean(busy) || loading || Boolean(intentId && !intentDocument?.job)}><KeyIcon size={16}/><span className="truncate">{originalKey ? `${originalKey.name}${originalKey.revoked ? ` ${uiT("· Revoked")}`:originalKey.expired ? ` ${uiT("· Expired")}`:keyIpRestricted ? ` ${uiT("· Source IP restricted")}`:''}` : (loading ? uiT("Loading keys…") : keysError ? uiT("API keys unavailable") : uiT("Choose API key"))}</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={keyId} onValueChange={id=>{const chosen=availableKeys.keys.find(key=>key.id===id);if(chosen&&chosen.workspace.id!==workspace?.id){navigate(`/generations?new=video&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace,context.workspaces??[chosen.workspace]))}&key=${encodeURIComponent(chosen.slug || id)}`);}else if(selected && !intentId && job?.status==='succeeded'){
-        const next=new URLSearchParams(search);
-        next.set('key',keyReference(id));
-        setSearch(next);
-      }else chooseKey(id);}}>{(availableKeys.keys.length?availableKeys.keys:keys.map(key=>({...key,workspace}))).map(key=><DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspace?.id ? ` · ${workspaceDisplayName(key.workspace.name)}`:''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>{availableKeys.loading && !availableKeys.keys.length && !keys.length && <DropdownMenuLabel>{uiT("Loading keys…")}</DropdownMenuLabel>}{(availableKeys.error || keysError) && <DropdownMenuLabel>{uiT("Some API keys could not be loaded.")}</DropdownMenuLabel>}{!availableKeys.loading && !availableKeys.error && !keysError && !availableKeys.keys.length && !keys.length && <DropdownMenuLabel>{uiT("No active API key")}</DropdownMenuLabel>}<DropdownMenuItem asChild><Link to={`${workspacePath}/keys`}><KeyIcon />{uiT("Manage keys")}</Link></DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>} history={{context: (context), currentKeys: (allKeys), activeVideo: (selected), activeVideoSession: (search.get('session') || (search.get('new') === 'video' ? 'new-video' : '')), disabled: (Boolean(busy))}} />
+    <Dialog open={draftNavigation.failed} onOpenChange={open=>{if(!open)draftNavigation.stay();}}><DialogContent  onCloseAutoFocus={event=>{event.preventDefault();document.getElementById('video-prompt')?.focus();}}><DialogHeader><DialogTitle>{uiT("Draft not saved")}</DialogTitle><DialogDescription>{uiT("Your latest changes are still here. Stay to review and save them, or leave without saving these changes.")}</DialogDescription></DialogHeader><DialogFooter><Button variant="ghost" onClick={draftNavigation.leave}>{uiT("Leave without saving")}</Button><Button variant="outline" onClick={draftNavigation.stay}>{uiT("Stay here")}</Button></DialogFooter></DialogContent></Dialog>
+    <GenerationSessionBindings trigger={historyTriggerRef} title={generationTitle} contextPanel={contextPanelData} actions={<div className="playground-toolbar-actions"><GenerationKeyPicker open={keyPickerOpen} onOpenChange={setKeyPickerOpen} ariaLabel={uiT("Video API key")} className="video-key-choice" hasSelection={Boolean(originalKey)} loading={loading || availableKeys.loading} disabled={Boolean(busy) || loading || Boolean(intentId && !intentDocument?.job)} triggerLabel={originalKey ? `${originalKey.name}${originalKey.revoked ? ` ${uiT("· Revoked")}`:originalKey.expired ? ` ${uiT("· Expired")}`:keyIpRestricted ? ` ${uiT("· Source IP restricted")}`:''}` : (loading ? uiT("Loading keys…") : keysError ? uiT("API keys unavailable") : uiT("Choose API key"))} selectedKeyId={keyId} keyOptions={availableKeys.keys.length ? availableKeys.keys : keys.map(key => ({ ...key, workspace }))} currentWorkspaceId={workspace?.id} errorText={availableKeys.error || keysError ? uiT("Some API keys could not be loaded.") : ''} manageKeysHref={`${workspacePath}/keys`} onQuickCreateKey={!keys.length && !loading && canWrite ? () => void handleQuickCreateVideoKey() : undefined} quickCreating={quickKey.busy} onCreateKey={!keys.length && !loading && canWrite ? () => navigate(`${workspacePath}/keys`, { state: { createKey: true, returnTo: composerReturnTo } }) : undefined} onSelectKey={id => { const chosen = availableKeys.keys.find(key => key.id === id); if (chosen && chosen.workspace.id !== workspace?.id) { navigate(`/generations?new=video&workspace=${encodeURIComponent(workspacePathSegment(chosen.workspace, context.workspaces ?? [chosen.workspace]))}&key=${encodeURIComponent(chosen.slug || id)}`); } else if (selected && !intentId && job?.status === 'succeeded') { const next = new URLSearchParams(search); next.set('key', keyReference(id)); setSearch(next); } else chooseKey(id); }} /></div>} history={{context: (context), currentKeys: (allKeys), activeVideo: (selected), activeVideoSession: (search.get('session') || (search.get('new') === 'video' ? 'new-video' : '')), disabled: (Boolean(busy))}} />
     <section className="video-main playground-chat-main" aria-label={uiT("Video generation")}>
 
       <div className="video-content">
         {(keysError || intentError || error || (catalogError && !keyIpRestricted)) && <div role="alert" className="video-error">{uiT(keysError || intentError || error || catalogError)}<Button variant="ghost" onClick={reloadSaved} disabled={Boolean(busy) || loading}>{uiT("Reload")}</Button></div>}
         {!workspace ? <p>{uiT("Add an API key to generate videos.")}</p> : <>
         <div className="video-conversation playground-transcript" aria-label={uiT("Video conversation")}>
-          {!selected && !intentId ? <div className="playground-first-run"><div className="flex justify-center gap-2" aria-label={uiT("Generation mode", "生成模式")}><Button variant="ghost" size="sm" asChild><Link to={`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(workspace, context.workspaces ?? [workspace]))}`}><IconMessageChatbot size={16} />{uiT("Chat", "对话")}</Link></Button><Button variant="secondary" size="sm" aria-pressed="true"><IconVideo size={16} />{uiT("Video", "视频")}</Button></div><div className="playground-first-run-heading"><h2>{uiT("Create a video")}</h2><p>{uiT("Describe the scene, camera movement, and lighting you want to bring to life.")}</p></div><div className="flex max-w-xl flex-wrap justify-center gap-2 justify-self-center">{[
-            { label: uiT("Aerial sunrise"), text: uiT("Wide aerial shot gliding over mist-covered pine mountains at golden hour, cinematic lighting, 4K.") },
-            { label: uiT("Product macro"), text: uiT("Slow-motion macro dolly shot of a brushed aluminum watch on wet slate with soft studio rim light.") },
-            { label: uiT("Neon street walk"), text: uiT("Tracking shot following a courier walking through a rain-slicked neon alleyway at night, shallow depth of field.") },
-          ].map(starter => <Button key={starter.label} type="button" variant="outline" size="sm" className="rounded-full text-xs" disabled={Boolean(composerCover) || busy === 'create'} onClick={() => { composerEdits.current.prompt = true; setComposerEdited(true); setPrompt(starter.text); requestAnimationFrame(() => document.getElementById('video-prompt')?.focus()); }}>{starter.label}</Button>)}</div></div> : <div className="video-turn">
+          {!selected && !intentId ? <div className="playground-first-run"><div className="flex justify-center gap-2" aria-label={uiT("Generation mode", "生成模式")}><Button variant="ghost" size="sm" asChild><Link to={`/generations?new=1&workspace=${encodeURIComponent(workspacePathSegment(workspace, context.workspaces ?? [workspace]))}`}><IconMessageChatbot size={16} />{uiT("Chat", "对话")}</Link></Button><Button variant="secondary" size="sm" aria-pressed="true"><IconVideo size={16} />{uiT("Video", "视频")}</Button></div><div className="playground-first-run-heading"><h2>{uiT("Create a video")}</h2><p>{uiT("Describe the scene, camera movement, and lighting you want to bring to life.")}</p></div><div className="playground-starter-picker" aria-label={uiT("Example prompts")}><div className="playground-starters">{[
+            { label: uiT("Aerial sunrise"), summary: uiT("Mist-covered pine mountains at golden hour.", "金色晨光中云雾缭绕的松林山脉。"), text: uiT("Wide aerial shot gliding over mist-covered pine mountains at golden hour, cinematic lighting, 4K.") },
+            { label: uiT("Product macro"), summary: uiT("Slow-motion brushed watch on wet slate.", "湿润石板上的拉丝金属腕表慢动作微距。"), text: uiT("Slow-motion macro dolly shot of a brushed aluminum watch on wet slate with soft studio rim light.") },
+            { label: uiT("Neon street walk"), summary: uiT("Tracking shot through a rainy neon alley.", "雨夜霓虹小巷的浅景深跟拍镜头。"), text: uiT("Tracking shot following a courier walking through a rain-slicked neon alleyway at night, shallow depth of field.") },
+          ].map(starter => <Button key={starter.label} type="button" variant="ghost" className="playground-starter" disabled={Boolean(composerCover) || busy === 'create'} onClick={() => { composerEdits.current.prompt = true; setComposerEdited(true); setPrompt(starter.text); requestAnimationFrame(() => document.getElementById('video-prompt')?.focus()); }}><strong>{starter.label}</strong><span>{starter.summary}</span><ArrowRight size={16} aria-hidden="true" /></Button>)}</div></div></div> : <div className="video-turn">
             {savedPromptText && <div className="playground-user-prompt"><p>{savedPromptText}</p></div>}
             {selected && !loading && !savedPromptText && <p className="video-muted">{uiT("The original prompt is unavailable for this saved run.", "此历史记录的原始提示不可用。")}</p>}
             <article className="video-response" aria-label={uiT("Video result")}>
@@ -713,54 +742,57 @@ export default function VideoView({context, initialRun}:{context:DashboardContex
             </article>
           </div>}
         </div>
-        <form className="playground-composer" onSubmit={event=>{event.preventDefault();if(!composerCover)void submitComposer();}}>
-          <div className={`playground-composer-surface${composerCover?' is-blocked':''}`}>
+        <GenerationComposer
+          onSubmit={event => { event.preventDefault(); if (!composerCover) void submitComposer(); }}
+          prompt={{
+            id: 'video-prompt',
+            label: uiT("Prompt"),
+            placeholder: uiT("Describe your video…"),
+            value: prompt,
+            disabled: !base || loading || busy === 'create' || restoringIntent || Boolean(intentId && !intentDocument?.job),
+            onChange: value => { composerEdits.current.prompt = true; setComposerEdited(true); setPrompt(value); },
+            onKeyDown: event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (!composerCover) void submitComposer(); } },
+          }}
+          attachments={model && intentClient && workspace ? <ImageReferences model={model} client={intentClient} scope={{organizationId:workspace.organization_id,projectId:workspace.id}} references={draftReferences} onReferencesChange={references=>{composerEdits.current.references=true;setComposerEdited(true);setDraftReferences(references);}} images={images} onChange={next=>{composerEdits.current.images=true;setImages(next);}} disabled={!base || loading || Boolean(busy) || uncertain || Boolean(intentId && !intentDocument?.job)} toolbarSlot={attachSlot} onReadingChange={(reading,failed)=>{setReadingImages(reading);if(reading){estimateController.current?.abort();setQuote(null);}else if(failed)setWaitingForImages(false);}}/> : null}
+          status={<>
             {mutableComposer&&draft.error&&<div role="alert" className="video-error">{uiT(draft.error)}<Button type="button" variant="ghost" onClick={()=>{acceptDraft.current=true;draft.reload();}} disabled={Boolean(busy)}>{uiT("Load saved draft")}</Button></div>}
-            {mutableComposer&&draft.ready&&(draft.saving||draft.dirty)&&<p role="status" className="video-muted">{draft.saving?uiT("Saving draft…"):canWrite?uiT("Unsaved changes"):uiT("Your changes are not saved with read access.")}</p>}
+            {mutableComposer&&draft.ready&&(draft.saving||draft.dirty)&&composerEdited&&<p role="status" className="video-muted">{draft.saving?uiT("Saving draft…"):canWrite?uiT("Unsaved changes"):uiT("Your changes are not saved with read access.")}</p>}
             {images.length>0&&<p className="video-muted">{uiT("Inline image attachments are not saved in your draft. Reattach them after reloading.")}</p>}
             {draftReferences.length>0&&<p className="video-muted">{draftReferences.length===1 ? uiT("1 saved material reference. Current access and inspection are checked when submitting.") : uiF("{0} saved material references. Current access and inspection are checked when submitting.", [draftReferences.length])}</p>}
             {mutableComposer&&draft.ready&&restoredComposer.current&&!base&&!loading&&<p className="video-muted">{uiT("The saved API key is unavailable for generation. Your draft is retained. Choose an active API key to continue.")}</p>}
-            <div className="video-composer-fields">
-              {model&&intentClient&&workspace&&<ImageReferences model={model} client={intentClient} scope={{organizationId:workspace.organization_id,projectId:workspace.id}} references={draftReferences} onReferencesChange={references=>{composerEdits.current.references=true;setComposerEdited(true);setDraftReferences(references);}} images={images} onChange={next=>{composerEdits.current.images=true;setImages(next);}} disabled={Boolean(busy) || uncertain || Boolean(intentId && !intentDocument?.job)} onReadingChange={(reading,failed)=>{setReadingImages(reading);if(reading){estimateController.current?.abort();setQuote(null);}else if(failed)setWaitingForImages(false);}}/>}
-
-              <Label htmlFor="video-prompt" className="sr-only">{uiT("Prompt")}</Label><Textarea id="video-prompt" placeholder={uiT("Describe your video…")} rows={2} value={prompt} onChange={event=>{composerEdits.current.prompt=true;setComposerEdited(true);setPrompt(event.target.value);}} disabled={Boolean(composerCover) || busy === 'create' || restoringIntent || Boolean(intentId && !intentDocument?.job)} onKeyDown={event=>{if(event.key==='Enter' && !event.shiftKey && !event.nativeEvent.isComposing){event.preventDefault();if(!composerCover)void submitComposer();}}}/>
-              {prompt && form.error && <p role="alert" className="video-error">{uiT(form.error)}</p>}
-              {quoteMatches && quote && <div className="video-estimate"><span>{quote.effective_output.specification.resolution} · {quote.effective_output.specification.ratio} · {formatDurationSeconds(quote.effective_output.duration_seconds)}{quote.effective_output.frames_per_second != null && uiF(" · {0} FPS", [quote.effective_output.frames_per_second])}</span><strong>{quote.estimate.amount_atoms != null && (quote.estimate.unit_code || quote.unit_code) ? uiF("Estimated {0}", [formatUnitAtoms(quote.estimate.amount_atoms, quote.estimate.unit_code ?? quote.unit_code ?? platformUnit?.name ?? 'Credits', platformUnit?.display_precision ?? 2)]) : quote.estimate.amount_nanos != null && quote.estimate.currency ? uiF("Estimated {0}", [money(quote.estimate.amount_nanos,quote.estimate.currency)]):uiT("Charged to your Provider account")}</strong>{quote.maximum_charge_atoms != null && (quote.unit_code || quote.estimate.unit_code) ? <small>{uiT("Reserves up to")}{" "}{formatUnitAtoms(quote.maximum_charge_atoms, quote.unit_code ?? quote.estimate.unit_code ?? platformUnit?.name ?? 'Credits', platformUnit?.display_precision ?? 2)}{uiT(". Final charge follows reported usage.")}</small> : quote.maximum_charge_nanos != null && quote.estimate.currency && <small>{uiT("Reserves up to")}{" "}{money(quote.maximum_charge_nanos,quote.estimate.currency)}{uiT(". Final charge follows reported usage.")}</small>}</div>}
-
-              {unquotedOwnerFunded && <p role="status" className="video-muted">{uiT("Estimate unavailable. Your Provider may charge your account.")}</p>}
-              {uncertain && <p role="alert">{intentDocument&&intentDocument.content_state!=='retained' ? uiT("The saved input has expired or been deleted. Task history remains available."):uiT("Reload this saved request to confirm its input and original submission status before continuing.")}</p>}
-              {waitingForImages && <p role="status" className="video-muted">{uiT("Waiting for image upload to finish…")}</p>}
-            <div className="playground-composer-actions"><div className="video-composer-options">
-
-              {models.length>0?<DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="video-model-choice" aria-label={uiT("Video model")} disabled={Boolean(busy) || Boolean(intentId && !intentDocument?.job)}><span className="truncate">{(model?.id || modelId) ? catalogTitle({ id: model?.id || modelId }) : uiT("Choose video model")}{(model?.id || modelId) && catalogTitle({ id: model?.id || modelId }) !== (model?.id || modelId) ? <span className="sr-only"> {model?.id || modelId}</span> : null}</span><ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={modelId} onValueChange={id=>{composerEdits.current.model=true;restoredComposer.current=null;setComposerEdited(true);setModelId(id);const query=new URLSearchParams(search);query.set('model',id);setSearch(query);const next=models.find(model=>model.id === id);setControls(next ? initialControls(next):{});}}>{models.map(item=>{const label=catalogTitle({ id: item.id });return <DropdownMenuRadioItem key={item.id} value={item.id}>{label}{label !== item.id ? <span className="sr-only"> {item.id}</span> : null}</DropdownMenuRadioItem>;})}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>:composerCover?<Button type="button" variant="ghost" className="video-model-choice" disabled>{uiT("Choose video model")}</Button>:null}
-              {model&&toolsState==='supported'&&<Button type="button" variant="ghost" onClick={()=>setProviderToolsOpen(true)}><ScanFace size={16}/><span>{uiT("Materials")}</span></Button>}
-
-              {model&&<>
-                <Popover><PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label={uiT("Additional settings")}><Settings size={18}/></Button></PopoverTrigger><PopoverContent side="top" align="end" aria-label={uiT("Video settings")} className="video-settings-popover"><h2>{uiT("Video settings")}</h2><div className="video-controls">
-                {Object.entries(model.controls).map(([name,rule])=><div key={name} className="video-field"><Label htmlFor={`video-${name}`}>{translateUI(controlLabels[name] ?? name)}</Label>
-                  {rule.kind === 'choice' ? <DropdownMenu><DropdownMenuTrigger asChild><Button id={`video-${name}`} variant="outline" className="video-choice" disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}>{controls[name] !== undefined ? String(controls[name]) : uiT("Choose…")}<ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={String(controls[name] ?? '')} onValueChange={value=>{composerEdits.current.controls=true;setComposerEdited(true);setControls(current=>{const next={...current,[name]:value};if(name === 'resolution' && model.output && !model.output.allow_unmapped_output && !model.output.specifications.some(spec=>spec.resolution === value && spec.ratio === current.ratio)){const spec=model.output.specifications.find(spec=>spec.resolution === value);if(spec)next.ratio=spec.ratio;}return next;});}}>{rule.values.filter(value=>name !== 'ratio' || !model.output || model.output.allow_unmapped_output || model.output.specifications.some(spec=>spec.resolution === controls.resolution && spec.ratio === value)).map(value=><DropdownMenuRadioItem key={value} value={value}>{value}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
-                  : rule.kind === 'integer' ? <><Input id={`video-${name}`} type="number" min={rule.minimum} max={rule.maximum} step={1} value={String(controls[name] ?? '')} onChange={event=>{composerEdits.current.controls=true;setComposerEdited(true);setControls(current=>({...current,[name]:event.target.value}));}} disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}/><small className="video-muted">{rule.minimum}–{rule.maximum}</small></>
-                  : <Checkbox id={`video-${name}`} checked={controls[name] === true} onCheckedChange={checked=>{composerEdits.current.controls=true;setComposerEdited(true);setControls(current=>({...current,[name]:checked === true}));}} disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}/>}</div>)}
+            {prompt && form.error && <p role="alert" className="video-error">{uiT(form.error)}</p>}
+            {quoteMatches && quote && (quote.estimate.amount_atoms != null || (quote.estimate.amount_nanos != null && quote.estimate.currency)) && <div className="video-estimate"><span>{quote.effective_output.specification.resolution} · {quote.effective_output.specification.ratio} · {formatDurationSeconds(quote.effective_output.duration_seconds)}{quote.effective_output.frames_per_second != null && uiF(" · {0} FPS", [quote.effective_output.frames_per_second])}</span><strong>{quote.estimate.amount_atoms != null ? uiF("Estimated {0}", [formatUnitAtoms(quote.estimate.amount_atoms, quote.estimate.unit_code ?? quote.unit_code ?? platformUnit?.name ?? 'Credits', platformUnit?.display_precision ?? 2)]) : uiF("Estimated {0}", [money(quote.estimate.amount_nanos!, quote.estimate.currency!)])}</strong>{quote.maximum_charge_atoms != null && (quote.unit_code || quote.estimate.unit_code) ? <small>{uiT("Reserves up to")}{" "}{formatUnitAtoms(quote.maximum_charge_atoms, quote.unit_code ?? quote.estimate.unit_code ?? platformUnit?.name ?? 'Credits', platformUnit?.display_precision ?? 2)}{uiT(". Final charge follows reported usage.")}</small> : quote.maximum_charge_nanos != null && quote.estimate.currency && <small>{uiT("Reserves up to")}{" "}{money(quote.maximum_charge_nanos,quote.estimate.currency)}{uiT(". Final charge follows reported usage.")}</small>}</div>}
+            {uncertain && <p role="alert">{intentDocument&&intentDocument.content_state!=='retained' ? uiT("The saved input has expired or been deleted. Task history remains available."):uiT("Reload this saved request to confirm its input and original submission status before continuing.")}</p>}
+            {waitingForImages && <p role="status" className="video-muted">{uiT("Waiting for image upload to finish…")}</p>}
+          </>}
+          leadingActions={<>
+            <span ref={setAttachSlot} className="contents" />
+            {models.length>0?<DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="video-model-choice h-9 gap-2 px-2" aria-label={uiT("Video model")} disabled={Boolean(busy) || Boolean(intentId && !intentDocument?.job)}>{(model?.id || modelId) && <ProviderLogo provider={modelIdentity(context.models?.find(item => item.id === (model?.id || modelId)) ?? { id: model?.id || modelId })} size="small" />}<span className="truncate">{(model?.id || modelId) ? catalogTitle({ id: model?.id || modelId }) : uiT("Choose video model")}{(model?.id || modelId) && catalogTitle({ id: model?.id || modelId }) !== (model?.id || modelId) ? <span className="sr-only"> {model?.id || modelId}</span> : null}</span><ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={modelId} onValueChange={id=>{composerEdits.current.model=true;restoredComposer.current=null;setComposerEdited(true);setModelId(id);const query=new URLSearchParams(search);query.set('model',id);setSearch(query);const next=models.find(model=>model.id === id);setControls(next ? initialControls(next):{});}}>{models.map(item=>{const label=catalogTitle({ id: item.id });return <DropdownMenuRadioItem key={item.id} value={item.id}><ProviderLogo provider={modelIdentity(context.models?.find(candidate => candidate.id === item.id) ?? { id: item.id })} size="small" />{label}{label !== item.id ? <span className="sr-only"> {item.id}</span> : null}</DropdownMenuRadioItem>;})}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>:<Button type="button" variant="ghost" className="video-model-choice h-9 gap-2 px-2" disabled>{uiT("Choose video model")}</Button>}
+            {model&&toolsState==='supported'&&<Button type="button" variant="ghost" size="sm" onClick={()=>setProviderToolsOpen(true)}><ScanFace size={16}/><span>{uiT("Materials")}</span></Button>}
+          </>}
+          trailingActions={<>
+            {model && canWrite && <Button type="button" variant="ghost" size="sm" className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground" disabled={!base || !form.body || Boolean(busy) || uncertain || readingImages || restoringIntent || submissionStopped} onClick={() => void estimate()}>{uiT("Estimate")}</Button>}
+            {model&&<Popover><PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label={uiT("Additional settings")}><Settings size={18}/></Button></PopoverTrigger><PopoverContent side="top" align="end" aria-label={uiT("Video settings")} className="video-settings-popover"><h2>{uiT("Video settings")}</h2><div className="video-controls">
+              {Object.entries(model.controls).map(([name,rule])=><div key={name} className="video-field"><Label htmlFor={`video-${name}`}>{translateUI(controlLabels[name] ?? name)}</Label>
+                {rule.kind === 'choice' ? <DropdownMenu><DropdownMenuTrigger asChild><Button id={`video-${name}`} variant="outline" className="video-choice" disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}>{controls[name] !== undefined ? String(controls[name]) : uiT("Choose…")}<ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={String(controls[name] ?? '')} onValueChange={value=>{composerEdits.current.controls=true;setComposerEdited(true);setControls(current=>{const next={...current,[name]:value};if(name === 'resolution' && model.output && !model.output.allow_unmapped_output && !model.output.specifications.some(spec=>spec.resolution === value && spec.ratio === current.ratio)){const spec=model.output.specifications.find(spec=>spec.resolution === value);if(spec)next.ratio=spec.ratio;}return next;});}}>{rule.values.filter(value=>name !== 'ratio' || !model.output || model.output.allow_unmapped_output || model.output.specifications.some(spec=>spec.resolution === controls.resolution && spec.ratio === value)).map(value=><DropdownMenuRadioItem key={value} value={value}>{value}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
+                : rule.kind === 'integer' ? <><Input id={`video-${name}`} type="number" min={rule.minimum} max={rule.maximum} step={1} value={String(controls[name] ?? '')} onChange={event=>{composerEdits.current.controls=true;setComposerEdited(true);setControls(current=>({...current,[name]:event.target.value}));}} disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}/><small className="video-muted">{rule.minimum}–{rule.maximum}</small></>
+                : <Checkbox id={`video-${name}`} checked={controls[name] === true} onCheckedChange={checked=>{composerEdits.current.controls=true;setComposerEdited(true);setControls(current=>({...current,[name]:checked === true}));}} disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}/>}</div>)}
               <Button type="button" variant="ghost" onClick={()=>{composerEdits.current.controls=true;setComposerEdited(true);setControls(initialControls(model));}} disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}>{uiT("Reset settings")}</Button>
-
-                </div>{toolsModule&&<Button type="button" variant="ghost" onClick={()=>setProviderToolsOpen(true)}>{uiT("Reference materials & verification")}</Button>}</PopoverContent></Popover>
-              </>}
-            </div>
-            {model && canWrite && <Button type="button" variant="ghost" size="sm" disabled={!base || !form.body || Boolean(busy) || uncertain || readingImages || restoringIntent || submissionStopped} onClick={() => void estimate()}>{uiT("Estimate")}</Button>}
-            {(model || composerCover) && <Button type="submit" size="icon" aria-label={waitingForImages ? uiT("Waiting for image upload to finish…") : quoteMatches || unquotedOwnerFunded || canWrite ? uiT("Generate video") : uiT("Estimate")} title={waitingForImages ? uiT("Waiting for image upload to finish…") : quoteMatches || unquotedOwnerFunded || canWrite ? uiT("Generate video") : uiT("Estimate generation cost")} disabled={!base || !form.body || (Boolean(busy) && busy !== 'estimate') || uncertain || restoringIntent || ((quoteMatches || unquotedOwnerFunded) && !canWrite) || submissionStopped || Boolean(composerCover)}><ArrowUp size={20}/></Button>}
-            </div>
-            </div>
-            {composerCover==='loading'&&<div className="composer-cover" role="status"><p>{uiT("Loading video setup…", "正在加载视频配置…")}</p></div>}
-            {composerCover==='keys'&&<div className="composer-cover" role="status"><p>{uiT("API keys unavailable")}</p><div className="composer-cover-actions"><Button type="button" onClick={reloadSaved}>{uiT("Retry")}</Button></div></div>}
-            {composerCover==='history'&&<div className="composer-cover" role="status"><p>{originalKey?.revoked ? uiT("This API key was revoked.") : originalKey?.expired ? uiT("This API key has expired.") : uiT("Select an active API key to continue.")}</p><div className="composer-cover-actions">{fallbackActiveKey&&<Button type="button" variant="default" onClick={()=>chooseKey(fallbackActiveKey.id)}>{uiF("Use {0}",[fallbackActiveKey.name])}</Button>}<Button asChild variant={fallbackActiveKey ? "outline" : "default"}><Link to={`${workspacePath}/keys`} state={{createKey:true,returnTo:composerReturnTo}}>{uiT("Create API key")}</Link></Button></div></div>}
-            {composerCover==='ip'&&<div className="composer-cover" role="status"><p>{uiF("{0} is restricted to allowed source IP addresses",[originalKey?.name??uiT("This API key")])}</p><p className="video-muted">{originalKeyAllowedCidrs!==undefined&&originalKeyAllowedCidrs!==null?(originalKeyAllowedCidrs.length>0?`${uiF("Allowed source networks: {0}",[originalKeyAllowedCidrs.join(', ')])} · `:`${uiT("Current policy: Block all source IP addresses")} · `):''}{uiT("Your current network is not in this key’s source IP allowlist. Choose another API key, or add your current IP address to this key’s source IP policy.")}</p><div className="composer-cover-actions">{fallbackActiveKey&&<Button type="button" variant="default" onClick={()=>chooseKey(fallbackActiveKey.id)}>{uiF("Use {0}",[fallbackActiveKey.name])}</Button>}{originalKey&&<Button asChild variant="outline"><Link to={`${workspacePath}/keys/${encodeURIComponent(originalKey.slug||originalKey.id)}`}>{uiT("Configure source IP access")}</Link></Button>}<Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>{uiT("Manage keys")}</Link></Button><Button type="button" variant="ghost" onClick={reloadSaved}>{uiT("Recheck access")}</Button></div></div>}
-            {composerCover==='nokey'&&<div className="composer-cover" role="status"><p>{originalKey?.revoked ? uiT("This API key was revoked.") : originalKey?.expired ? uiT("This API key has expired.") : uiT("Select an active API key to continue.")}</p><div className="composer-cover-actions"><Button asChild><Link to={`${workspacePath}/keys`} state={{createKey:true,returnTo:composerReturnTo}}>{uiT("Create API key")}</Link></Button></div></div>}
-            {composerCover==='model'&&<div className="composer-cover" role="status"><p>{uiT("No video model available")}</p><p className="video-muted">{uiT("This API key has no supported video route.")}</p><div className="composer-cover-actions"><Button asChild variant="outline"><Link to={canManageSuppliers ? '/admin/providers':`${workspacePath}/models`}>{canManageSuppliers ? uiT("Manage Providers"):uiT("View models")}</Link></Button></div></div>}
-            {!canWrite && !composerCover && <small className="video-muted">{unquotedOwnerFunded ? uiT("Generation needs write access.") : uiT("Read access can estimate; generation needs write access.")}</small>}
-          </div>
-        </form>
-        <Dialog open={Boolean(unquotedConfirmation)} onOpenChange={open=>{if(!open)setUnquotedConfirmation(null);}}><DialogContent onCloseAutoFocus={event=>{event.preventDefault();unquotedTriggerRef.current?.focus();}}><DialogHeader><DialogTitle>{uiT("Generate video with your Provider account")}</DialogTitle><DialogDescription>{uiT("No output estimate is available for this video configuration. Your Provider may charge your account. This sends the request once; an uncertain outcome must be checked before another submission.")}</DialogDescription></DialogHeader><p className="break-words text-sm">{model?.id}</p>{!confirmationMatches&&<p role="alert" className="text-sm text-destructive">{uiT("The request or access changed. Close this dialog and review the current request.")}</p>}<DialogFooter><Button variant="outline" onClick={()=>setUnquotedConfirmation(null)}>{uiT("Cancel")}</Button><Button disabled={!confirmationMatches||submissionStopped||!canWrite||!base||Boolean(busy)||uncertain||readingImages||restoringIntent} onClick={()=>{if(!confirmationMatches)return;setUnquotedConfirmation(null);void saveOrSubmitRequest('submit',true);}}>{uiT("Generate video")}</Button></DialogFooter></DialogContent></Dialog>
-        <Dialog open={providerToolsOpen&&Boolean(toolsModule)} onOpenChange={setProviderToolsOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>{uiT("Reference materials & verification")}</DialogTitle><DialogDescription>{uiT("Manage reference materials and human verification required by this video model.")}</DialogDescription></DialogHeader>{toolsModule&&<ProviderGenerationTools toolsKey={toolsIdentity} workspaceName={workspace ? workspaceDisplayName(workspace.name) : 'Current workspace'} modelId={modelId} keyId={keyId} module={toolsModule}/>}</DialogContent></Dialog>
+            </div>{toolsModule&&<Button type="button" variant="ghost" onClick={()=>setProviderToolsOpen(true)}>{uiT("Reference materials & verification")}</Button>}</PopoverContent></Popover>}
+          </>}
+          submitAction={<Button type="submit" size="icon" className="generation-composer-submit rounded-full" aria-label={waitingForImages ? uiT("Waiting for image upload to finish…") : quoteMatches || unquotedOwnerFunded || canWrite ? uiT("Generate video") : uiT("Estimate")} title={waitingForImages ? uiT("Waiting for image upload to finish…") : quoteMatches || unquotedOwnerFunded || canWrite ? uiT("Generate video") : uiT("Estimate generation cost")} disabled={!model || !base || !form.body || (Boolean(busy) && busy !== 'estimate') || uncertain || restoringIntent || ((quoteMatches || unquotedOwnerFunded) && !canWrite) || submissionStopped || Boolean(composerCover)}><ArrowUp size={19}/></Button>}
+          footerNote={!canWrite && !composerCover ? <small className="video-muted">{unquotedOwnerFunded ? uiT("Generation needs write access.") : uiT("Read access can estimate; generation needs write access.")}</small> : null}
+          blockedCover={
+            composerCover==='keys'?<GenerationComposerCover icon={<KeyIcon size={17}/>} title={uiT("API keys unavailable")} actions={<Button type="button" onClick={reloadSaved}>{uiT("Retry")}</Button>}/>
+            : composerCover==='history'?<GenerationComposerCover icon={<KeyIcon size={17}/>} title={originalKey?.revoked ? uiT("This API key was revoked.") : originalKey?.expired ? uiT("This API key has expired.") : uiT("Select an active API key to continue.")} actions={<>{fallbackActiveKey&&<Button type="button" variant="default" onClick={()=>chooseKey(fallbackActiveKey.id)}>{uiF("Use {0}",[fallbackActiveKey.name])}</Button>}<Button asChild variant={fallbackActiveKey ? "outline" : "default"}><Link to={`${workspacePath}/keys`} state={{createKey:true,returnTo:composerReturnTo}}>{uiT("Create API key")}</Link></Button></>}/>
+            : composerCover==='ip'?<GenerationComposerCover icon={<KeyIcon size={17}/>} title={uiF("{0} is restricted to allowed source IP addresses",[originalKey?.name??uiT("This API key")])} detail={`${originalKeyAllowedCidrs!==undefined&&originalKeyAllowedCidrs!==null?(originalKeyAllowedCidrs.length>0?`${uiF("Allowed source networks: {0}",[originalKeyAllowedCidrs.join(', ')])} · `:`${uiT("Current policy: Block all source IP addresses")} · `):''}${uiT("Your current network is not in this key’s source IP allowlist. Choose another API key, or add your current IP address to this key’s source IP policy.")}`} actions={<>{fallbackActiveKey&&<Button type="button" variant="default" onClick={()=>chooseKey(fallbackActiveKey.id)}>{uiF("Use {0}",[fallbackActiveKey.name])}</Button>}{originalKey&&<Button asChild variant="outline"><Link to={`${workspacePath}/keys/${encodeURIComponent(originalKey.slug||originalKey.id)}`}>{uiT("Configure source IP access")}</Link></Button>}<Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>{uiT("Manage keys")}</Link></Button><Button type="button" variant="ghost" onClick={reloadSaved}>{uiT("Recheck access")}</Button></>}/>
+            : composerCover==='nokey'?<GenerationComposerCover icon={<KeyIcon size={17}/>} title={originalKey?.revoked ? uiT("This API key was revoked.") : originalKey?.expired ? uiT("This API key has expired.") : canWrite ? uiT("Create an API key to generate videos.", "创建 API 密钥后即可生成视频。") : uiT("No active API key in this workspace yet. Ask a workspace administrator to create one.", "当前工作空间暂无可用 API 密钥，请联系工作空间管理员创建。")} detail={quickKey.error ? uiT(quickKey.error) : undefined} actions={canWrite ? <><Button type="button" disabled={quickKey.busy} onClick={() => void handleQuickCreateVideoKey()}>{quickKey.busy ? <Loader size={14} className="animate-spin" aria-hidden="true" /> : <IconSparkles size={14} aria-hidden="true" />}{quickKey.busy ? uiT("Creating key…", "正在创建密钥…") : uiT("Auto-create key", "自动创建试用密钥")}</Button><Button asChild variant="outline" disabled={quickKey.busy}><Link to={`${workspacePath}/keys`} state={{createKey:true,returnTo:composerReturnTo}}>{uiT("Create API key")}</Link></Button></> : <Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>{uiT("View keys", "查看密钥")}</Link></Button>}/>
+            : composerCover==='model'?<GenerationComposerCover icon={<IconVideo size={17}/>} title={uiT("No video model available")} detail={uiT("This API key has no supported video route.")} actions={<Button asChild variant="outline"><Link to={canManageSuppliers ? '/admin/providers':`${workspacePath}/models`}>{canManageSuppliers ? uiT("Manage Providers"):uiT("View models")}</Link></Button>}/>
+            : null
+          }
+        />
+        <Dialog open={Boolean(unquotedConfirmation)} onOpenChange={open=>{if(!open)setUnquotedConfirmation(null);}}><DialogContent onCloseAutoFocus={event=>{event.preventDefault();unquotedTriggerRef.current?.focus();}}><DialogHeader><DialogTitle>{uiT("Generate video")}</DialogTitle><DialogDescription>{uiT("No output estimate is available for this configuration. Check the request status before retrying.")}</DialogDescription></DialogHeader><p className="break-words text-sm">{model?.id}</p>{!confirmationMatches&&<p role="alert" className="text-sm text-destructive">{uiT("The request or access changed. Close this dialog and review the current request.")}</p>}<DialogFooter><Button variant="outline" onClick={()=>setUnquotedConfirmation(null)}>{uiT("Cancel")}</Button><Button disabled={!confirmationMatches||submissionStopped||!canWrite||!base||Boolean(busy)||uncertain||readingImages||restoringIntent} onClick={()=>{if(!confirmationMatches)return;setUnquotedConfirmation(null);void saveOrSubmitRequest('submit',true);}}>{uiT("Generate video")}</Button></DialogFooter></DialogContent></Dialog>
+        <Dialog open={providerToolsOpen&&Boolean(toolsModule)} onOpenChange={setProviderToolsOpen}><DialogContent onEscapeKeyDown={event=>{const back=(event.currentTarget as HTMLElement).querySelector<HTMLButtonElement>('[data-dialog-back]');if(back){event.preventDefault();if(!back.disabled)back.click();}}} className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>{uiT("Reference materials & verification")}</DialogTitle><DialogDescription>{uiT("Manage reference materials and human verification required by this video model.")}</DialogDescription></DialogHeader>{toolsModule&&<ProviderGenerationTools toolsKey={toolsIdentity} workspaceName={workspace ? workspaceDisplayName(workspace.name) : 'Current workspace'} modelId={modelId} keyId={keyId} module={toolsModule}/>}</DialogContent></Dialog>
         </>}
       </div>
     </section>

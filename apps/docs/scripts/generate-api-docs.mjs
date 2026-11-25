@@ -93,14 +93,6 @@ for (const item of [spec, ...Object.values(spec.paths).flatMap(item => Object.va
     if (!spec.components?.securitySchemes?.[name]) throw new Error(`Undefined bundled security scheme ${name}`);
   }
 }
-const LEGACY_DUPLICATE_PROJECT_PATHS = new Set([
-  '/api/v1/organizations/{organization}/projects',
-  '/api/v1/organizations/{organization}/projects/{project}',
-  '/api/v1/organizations/{organization}/projects/{project}/keys',
-  '/api/v1/organizations/{organization}/projects/{project}/keys/{key}',
-  '/api/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate',
-]);
-
 const BUNDLE_DOMAIN_PREFIXES = new Map([
   ['billing_openapi_yaml', 'Billing'],
   ['guardrails_openapi_yaml', 'Guardrail'],
@@ -268,7 +260,7 @@ function buildAudienceView(title, audiences, { canonicalOnly = false, sanitizePu
   }
   const filteredPaths = {};
   for (const [route, item] of Object.entries(spec.paths)) {
-    if (canonicalOnly && (aliasedLegacyRoutes.has(route) || LEGACY_DUPLICATE_PROJECT_PATHS.has(route))) {
+    if (canonicalOnly && aliasedLegacyRoutes.has(route)) {
       continue;
     }
     const filteredItem = {};
@@ -311,13 +303,15 @@ function buildAudienceView(title, audiences, { canonicalOnly = false, sanitizePu
   return view;
 }
 
-outputs.set('contracts/generated/public-openapi.json', JSON.stringify(buildAudienceView(spec.info.title, ['public', 'model', 'console', 'customer-management'], { canonicalOnly: true, sanitizePublicDescription: true }), null, 2) + '\n');
+const publicView = buildAudienceView(spec.info.title, ['public', 'model', 'console', 'customer-management'], { canonicalOnly: true, sanitizePublicDescription: true });
+outputs.set('contracts/generated/public-openapi.json', JSON.stringify(publicView, null, 2) + '\n');
+outputs.set('contracts/generated/public-openapi.yaml', YAML.stringify(publicView));
 outputs.set('contracts/generated/views/model-openapi.json', JSON.stringify(buildAudienceView('Niu Model & Inference API', ['model', 'public']), null, 2) + '\n');
 outputs.set('contracts/generated/views/customer-management-openapi.json', JSON.stringify(buildAudienceView('Niu Customer Workspace & Billing Management API', ['customer-management'], { canonicalOnly: true, sanitizePublicDescription: true }), null, 2) + '\n');
 outputs.set('contracts/generated/views/console-openapi.json', JSON.stringify(buildAudienceView('Niu Console & Saved Session API', ['console']), null, 2) + '\n');
 outputs.set('contracts/generated/views/platform-provider-openapi.json', JSON.stringify(buildAudienceView('Niu Platform & Provider Administration API', ['platform', 'provider']), null, 2) + '\n');
 const generated = 'Generated from the checked-in source. Do not edit this reference by hand.';
-function page(title, description, lines) { return ['---', `title: ${JSON.stringify(title)}`, `description: ${JSON.stringify(description)}`, '---', '', generated, '', ...lines].join('\n') + '\n'; }
+function page(title, description, lines) { return ['---', `title: ${JSON.stringify(title)}`, `description: ${JSON.stringify(description)}`, '---', '', `<!-- ${generated} -->`, '', ...lines].join('\n') + '\n'; }
 function block(language, value) { return ['```' + language, value, '```', '']; }
 function resolveSchema(schema, seen = new Set()) {
   if (!schema || typeof schema !== 'object') return schema;
@@ -338,9 +332,9 @@ for (const [route,item] of Object.entries(spec.paths)) for (const [method,operat
   operations++;
   const group = /^\/v1\/(video|media|images)/.test(route) ? 'Video and media APIs'
     : /^\/v1(?:\/|$)|^\/v1beta\//.test(route) ? 'Model APIs'
-    : /^\/api\/v1\/(providers|provider-memberships|vendors|routing-registry|pools)/.test(route) ? 'Providers and routing APIs'
-    : /^\/api\/v1\/(auth\/|session$|operators)/.test(route) ? 'Authentication and sessions'
-    : /^\/api\/v1\/(organizations|workspaces|setup\/default-workspace|guardrails|metrics|models|pricing|financial-summary|commercial-position)/.test(route) ? 'Workspace and company APIs'
+    : /^\/api\/v1\/admin\/(providers|routing|incidents)/.test(route) ? 'Providers and routing APIs'
+    : /^\/api\/v1\/(auth\/|session$|members|setup$|public\/)/.test(route) ? 'Authentication and sessions'
+    : /^\/api\/v1\/(organizations|workspaces|setup\/default-workspace|guardrails|credits|models|admin\/)/.test(route) ? 'Workspace and company APIs'
     : 'Service endpoints';
   if (!restGroups.has(group)) restGroups.set(group, []);
   restGroups.get(group).push({route, method, link:`- [\`${method.toUpperCase()} ${route}\` — ${operation.summary || operation.operationId}](/docs/api/rest/${slug}/)`});
@@ -430,6 +424,12 @@ for(const exported of exports.sort((a,b)=>a.name.localeCompare(b.name))) {
  const sourceLink=`https://github.com/niu-io/niu/blob/release/${releaseLine}/`+path.relative(root,original.getSourceFile().fileName).split(path.sep).join('/');
  const slug=exported.name.toLowerCase();
  const lines=[`[SDK source](${sourceLink}). [All SDK types](/docs/api/sdk/).`, '', ...block('typescript',printer.printNode(ts.EmitHint.Unspecified,node,file))];
+ if (ts.isTypeAliasDeclaration(node) && ts.isTypeReferenceNode(node.type)) {
+   const target = node.type.typeName.getText(file);
+   if (target !== exported.name && exports.some(entry => entry.name === target)) {
+     lines.unshift(`See [${target}](/docs/api/sdk/${target.toLowerCase()}/) for the underlying declaration.`, '');
+   }
+ }
  if(ts.isClassDeclaration(node)) {
    lines.length=0;lines.push(`[SDK source](${sourceLink}). [All SDK types](/docs/api/sdk/).`, '', '## Constructor and members', '');
    for(const member of [...node.members].sort((a,b)=>Number(ts.isConstructorDeclaration(b))-Number(ts.isConstructorDeclaration(a)))) {

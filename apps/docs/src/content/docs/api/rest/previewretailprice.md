@@ -1,11 +1,11 @@
 ---
 title: "Preview a customer applicable price"
-description: "GET /api/v1/pricing/standard-prices/{price}/preview"
+description: "GET /api/v1/admin/pricing/standard-prices/{price}/preview"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/pricing/standard-prices/{price}/preview`
+`GET /api/v1/admin/pricing/standard-prices/{price}/preview`
 
 Explicit platform administration required; ordinary customer/Provider membership does not grant access. Advice only: does not enroll a workspace, reserve, dispatch or bind a request. Resolve at server time after the price identity lock, customer promotion then global then current standard. Exposes only this customer selection, not other customer rules. current_standard_revision may differ from the retained promotion baseline. Actual admission must select and pin in its transaction; never use preview as settlement evidence. Exact selected_at is UTC epoch seconds. Cache-Control: no-store.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/pricing/standard-prices/{price}/preview" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/pricing/standard-prices/{price}/preview" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN" \
   --url-query 'customer_organization_id=<CUSTOMER_ORGANIZATION_ID>'
 ```

@@ -3,7 +3,7 @@ title: "Discover member sign-in availability"
 description: "GET /api/v1/auth/config"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /api/v1/auth/config`
 
@@ -73,6 +73,10 @@ Content type: `application/json`.
     },
     "demo_login": {
       "type": "boolean"
+    },
+    "setup_required": {
+      "type": "boolean",
+      "description": "Live deployment state: true when browser password authentication is configured and no active password-enabled platform administrator account exists yet, so initial setup at /setup is required."
     },
     "registration_mode": {
       "type": "string",

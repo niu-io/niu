@@ -8,6 +8,14 @@ WITH names AS (SELECT DISTINCT unnest($1::text[]) AS alias), routes AS (
 )
 SELECT jsonb_build_object('model_alias',routes.public_alias,'route',routes.route,
     'configured',m.alias IS NOT NULL,'provider',b.name,'currency',COALESCE(r.currency,m.pricing->>'currency'),
+    'route_enabled',COALESCE(m.enabled,false),
+    'supply_ready',COALESCE(
+        m.enabled
+        AND niu_model_has_enabled_vendor(m.alias)
+        AND o.active
+        AND niu_offer_qualification_current(o.provider_id,o.id,o.current_revision),
+        false
+    ),
     'rate_kind',r.rate_kind,
     'media_cards',COALESCE((SELECT jsonb_agg(c.document) FROM supplier_media_rate_cards c
         WHERE c.offer_revision=r.id AND c.provider_id=o.provider_id

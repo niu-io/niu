@@ -25,7 +25,7 @@ it('prefills official settings and cancelling never creates a connection', async
 it('recovers catalog failures using the saved private connection, without saving the secret twice', async () => {
   let imports=0;
   vi.mocked(request).mockImplementation(async (_token,path,method) => {
-    if(path==='/api/v1/vendors' && method==='POST')return {data:{id:'saved-key',revision:1}};
+    if(path==='/api/v1/admin/providers/connections' && method==='POST')return {data:{id:'saved-key',revision:1}};
     if(path.endsWith('/supplier'))return {data:{id:'provider-owner'}};
     if(path.endsWith('/integration'))return {data:{effective_type:'deepseek',revision:0}};
     if(path.endsWith('/import')) {if(++imports===1)throw new ProviderRequestError('Provider rejected the key.',502);return {data:{imported:2,discovered:2}};}
@@ -36,7 +36,7 @@ it('recovers catalog failures using the saved private connection, without saving
   await screen.findByRole('alert');expect(screen.queryByLabelText('Provider API key')).toBeNull();
   await user.click(screen.getByRole('button',{name:'Retry model import'}));
   await screen.findByRole('link',{name:'View models'});
-  const writes=vi.mocked(request).mock.calls.filter(([,path,method])=>path==='/api/v1/vendors'&&method==='POST');
+  const writes=vi.mocked(request).mock.calls.filter(([,path,method])=>path==='/api/v1/admin/providers/connections'&&method==='POST');
   expect(writes).toHaveLength(1);expect(writes[0][3]).toMatchObject({personal_organization_id:'account',access_scope:'internal',api_key:'private-key',adapter:'openai',api_base:'https://api.deepseek.com'});
   expect(refreshWorkspace).toHaveBeenCalledOnce();
 });
@@ -61,13 +61,14 @@ it('blocks blind replay after uncertain key creation and clears the secret', asy
   expect(request).toHaveBeenCalledOnce();
 });
 
-it('discovers commercial models without presenting them as ready to sell', async () => {
+it('discovers commercial models and links directly to unified Provider configuration with autosync', async () => {
   mode.value='resale';
-  vi.mocked(request).mockImplementation(async (_token,path) => path.endsWith('/supplier') ? {data:{id:'resale-provider'}} : path.endsWith('/integration') ? {data:{effective_type:'deepseek',revision:0}} : path.endsWith('/import') ? {data:{imported:2,discovered:2}} : {data:{id:'resale-key',revision:1}});
+  vi.mocked(request).mockImplementation(async (_token,path) => path.endsWith('/supplier') ? {data:{id:'resale-provider',slug:'deepseek'}} : path.endsWith('/integration') ? {data:{effective_type:'deepseek',revision:0}} : path.endsWith('/import') ? {data:{imported:2,discovered:2}} : {data:{id:'resale-key',revision:1}});
   const {user}=show();await user.type(screen.getByLabelText('Provider API key'),'resale-private-key');
   await user.click(screen.getByRole('button',{name:'Connect and import models'}));
-  await screen.findByRole('link',{name:'Configured Providers'});
-  expect(screen.getByRole('status').textContent).toContain('New commercial models are disabled');
+  const nextLink = await screen.findByRole('link',{name:'Configure Provider'});
+  expect(nextLink.getAttribute('href')).toBe('/admin/providers/deepseek?autosync=1');
+  expect(screen.getByRole('status').textContent).toContain('2 models discovered');
   expect(vi.mocked(request).mock.calls.filter(([,path])=>path.endsWith('/import'))).toHaveLength(1);
   expect(vi.mocked(request).mock.calls[0][3]).not.toHaveProperty('personal_organization_id');
 });
@@ -76,7 +77,7 @@ it('keeps a saved resale connection recoverable when discovery has no catalog', 
   mode.value='resale';
   let imports=0;
   vi.mocked(request).mockImplementation(async (_token,path) => {
-    if(path==='/api/v1/vendors')return {data:{id:'saved-resale-key',revision:1}};
+    if(path==='/api/v1/admin/providers/connections')return {data:{id:'saved-resale-key',revision:1}};
     if(path.endsWith('/supplier'))return {data:{id:'resale-provider'}};
     if(path.endsWith('/integration'))return {data:{effective_type:'deepseek',revision:0}};
     if(path.endsWith('/import')){imports+=1;throw new ProviderRequestError('Catalog unavailable.',502);}
@@ -90,7 +91,7 @@ it('keeps a saved resale connection recoverable when discovery has no catalog', 
   expect(onSaved).toHaveBeenCalledOnce();
   await user.click(screen.getByRole('button',{name:'Retry model import'}));
   await waitFor(()=>expect(imports).toBe(2));
-  const creates=vi.mocked(request).mock.calls.filter(([,path,method])=>path==='/api/v1/vendors'&&method==='POST');
+  const creates=vi.mocked(request).mock.calls.filter(([,path,method])=>path==='/api/v1/admin/providers/connections'&&method==='POST');
   expect(creates).toHaveLength(1);
   expect(creates[0][3]).toMatchObject({api_key:'resale-private-key'});
   expect(creates[0][3]).not.toHaveProperty('personal_organization_id');

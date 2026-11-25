@@ -12,10 +12,10 @@ pub(crate) mod platform_pricing;
 pub(crate) mod reservations;
 pub(crate) mod retail_pricing;
 pub(crate) mod usage_reconciliation;
-use crate::{error::ApiError, state::AppState};
+use crate::{error::ApiError, state::AppState, web::workspace_path::WorkspacePath as Path};
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Query, State},
     http::HeaderMap,
 };
 use niu_storage::{AdminPermission, ProviderOfferInput, TenantScope};
@@ -41,7 +41,7 @@ async fn authorize(
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing",
+///   "path": "/api/v1/workspaces/{workspace}/billing",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [
@@ -362,16 +362,7 @@ async fn authorize(
 ///     },
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -401,7 +392,7 @@ pub async fn overview(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/tariffs",
+///   "path": "/api/v1/workspaces/{workspace}/billing/tariffs",
 ///   "method": "post",
 ///   "operation": {
 ///     "security": [
@@ -597,16 +588,7 @@ pub async fn overview(
 ///     },
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1809,7 +1791,7 @@ pub struct InvoiceInput {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/invoices",
+///   "path": "/api/v1/workspaces/{workspace}/billing/invoices",
 ///   "method": "post",
 ///   "operation": {
 ///     "security": [
@@ -1902,16 +1884,7 @@ pub struct InvoiceInput {
 ///     },
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1955,7 +1928,7 @@ pub struct InvoiceLinesQuery {
 }
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}",
+///   "path": "/api/v1/workspaces/{workspace}/billing/invoices/{invoice}",
 ///   "method": "get",
 ///   "operation": {
 ///     "security": [
@@ -1966,16 +1939,7 @@ pub struct InvoiceLinesQuery {
 ///     "operationId": "getCustomerInvoiceLines",
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -2686,21 +2650,127 @@ fn exact_nonnegative_integer(value: &str) -> Result<i64, ApiError> {
         .map_err(|_| ApiError::invalid_request("Decimal integer exceeds the supported range."))
 }
 
-/// Trusted administration records an externally verified settled payment.
-/// This is not a customer payment callback or self-service funding endpoint.
+/// ```openapi
+/// {
+///   "path": "/api/v1/organizations/{organization}/billing/funding/settled",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "recordSettledCustomerFunding",
+///     "summary": "Record settled customer account top-up",
+///     "description": "Explicit platform administration required; ordinary company owners/admins cannot credit their own accounts. Atomically records a positive settled top-up into the company's currency account (creating a zero-balance account first if absent) keyed idempotently by (channel, payment_reference). Repeating the exact same organization, currency, amount, channel and payment reference returns success without crediting twice; reusing the same (channel, payment_reference) with different parameters returns 409.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "currency",
+///               "amount_nanos",
+///               "channel",
+///               "payment_reference"
+///             ],
+///             "properties": {
+///               "currency": {
+///                 "type": "string",
+///                 "pattern": "^[A-Z]{3}$"
+///               },
+///               "amount_nanos": {
+///                 "type": "string",
+///                 "pattern": "^[1-9][0-9]{0,18}$",
+///                 "description": "Positive exact currency nanounits, maximum 9223372036854775807."
+///               },
+///               "channel": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 100
+///               },
+///               "payment_reference": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 200
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Settled top-up recorded, or identical previously recorded reference confirmed",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "recorded"
+///                   ],
+///                   "properties": {
+///                     "recorded": {
+///                       "type": "boolean"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid currency, amount, channel or payment reference"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Explicit platform administration required"
+///       },
+///       "409": {
+///         "description": "Unknown company or conflicting payment reference reuse"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+/// Trusted platform administration records an externally verified or manual
+/// settled top-up. Never expose this as an unverified self-service callback.
 pub async fn settled_funding(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(organization): Path<Uuid>,
     Json(input): Json<SettledFundingInput>,
 ) -> Result<Json<Value>, ApiError> {
-    let auth = state
-        .authorize_admin_headers(&headers, AdminPermission::Write)
-        .await?;
-    if !auth.is_installation() {
-        return Err(ApiError::forbidden());
-    }
+    let _auth = state.authorize_platform_headers(&headers).await?;
     let amount = exact_nonnegative_integer(&input.amount_nanos)?;
+    if amount == 0 || input.amount_nanos.starts_with('0') {
+        return Err(ApiError::invalid_request(
+            "Use a positive exact amount without leading zeroes.",
+        ));
+    }
     state
         .store
         .record_settled_customer_funding(
@@ -3330,7 +3400,7 @@ pub struct CustomerTariffHistoryQuery {
 /// Read immutable customer prices with the same workspace permission as billing.
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history",
+///   "path": "/api/v1/workspaces/{workspace}/billing/tariffs/{model}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listCustomerTariffHistory",
@@ -3343,16 +3413,7 @@ pub struct CustomerTariffHistoryQuery {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -3610,7 +3671,7 @@ pub async fn tariff_history(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history",
+///   "path": "/api/v1/admin/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listPlatformCustomerTariffHistory",

@@ -23,10 +23,11 @@ change unrelated host environment or security policies to forward credentials.
 
 ## Qualified local connection boundary
 
-The dated 0.3.0 verification record covers actual macOS browser approval and
+The dated 0.3 verification record covers actual macOS browser approval and
 same-process management reads for Codex 0.162.0, Claude Code 2.1.316 and
-DeepSeek Harness 0.2.1-rc.5. These are development candidates, not published
-packages or a claim covering every host version and OS. Claude Code tool calls
+DeepSeek Harness 0.2.1-rc.5. Release archives ship the packaged runtime and
+manifests verified against those pinned host versions; they do not claim
+compatibility with every host version or operating system. Claude Code tool calls
 were driven by a local deterministic Messages fixture; no paid model inference
 or real model-quality judgment was used. Its `--bare` test mode omitted plugin
 MCP tools from the calling surface; the passing tool-orchestration check used

@@ -1,12 +1,13 @@
 //! Workspace-safe configured media inspection discovery; never an approval.
 use super::{
-    AdminPermission, ApiError, AppState, HeaderMap, Json, Path, State, TenantScope, Uuid, Value,
+    AdminPermission, ApiError, AppState, HeaderMap, Json, State, TenantScope, Uuid, Value,
     authorize, json,
 };
+use crate::web::workspace_path::WorkspacePath as Path;
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors",
+///   "path": "/api/v1/workspaces/{workspace}/guardrails/media-detectors",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listWorkspaceMediaDetectors",
@@ -19,16 +20,7 @@ use super::{
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {

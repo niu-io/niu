@@ -3,7 +3,7 @@ title: "Refresh upstream verification session"
 description: "POST /v1/media/verifications/{id}/refresh"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /v1/media/verifications/{id}/refresh`
 

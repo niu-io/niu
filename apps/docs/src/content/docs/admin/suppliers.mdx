@@ -42,7 +42,7 @@ If discovery fails, inspect the error, fix the credential or endpoint, and retry
 
 ## Manage the Provider lifecycle
 
-Provider sections include **Overview**, **API keys**, **Models**, **Usage**, **Settlements**, **Members** and **Settings**. Keep credential rotation and enabled-state changes scoped to the selected credential; they must not replace the Provider identity or unrelated model mappings.
+Each Provider workspace is organized into two tabs — **Configuration** (business profile, default integration, API keys, and model access/discount policy on a single page, with a **Browse models** catalog dialog) and **Analytics** (90-day model consumption, payables, and settlement history). All available models are enabled by default with no discount (`100%`) unless restricted by an allowlist or blocklist; there is no Provider `Members` section. Keep credential rotation and enabled-state changes scoped to the selected credential; they must not replace the Provider identity or unrelated model mappings.
 
 Keep customer selling prices separate from Provider offers. Procurement rates, upstream expenses and platform margins belong to authorized platform administration; customer reports expose customer charges only. Provider membership does not enable portal access. Platform administrators manage financial and statistics records and can provide externally reviewed billing exports when needed.
 
@@ -99,7 +99,7 @@ OpenRouter 建议使用 `https://openrouter.ai/api/v1`。New API 和 LiteLLM 应
 
 ## 管理模型供应商生命周期
 
-模型供应商管理页面包含**概览**（**Overview**）、**API 密钥**（**API keys**）、**模型**（**Models**）、**用量**（**Usage**）、**结算**（**Settlements**）、**成员管理**（**Members**）和**设置**（**Settings**）等部分。请将凭证轮换和启用状态变更限制在所选凭证的范围内；这些操作不应替换模型供应商本身的身份或影响无关的模型映射。
+每个模型供应商详情页精简为**配置**（**Configuration**，在同一页面内集中管理基本资料与集成、API 密钥、模型可用范围与默认采购折扣，并通过「浏览模型」弹窗查看全量模型目录）和**统计**（**Analytics**，汇总近 90 天用量、应付账款与结算记录）两个标签页；默认无折扣启用全部可用模型，仅在配置黑名单或白名单时在页面展示对应名单，不提供供应商成员配置。请将凭证轮换和启用状态变更限制在所选凭证的范围内；这些操作不应替换模型供应商本身的身份或影响无关的模型映射。
 
 请将面向客户的销售价格与模型供应商报价严格分开。采购费率、上游支出和平台利润属于授权平台管理范畴；面向客户的报告仅展示客户费用。模型供应商成员身份不会开启独立的门户访问权限；平台管理员统一管理财务与统计记录，并可在需要时导出经外部核对的账单报表。
 

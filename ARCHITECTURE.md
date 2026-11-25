@@ -1,6 +1,6 @@
 # Niu architecture
 
-Status: current public runtime, 2026-10-10. This document describes the gateway in this repository. [Product focus](docs/product/product-focus.md) sets scope. [The release matrix](docs/releases/first-release.md) tracks qualification. Specialized contracts are listed at the end; they do not replace this description.
+Status: current public runtime, 2026-11-20. This document describes the gateway in this repository. [Product focus](docs/product/product-focus.md) sets scope. [The release matrix](docs/releases/first-release.md) tracks qualification. Specialized contracts are listed at the end; they do not replace this description.
 
 ## Runtime
 
@@ -21,8 +21,11 @@ apps/docs        Developer documentation, built to static files
 apps/catalog     Brand assets for /catalog-assets/; /models/ is the dashboard catalog
 contracts        OpenAPI and versioned wire contracts
 crates/storage   PostgreSQL persistence and ledger operations
+crates/media     Video and media asset metadata, bounds, and metering helpers
 crates/metered-cost
                  Integer media pricing
+crates/payments  Payment gateway protocol verification and transport adapters
+crates/upstream  Upstream HTTP transport utilities
 crates/cost      Imported floating-point text estimate; not the ledger
 crates/execution Compatibility vocabulary for imported task records
 crates/plugin-api
@@ -30,17 +33,18 @@ crates/plugin-api
 crates/plugin-sdk
                  Ed25519 JWS verification and Unix-socket plugin server helpers
 plugins/*        Built-in open-source plugins (hello-echo, request-tagger, webhook-audit)
+sdks/*           JavaScript SDK, Agent Connect, local MCP server, and opt-in telemetry collector
 vendor/litellm-rust
                  Pinned provider and protocol modules
 ```
 
-Storage and HTTP names predate the product language. `organizations` are the company billing accounts. `projects` are workspaces. `vendors` are Supplier credential configurations. Earnings APIs use `providers` for Supplier businesses. Product UI says workspace, Supplier, and company. New customer-facing names stop at that boundary; existing columns and routes stay.
+Storage and HTTP names predate the product language. `organizations` are the company billing accounts. `projects` are workspaces. `vendors` are Provider credential configurations. Earnings APIs use `providers` for Provider businesses. Product UI says workspace, Provider, and company. New customer-facing names stop at that boundary; existing columns and routes stay.
 
 ## Request path
 
 A model request authenticates a workspace API key, resolves one enabled route, and commits attempt intent before any provider call. Static and database-backed text routes now resolve from one immutable published generation. Managed video selections use that same registry and retain their generation with the durable submission identity. Configuration writes and publication commit together; live authorization, cooldown and qualification checks remain mandatory. See [routing publications](docs/reference/routing-publications.md). A database commit is not atomic with the upstream network call. After a crash, unknown execution is not treated as free or safe to send again.
 
-Shared unpriced admissions are queued in batches of up to 64, with at most four batches in flight. Personal routes use their own admission path. Priced admission commits the operation, attempt, selected managed route, token bound, inspected guardrails, provider, customer tariff, Supplier offer, reservation and dispatch intent in one transaction. A price-cache miss may publish its immutable revision before that transaction. Policy denials retain their audit; other pre-commit errors roll back the new attempt. A failed commit acknowledgement does not authorize releasing a hold or resubmitting. See [atomic admission evidence and limits](docs/reference/priced-admission-atomicity.md).
+Shared unpriced admissions are queued in batches of up to 64, with at most four batches in flight. Personal routes use their own admission path. Priced admission commits the operation, attempt, selected managed route, token bound, inspected guardrails, provider, customer tariff, Provider offer, reservation and dispatch intent in one transaction. A price-cache miss may publish its immutable revision before that transaction. Policy denials retain their audit; other pre-commit errors roll back the new attempt. A failed commit acknowledgement does not authorize releasing a hold or resubmitting. See [atomic admission evidence and limits](docs/reference/priced-admission-atomicity.md).
 
 Personal routes reject commercial pricing. A company with a balance account rejects an unpriced shared model instead of dispatching it without a bound.
 
@@ -58,9 +62,9 @@ Three amounts stay independent:
 | --- | --- |
 | `cost_entries` | Installation upstream-cost accounting |
 | `customer_charges`, `customer_media_charges` | Customer text or media price for one attempt |
-| `provider_earnings` | Amount owed to the Supplier |
+| `provider_earnings` | Amount owed to the Provider |
 
-No ledger is derived from another. Customer APIs do not return Supplier cost or platform margin.
+No ledger is derived from another. Customer APIs do not return Provider cost or platform margin.
 
 Prepaid company balance is what admits paid traffic. Available capacity is balance plus the approved credit limit, minus outstanding customer liabilities. A known unsettled media charge counts at least its original reservation and can exceed it; already posted debits are not counted again. The balance row is per organization and currency. Workspace and key caps limit their own usage and do not create a second balance. A missing customer tariff does not become a zero price.
 
@@ -76,15 +80,15 @@ Video estimates use `niu-metered-cost` integer arithmetic. `niu-cost` can estima
 
 Financial recovery and content maintenance have independent five-second schedules in the gateway. Financial recovery claims one database transaction owner across instances, uses one claimed connection from the existing pool and persists per-stage UUID progress. Each batch reads at most 100 eligible attempts; savepoints isolate record errors, and the ledgers commit independently. Content expiry and interrupted image-ingestion/readiness recovery use a separate shared ownership key. Both groups use a 250 ms lock timeout and a 2 s statement timeout; they wait at most 250 ms for a connection before skipping the stage. Scheduled content maintenance uses its dedicated single-connection pool; financial recovery retains the admission pool. Claim checks briefly use connections in competing processes. Payment/video recovery remains outside these ownership groups. Interrupted image recovery retains its existing 16-row claim batch and uncertainty semantics. Content sweeps no longer borrow admission-pool connections. Financial, payment and video recovery still share admission capacity; this is not a global single-connection cap across Gateway processes. Actual customer-charge recovery includes multi-batch traversal, restart at a nonempty cursor and foreground priced admission overlapping recovery; other ledgers and sustained capacity retain separate qualification boundaries. See [financial recovery](docs/reference/financial-recovery-coordination.md) and [content retention](docs/reference/content-retention-recovery.md).
 
-Customer invoices summarize `customer_charges` and `customer_media_charges` through a shared retail source view. Media receipts are returned separately from text line groups; pending media debits block invoice issuance. Issuing or marking an invoice paid does not credit prepaid balance or grant spending capacity. Invoice totals and status share a settlement read model: exact balance debits and invoice receipts discharge the invoice obligation without double-counting. Credit-backed account debt remains in the balance ledger. An isolated current-input credit-backed text workflow verified exact debits, invoice settlement, a key cap and an idempotent balance refund; merchant funding and media charging remain open. See [credit workflow evidence](docs/reference/internal-credit-workflow-live.md). Supplier settlement records an external payment against earnings; it does not send that payment.
+Customer invoices summarize `customer_charges` and `customer_media_charges` through a shared retail source view. Media receipts are returned separately from text line groups; pending media debits block invoice issuance. Issuing or marking an invoice paid does not credit prepaid balance or grant spending capacity. Invoice totals and status share a settlement read model: exact balance debits and invoice receipts discharge the invoice obligation without double-counting. Credit-backed account debt remains in the balance ledger. An isolated current-input credit-backed text workflow verified exact debits, invoice settlement, a key cap and an idempotent balance refund; merchant funding and media charging remain open. See [credit workflow evidence](docs/reference/internal-credit-workflow-live.md). Provider settlement records an external payment against earnings; it does not send that payment.
 
-Configured Stripe, EPay, and Zhifux checkouts can credit a company balance after a verified top-up. Currency conversion, automatic Supplier payout, and a credit-note API are not implemented.
+Configured Stripe Checkout handles new verified online top-ups that credit a company balance; EPay and Zhifux are retired for new top-ups and retained only for notification verification and historical order reconciliation. Currency conversion, automatic Provider payout, and a credit-note API are not implemented.
 
-Details: [billing](docs/architecture/billing.md), [Supplier workspace](docs/architecture/provider-workspace.md).
+Details: [billing](docs/architecture/billing.md), [Provider workspace](docs/architecture/provider-workspace.md).
 
 ## Configuration
 
-Managed Supplier credentials and model mappings live in PostgreSQL and take effect without rebuilding the image. A static TOML route remains only when no database row owns that alias, including a disabled row. Credentials are AES-256-GCM ciphertext bound to the vendor id. `NIU_VENDOR_ENCRYPTION_KEY` is not in the database and cannot be rotated in place. See [vendors](docs/architecture/vendors.md).
+Managed Provider credentials and model mappings live in PostgreSQL and take effect without rebuilding the image. A static TOML route remains only when no database row owns that alias, including a disabled row. Credentials are AES-256-GCM ciphertext bound to the vendor id. `NIU_VENDOR_ENCRYPTION_KEY` is not in the database and cannot be rotated in place. See [vendors](docs/architecture/vendors.md).
 
 Dashboard sign-in is a member password session. The installation administrator token is a separate credential. A development seed member is refused when the process is not bound to loopback. OIDC and SAML are not implemented.
 
@@ -103,7 +107,7 @@ This is a gap inventory, not an implementation order. The product focus and rele
 - Qualify the invoice settlement read model with actual paid and mixed-settlement business flows.
 - Extend routing reliability beyond the qualified bounded Chat authentication-rejection successor, preserving distinct attempts, new bounds and no resubmit after uncertain execution.
 - Re-encrypt stored credentials under a new master key.
-- Extend routing-publication qualification to remaining native protocol combinations and maintenance paths. Private Codex account routes remain outside the Supplier/static registry and are not assigned a fabricated generation.
+- Extend routing-publication qualification to remaining native protocol combinations and maintenance paths. Private Codex account routes remain outside the Provider/static registry and are not assigned a fabricated generation.
 
 ## Unified route publication: implementation constraints
 
@@ -122,50 +126,46 @@ A current-input regression exercised concurrent disablement, 103 pools, personal
 scope isolation, static shadowing, two actual completions and independently
 reconciled charges after restart.
 
-The replacement must use one compiler and resolver for database and static
-inputs. Keep every database alias in the compiler's shadow set, including
+The published registry uses one compiler and resolver for database and static
+inputs. Every database alias stays in the compiler's shadow set, including
 disabled and account-owned aliases, so a static alias cannot bypass exclusion.
-Retain personal ownership and protocol/capability filtering before candidate
-priority and weight selection. Video-specific resolution must consume the same
+Personal ownership and protocol/capability filtering run before candidate
+priority and weight selection. Video-specific resolution consumes the same
 published generation while retaining its separate submission and recovery flow.
 
-Publish a complete validated generation and its active pointer atomically, using
+Complete validated generations and their active pointer publish atomically, using
 an expected active generation to reject overlapping stale publications. Failed
-validation or a lost publication race must leave the active pointer unchanged.
-Static configuration needs an explicit source fingerprint in that generation;
-Gateways with a different static source must not silently serve different routes
-under the same generation identifier. Do not freeze time-dependent eligibility
+validation or a lost publication race leaves the active pointer unchanged.
+Static configuration carries an explicit source fingerprint in each generation;
+Gateways with a different static source do not silently serve different routes
+under the same generation identifier. Time-dependent eligibility is not frozen
 into that configuration generation: cooldown deadlines and qualification expiry
-can change eligibility without a configuration write. Selection must evaluate
-those live facts, and admission must recheck them. Actual two-Gateway cooldown
+can change eligibility without a configuration write. Selection evaluates
+those live facts, and admission rechecks them. Actual two-Gateway cooldown
 expiry has been observed to restore directory eligibility under an unchanged
-pool revision; a future publisher must preserve that behavior.
-Bootstrap must retain its existing
+pool revision; the publisher preserves that behavior.
+Bootstrap retains its existing
 import-once behavior rather than republishing deployment defaults over edits.
 
 A published record contains configuration and credential references, not plaintext
-secrets. Preserve the distinction between server-only compiled route data and
-customer catalog projections: endpoints, procurement values and credentials must
-not become public simply because they belong to a generation. Credential rotation
-and revocation must retain their live authorization checks; a cached generation
+secrets. The distinction between server-only compiled route data and
+customer catalog projections stays enforced: endpoints, procurement values and credentials never
+become public simply because they belong to a generation. Credential rotation
+and revocation retain their live authorization checks; a cached generation
 cannot authorize use of an old credential after revocation.
 
-Acquire one generation for each attempt and bind its identity in the same durable
+Each attempt acquires one generation and binds its identity in the same durable
 preparation transaction as the selected route and accounting context. The shared
 admission path still rechecks key revocation, workspace grants, ownership,
-credential eligibility, limits and reservations. Do not remove those checks when
-removing repeated route-resolution reads. Already dispatched work continues with
+credential eligibility, limits and reservations. Already dispatched work continues with
 its pinned route; media recovery and usage reconciliation keep their immutable
-original bindings. A retry successor is a distinct attempt and must retain the
+original bindings. A retry successor is a distinct attempt and retains the
 operation's existing tariff/funding and uncertainty safeguards.
 
-Implement storage publication and compiler validation, then switch discovery and
-all inference resolvers together; do not label a directory-only version counter
-as completion. Actual acceptance must cover concurrent publications, rejected
-invalid publication, disabled database/static shadowing, an in-flight response
-across publication, restart without draft activation, and independent inspection
-of each attempt's generation and exact charges. Current evidence does not yet
-establish these properties for a published registry.
+Discovery and text/managed-video inference resolvers all read from the same
+published registry. See [routing publications](docs/reference/routing-publications.md)
+for verified concurrent-publication, invalid-publication rejection, shadowing,
+restart, and in-flight generation evidence along with remaining qualification limits.
 
 ## Further contracts
 
@@ -177,15 +177,15 @@ their execution evidence and the remaining qualification limits.
 | --- | --- |
 | Paths and repositories | [repository ownership](docs/architecture/repository-ownership.md) |
 | Image, migrations, encryption-key backup | [container deployment](docs/architecture/container-deployment.md) |
-| Supplier credentials and static routes | [vendors](docs/architecture/vendors.md) |
+| Provider credentials and static routes | [vendors](docs/architecture/vendors.md) |
 | Route pools and failover limits | [model routing](docs/architecture/model-routing-evolution.md) |
 | Customer charges, prepaid balance, invoices | [billing](docs/architecture/billing.md) |
-| Supplier earnings | [Supplier workspace](docs/architecture/provider-workspace.md) |
+| Provider earnings | [Provider workspace](docs/architecture/provider-workspace.md) |
 | Plugin composition and distributions | [Plugin composition](docs/architecture/enterprise-composition.md) |
 | Attempt evidence and retries | [capability and execution](docs/architecture/capability-execution-contract.md) |
 | Plugin hook and observer traits | [capability contracts](docs/architecture/capability-contracts.md) |
 | Imported task records | [execution observation](docs/architecture/execution-observation.md) |
 | Private Codex supply | [private Codex supply](docs/architecture/private-codex-supply.md) |
-| Supplier account registry | [supplier accounts](docs/architecture/supplier-accounts.md) |
+| Provider account registry | [Provider accounts](docs/architecture/supplier-accounts.md) |
 | Quota observations | [quota observation](docs/architecture/quota-observation.md) |
 | New API comparison | [New API parity](docs/architecture/new-api-parity.md) |

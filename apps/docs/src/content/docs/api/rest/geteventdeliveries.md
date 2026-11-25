@@ -3,7 +3,7 @@ title: "Inspect the latest 100 subscription deliveries"
 description: "GET /v1/events/{slug}/deliveries"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `GET /v1/events/{slug}/deliveries`
 

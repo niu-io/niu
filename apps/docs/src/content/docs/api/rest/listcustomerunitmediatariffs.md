@@ -1,11 +1,11 @@
 ---
 title: "List latest explicit Credits media tariffs"
-description: "GET /api/v1/platform/units/media/tariffs"
+description: "GET /api/v1/admin/units/media/tariffs"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
-`GET /api/v1/platform/units/media/tariffs`
+`GET /api/v1/admin/units/media/tariffs`
 
 Platform administration required. Reads the latest saved Credits media consumption tariff per dimension tuple (model_alias, channel, resolution, reference_video), not a conversion from payment currency. Optional model filter scopes to one model alias. No Provider procurement price is exposed.
 
@@ -28,7 +28,7 @@ Use the credential and permission scope described above. Each object below is an
 Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path, query and header placeholders with the required values. Query examples use curl 7.87 or newer to encode values with `--url-query`. Use the credential scope described above; a bearer token must have the authority required by this operation.
 
 ```sh
-curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/platform/units/media/tariffs" \
+curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/units/media/tariffs" \
   -H "Authorization: Bearer $NIU_BEARER_TOKEN"
 ```
 

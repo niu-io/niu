@@ -99,4 +99,4 @@ Configure push notifications only when the user explicitly authorizes an HTTPS r
 
 Platform resource events are distinct from coding-agent **host hooks** and **server-side Niu plugins** (see `/docs/agents.md`). Creating an event subscription does not install host hooks.
 
-Related contracts: [Install](/docs/install.md) · [Capabilities](/docs/agents.md) · [Model inference](/docs/inference.md) · [Workspace routing](/docs/pools.md) · [Evaluations](/docs/evaluations.md) · [OpenAPI](/docs/openapi/public.json)
+Related contracts: [Install](/docs/install.md) · [Capabilities](/docs/agents.md) · [Model inference](/docs/inference.md) · [Workspace routing](/docs/routing.md) · [Evaluations](/docs/evaluations.md) · [OpenAPI](/docs/openapi/public.json)

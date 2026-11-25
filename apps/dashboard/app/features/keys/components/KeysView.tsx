@@ -27,9 +27,9 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyCont
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
-import { TableSkeleton } from '@/components/PageSkeletons';
+import { ListRowsSkeleton } from '@/components/PageSkeletons';
 import PageHeader from '@/components/PageHeader';
 import { useDashboardContext, type Model } from '@/shell/dashboard-context';
 import { amountToNanos, formatUnitAtoms, money } from '@/lib/money';
@@ -97,7 +97,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   const navigate = useNavigate();
   const generationReturn = useRef<string | null>(null);
   const initialCollectionPath = initialScope ? workspaceKeyPath(initialScope.projectId) : '';
-  const [keyStatusFilter, setKeyStatusFilter] = useState<KeyStatusFilter>('active');
+  const [keyStatusFilter, setKeyStatusFilter] = useState<KeyStatusFilter>('all');
   const initialPagePath = initialScope ? workspaceKeyPagePath(initialScope.projectId, 50, undefined, keyStatusFilter) : '';
   const initialCachedKeys = initialPagePath
     ? peekCachedKeyGet<{ data: ProjectKey[]; next_cursor?: string | null }>(token, initialPagePath)
@@ -109,7 +109,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(() => Boolean(initialCollectionPath && !loaderKeys && !initialCachedKeys));
   useEffect(() => {
-    if (loaderKeys && keyStatusFilter === "active") {
+    if (loaderKeys && keyStatusFilter === "all") {
       setKeys(loaderKeys);
       setNextCursor(loaderNextCursor ?? null);
       setLoadedScope(scopeIdentity);
@@ -486,14 +486,13 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   // never prevents either mutation form from opening or submitting.
   const activeNotice: KeyRequestNotice | null = requestNotice ?? (activePending ? {kind:'uncertain', pending:activePending} : null);
 
+  const emptyCollection = Boolean(workspace && !workspaceLoading && !isPending && !error && keyStatusFilter === "all" && !visibleKeys.length);
   const usageExample = issued ? `curl "${baseUrl()}/models" ${String.fromCharCode(92)}
   -H "Authorization: Bearer ${issued.token}"` : '';
   const invocationAllowed = issued?.key?.invocation_allowed !== false;
 
   return <div className="keys-page">
-    <PageHeader title={uiT("Keys")} action={canIssue
-      ? <Button className="header-icon-action" aria-label={uiT("New key")} title={uiT("New key")} onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New key")}</span></Button>
-      : undefined} />
+    <PageHeader title={uiT("Keys")} action={<>{workspace && <Button ref={refreshButtonRef} type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh keys")} title={uiT("Refresh")} disabled={isPending} onClick={() => void reload()}><RefreshCw size={16} className={isPending ? 'animate-spin' : undefined} /></Button>}{canIssue && !emptyCollection && <Button className="header-icon-action" aria-label={uiT("New key")} title={uiT("New key")} onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New key")}</span></Button>}</>} />
     {activeNotice && (() => {
       const noticeError = 'error' in activeNotice ? activeNotice.error : '';
       const pendingAction = 'pending' in activeNotice ? activeNotice.pending.action : null;
@@ -527,45 +526,65 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
       </Alert>;
     })()}
     {!workspaceLoading && !workspace && <p className="key-scope-empty">{uiT("Choose a workspace from the sidebar to manage its keys.")}</p>}
-    {workspace && <div className="keys-scope-line"><DropdownMenu><DropdownMenuTrigger asChild><Button ref={filterTriggerRef} type="button" variant="ghost" size="sm" aria-label={uiT("Filter by key status")} title={uiT("Filter by key status")} className={keyStatusFilter !== 'all' ? 'h-8 gap-1.5 px-2.5 text-xs text-primary bg-accent' : 'h-8 gap-1.5 px-2.5 text-xs'}><ListFilter size={15}/><span>{keyStatusFilter === 'active' ? uiT("Active keys") : keyStatusFilter === 'inactive' ? uiT("Revoked or expired") : uiT("All keys")}</span><ChevronDown size={14} aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" sideOffset={6}><DropdownMenuRadioGroup value={keyStatusFilter} onValueChange={value => setKeyStatusFilter(value as typeof keyStatusFilter)}><DropdownMenuRadioItem value="all">{uiT("All keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="active">{uiT("Active keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="inactive">{uiT("Revoked or expired")}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><span role="status">{isPending ? (visibleKeys.length ? uiT("Refreshing keys…") : uiT("Loading keys…")) : error && !visibleKeys.length ? uiT("Keys unavailable") : nextCursor ? uiF("{0} loaded", [visibleKeys.length]) : `${visibleKeys.length} ${visibleKeys.length === 1 ? uiT("key") : uiT("keys")}`}</span><Button ref={refreshButtonRef} type="button" variant="ghost" size="icon" aria-label={uiT("Refresh keys")} title={uiT("Refresh")} disabled={isPending} onClick={() => void reload()}><RefreshCw size={16} /></Button></div>}
+    {workspace && !emptyCollection && <div className="keys-scope-line"><DropdownMenu><DropdownMenuTrigger asChild><Button ref={filterTriggerRef} type="button" variant="ghost" size="sm" aria-label={uiT("Filter by key status")} title={uiT("Filter by key status")} className={keyStatusFilter !== 'all' ? 'h-8 gap-1.5 px-2.5 text-xs text-primary bg-accent' : 'h-8 gap-1.5 px-2.5 text-xs'}><ListFilter size={15}/><span>{keyStatusFilter === 'active' ? uiT("Active keys") : keyStatusFilter === 'inactive' ? uiT("Revoked or expired") : uiT("All keys")}</span><ChevronDown size={14} aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" sideOffset={6}><DropdownMenuRadioGroup value={keyStatusFilter} onValueChange={value => setKeyStatusFilter(value as typeof keyStatusFilter)}><DropdownMenuRadioItem value="all">{uiT("All keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="active">{uiT("Active keys")}</DropdownMenuRadioItem><DropdownMenuRadioItem value="inactive">{uiT("Revoked or expired")}</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu><span role="status">{isPending ? (visibleKeys.length ? uiT("Refreshing keys…") : uiT("Loading keys…")) : error && !visibleKeys.length ? uiT("Keys unavailable") : nextCursor ? uiF("{0} loaded", [visibleKeys.length]) : `${visibleKeys.length} ${visibleKeys.length === 1 ? uiT("key") : uiT("keys")}`}</span></div>}
     {!canWrite && workspace && <p className="key-read-only">{uiT("You have read-only access.")}</p>}
     {error && <p className="key-error" role="alert">{uiT(error)}<Button type="button" variant="ghost" size="sm" onClick={() => void reload()}>{uiT("Try again")}</Button></p>}
     {(workspace || workspaceLoading) && <section className="key-list" aria-label={uiT("Keys")} aria-busy={isPending}>
-      {(isPending || workspaceLoading) && !visibleKeys.length && <div className="table-wrap"><TableSkeleton tableClassName="key-table" rows={4} label="" headers={[uiT("Key"), uiT("Model access"), uiT("Limits"), uiT("Expires"), uiT("Last used"), uiT("Status"), ...(canWrite ? [uiT("Actions")] : [])]} columnClassNames={[undefined, 'key-table-metadata', 'key-table-metadata', 'key-table-metadata', 'key-table-usage', undefined, ...(canWrite ? ['text-right'] : [])]} cellWidths={['w-32', 'w-28', 'w-20', 'w-20', 'w-24', 'w-14', ...(canWrite ? ['w-6'] : [])]} /></div>}
-      {!isPending && !workspaceLoading && !error && keyStatusFilter === "all" && !visibleKeys.length && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No keys yet")}</EmptyTitle><EmptyDescription>{canIssue ? uiT("Create a key for an app or agent to send requests through Niu.") : uiT("Your session can review keys, but cannot create them.")}</EmptyDescription></EmptyHeader></Empty>}
-      {!isPending && !workspaceLoading && !error && keyStatusFilter !== 'all' && !visibleKeys.length && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{keyStatusFilter === 'active' ? uiT("No active keys") : uiT("No revoked or expired keys")}</EmptyTitle></EmptyHeader><EmptyContent className="flex-row flex-wrap justify-center gap-2"><Button variant="outline" onClick={() => {setKeyStatusFilter('all'); filterTriggerRef.current?.focus();}}>{uiT("Show all keys")}</Button></EmptyContent></Empty>}
-      {visibleKeys.length > 0 && <div className="table-wrap"><Table className="key-table"><TableHeader><TableRow><TableHead>{uiT("Key")}</TableHead><TableHead className="key-table-metadata">{uiT("Model access")}</TableHead><TableHead className="key-table-metadata">{uiT("Limits")}</TableHead><TableHead className="key-table-metadata">{uiT("Expires")}</TableHead><TableHead className="key-table-usage">{uiT("Last used")}</TableHead><TableHead>{uiT("Status")}</TableHead>{showActions && <TableHead className="text-right">{uiT("Actions")}</TableHead>}</TableRow></TableHeader><TableBody>{visibleKeys.map(key => <TableRow key={key.id}>
-        <TableCell>
-          <Link className="key-name-link" to={`${root}/keys/${encodeURIComponent(key.slug || key.id)}`} aria-label={(keyNameCounts.get(key.name) ?? 0) > 1 ? `${uiF("View key {0}", [key.name])}. ${uiT("Expires")}: ${key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), {dateStyle: 'medium', timeStyle: 'medium'}).format(new Date(key.expires_at_ms))}. ${uiT("Last used")}: ${keyLastUsed(key)}${keyReference(key.slug) ? `. ${uiT("Reference", "引用")}: ${keyReference(key.slug)}` : ''}` : uiF("View key {0}", [key.name])}><KeyRound size={15} /><span>{key.name}</span></Link>
-          {(keyNameCounts.get(key.name) ?? 0) > 1 && <p className="mt-1 whitespace-normal break-words text-xs text-muted-foreground">{uiT("Expires")}: {key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), {dateStyle: 'medium', timeStyle: 'medium'}).format(new Date(key.expires_at_ms))} · {uiT("Last used")}: {keyLastUsed(key)}{keyReference(key.slug) && <> · {uiT("Reference", "引用")}: {keyReference(key.slug)}</>}</p>}
-          {canWrite && !key.revoked && !key.expired && <div className="mt-1 flex min-w-0 items-center gap-1 [&>button]:shrink-0">
-            <code className="min-w-0 whitespace-normal rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground [overflow-wrap:anywhere] select-all">{visibleSecretIds[key.id] && (revealedSecrets[key.id] || key.token) ? (revealedSecrets[key.id] || key.token) : formatMaskedKey(revealedSecrets[key.id] || key.token, key.token_preview)}</code>
-            <Button type="button" variant="ghost" size="icon-sm" className="h-6 w-6 text-muted-foreground hover:text-foreground" aria-label={visibleSecretIds[key.id] ? uiF("Hide API key for {0}", [key.name]) : uiF("Reveal API key for {0}", [key.name])} title={visibleSecretIds[key.id] ? uiT("Hide API key") : uiT("Reveal API key")} onClick={() => void toggleRevealKey(key)}>{visibleSecretIds[key.id] ? <EyeOff size={14} /> : <Eye size={14} />}</Button>
-            <Button type="button" variant="ghost" size="icon-sm" className="h-6 w-6 text-muted-foreground hover:text-foreground" aria-label={uiF("Copy API key for {0}", [key.name])} title={copied === `row:${key.id}` ? uiT("Copied") : uiT("Copy key")} onClick={() => void copyKeySecret(key)}>{copied === `row:${key.id}` ? <Check size={14} /> : <Clipboard size={14} />}</Button>
-          </div>}
-        </TableCell>
-        <TableCell className="key-table-metadata"><span className="key-model-summary" title={key.allowed_models.includes('*') ? uiT("Every configured model route") : key.allowed_models.join(', ')}>{key.allowed_models.includes('*') ? uiT("All configured models") : key.allowed_models.join(', ')}</span></TableCell>
-        <TableCell className="key-table-metadata"><span className="key-model-summary">{keyLimitsSummary(key)}</span></TableCell>
-        <TableCell className="key-table-metadata">{key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))}</TableCell>
-        <TableCell className="key-table-usage">{keyLastUsed(key)}</TableCell>
-        <TableCell><Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={key.revoked || key.expired ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{uiT(keyStatus(key))}</Badge></TableCell>
-        {showActions && <TableCell className="text-right">{!key.revoked && !key.expired && <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" aria-label={uiF("Actions for {0}", [key.name])} ref={element => {if (element) actionButtonRefs.current.set(key.id,element);else actionButtonRefs.current.delete(key.id);}}><EllipsisVertical /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" collisionPadding={12}><DropdownMenuItem onSelect={() => void copyKeySecret(key)}><Clipboard />{uiT("Copy key")}</DropdownMenuItem><DropdownMenuItem onSelect={() => void toggleRevealKey(key)}>{visibleSecretIds[key.id] ? <EyeOff /> : <Eye />}{visibleSecretIds[key.id] ? uiT("Hide API key") : uiT("Reveal API key")}</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem asChild><Link to={`${root}/keys/${encodeURIComponent(key.slug || key.id)}`} state={{ editKey: true }}><Pencil />{uiT("Edit")}</Link></DropdownMenuItem><DropdownMenuItem onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'rotate', key}); }}><RotateCw />{uiT("Rotate")}</DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'revoke', key}); }}><Trash2 />{uiT("Revoke")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</TableCell>}
-      </TableRow>)}</TableBody></Table></div>}
+      {(isPending || workspaceLoading) && !visibleKeys.length && <ListRowsSkeleton rows={4} label={uiT("Loading keys…")} />}
+      {!isPending && !workspaceLoading && !error && keyStatusFilter === "all" && !visibleKeys.length && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No keys yet")}</EmptyTitle><EmptyDescription>{canIssue ? uiT("Create a key for an app or agent to send requests through Niu.") : uiT("Your session can review keys, but cannot create them.")}</EmptyDescription></EmptyHeader>{canIssue && <EmptyContent><Button variant="outline" onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={15} aria-hidden="true" />{uiT("Create API key")}</Button></EmptyContent>}</Empty>}
+      {!isPending && !workspaceLoading && !error && keyStatusFilter !== 'all' && !visibleKeys.length && <Empty className="key-empty"><EmptyHeader><EmptyMedia variant="icon"><KeyRound aria-hidden="true"/></EmptyMedia><EmptyTitle>{keyStatusFilter === 'active' ? uiT("No active keys") : uiT("No revoked or expired keys")}</EmptyTitle>{keyStatusFilter === 'active' && <EmptyDescription>{canIssue ? uiT("Create a key for an app or agent to send requests through Niu.") : uiT("Your session can review keys, but cannot create them.")}</EmptyDescription>}</EmptyHeader><EmptyContent className="flex-row flex-wrap justify-center gap-2">{keyStatusFilter === 'active' && canIssue && <Button variant="outline" onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={15} aria-hidden="true" />{uiT("Create API key")}</Button>}<Button variant={keyStatusFilter === 'active' && canIssue ? 'ghost' : 'outline'} onClick={() => {setKeyStatusFilter('all'); filterTriggerRef.current?.focus();}}>{uiT("Show all keys")}</Button></EmptyContent></Empty>}
+      {visibleKeys.length > 0 && <ul className="key-rows">
+        {visibleKeys.map(key => {
+          const allModels = key.allowed_models.includes('*');
+          const modelAliases = key.allowed_models.filter(alias => alias !== '*');
+          const modelAccess = allModels
+            ? uiT("All models", "全部模型")
+            : modelAliases.length > 1
+              ? null
+              : modelAliases[0] ?? uiT("No models", "无模型");
+          return <li key={key.id} className="key-row" aria-label={key.name}>
+            <div className="key-row-main">
+              <div className="key-row-identity">
+                <Link className="key-name-link" to={`${root}/keys/${encodeURIComponent(key.slug || key.id)}`} aria-label={(keyNameCounts.get(key.name) ?? 0) > 1 ? `${uiF("View key {0}", [key.name])}. ${uiT("Expires")}: ${key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), {dateStyle: 'medium', timeStyle: 'medium'}).format(new Date(key.expires_at_ms))}. ${uiT("Last used")}: ${keyLastUsed(key)}${keyReference(key.slug) ? `. ${uiT("Reference", "引用")}: ${keyReference(key.slug)}` : ''}` : uiF("View key {0}", [key.name])}>
+                  <KeyRound size={15} /><span>{key.name}</span>
+                </Link>
+                {(keyNameCounts.get(key.name) ?? 0) > 1 && <p className="key-row-note">{uiT("Expires")}: {key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), {dateStyle: 'medium', timeStyle: 'medium'}).format(new Date(key.expires_at_ms))} · {uiT("Last used")}: {keyLastUsed(key)}{keyReference(key.slug) && <> · {uiT("Reference", "引用")}: {keyReference(key.slug)}</>}</p>}
+                {canWrite && !key.revoked && !key.expired && <div className="key-row-secret">
+                  <code>{visibleSecretIds[key.id] && (revealedSecrets[key.id] || key.token) ? (revealedSecrets[key.id] || key.token) : formatMaskedKey(revealedSecrets[key.id] || key.token, key.token_preview)}</code>
+                  <Button type="button" variant="ghost" size="icon-sm" className="h-6 w-6 text-muted-foreground hover:text-foreground" aria-label={visibleSecretIds[key.id] ? uiF("Hide API key for {0}", [key.name]) : uiF("Reveal API key for {0}", [key.name])} title={visibleSecretIds[key.id] ? uiT("Hide API key") : uiT("Reveal API key")} onClick={() => void toggleRevealKey(key)}>{visibleSecretIds[key.id] ? <EyeOff size={14} /> : <Eye size={14} />}</Button>
+                  <Button type="button" variant="ghost" size="icon-sm" className="h-6 w-6 text-muted-foreground hover:text-foreground" aria-label={uiF("Copy API key for {0}", [key.name])} title={copied === `row:${key.id}` ? uiT("Copied") : uiT("Copy key")} onClick={() => void copyKeySecret(key)}>{copied === `row:${key.id}` ? <Check size={14} /> : <Clipboard size={14} />}</Button>
+                </div>}
+              </div>
+              <div className="key-row-status"><Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'} className="lifecycle-badge" data-tone={key.revoked || key.expired ? 'inactive' : 'active'}><span className="status-dot" aria-hidden="true" />{uiT(keyStatus(key))}</Badge></div>
+              {showActions && <div className="key-row-actions">{!key.revoked && !key.expired && <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" aria-label={uiF("Actions for {0}", [key.name])} ref={element => {if (element) actionButtonRefs.current.set(key.id,element);else actionButtonRefs.current.delete(key.id);}}><EllipsisVertical /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" collisionPadding={12}><DropdownMenuItem onSelect={() => void copyKeySecret(key)}><Clipboard />{uiT("Copy key")}</DropdownMenuItem><DropdownMenuItem onSelect={() => void toggleRevealKey(key)}>{visibleSecretIds[key.id] ? <EyeOff /> : <Eye />}{visibleSecretIds[key.id] ? uiT("Hide API key") : uiT("Reveal API key")}</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem asChild><Link to={`${root}/keys/${encodeURIComponent(key.slug || key.id)}`} state={{ editKey: true }}><Pencil />{uiT("Edit")}</Link></DropdownMenuItem><DropdownMenuItem onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'rotate', key}); }}><RotateCw />{uiT("Rotate")}</DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => { dialogReturnFocus.current=actionButtonRefs.current.get(key.id) ?? null;setDialogError(''); setDialog({kind: 'revoke', key}); }}><Trash2 />{uiT("Revoke")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</div>}
+            </div>
+            <dl className="key-row-facts">
+              <div className="key-fact key-fact-models"><dt>{uiT("Model access")}</dt><dd>{modelAccess ?? <Popover><PopoverTrigger asChild><Button type="button" variant="link" size="sm" className="key-access-trigger">{modelAliases.length} {uiT("models")}<ChevronDown size={13} aria-hidden="true" /></Button></PopoverTrigger><PopoverContent align="start" className="w-72 max-w-[calc(100vw-2rem)]"><p className="mb-2 text-xs font-medium text-muted-foreground">{uiT("Model access")}</p><ul className="key-access-list">{modelAliases.map(alias => <li key={alias}>{alias}</li>)}</ul></PopoverContent></Popover>}</dd></div>
+              <div className="key-fact"><dt>{uiT("Limits")}</dt><dd>{keyLimitsSummary(key)}</dd></div>
+              <div className="key-fact"><dt>{uiT("Expires")}</dt><dd>{key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))}</dd></div>
+              <div className="key-fact"><dt>{uiT("Last used")}</dt><dd>{keyLastUsed(key)}</dd></div>
+            </dl>
+          </li>;
+        })}
+      </ul>}
       {nextCursor && !isPending && visibleKeys.length > 0 && <div className="mt-4 flex justify-center"><Button type="button" variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? uiT("Loading…") : uiT("Load more keys")}</Button></div>}
     </section>}
 
 
     {copyError && <p role="alert" className="error-text">{uiT(copyError)}</p>}
     <Dialog open={dialogOpen} onOpenChange={open => { if (!open && !busy) { const returnTo = dialog?.kind === 'create' ? generationReturn.current : null; setDialog(null); setDialogError(''); if (returnTo) navigate(returnTo); } }}>
-      <DialogContent className="niu-modal key-dialog max-h-[90dvh] overflow-y-auto" showCloseButton={false} onCloseAutoFocus={event => {const target=dialogReturnFocus.current?.isConnected ? dialogReturnFocus.current : (filterTriggerRef.current ?? refreshButtonRef.current);if (target) {event.preventDefault();target.focus();}}}>
+      <DialogContent className="niu-modal key-dialog" showCloseButton={false} onCloseAutoFocus={event => {const target=dialogReturnFocus.current?.isConnected ? dialogReturnFocus.current : (filterTriggerRef.current ?? refreshButtonRef.current);if (target) {event.preventDefault();target.focus();}}}>
         <DialogHeader className="niu-modal-heading flex-row text-left">
           <div><DialogTitle>{dialogTitle}</DialogTitle>{dialogDescription && <DialogDescription>{dialogDescription}</DialogDescription>}</div>
           <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")} disabled={busy}><X size={18} /></DialogClose>
         </DialogHeader>
       {dialog?.kind === 'create' && <form className="niu-modal-form" onSubmit={event => void issue(event)}>
         {activePending?.action === 'create' && <Alert><AlertDescription><p>{uiT("A previous key request may still complete. Creating another key could create a duplicate.")}</p><Button type="button" variant="outline" size="sm" onClick={() => { setDialog(null); void checkRequest(activePending); }}>{uiT("Check previous request")}</Button></AlertDescription></Alert>}
-        <Label htmlFor="api-key-name">{uiT("Name")}<Input id="api-key-name" disabled={busy} autoFocus maxLength={200} autoComplete="off" placeholder={uiT("e.g. production app")} value={name} onChange={event => setName(event.target.value)} required /></Label>
-        <div className="key-expiration-field">
+        <div className="grid gap-2">
+          <Label htmlFor="api-key-name">{uiT("Name")}</Label>
+          <Input id="api-key-name" disabled={busy} autoFocus maxLength={200} autoComplete="off" placeholder={uiT("e.g. production app")} value={name} onChange={event => setName(event.target.value)} required />
+        </div>
+        <div className="grid gap-2">
           <Label htmlFor="api-key-models">{uiT("Model access")}</Label>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -590,7 +609,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="key-expiration-field">
+        <div className="grid gap-2">
           <Label htmlFor="api-key-expiry">{uiT("Expiration")}</Label>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -617,7 +636,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
                 <Label htmlFor="api-key-spending-limit">{uiT("Spending limit")}{spendingCurrency ? ` (${currencySymbol(spendingCurrency)})` : ''}</Label>
                 <Input id="api-key-spending-limit" aria-describedby="api-key-spending-help api-key-spending-scope" inputMode="decimal" disabled={busy || !spendingCurrency} placeholder={uiT("Unlimited")} value={spendingAmount} onChange={event => setSpendingAmount(event.target.value)} />
                 <p id="api-key-spending-help" className="text-xs text-muted-foreground">{uiT("Lifetime spending allowance for this key. It does not reset monthly. Leave blank for unlimited spending.")}</p>
-                <p id="api-key-spending-scope" className="text-xs text-muted-foreground">{uiT("This limit covers Niu customer charges and reserved requests. It does not cover charges paid directly to a Provider using your own API key. Manage those costs with the Provider.")}</p>
+                <p id="api-key-spending-scope" className="text-xs text-muted-foreground">{uiT("This limit covers workspace charges and reserved requests.")}</p>
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -650,7 +669,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
         <div className="key-copy-row"><Label htmlFor="issued-base-url">{uiT("Base URL")}</Label><div><Input id="issued-base-url" value={baseUrl()} readOnly /><Button type="button" variant="outline" onClick={() => void copy('url', baseUrl())}><Clipboard size={15} />{copied === 'url' ? uiT("Copied") : uiT("Copy URL")}</Button></div></div>
         {invocationAllowed ? videoExample ? <div className="key-example key-example-prerequisite" role="status"><div><strong>{uiT("Request example unavailable")}</strong></div><p>{uiT("Video requests require the model’s current generation schema. Open Video to choose supported inputs and settings.")}</p></div> : <div className="key-example"><div className="model-route-example-heading"><strong>{uiT("Check access with your API key")}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copy('example', usageExample)}><Clipboard size={14} />{copied === 'example' ? <><Check size={14} />{uiT("Copied")}</> : uiT("Copy")}</Button></div><pre className="model-route-example"><code>{usageExample}</code></pre></div> : <p role="status">{!invocationAllowed ? uiT("This key is for management only and cannot invoke models.") : uiT("Model invocation permission is unavailable for this key.")}</p>}
         {dialogError && <p role="alert" className="error-text">{uiT(dialogError)}</p>}
-        <footer className="niu-modal-actions">{invocationAllowed && <Button asChild><Link to={(() => {if (!generationReturn.current) return `/generations?${new URLSearchParams({new: videoExample?'video':'1', workspace: decodeURIComponent(root.split('/').pop() ?? 'default'), key: issued.key?.slug || issued.id})}`; const target = new URL(generationReturn.current, window.location.origin); target.searchParams.set('key', issued.key?.slug || issued.id); return target.pathname + target.search + target.hash;})()} onClick={() => setDialog(null)}>{generationReturn.current ? uiT("Return to chat") : videoExample?uiT("Use in Video"):uiT("Open Generations")}</Link></Button>}<Button variant={invocationAllowed ? "outline" : "default"} onClick={() => setDialog(null)}>{uiT("Done")}</Button></footer>
+        <footer className="niu-modal-actions">{invocationAllowed && <Button asChild><Link to={(() => {if (!generationReturn.current) return `/generations?${new URLSearchParams({new: videoExample?'video':'1', workspace: decodeURIComponent(root.split('/').pop() ?? 'default'), key: issued.key?.slug || issued.id})}`; const target = new URL(generationReturn.current, window.location.origin); target.searchParams.set('key', issued.key?.slug || issued.id); return target.pathname + target.search + target.hash;})()} onClick={() => setDialog(null)}>{generationReturn.current ? uiT("Return to chat") : videoExample?uiT("Use in Video"):uiT("Open Generations", "试用")}</Link></Button>}<Button variant={invocationAllowed ? "outline" : "default"} onClick={() => setDialog(null)}>{uiT("Done")}</Button></footer>
       </div>}
       {dialog?.kind === 'rotate' && <div className="niu-modal-form">
         {activePending?.action === 'rotate' && <Alert><AlertDescription><p>{uiT("A previous key rotation may still complete. Check it before rotating this key again.")}</p><Button type="button" variant="outline" size="sm" onClick={() => { setDialog(null); void checkRequest(activePending); }}>{uiT("Check previous request")}</Button></AlertDescription></Alert>}

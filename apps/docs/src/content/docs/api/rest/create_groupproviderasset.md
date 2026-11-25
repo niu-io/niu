@@ -3,7 +3,7 @@ title: "Create a Provider asset group"
 description: "POST /v1/media/groups"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `POST /v1/media/groups`
 

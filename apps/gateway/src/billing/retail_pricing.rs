@@ -35,7 +35,7 @@ pub struct PreviewQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices",
+///   "path": "/api/v1/admin/pricing/standard-prices",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "publishRetailStandard",
@@ -715,6 +715,25 @@ pub struct PreviewQuery {
 ///         "advisory": {
 ///           "type": "boolean"
 ///         },
+///         "supply_status": {
+///           "type": "string",
+///           "enum": [
+///             "active",
+///             "inactive",
+///             "unconfigured"
+///           ],
+///           "description": "Current commercial Provider supply readiness for this model alias: active (enabled route, credential and qualified offer), inactive (route configured but disabled or missing credential/offer), or unconfigured (no commercial Provider route)."
+///         },
+///         "active_supply_routes": {
+///           "type": "integer",
+///           "minimum": 0
+///         },
+///         "active_providers": {
+///           "type": "array",
+///           "items": {
+///             "type": "string"
+///           }
+///         },
 ///         "checks": {
 ///           "type": "array",
 ///           "items": {
@@ -790,7 +809,7 @@ pub async fn publish_standard(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices",
+///   "path": "/api/v1/admin/pricing/standard-prices",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listRetailStandards",
@@ -894,7 +913,7 @@ pub async fn list(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices/{price}/promotions",
+///   "path": "/api/v1/admin/pricing/standard-prices/{price}/promotions",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "publishRetailPromotion",
@@ -983,7 +1002,7 @@ pub async fn publish_promotion(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices/{price}/promotions/{promotion}/retire",
+///   "path": "/api/v1/admin/pricing/standard-prices/{price}/promotions/{promotion}/retire",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "retireRetailPromotion",
@@ -1081,7 +1100,7 @@ pub async fn retire_promotion(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices/{price}/history",
+///   "path": "/api/v1/admin/pricing/standard-prices/{price}/history",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getRetailPriceHistory",
@@ -1219,7 +1238,7 @@ pub async fn history(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices/{price}/preview",
+///   "path": "/api/v1/admin/pricing/standard-prices/{price}/preview",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "previewRetailPrice",
@@ -1307,7 +1326,7 @@ pub struct EnrollmentQuery {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment",
+///   "path": "/api/v1/workspaces/{workspace}/billing/retail-price-enrollment",
 ///   "method": "post",
 ///   "operation": {
 ///     "operationId": "setRetailTextEnrollment",
@@ -1320,16 +1339,7 @@ pub struct EnrollmentQuery {
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1476,7 +1486,7 @@ pub async fn enroll_text(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/organizations/{organization}/projects/{project}/billing/retail-price-enrollment",
+///   "path": "/api/v1/workspaces/{workspace}/billing/retail-price-enrollment",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getRetailTextEnrollment",
@@ -1489,16 +1499,7 @@ pub async fn enroll_text(
 ///     ],
 ///     "parameters": [
 ///       {
-///         "name": "organization",
-///         "in": "path",
-///         "required": true,
-///         "schema": {
-///           "type": "string",
-///           "format": "uuid"
-///         }
-///       },
-///       {
-///         "name": "project",
+///         "name": "workspace",
 ///         "in": "path",
 ///         "required": true,
 ///         "schema": {
@@ -1633,7 +1634,7 @@ pub struct RegisteredModelPage {
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices/models",
+///   "path": "/api/v1/admin/pricing/standard-prices/models",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listRegisteredRetailModels",
@@ -1759,7 +1760,7 @@ pub async fn registered_models(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/customers",
+///   "path": "/api/v1/admin/pricing/customers",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listRetailCustomerTargets",
@@ -1878,7 +1879,7 @@ pub async fn customers(
 
 /// ```openapi
 /// {
-///   "path": "/api/v1/pricing/standard-prices/{price}/promotions",
+///   "path": "/api/v1/admin/pricing/standard-prices/{price}/promotions",
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listRetailPromotions",

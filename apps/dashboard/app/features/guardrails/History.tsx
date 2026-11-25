@@ -5,7 +5,7 @@ import DetectorPreview from './DetectorPreview';
 import type { DetectorBinding } from './ExternalDetectors';
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { IconHistory, IconRefresh } from "@tabler/icons-react";
+import { IconArrowLeft, IconHistory, IconRefresh } from "@tabler/icons-react";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -73,12 +73,16 @@ export default function GuardrailHistory({
   token,
   endpoint,
   canWrite = false,
+  embedded = false,
   onRestored,
+  onConfigurePolicy,
 }: {
   token: string;
   endpoint: string;
   canWrite?: boolean;
+  embedded?: boolean;
   onRestored?: () => void;
+  onConfigurePolicy?: () => void;
 }) {
   const { t: uiT } = useUILocale();
   const [search, setSearch] = useSearchParams();
@@ -263,15 +267,144 @@ export default function GuardrailHistory({
     }
   }
 
+  const versionDetailBody = (
+    <>
+      {fromBlock && <p className="text-sm text-muted-foreground">{uiT("This is a saved policy referenced by the blocked request. A workspace administrator can change future policy; this does not change the recorded event.")}</p>}
+      {fromBlock && <Button asChild variant="link" className="justify-start px-0"><Link to="?tab=blocked">{uiT("Return to blocked requests")}</Link></Button>}
+      {detailError && (
+        <Alert variant="destructive">
+          <AlertDescription>{uiT(detailError)}</AlertDescription>
+        </Alert>
+      )}
+      {!version && !detailError && (
+        <FormSectionSkeleton fields={3} label={uiT("Loading policy version…")} />
+      )}
+      {version && (
+        <div className="guardrails-version-content">
+          <section>
+            <h3>{uiT("Models")}</h3>
+            <p>{accessDescription(version.policy.models)}</p>
+          </section>
+          <section>
+            <h3>{uiT("Providers")}</h3>
+            <p>{accessDescription(version.policy.providers)}</p>
+          </section>
+          <section>
+            <h3>{uiT("Input rules")}</h3>
+            {version.policy.input_rules?.length ? (
+              <ul>
+                {version.policy.input_rules.map((rule, index) => (
+                  <li key={index}>
+                    <strong>
+                      {rule.action === "block" ? uiT("Block") : uiT("Redact")}
+                    </strong>
+                    : {rule.preset ? uiT(presets.find(preset => preset.value === rule.preset)?.label ?? "Pattern name unavailable") : <code>{rule.pattern}</code>}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>{uiT("No input rules")}</p>
+            )}
+          </section>
+          {Boolean(version.policy.input_detectors?.length) && <section><h3>{uiT("External input checks")}</h3><DetectorPreview token={token} endpoint={endpoint} bindings={version.policy.input_detectors!} /></section>}
+          <section>
+            <h3>{uiT("Output rules")}</h3>
+            {version.policy.output ? (
+              <>
+                <p>{version.policy.output.mode === "observe_only" ? uiT("Observe only · response unchanged") : version.policy.output.mode === "buffered_full" ? uiT("Buffered full-text inspection") : uiT("Output mode unavailable")}</p>
+                <ul>
+                  {version.policy.output.rules.map((rule, index) => (
+                    <li key={index}>
+                      <strong>
+                        {version.policy.output?.mode === "observe_only" ? uiT("Observe") : rule.action === "block" ? uiT("Block") : uiT("Redact")}
+                      </strong>
+                      : {rule.preset ? uiT(presets.find(preset => preset.value === rule.preset)?.label ?? "Pattern name unavailable") : <code>{rule.pattern}</code>}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p>{uiT("No output rules")}</p>
+            )}
+          </section>
+          {canWrite && !selected?.active && (
+            <p className="guardrails-muted">
+              {uiT("Restoring creates a new workspace policy version. Existing key policies continue to apply.")}</p>
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  const versionActionButtons = (
+    <>
+      {!embedded && (
+        <Button
+          variant="outline"
+          disabled={restoring}
+          onClick={closeVersion}
+        >
+          {uiT("Close")}</Button>
+      )}
+      {conflict ? (
+        <Button
+          onClick={() => {
+            closeVersion();
+            setReload((value) => value + 1);
+          }}
+        >
+          {uiT("Reload history")}</Button>
+      ) : (
+        canWrite &&
+        !selected?.active && (
+          <Button
+            disabled={!version || restoring || !rows.some(row => row.active) || rows.some(row => row.active && row.revision === version.revision)}
+            onClick={() => void restore()}
+          >
+            {restoring ? uiT("Restoring…") : uiT("Restore this version")}
+          </Button>
+        )
+      )}
+    </>
+  );
+
+  if (embedded && selected !== null) {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Button type="button" variant="ghost" size="sm" className="-ml-2" disabled={restoring} onClick={closeVersion}>
+            <IconArrowLeft size={15} aria-hidden="true" />
+            <span>{uiT("Back to history", "返回版本列表")}</span>
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            {uiT("Version")}{" "}{selected.revision}
+            {selected.active ? uiT("· Active when history was loaded") : ""}
+          </span>
+        </div>
+        <h3 className="text-base font-semibold">{version?.policy.name || selected.policy_name}</h3>
+        {versionDetailBody}
+        <div className="flex flex-wrap justify-end gap-2 pt-2">
+          {versionActionButtons}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="guardrails-page">
-      <PageHeader title={uiT("Policy history")} action={
-        <Button ref={refreshButton} variant="outline" className="header-icon-action aria-disabled:opacity-50" aria-label={uiT("Refresh policy history")} title={uiT("Refresh policy history")} aria-disabled={loading || restoring} onClick={() => {if (!loading && !restoring) setReload(value => value + 1);}}>
-          <IconRefresh aria-hidden="true" /><span>{uiT("Refresh")}</span>
-        </Button>
-      } />
-      
-      
+    <div className={embedded ? "space-y-4" : "guardrails-page"}>
+      {!embedded ? (
+        <PageHeader title={uiT("Policy history")} action={
+          <Button ref={refreshButton} variant="outline" className="header-icon-action aria-disabled:opacity-50" aria-label={uiT("Refresh policy history")} title={uiT("Refresh policy history")} aria-disabled={loading || restoring} onClick={() => {if (!loading && !restoring) setReload(value => value + 1);}}>
+            <IconRefresh aria-hidden="true" /><span>{uiT("Refresh")}</span>
+          </Button>
+        } />
+      ) : (
+        <div className="flex items-center justify-end">
+          <Button ref={refreshButton} type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh policy history")} title={uiT("Refresh policy history")} disabled={loading || restoring} onClick={() => { if (!loading && !restoring) setReload(value => value + 1); }}>
+            <IconRefresh size={16} className={loading ? "animate-spin" : undefined} aria-hidden="true" />
+          </Button>
+        </div>
+      )}
       {restored && (
         <p role="status">{uiT("Policy restored as a new active version.")}</p>
       )}
@@ -289,13 +422,21 @@ export default function GuardrailHistory({
           </AlertDescription>
         </Alert>
       )}
-      {loaded && !rows.length && <Empty className="guardrails-empty">
+      {loaded && !rows.length && <Empty className={embedded ? "min-h-40 py-8" : "guardrails-empty"}>
         <EmptyHeader>
-          <EmptyMedia variant="icon"><IconHistory aria-hidden="true" /></EmptyMedia>
+          <EmptyMedia><IconHistory aria-hidden="true" /></EmptyMedia>
           <EmptyTitle>{uiT("No policy versions yet")}</EmptyTitle>
           <EmptyDescription>{uiT("Saved workspace policies will appear here.")}</EmptyDescription>
         </EmptyHeader>
-        {canWrite && <EmptyContent><Button asChild variant="outline"><Link to="?tab=policy">{uiT("Configure policy")}</Link></Button></EmptyContent>}
+        {canWrite && (
+          <EmptyContent>
+            {onConfigurePolicy ? (
+              <Button type="button" variant="outline" onClick={onConfigurePolicy}>{uiT("Configure policy")}</Button>
+            ) : (
+              <Button asChild variant="outline"><Link to="?tab=policy">{uiT("Configure policy")}</Link></Button>
+            )}
+          </EmptyContent>
+        )}
       </Empty>}
       {loaded && rows.length > 0 && (
         <Table>
@@ -357,122 +498,37 @@ export default function GuardrailHistory({
         >
           {uiT("Load older versions")}</Button>
       )}
-      <Dialog
-        open={selected !== null}
-        onOpenChange={(open) => {
-          if (!open && !restoring) closeVersion();
-        }}
-      >
-        <DialogContent className="guardrails-version-dialog" onCloseAutoFocus={event => {
-          if (versionOpener.current?.isConnected) {
-            event.preventDefault();
-            versionOpener.current.focus();
-          } else if (refreshButton.current?.isConnected) {
-            event.preventDefault();
-            refreshButton.current.focus();
-          }
-          versionOpener.current = null;
-        }}>
-          <DialogHeader>
-            <DialogTitle>{version?.policy.name || selected?.policy_name}</DialogTitle>
-            <DialogDescription>
-              {uiT("Version")}{" "}{selected?.revision}
-              {selected?.active ? uiT("· Active when history was loaded") : ""}
-            </DialogDescription>
-          </DialogHeader>
-          {fromBlock && <p className="text-sm text-muted-foreground">{uiT("This is a saved policy referenced by the blocked request. A workspace administrator can change future policy; this does not change the recorded event.")}</p>}
-          {fromBlock && <Button asChild variant="link" className="justify-start px-0"><Link to="?tab=blocked">{uiT("Return to blocked requests")}</Link></Button>}
-          {detailError && (
-            <Alert variant="destructive">
-              <AlertDescription>{uiT(detailError)}</AlertDescription>
-            </Alert>
-          )}
-          {!version && !detailError && (
-            <FormSectionSkeleton fields={3} label={uiT("Loading policy version…")} />
-          )}
-          {version && (
-            <div className="guardrails-version-content">
-              <section>
-                <h3>{uiT("Models")}</h3>
-                <p>{accessDescription(version.policy.models)}</p>
-              </section>
-              <section>
-                <h3>{uiT("Providers")}</h3>
-                <p>{accessDescription(version.policy.providers)}</p>
-              </section>
-              <section>
-                <h3>{uiT("Input rules")}</h3>
-                {version.policy.input_rules?.length ? (
-                  <ul>
-                    {version.policy.input_rules.map((rule, index) => (
-                      <li key={index}>
-                        <strong>
-                          {rule.action === "block" ? uiT("Block") : uiT("Redact")}
-                        </strong>
-                        : {rule.preset ? uiT(presets.find(preset => preset.value === rule.preset)?.label ?? "Pattern name unavailable") : <code>{rule.pattern}</code>}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>{uiT("No input rules")}</p>
-                )}
-              </section>
-              {Boolean(version.policy.input_detectors?.length) && <section><h3>{uiT("External input checks")}</h3><DetectorPreview token={token} endpoint={endpoint} bindings={version.policy.input_detectors!} /></section>}
-              <section>
-                <h3>{uiT("Output rules")}</h3>
-                {version.policy.output ? (
-                  <>
-                    <p>{version.policy.output.mode === "observe_only" ? uiT("Observe only · response unchanged") : version.policy.output.mode === "buffered_full" ? uiT("Buffered full-text inspection") : uiT("Output mode unavailable")}</p>
-                    <ul>
-                      {version.policy.output.rules.map((rule, index) => (
-                        <li key={index}>
-                          <strong>
-                            {version.policy.output?.mode === "observe_only" ? uiT("Observe") : rule.action === "block" ? uiT("Block") : uiT("Redact")}
-                          </strong>
-                          : {rule.preset ? uiT(presets.find(preset => preset.value === rule.preset)?.label ?? "Pattern name unavailable") : <code>{rule.pattern}</code>}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : (
-                  <p>{uiT("No output rules")}</p>
-                )}
-              </section>
-              {canWrite && !selected?.active && (
-                <p className="guardrails-muted">
-                  {uiT("Restoring creates a new workspace policy version. Existing key policies continue to apply.")}</p>
-              )}
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              disabled={restoring}
-              onClick={closeVersion}
-            >
-              {uiT("Close")}</Button>
-            {conflict ? (
-              <Button
-                onClick={() => {
-                  closeVersion();
-                  setReload((value) => value + 1);
-                }}
-              >
-                {uiT("Reload history")}</Button>
-            ) : (
-              canWrite &&
-              !selected?.active && (
-                <Button
-                  disabled={!version || restoring || !rows.some(row => row.active) || rows.some(row => row.active && row.revision === version.revision)}
-                  onClick={() => void restore()}
-                >
-                  {restoring ? uiT("Restoring…") : uiT("Restore this version")}
-                </Button>
-              )
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {!embedded && (
+        <Dialog
+          open={selected !== null}
+          onOpenChange={(open) => {
+            if (!open && !restoring) closeVersion();
+          }}
+        >
+          <DialogContent className="guardrails-version-dialog" onCloseAutoFocus={event => {
+            if (versionOpener.current?.isConnected) {
+              event.preventDefault();
+              versionOpener.current.focus();
+            } else if (refreshButton.current?.isConnected) {
+              event.preventDefault();
+              refreshButton.current.focus();
+            }
+            versionOpener.current = null;
+          }}>
+            <DialogHeader>
+              <DialogTitle>{version?.policy.name || selected?.policy_name}</DialogTitle>
+              <DialogDescription>
+                {uiT("Version")}{" "}{selected?.revision}
+                {selected?.active ? uiT("· Active when history was loaded") : ""}
+              </DialogDescription>
+            </DialogHeader>
+            {versionDetailBody}
+            <DialogFooter>
+              {versionActionButtons}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

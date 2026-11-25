@@ -130,7 +130,7 @@ credential after a canonical OpenRouter immediate HTTP 401, once durable
 nonexecution and released reservations are confirmed. The limit is two submitted
 attempts under one operation and deadline, preserving customer price and funding
 source. Other errors and streams already returned to the client are not retried. See the
-[route pool contract and evidence](https://github.com/niu-io/niu/blob/main/docs/reference/pools.md).
+[route pool contract and evidence](https://github.com/niu-io/niu/blob/main/docs/reference/model-route-pools.md).
 
 ## Customer request diagnostics
 
@@ -156,8 +156,11 @@ rather than the internal identifiers needed for API routing.
 The `operator` name is an existing administration API contract for an organization or workspace member; the dashboard uses **Members** in workspace navigation and **Users** in platform administration. Accounts sign in with their own credentials and receive their assigned role and organization/workspace access. Installation setup credentials are separate from member sessions and application API keys.
 The password session API is opt-in through `NIU_AUTH_PUBLIC_ORIGIN`, which must
 be an HTTPS origin without a path, credentials, query or fragment. Deploy it
-behind HTTPS at that origin. Self-registration and
-identity federation remain unimplemented.
+behind HTTPS at that origin. When password sign-in is configured, Limited Preview
+registration defaults to `approval_required` (`POST /api/v1/auth/registrations`),
+with platform administrator review in `/admin/registrations` (or disabled via
+`/admin/settings/registration`); unmoderated self-registration and identity
+federation remain unimplemented.
 
 `PUT /api/v1/operators/{operator}/password` lets an installation administrator
 or a scoped owner provision an existing member with `email`, `password` and
@@ -1020,7 +1023,7 @@ JavaScript SDK 提供了 `getCustomerBilling`、`publishCustomerTariff`、`issue
 
 带修订版本的路由池更新仅对新请求的候选选择生效。禁用某个候选路由不会取消已通过该路由派发的生成请求。该请求会保留其原始映射和路由池修订版本以供诊断和核算；后续请求则可在新修订版本下选择其他符合条件的候选路由。客户模型别名与客户价目表仍与模型供应商映射保持分离。
 
-该行为已通过实际的并发计费请求以及独立的费用/修订版本检查进行了验证。此外，在收到规范的 OpenRouter 立即 HTTP 401 响应且确认持久化未执行并释放预占后，对话（Chat）路由池可以尝试另一个凭据。在单个操作（operation）与截止时间（deadline）下最多允许提交两次尝试，同时保持客户价格与资金来源不变。其他错误以及已开始向客户端返回数据的流式响应均不会重试。详见 [路由池契约与验证证据](https://github.com/niu-io/niu/blob/main/docs/reference/pools.md)。
+该行为已通过实际的并发计费请求以及独立的费用/修订版本检查进行了验证。此外，在收到规范的 OpenRouter 立即 HTTP 401 响应且确认持久化未执行并释放预占后，对话（Chat）路由池可以尝试另一个凭据。在单个操作（operation）与截止时间（deadline）下最多允许提交两次尝试，同时保持客户价格与资金来源不变。其他错误以及已开始向客户端返回数据的流式响应均不会重试。详见 [路由池契约与验证证据](https://github.com/niu-io/niu/blob/main/docs/reference/model-route-pools.md)。
 
 ## 客户请求诊断
 
@@ -1034,7 +1037,7 @@ JavaScript SDK 提供了 `getCustomerBilling`、`publishCustomerTariff`、`issue
 
 ## 操作员角色与会话
 
-`operator` 是现有管理 API 契约中表示组织或工作空间成员的名称；控制台在工作空间导航中使用 **成员（Members）**，在平台管理中使用 **用户（Users）**。账户使用各自的凭据登录，并获得其分配的角色与组织/工作空间访问权限。实例初始设置凭据与成员会话及应用 API 密钥相互独立。密码会话 API 需通过配置 `NIU_AUTH_PUBLIC_ORIGIN` 显式启用，该值必须是不含路径、凭据、查询参数或片段的 HTTPS 源地址（Origin）。请在该源地址的 HTTPS 反向代理后部署服务。自助注册与身份联邦（Identity Federation）目前尚未实现。
+`operator` 是现有管理 API 契约中表示组织或工作空间成员的名称；控制台在工作空间导航中使用 **成员（Members）**，在平台管理中使用 **用户（Users）**。账户使用各自的凭据登录，并获得其分配的角色与组织/工作空间访问权限。实例初始设置凭据与成员会话及应用 API 密钥相互独立。密码会话 API 需通过配置 `NIU_AUTH_PUBLIC_ORIGIN` 显式启用，该值必须是不含路径、凭据、查询参数或片段的 HTTPS 源地址（Origin）。请在该源地址的 HTTPS 反向代理后部署服务。启用密码登录后，限量预览（Limited Preview）注册默认采用需审批模式（`approval_required`，通过 `POST /api/v1/auth/registrations` 提交申请，由平台管理员在 `/admin/registrations` 审批或在 `/admin/settings/registration` 关闭）；开放式无审批自助注册与身份联邦（Identity Federation）目前尚未实现。
 
 `PUT /api/v1/operators/{operator}/password` 允许实例管理员或具有作用域的所有者（owner）为现有成员配置 `email`、`password` 以及可选的 `expected_revision`。首次设置密码时省略修订版本；重置密码则需要传入上一次返回的修订版本，并会原子化地吊销该成员此前的所有会话。密码长度要求至少 15 个字符且不超过 1,024 个 UTF-8 字节；空格与 Unicode 字符均会被原样保留。响应返回新的修订版本，绝不会返回密码哈希值。
 

@@ -3,7 +3,7 @@ title: "Create or replace a workspace model policy"
 description: "PUT /v1/routing/{slug}"
 ---
 
-Generated from the checked-in source. Do not edit this reference by hand.
+<!-- Generated from the checked-in source. Do not edit this reference by hand. -->
 
 `PUT /v1/routing/{slug}`
 
