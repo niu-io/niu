@@ -159,6 +159,15 @@ export default function ShellHeader({
       trimmedPath === `/admin/suppliers/${encodeURIComponent(adminSupplierId)}`
     ),
   );
+  const isProviderTabSurface = Boolean(
+    isProviderOverview ||
+    (adminSupplierId && (
+      trimmedPath === `/admin/providers/${encodeURIComponent(adminSupplierId)}/usage` ||
+      trimmedPath === `/admin/providers/${encodeURIComponent(adminSupplierId)}/settlements` ||
+      trimmedPath === `/admin/suppliers/${encodeURIComponent(adminSupplierId)}/usage` ||
+      trimmedPath === `/admin/suppliers/${encodeURIComponent(adminSupplierId)}/settlements`
+    )),
+  );
   useEffect(() => {
     if (!adminSupplierId || !adminSupplierName) return;
     document.title = isProviderOverview
@@ -312,7 +321,7 @@ export default function ShellHeader({
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator className="hidden sm:block" />
-            {isProviderOverview ? (
+            {isProviderTabSurface ? (
               <BreadcrumbItem className="min-w-0">
                 <h1 key={location.pathname} className="dashboard-route-title truncate" aria-current="page">
                   {adminSupplierName || t('Loading Provider…', '正在加载供应商…')}

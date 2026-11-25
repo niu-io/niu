@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { IconArrowLeft, IconCheck, IconCopy, IconExternalLink, IconRefresh, IconSparkles } from '@tabler/icons-react';
 import PageHeader from '@/components/PageHeader';
+import { ListRowsSkeleton } from '@/components/PageSkeletons';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -202,9 +203,7 @@ export function ReviewPageShell({
         </Alert>
       )}
       {loading ? (
-        <p role="status" className="py-8 text-muted-foreground">
-          {uiT('Loading workspace evidence…')}
-        </p>
+        <ListRowsSkeleton rows={4} label={uiT('Loading workspace evidence…')} />
       ) : (
         !error && children
       )}

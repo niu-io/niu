@@ -411,7 +411,7 @@ function EvaluationsView({
   const description = error
     ? uiT('Return to the list or retry loading this resource.')
     : loading
-      ? uiT('Retrieving workspace evidence…')
+      ? ''
       : run
         ? uiT(
             'Immutable evidence captured at submission. Judgments are attributed to the evaluator.',

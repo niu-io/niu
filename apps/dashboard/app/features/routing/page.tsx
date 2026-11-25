@@ -928,7 +928,7 @@ function RoutingView({
   const description = error
     ? uiT('Return to the list or retry loading this resource.')
     : loading
-      ? uiT('Retrieving workspace evidence…')
+      ? ''
       : slug
         ? uiF(
             'Saved workspace configuration{0}. Your agent can make changes within its delegated authority.',

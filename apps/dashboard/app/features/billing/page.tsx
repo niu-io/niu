@@ -17,6 +17,7 @@ import { organizationDisplayName } from '@/shell/workspace-route';
 import ProviderLogo from '@/components/ProviderLogo';
 import { catalogTitle, modelIdentity } from '@/lib/providers';
 import PageHeader from '@/components/PageHeader';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -190,7 +191,7 @@ function OrgBalanceStrip({ token, organizationId, organizationName, canFund, wor
 }
 
 export default function BillingRoute() {
-  const { t: uiT, format: uiF } = useUILocale();
+  const { t: uiT } = useUILocale();
   useOptionalRouteLoaderData();
   const { token, workspace, session, organization } = useDashboardContext();
   const internal = session?.operating_mode === 'internal';
@@ -201,6 +202,11 @@ export default function BillingRoute() {
   const headerAction = !internal && matchingOrganization && canFund
     ? <><Button asChild variant="outline" size="sm" className="hidden sm:inline-flex"><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="sm:hidden" aria-label={uiT("Billing actions")}><IconDots size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem asChild><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></DropdownMenuItem></DropdownMenuContent></DropdownMenu></>
     : undefined;
+  const zhOrgPossessive = organizationName
+    ? /[\x00-\x7f]$/.test(organizationName)
+      ? `${organizationName} 的`
+      : `${organizationName}的`
+    : '';
   return <>
     {!internal && matchingOrganization && (
       <OrgBalanceStrip
@@ -212,7 +218,7 @@ export default function BillingRoute() {
       />
     )}
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <p className="text-sm text-muted-foreground">{internal ? uiT("Workspace spending limits apply to Niu charges. Usage billed by a Provider is paid directly to that Provider.") : organizationName ? uiF("Spending and limits apply to this workspace. {0}'s Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.", [organizationName]) : uiT("Spending and limits apply to this workspace. Its organization's Niu balance is shared across its workspaces; Provider-billed usage is paid directly to the Provider.")}</p>
+      <p className="text-sm text-muted-foreground">{internal ? uiT("Workspace spending limits apply to Niu charges. Usage billed by a Provider is paid directly to that Provider.") : organizationName ? uiT(`Spending and limits apply to this workspace. ${organizationName}'s Niu balance is shared across its workspaces.`, `支出与限额适用于此工作空间，${zhOrgPossessive} Niu 余额由组织内各工作空间共享。`) : uiT("Spending and limits apply to this workspace. Its organization's Niu balance is shared across its workspaces.")}</p>
       {!internal && (!matchingOrganization ? <p className="text-sm text-muted-foreground">{uiT("Organization billing is unavailable. Refresh or switch to this workspace's organization.")}</p> : !canFund ? <p className="text-sm text-muted-foreground">{uiT("Contact your organization owner to add credits.")}</p> : null)}
     </div>
     <BillingView key={`${token}:${workspace.id}`} token={token} organization={workspace.organization_id} project={workspace.id} headerAction={headerAction} />
@@ -221,6 +227,7 @@ export default function BillingRoute() {
 
 function BillingView({ token, organization, project, headerAction }: { token: string; organization: string; project: string; headerAction?: ReactNode }) {
   const { t: uiT, format: uiF } = useUILocale();
+  const { models = [], modelsLoading = false } = useDashboardContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
   const activeTab = requestedTab === 'statements' || requestedTab === 'rates' ? requestedTab : 'balance';
@@ -352,13 +359,45 @@ function BillingView({ token, organization, project, headerAction }: { token: st
     }
   }
 
-  const rateColumns = currencyTariffColumns(data?.tariffs ?? []);
+  const callableModelIds = new Set(models.filter(model => model.callable !== false).map(model => model.id));
+  const hasCatalogOverlap =
+    !modelsLoading &&
+    callableModelIds.size > 0 &&
+    ((data?.tariffs ?? []).some(tariff => callableModelIds.has(tariff.model_alias)) ||
+      (data?.unit_tariffs ?? []).some(tariff => callableModelIds.has(tariff.model_alias)) ||
+      (data?.unit_media_tariffs ?? []).some(tariff => callableModelIds.has(tariff.model_alias)));
+  const sortedTariffs = hasCatalogOverlap
+    ? [...(data?.tariffs ?? [])].sort(
+        (a, b) => Number(callableModelIds.has(b.model_alias)) - Number(callableModelIds.has(a.model_alias)),
+      )
+    : (data?.tariffs ?? []);
+  const sortedUnitTariffs = hasCatalogOverlap
+    ? [...(data?.unit_tariffs ?? [])].sort(
+        (a, b) => Number(callableModelIds.has(b.model_alias)) - Number(callableModelIds.has(a.model_alias)),
+      )
+    : (data?.unit_tariffs ?? []);
+  const sortedUnitMediaTariffs = hasCatalogOverlap
+    ? [...(data?.unit_media_tariffs ?? [])].sort(
+        (a, b) => Number(callableModelIds.has(b.model_alias)) - Number(callableModelIds.has(a.model_alias)),
+      )
+    : (data?.unit_media_tariffs ?? []);
+  const renderTariffModelCell = (alias: string) => (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      {modelLabel(alias)}
+      {hasCatalogOverlap && !callableModelIds.has(alias) && (
+        <Badge variant="outline" className="text-[11px] font-normal text-muted-foreground">
+          {uiT("Currently unavailable", "当前不可用")}
+        </Badge>
+      )}
+    </span>
+  );
+  const rateColumns = currencyTariffColumns(sortedTariffs);
 
   return <>
     <PageHeader title={uiT("Billing and rates", "账单与费率")} action={<>{headerAction}<Button variant="ghost" size="icon-sm" aria-label={uiT("Refresh billing")} title={uiT("Refresh billing")} disabled={loading || invoiceLoading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button></>} />
     {error && <Alert variant="destructive"><AlertTitle>{uiT("Billing unavailable")}</AlertTitle><AlertDescription>{uiT(error)}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
     {loading && !data ? <WorkspaceShellSkeleton label={uiT("Loading billing…")} /> : data && <Tabs value={activeTab} onValueChange={selectTab} className="billing-content">
-      <TabsContent value="balance" className="billing-balance-content">
+      <TabsContent value="balance" aria-label={uiT("Spending", "支出")} aria-labelledby={undefined} className="billing-balance-content">
         <section aria-label={uiT("Workspace spending")}>
           <h2>{uiT("Workspace spending")}</h2>
           <p className="text-muted-foreground">{uiT("All-time customer charges for this workspace.")}</p>
@@ -389,7 +428,7 @@ function BillingView({ token, organization, project, headerAction }: { token: st
         </section>
 
       </TabsContent>
-      <TabsContent value="statements">
+      <TabsContent value="statements" aria-label={uiT("Statements", "账单")} aria-labelledby={undefined}>
         {(data.billing_mode === 'credits' || (data.unit_charges?.length ?? 0) > 0) && (
           <section className="panel mb-6" aria-label={uiT("Workspace Credits usage statements")}>
             <div className="provider-panel-heading"><h2>{uiT("Credits usage ledger")}</h2></div>
@@ -451,7 +490,7 @@ function BillingView({ token, organization, project, headerAction }: { token: st
           {invoiceNext && !invoiceError && <Button variant="outline" disabled={invoiceLoading} onClick={() => void loadOlderInvoices()}>{uiT("Older statements")}</Button>}
         </section>}
       </TabsContent>
-      <TabsContent value="rates">
+      <TabsContent value="rates" aria-label={uiT("Rates", "费率")} aria-labelledby={undefined}>
         {(data.billing_mode === 'credits' || (data.unit_tariffs?.length ?? 0) > 0 || (data.unit_media_tariffs?.length ?? 0) > 0) && (
           <section className="panel billing-rates mb-6" aria-label={uiT("Customer Credits model rates")}>
             <div className="provider-panel-heading">
@@ -474,10 +513,10 @@ function BillingView({ token, organization, project, headerAction }: { token: st
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.unit_tariffs!.map(tariff => (
+                    {sortedUnitTariffs.map(tariff => (
                       <Fragment key={tariff.model_alias}>
                         <TableRow>
-                          <TableCell className="font-medium">{modelLabel(tariff.model_alias)}{Boolean(tariff.price.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">{uiT("Base rate")}</p>}</TableCell>
+                          <TableCell className="font-medium">{renderTariffModelCell(tariff.model_alias)}{Boolean(tariff.price.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">{uiT("Base rate")}</p>}</TableCell>
                           <TableCell className="text-right tabular-nums">{formatUnitAtoms(tariff.price.prompt_rate, tariff.unit_name, tariff.display_precision)}</TableCell>
                           <TableCell className="text-right tabular-nums">{tariff.price.cached_prompt_rate != null ? formatUnitAtoms(tariff.price.cached_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
                           <TableCell className="text-right tabular-nums">{tariff.price.cache_write_prompt_rate != null ? formatUnitAtoms(tariff.price.cache_write_prompt_rate, tariff.unit_name, tariff.display_precision) : '—'}</TableCell>
@@ -518,9 +557,9 @@ function BillingView({ token, organization, project, headerAction }: { token: st
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.unit_media_tariffs!.map(mt => (
+                    {sortedUnitMediaTariffs.map(mt => (
                       <TableRow key={`${mt.model_alias}:${mt.channel}:${mt.resolution}:${mt.reference_video}`}>
-                        <TableCell className="font-medium">{modelLabel(mt.model_alias)}</TableCell>
+                        <TableCell className="font-medium">{renderTariffModelCell(mt.model_alias)}</TableCell>
                         <TableCell>{mt.channel}</TableCell>
                         <TableCell>{mt.resolution}</TableCell>
                         <TableCell>{mt.reference_video ? uiT("Yes") : uiT("No")}</TableCell>
@@ -544,9 +583,9 @@ function BillingView({ token, organization, project, headerAction }: { token: st
           {data.billing_mode !== 'credits' && (data.tariffs ?? []).length ? <div className="table-wrap"><Table className="provider-ledger billing-currency-rates" aria-label={uiT("Customer model rates")}>
             {(!rateColumns.cacheRead || !rateColumns.cacheWrite || !rateColumns.reasoning) && <TableCaption>{uiT("Token categories without a configured rate are omitted.")}</TableCaption>}
             <TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Input")}</TableHead>{rateColumns.cacheRead && <TableHead className="text-right">{uiT("Cache read")}</TableHead>}{rateColumns.cacheWrite && <TableHead className="text-right">{uiT("Cache write")}</TableHead>}<TableHead className="text-right">{uiT("Output")}</TableHead>{rateColumns.reasoning && <TableHead className="text-right">{uiT("Reasoning")}</TableHead>}{rateColumns.fixed && <TableHead className="text-right">{uiT("Fixed fee / request")}</TableHead>}{rateColumns.minimum && <TableHead className="text-right">{uiT("Minimum / request")}</TableHead>}</TableRow></TableHeader>
-            <TableBody>{(data.tariffs ?? []).map(tariff => <Fragment key={tariff.model_alias}>
+            <TableBody>{sortedTariffs.map(tariff => <Fragment key={tariff.model_alias}>
               <TableRow>
-                <TableCell className="whitespace-normal">{modelLabel(tariff.model_alias)}{Boolean(tariff.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">{uiT("Base rate")}</p>}{tariff.context_tiers === undefined && <p className="mt-1 text-xs text-muted-foreground">{uiT("Context tiers unavailable")}</p>}</TableCell>
+                <TableCell className="whitespace-normal">{renderTariffModelCell(tariff.model_alias)}{Boolean(tariff.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">{uiT("Base rate")}</p>}{tariff.context_tiers === undefined && <p className="mt-1 text-xs text-muted-foreground">{uiT("Context tiers unavailable")}</p>}</TableCell>
                 <TableCell className="text-right tabular-nums">{tariff.prompt_rate === '0' ? uiT("Free") : money(tariff.prompt_rate, tariff.currency)}</TableCell>
                 {rateColumns.cacheRead && <TableCell className="text-right tabular-nums">{categoryRate(tariff.cached_prompt_rate, tariff.currency)}</TableCell>}
                 {rateColumns.cacheWrite && <TableCell className="text-right tabular-nums">{categoryRate(tariff.cache_write_prompt_rate, tariff.currency)}</TableCell>}

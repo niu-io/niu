@@ -38,6 +38,23 @@ export type SessionControllerCallbacks = {
   getWorkspaceError: () => WorkspaceProblem | null;
 };
 
+const TRANSIENT_SESSION_STATUSES = new Set([408, 502, 503, 504]);
+
+function waitForRetry(ms: number, signal: AbortSignal): Promise<void> {
+  if (ms <= 0 || signal.aborted) return Promise.resolve();
+  return new Promise(resolve => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
 export function useSessionController(gateway: ReturnType<typeof useGatewayConnection>) {
   const { t } = useLocale();
   const location = useLocation();
@@ -92,17 +109,39 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
         connectionController.current = controller;
         const revision = ++connectionRevision.current;
         try {
-          const sessionResponse = await fetch('/api/v1/session', {
-            headers: { authorization: 'Bearer ' + credential },
-            signal: controller.signal,
-          });
-          if (revision !== connectionRevision.current || controller.signal.aborted) return;
+          const maxAttempts = restoring ? 3 : 1;
+          const retryDelays = import.meta.env.MODE === 'test' ? [0, 0] : [350, 800];
+          let sessionResponse: Response | null = null;
+          for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+            try {
+              sessionResponse = await fetch('/api/v1/session', {
+                headers: { authorization: 'Bearer ' + credential },
+                signal: controller.signal,
+              });
+              if (
+                !restoring ||
+                attempt === maxAttempts - 1 ||
+                !TRANSIENT_SESSION_STATUSES.has(sessionResponse.status)
+              ) {
+                break;
+              }
+            } catch (err) {
+              if (!restoring || attempt === maxAttempts - 1 || controller.signal.aborted) {
+                throw err;
+              }
+            }
+            await waitForRetry(retryDelays[attempt] ?? 800, controller.signal);
+            if (revision !== connectionRevision.current || controller.signal.aborted) return;
+          }
+          if (!sessionResponse || revision !== connectionRevision.current || controller.signal.aborted) return;
           if (!sessionResponse.ok) {
             if (revision === connectionRevision.current && !(restoring && sessionResponse.status === 401)) {
               setError(
                 sessionResponse.status === 401 && authenticationPath.current === '/setup'
                   ? 'That administrator token is invalid. Verify NIU_ADMIN_TOKENS and try again.'
-                  : 'Could not sign in. Try again.',
+                  : restoring && sessionResponse.status >= 500
+                    ? 'Session check temporarily unavailable. Refresh to try again.'
+                    : 'Could not sign in. Try again.',
               );
             }
             return;
@@ -116,6 +155,7 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
           callbacksRef.current?.resetModels(true);
           setSession(sessionValue.data);
           setToken(credential);
+          setError('');
           try {
             sessionStorage.removeItem('niu.signed-out');
           } catch {
@@ -123,7 +163,13 @@ export function useSessionController(gateway: ReturnType<typeof useGatewayConnec
           }
           if (!restoring) setDraftToken('');
         } catch {
-          if (revision === connectionRevision.current) setError('Could not sign in. Try again.');
+          if (revision === connectionRevision.current) {
+            setError(
+              restoring
+                ? 'Session check temporarily unavailable. Refresh to try again.'
+                : 'Could not sign in. Try again.',
+            );
+          }
         }
       })().finally(() => {
         if (restoreInFlightRef.current === run) restoreInFlightRef.current = null;

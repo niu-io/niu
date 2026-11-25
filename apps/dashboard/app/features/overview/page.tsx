@@ -34,7 +34,7 @@ export default function OverviewRoute() {
   useOptionalRouteLoaderData();
   const { t } = useLocale();
   const navigate = useNavigate();
-  const { token, workspace, models, session, rememberChatKey, reloadWorkspaces } = useDashboardContext();
+  const { token, workspace, models, modelsLoading = false, session, rememberChatKey, reloadWorkspaces } = useDashboardContext();
   const canManagePlatform = Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false));
   const canWrite = session?.permissions.write === true;
   const { workspace: workspaceSegment } = useParams();
@@ -45,6 +45,7 @@ export default function OverviewRoute() {
   if (workspaceSegment || workspace) chatSearch.set('workspace', currentWorkspaceSegment);
   const generationsTarget = `/generations?${chatSearch}`;
   const scope = workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null;
+  const catalogPending = Boolean(modelsLoading && models.length === 0);
   const needsApiKey = models.length > 0 && workspace?.active_key_count === 0;
   const [quickKeyOpen, setQuickKeyOpen] = useState(false);
   const quickKeyTriggerRef = useRef<HTMLButtonElement>(null);
@@ -71,12 +72,12 @@ export default function OverviewRoute() {
     modelsHref={modelsHref}
     canWrite={canWrite}
     canManagePlatform={canManagePlatform}
-    hasModels={models.length > 0}
+    hasModels={catalogPending || models.length > 0}
     needsApiKey={needsApiKey}
     onCreateKey={needsApiKey && canWrite ? () => { quickKey.setError(''); setQuickKeyOpen(true); } : undefined}
   />;
   return <>
-    <PageHeader title={t('Overview', '概览')} action={token && <div className="overview-primary-actions">{models.length
+    <PageHeader title={t('Overview', '概览')} action={token && !catalogPending && <div className="overview-primary-actions">{models.length
       ? needsApiKey
         ? canWrite
           ? <Button ref={quickKeyTriggerRef} type="button" className="header-icon-action" onClick={() => { quickKey.setError(''); setQuickKeyOpen(true); }}><IconKey aria-hidden="true" /><span>{t('Create API key', '创建 API 密钥')}</span></Button>
@@ -91,7 +92,7 @@ export default function OverviewRoute() {
         <Link to={modelsHref} className="flex items-center justify-between gap-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5 transition-colors hover:bg-accent/50">
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">{t('Available models', '可用模型')}</p>
-            <p className="mt-1 text-lg font-semibold tabular-nums">{models.length}</p>
+            <p className="mt-1 text-lg font-semibold tabular-nums" aria-busy={catalogPending || undefined}>{catalogPending ? '—' : models.length}</p>
           </div>
           <span className="text-xs text-muted-foreground">{t('Browse', '查看')} →</span>
         </Link>

@@ -398,6 +398,24 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(integrationSettings).toContain('gatewayIntegrationTypes');
     expect(integrationSettings).not.toContain('Object.entries(integrationLabels).map');
   });
+
+  it('forbids inline object literals on <Navigate> state/to props and keeps PageSkeletons labels sr-only', () => {
+    const navigateViolations: string[] = [];
+    for (const file of tsxFiles) {
+      const source = readFileSync(file, 'utf8');
+      for (const match of source.matchAll(/<Navigate\b[\s\S]*?\/>/g)) {
+        if (/\b(?:state|to)=\{\{/.test(match[0])) {
+          const line = source.slice(0, match.index ?? 0).split('\n').length;
+          navigateViolations.push(`${relative(appDir, file)}:${line}`);
+        }
+      }
+    }
+    expect(navigateViolations).toEqual([]);
+
+    const pageSkeletons = readFileSync(join(appDir, 'components/PageSkeletons.tsx'), 'utf8');
+    expect(pageSkeletons).not.toContain('text-sm text-muted-foreground">{label}');
+    expect(pageSkeletons).toContain('<span className="sr-only">{label}</span>');
+  });
 });
 
 it('keeps model mapping actions outside the scrollable advanced settings', () => {

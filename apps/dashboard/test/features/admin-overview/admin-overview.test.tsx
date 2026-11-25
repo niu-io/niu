@@ -91,11 +91,14 @@ describe('AdminOverviewPage', () => {
 
     render(<MemoryRouter><AdminOverviewPage /></MemoryRouter>);
 
+    expect(screen.getByText('Loading setup status…')).toBeTruthy();
+    expect(screen.queryByText('Action needed')).toBeNull();
+
     expect(await screen.findByText('1. Configure platform currency & billing mode')).toBeTruthy();
     expect(screen.getByText('3. Approve commercial purchase offers')).toBeTruthy();
     expect(screen.getByText('4. Publish customer selling prices')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Set currency' }).getAttribute('href')).toBe('/admin/settings');
-    expect(screen.getByRole('link', { name: 'Review offers' }).getAttribute('href')).toBe('/admin/providers/openrouter/models');
+    expect(screen.getByRole('link', { name: 'Review offers' }).getAttribute('href')).toBe('/admin/providers/openrouter');
     expect(await screen.findByText('2 registration requests awaiting approval.')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Review requests' }).getAttribute('href')).toBe('/admin/registrations');
   });

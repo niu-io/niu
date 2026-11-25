@@ -76,4 +76,19 @@ describe('workspace overview route', () => {
     expect(props.emptyState).toBeTruthy();
     expect('showBreakdowns' in props).toBe(false);
   });
+
+  it('withholds zero-model admin setup warnings while the workspace catalog is still loading', () => {
+    fixture.gatewayProps.length = 0;
+    fixture.context = {
+      token: 'test-session',
+      models: [],
+      modelsLoading: true,
+      workspace: {id: 'workspace-1', slug: 'customer-workspace', organization_id: 'org-1', name: 'Customer workspace', active_key_count: 1},
+      workspaces: [{id: 'workspace-1', slug: 'customer-workspace', organization_id: 'org-1', name: 'Customer workspace', active_key_count: 1}],
+      session: {kind: 'installation', operator: null, permissions: {read: true, write: true, platform_admin: true}},
+    } as unknown as DashboardContext;
+    render(<MemoryRouter initialEntries={['/workspaces/customer-workspace']}><Routes><Route path="/workspaces/:workspace" element={<OverviewRoute />} /></Routes></MemoryRouter>);
+    expect(screen.queryByRole('link', {name: 'Admin setup'})).toBeNull();
+    expect(screen.getByText('—')).toBeTruthy();
+  });
 });

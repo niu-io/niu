@@ -174,7 +174,7 @@ export function CustomerDetail({
 
   if (!company) return null;
   if (company.slug && company.slug !== customerId) {
-    return <Navigate replace to={{ pathname: `/admin/customers/${encodeURIComponent(company.slug)}`, search: routeLocation.search, hash: routeLocation.hash }} />;
+    return <Navigate replace to={`/admin/customers/${encodeURIComponent(company.slug)}${routeLocation.search}${routeLocation.hash}`} />;
   }
   const currentCompany: Company = company;
 

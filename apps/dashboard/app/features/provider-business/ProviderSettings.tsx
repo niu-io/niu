@@ -5,6 +5,8 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
 import { ChevronDown } from 'lucide-react';
 import { providerLogoPresets, providerLogoSource, providerLogoIsMonochrome } from '@/features/providers/provider-logos';
+import ProviderLogo from '@/components/ProviderLogo';
+import { identifyProvider } from '@/lib/providers';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { IconPlugConnected } from '@tabler/icons-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
@@ -77,6 +79,16 @@ export default function ProviderSettings() {
   }, [token, path, reload]);
   useEffect(() => setBrokenLogo(false), [draft.logo_url]);
   useEffect(() => setSavedLogoBroken(false), [profile?.logo_url]);
+  const resolvedSlug = (
+    profile?.slug ||
+    directoryEntry?.slug ||
+    (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawSegment) ? rawSegment : '')
+  )
+    .trim()
+    .toLowerCase();
+  const builtInBrandIdentity = ['openrouter', 'qiniu', 'deepseek', 'babelark', 'fastrouter'].includes(resolvedSlug)
+    ? identifyProvider(resolvedSlug)
+    : undefined;
   const dirty = profile && Object.keys(empty).some(key => draft[key as keyof typeof empty].trim() !== profile[key as keyof typeof empty]);
   function change(key: keyof typeof empty, value: string) { setDraft(current => ({ ...current, [key]: value })); setSaved(false); }
   function openEditDialog() {
@@ -127,6 +139,8 @@ export default function ProviderSettings() {
           <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted" aria-label={uiT("Provider logo preview")}>
             {profile.logo_url && /^https?:\/\//i.test(profile.logo_url) && !savedLogoBroken ? (
               <img src={providerLogoSource(profile.logo_url)} alt={uiT("Provider logo")} className={`size-full object-contain${providerLogoIsMonochrome(profile.logo_url) ? ' dark:invert' : ''}`} referrerPolicy="no-referrer" onError={() => setSavedLogoBroken(true)} />
+            ) : builtInBrandIdentity?.logo ? (
+              <ProviderLogo provider={builtInBrandIdentity} />
             ) : (
               <IconPlugConnected className="size-5 text-muted-foreground" aria-hidden="true" />
             )}
@@ -182,7 +196,7 @@ export default function ProviderSettings() {
               <fieldset disabled={busy} className="space-y-5">
                 <div className="flex items-start gap-4">
                   <div className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden" aria-label={uiT("Provider logo preview")}>
-                    {draft.logo_url && /^https?:\/\//i.test(draft.logo_url) && !brokenLogo ? <img src={providerLogoSource(draft.logo_url)} alt={uiT("Provider logo")} className={`size-full object-contain${providerLogoIsMonochrome(draft.logo_url) ? ' dark:invert' : ''}`} referrerPolicy="no-referrer" onError={() => setBrokenLogo(true)} /> : <IconPlugConnected className="size-7 text-muted-foreground" aria-hidden="true" />}
+                    {draft.logo_url && /^https?:\/\//i.test(draft.logo_url) && !brokenLogo ? <img src={providerLogoSource(draft.logo_url)} alt={uiT("Provider logo")} className={`size-full object-contain${providerLogoIsMonochrome(draft.logo_url) ? ' dark:invert' : ''}`} referrerPolicy="no-referrer" onError={() => setBrokenLogo(true)} /> : builtInBrandIdentity?.logo ? <ProviderLogo provider={builtInBrandIdentity} size="large" /> : <IconPlugConnected className="size-7 text-muted-foreground" aria-hidden="true" />}
                   </div>
                   <div className="min-w-0 flex-1 space-y-2">
                     <Label htmlFor="supplier-logo">{uiT("Logo URL")}</Label>

@@ -4,6 +4,7 @@ import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import PageHeader, { PageHeaderTabsTargetContext } from '@/components/PageHeader';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlatformCurrencySetting } from './platform-currency';
@@ -58,11 +59,11 @@ export default function PlatformSettingsRoute() {
 
         <PageHeaderTabsTargetContext.Provider value="">
         <TabsContent value="general" className="space-y-6">
-          <div className="space-y-1 rounded-[var(--radius-panel)] bg-card p-5">
-            <p className="text-sm">
-              <span className="text-muted-foreground">{uiT('Operating mode')}: </span>
-              <strong>{isInternal ? uiT('Internal use') : uiT('Resale')}</strong>
-            </p>
+          <div className="space-y-2 rounded-[var(--radius-panel)] bg-card p-5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="text-base font-semibold">{uiT('Operating mode')}</h2>
+              <Badge variant="secondary">{isInternal ? uiT('Internal use') : uiT('Resale')}</Badge>
+            </div>
             <p className="text-sm text-muted-foreground">
               {uiT('Operating mode is configured at deployment. It cannot be changed here.')}
             </p>
@@ -70,15 +71,15 @@ export default function PlatformSettingsRoute() {
           {!isInternal && <PlatformCurrencySetting token={token} />}
           {!isInternal && (
             <div className="flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius-panel)] bg-card p-5">
-              <div className="min-w-0 space-y-1">
-                <p className="text-sm">
-                  <span className="text-muted-foreground">{uiT('Billing mode', '计费模式')}: </span>
-                  <strong>
+              <div className="min-w-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h2 className="text-base font-semibold">{uiT('Billing mode', '计费模式')}</h2>
+                  <Badge variant="secondary">
                     {billingMode === 'credits'
                       ? (unit?.name ?? uiT('Branded Credits', '自定义积分'))
                       : uiT('Currency', '货币计费')}
-                  </strong>
-                </p>
+                  </Badge>
+                </div>
                 <p className="text-sm text-muted-foreground">
                   {uiT(
                     'Configure Branded Credits definitions, purchase rates, and platform billing mode.',

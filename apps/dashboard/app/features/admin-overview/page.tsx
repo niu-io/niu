@@ -337,7 +337,7 @@ export default function AdminOverviewPage() {
           : t('Action needed', '待授权'),
       actionLabel: firstOfferAttentionProvider ? t('Review offers', '配置采购报价') : t('Open Providers', '前往供应商'),
       to: firstOfferAttentionProvider
-        ? `/admin/providers/${encodeURIComponent(providerPathSegment(firstOfferAttentionProvider))}/models`
+        ? `/admin/providers/${encodeURIComponent(providerPathSegment(firstOfferAttentionProvider))}`
         : '/admin/providers',
     });
 
@@ -494,7 +494,7 @@ export default function AdminOverviewPage() {
           </p>
         </div>
 
-        {loading && !snapshot && currencyReady === false ? (
+        {(loading && !snapshot) || (!isInternal && currencyReady === false) ? (
           <TableSkeleton columns={3} rows={isInternal ? 3 : 6} label={t('Loading setup status…', '正在加载配置进度…')} />
         ) : (
           <div className="rounded-[var(--radius-panel)] bg-card">

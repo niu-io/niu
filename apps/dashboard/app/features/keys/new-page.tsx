@@ -8,7 +8,9 @@ export const handle: RouteHandle = {
   title: { en: 'New key', zh: '新建密钥' },
 };
 
+const CREATE_KEY_REDIRECT_STATE = { createKey: true } as const;
+
 export default function NewKeyRoute() {
   const location = useLocation();
-  return <Navigate to={`${workspacePath(location.pathname)}/keys`} replace state={{ createKey: true }} />;
+  return <Navigate to={`${workspacePath(location.pathname)}/keys`} replace state={CREATE_KEY_REDIRECT_STATE} />;
 }
