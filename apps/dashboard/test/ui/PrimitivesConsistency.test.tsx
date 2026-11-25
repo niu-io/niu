@@ -416,6 +416,32 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(pageSkeletons).not.toContain('text-sm text-muted-foreground">{label}');
     expect(pageSkeletons).toContain('<span className="sr-only">{label}</span>');
   });
+
+  it('keeps top navigation bars completely transparent when unscrolled and frosted glass when scrolled', () => {
+    const publicHeaderCss = readFileSync(resolve(process.cwd(), '../../branding/public-header.css'), 'utf8');
+    const docsStylesCss = readFileSync(resolve(process.cwd(), '../docs/src/styles.css'), 'utf8');
+    const modelsCss = readFileSync(join(appDir, 'features/models/models.css'), 'utf8');
+    const foundationCss = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
+    const shellHeader = readFileSync(join(appDir, 'shell/ShellHeader.tsx'), 'utf8');
+    const publicModelsPage = readFileSync(join(appDir, 'features/models/public-page.tsx'), 'utf8');
+
+    expect(publicHeaderCss).toContain('background:transparent; border-bottom:1px solid transparent; box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none;');
+    expect(publicHeaderCss).toContain(":is(html.is-scrolled, :root[data-scrolled='true']) .public-header");
+    expect(publicHeaderCss).toContain('backdrop-filter:saturate(180%) blur(20px)');
+
+    expect(docsStylesCss).toContain('html.is-scrolled header.header');
+    expect(docsStylesCss).toContain('backdrop-filter: saturate(180%) blur(20px)');
+
+    expect(modelsCss).toContain('.public-models-topbar { position: sticky;');
+    expect(modelsCss).toContain('background: transparent; border-bottom: 1px solid transparent;');
+    expect(modelsCss).toContain('.public-models-topbar[data-scrolled="true"]');
+    expect(publicModelsPage).toContain('data-scrolled={scrolled ? \'true\' : undefined}');
+
+    expect(foundationCss).toContain('.dashboard-page-header { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }');
+    expect(foundationCss).toContain('.dashboard-page-header[data-scrolled="true"]');
+    expect(foundationCss).not.toContain('color-mix(in srgb, var(--background) 94%, transparent)');
+    expect(shellHeader).toContain('data-scrolled={scrolled ? \'true\' : undefined}');
+  });
 });
 
 it('keeps model mapping actions outside the scrollable advanced settings', () => {

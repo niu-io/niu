@@ -1,5 +1,5 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import {
   IconLayoutSidebarLeftCollapse as PanelLeftClose,
@@ -174,13 +174,31 @@ export default function ShellHeader({
       ? `${adminSupplierName} · ${brandingName}`
       : `${title} · ${adminSupplierName} · ${brandingName}`;
   }, [adminSupplierId, adminSupplierName, brandingName, isProviderOverview, title]);
+  const headerRef = useRef<HTMLElement>(null);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const scroller = headerRef.current?.closest<HTMLElement>('.main-panel') ?? null;
+    const syncScroll = () => {
+      const panelTop = scroller ? scroller.scrollTop : 0;
+      setScrolled(panelTop > 8 || window.scrollY > 8);
+    };
+    syncScroll();
+    scroller?.addEventListener('scroll', syncScroll, { passive: true });
+    window.addEventListener('scroll', syncScroll, { passive: true });
+    return () => {
+      scroller?.removeEventListener('scroll', syncScroll);
+      window.removeEventListener('scroll', syncScroll);
+    };
+  }, [location.pathname]);
+
   const scopedWorkspaces = organization
     ? workspaces.filter(item => item.organization_id === organization.id)
     : workspaces;
   const headerWorkspaces = scopedWorkspaces.length ? scopedWorkspaces : workspaces;
 
   return (
-    <header className="dashboard-page-header">
+    <header ref={headerRef} className="dashboard-page-header" data-scrolled={scrolled ? 'true' : undefined}>
       {(hasSidebar || modelFiltersAvailable) && (
         <WorkspaceSidebarToggle
           buttonRef={toggleRef}

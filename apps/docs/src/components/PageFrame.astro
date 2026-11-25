@@ -6,6 +6,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
 <PageFrame><slot name="header" slot="header" /><slot name="sidebar" slot="sidebar" /><slot /></PageFrame>
 <script is:inline data-astro-rerun>
   (() => {
+    document.documentElement.classList.toggle('is-scrolled', window.scrollY > 8);
     const isZh = document.documentElement.dataset.locale === 'zh-CN';
     const DICT = {
       'Why Niu?': '为什么选择 Niu？',
@@ -734,7 +735,12 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     }
   }
 
+  function syncDocsScroll() {
+    document.documentElement.classList.toggle('is-scrolled', window.scrollY > 8);
+  }
+
   function syncDocsSurface() {
+    syncDocsScroll();
     applyDocsLocale(document);
     observeSearchAndMobileToc();
   }
@@ -744,11 +750,12 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
     const isZh = document.documentElement.dataset.locale === 'zh-CN';
     const isDark = document.documentElement.dataset.theme === 'dark';
 
-    // Preserve active locale, theme, and route attributes on the incoming document BEFORE swap
+    // Preserve active locale, theme, scroll state, and route attributes on the incoming document BEFORE swap
     newDoc.documentElement.lang = isZh ? 'zh-CN' : 'en';
     newDoc.documentElement.dataset.locale = isZh ? 'zh-CN' : 'en';
     newDoc.documentElement.dataset.theme = isDark ? 'dark' : 'light';
     newDoc.documentElement.classList.toggle('dark', isDark);
+    newDoc.documentElement.classList.toggle('is-scrolled', window.scrollY > 8);
     newDoc.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
     newDoc.documentElement.toggleAttribute('data-docs-home', /^\/docs\/?$/.test(event.to.pathname));
     newDoc.documentElement.toggleAttribute('data-api-reference', /\/api(?:\/|$)/.test(event.to.pathname));
@@ -758,6 +765,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
   });
 
   syncDocsSurface();
+  window.addEventListener('scroll', syncDocsScroll, { passive: true });
   window.addEventListener('niu:locale', syncDocsSurface);
   window.addEventListener('niu-locale-change', syncDocsSurface);
   window.addEventListener('storage', syncDocsSurface);

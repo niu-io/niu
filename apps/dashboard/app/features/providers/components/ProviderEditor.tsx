@@ -119,13 +119,13 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
   const hasInitialPreset = Boolean(initialPreset);
 
   useEffect(() => {
-    if (Boolean(activeConnection) || userEditedEndpointRef.current || !inheritedAdapter || inheritedApiBase === undefined) return;
+    if (activeConnection || userEditedEndpointRef.current || !inheritedAdapter || inheritedApiBase === undefined) return;
     setAdapter(inheritedAdapter);
     setApiBase(inheritedApiBase);
   }, [activeConnection, inheritedAdapter, inheritedApiBase]);
 
   useEffect(() => {
-    if (Boolean(activeConnection) || !isScopedToProvider || hasInheritedConnection || !resolvedSlug || hasInitialPreset || !token) return;
+    if (activeConnection || !isScopedToProvider || hasInheritedConnection || !resolvedSlug || hasInitialPreset || !token) return;
     const controller = new AbortController();
     void cachedGet<{ data: ProviderServiceDescriptor[] }>(token, '/api/v1/admin/providers/presets', { signal: controller.signal })
       .then(result => {

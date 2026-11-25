@@ -1424,7 +1424,6 @@ a[data-slot='button'][data-variant='outline']:hover {
     width: calc(100% - var(--sl-sidebar-width));
     padding-block: 0;
     padding-inline: 1.5rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   }
   :root[data-has-sidebar] .docs-header > .docs-brand {
     display: none;
@@ -1454,6 +1453,47 @@ a[data-slot='button'][data-variant='outline']:hover {
   }
   :root[data-has-sidebar] .docs-header nav {
     gap: 1rem;
+  }
+}
+
+/* Top navigation bar stays completely transparent when unscrolled and turns frosted glass on scroll. */
+header.header,
+:root[data-has-sidebar] header.header {
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    backdrop-filter 0.2s ease,
+    -webkit-backdrop-filter 0.2s ease;
+}
+html.is-scrolled header.header,
+html.is-scrolled[data-has-sidebar] header.header {
+  background: color-mix(in srgb, var(--background) 72%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--border) 80%, transparent);
+  box-shadow: 0 4px 24px -12px rgb(0 0 0 / 10%);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html.is-scrolled header.header,
+  html.is-scrolled[data-has-sidebar] header.header {
+    background: var(--background);
+  }
+}
+:is(.dark.is-scrolled, :root[data-theme='dark'].is-scrolled) header.header,
+:is(.dark.is-scrolled, :root[data-theme='dark'].is-scrolled)[data-has-sidebar] header.header {
+  background: color-mix(in srgb, var(--background) 68%, transparent);
+  box-shadow: 0 6px 28px -12px rgb(0 0 0 / 36%);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :is(.dark.is-scrolled, :root[data-theme='dark'].is-scrolled) header.header,
+  :is(.dark.is-scrolled, :root[data-theme='dark'].is-scrolled)[data-has-sidebar] header.header {
+    background: var(--background);
   }
 }
 

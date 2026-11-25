@@ -32,7 +32,7 @@
 .nav-item.active { font-weight: 500; background: var(--accent); }
 .nav-icon { width: 19px; height: 19px; flex-shrink: 0; color: var(--muted-foreground); }
 .main-panel { display: flex; width: calc(100% - var(--rail)); height: 100vh; height: 100dvh; min-height: 100vh; min-width: 0; flex-direction: column; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; margin-left: var(--rail); background: var(--background); }
-.dashboard-page-header { position: sticky; top: 0; z-index: 18; display: flex; flex: 0 0 var(--dashboard-header-height); min-height: var(--dashboard-header-height); align-items: center; gap: 10px; padding-block: 0; border-bottom: 0; background: var(--background); }
+.dashboard-page-header { position: sticky; top: 0; z-index: 18; display: flex; flex: 0 0 var(--dashboard-header-height); min-height: var(--dashboard-header-height); align-items: center; gap: 10px; padding-block: 0; border-bottom: 1px solid transparent; background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; transition: background-color .2s ease, border-color .2s ease, box-shadow .2s ease, backdrop-filter .2s ease, -webkit-backdrop-filter .2s ease; }
 .dashboard-page-header h1 { margin: 0; color: var(--foreground); font-size: 17px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
 .breadcrumbs { display: flex; min-width: 0; align-items: center; font-size: 14px; gap: 12px; }
 .breadcrumbs > span:first-child { color: var(--muted-foreground); white-space: nowrap; }

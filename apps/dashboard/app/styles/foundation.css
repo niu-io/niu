@@ -118,7 +118,13 @@ button:disabled { cursor: not-allowed; }
 }
 
 /* Shared dashboard rhythm: clear page titles, quiet utility chrome, and one modal language. */
-.dashboard-page-header { background: color-mix(in srgb, var(--background) 94%, transparent); }
+.dashboard-page-header { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.dashboard-page-header[data-scrolled="true"] { background: color-mix(in srgb, var(--background) 72%, transparent); border-bottom-color: color-mix(in srgb, var(--border) 75%, transparent); box-shadow: 0 4px 24px -12px rgb(0 0 0 / 10%); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); }
+:where(.dark, :root[data-theme='dark']) .dashboard-page-header[data-scrolled="true"] { background: color-mix(in srgb, var(--background) 68%, transparent); box-shadow: 0 6px 28px -12px rgb(0 0 0 / 36%); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .dashboard-page-header[data-scrolled="true"],
+  :where(.dark, :root[data-theme='dark']) .dashboard-page-header[data-scrolled="true"] { background: var(--background); }
+}
 .dashboard-page-header .breadcrumbs { min-height: 36px; }
 .dashboard-page-header .breadcrumbs > span:first-child { color: var(--muted-foreground); }
 .page-heading { align-items: flex-start; margin: 0 0 28px; }

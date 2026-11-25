@@ -52,8 +52,16 @@ export default function PublicModelsRoute() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryTick, setRetryTick] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => subscribeTheme(() => setTheme(readTheme())), []);
+
+  useEffect(() => {
+    const syncScroll = () => setScrolled(window.scrollY > 8);
+    syncScroll();
+    window.addEventListener('scroll', syncScroll, { passive: true });
+    return () => window.removeEventListener('scroll', syncScroll);
+  }, []);
 
   const explicitWorkspace = useMemo(
     () => new URLSearchParams(location.search).get('workspace')?.trim() ?? '',
@@ -154,7 +162,7 @@ export default function PublicModelsRoute() {
 
   return (
     <div className="public-models-shell">
-      <header className="public-models-topbar">
+      <header className="public-models-topbar" data-scrolled={scrolled ? 'true' : undefined}>
         <div className="public-models-brand-group">
           <Link
             className="public-models-brand"

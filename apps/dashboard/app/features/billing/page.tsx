@@ -203,7 +203,7 @@ export default function BillingRoute() {
     ? <><Button asChild variant="outline" size="sm" className="hidden sm:inline-flex"><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="sm:hidden" aria-label={uiT("Billing actions")}><IconDots size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem asChild><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></DropdownMenuItem></DropdownMenuContent></DropdownMenu></>
     : undefined;
   const zhOrgPossessive = organizationName
-    ? /[\x00-\x7f]$/.test(organizationName)
+    ? organizationName.charCodeAt(organizationName.length - 1) <= 0x7f
       ? `${organizationName} 的`
       : `${organizationName}的`
     : '';
