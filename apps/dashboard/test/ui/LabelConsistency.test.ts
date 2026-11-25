@@ -11,6 +11,7 @@ import operatorsView from '@/features/operators/components/OperatorsView.tsx?raw
 import operatorDirectory from '@/features/operators/components/OperatorDirectory.tsx?raw';
 import keysView from '@/features/keys/components/KeysView.tsx?raw';
 import accountBilling from '@/features/billing/AccountBilling.tsx?raw';
+import overviewQuickStart from '@/features/overview/components/OverviewQuickStart.tsx?raw';
 
 describe('Concise Chinese product labels', () => {
   it('uses short nouns in Settings navigation', () => {
@@ -78,8 +79,16 @@ describe('Concise Chinese product labels', () => {
     expect(operatorsView).toContain('memberSearch');
     expect(operatorDirectory).not.toContain('PopoverTrigger');
     expect(modelTable).toContain('models-card-try');
-    expect(modelTable).toContain('ArrowUpRight');
+    expect(modelTable).not.toContain('ArrowUpRight');
+    expect(modelTable).not.toContain('ArrowRight');
     expect(modelTable).not.toContain('variant="link" className="h-auto p-0 text-xs');
+  });
+
+  it('keeps arrows out of button labels', () => {
+    expect(settingsShell).not.toContain('IconExternalLink');
+    expect(overviewQuickStart).not.toContain('IconArrowUpRight');
+    expect(overviewQuickStart).not.toContain('IconArrowRight');
+    expect(overviewQuickStart).toContain('IconChevronRight');
   });
 
   it('keeps the key directory as a readable list without a fixed table', () => {

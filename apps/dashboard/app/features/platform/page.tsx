@@ -62,8 +62,8 @@ function ExternalActionLink({ href, label }: { href: string; label: string }) {
       rel="noopener noreferrer"
       className="inline-flex items-center gap-1 font-medium text-foreground underline underline-offset-4 hover:text-primary"
     >
-      <span>{label}</span>
       <IconExternalLink size={13} aria-hidden="true" className="shrink-0" />
+      <span>{label}</span>
     </a>
   );
 }
@@ -289,14 +289,14 @@ function PaymentConfiguration({ token }: { token: string }) {
             <div className="flex flex-wrap items-center gap-2">
               <Button asChild variant="outline" size="sm">
                 <a href={STRIPE_ACCOUNT_SETTINGS_URL} target="_blank" rel="noopener noreferrer">
-                  <span>{uiT('Complete setup in Stripe', '前往 Stripe 完成账户激活')}</span>
                   <IconExternalLink size={14} aria-hidden="true" />
+                  <span>{uiT('Complete setup in Stripe', '前往 Stripe 完成账户激活')}</span>
                 </a>
               </Button>
               <Button asChild variant="ghost" size="sm">
                 <a href={STRIPE_API_KEYS_URL} target="_blank" rel="noopener noreferrer">
-                  <span>{uiT('Manage Stripe API keys', '管理 Stripe API 密钥')}</span>
                   <IconExternalLink size={14} aria-hidden="true" />
+                  <span>{uiT('Manage Stripe API keys', '管理 Stripe API 密钥')}</span>
                 </a>
               </Button>
             </div>
@@ -313,14 +313,14 @@ function PaymentConfiguration({ token }: { token: string }) {
             <div className="flex flex-wrap items-center gap-2">
               <Button asChild variant="outline" size="sm">
                 <a href={STRIPE_API_KEYS_URL} target="_blank" rel="noopener noreferrer">
-                  <span>{uiT('Open Stripe API keys', '前往 Stripe API 密钥')}</span>
                   <IconExternalLink size={14} aria-hidden="true" />
+                  <span>{uiT('Open Stripe API keys', '前往 Stripe API 密钥')}</span>
                 </a>
               </Button>
               <Button asChild variant="ghost" size="sm">
                 <a href={PAYMENT_DOCS_URL} target="_blank" rel="noopener noreferrer">
-                  <span>{uiT('Payment setup guide', '查看收款配置文档')}</span>
                   <IconExternalLink size={14} aria-hidden="true" />
+                  <span>{uiT('Payment setup guide', '查看收款配置文档')}</span>
                 </a>
               </Button>
             </div>
@@ -340,14 +340,14 @@ function PaymentConfiguration({ token }: { token: string }) {
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="outline" size="sm">
               <a href={STRIPE_STATUS_URL} target="_blank" rel="noopener noreferrer">
-                <span>{uiT('Check Stripe status', '查看 Stripe 服务状态')}</span>
                 <IconExternalLink size={14} aria-hidden="true" />
+                  <span>{uiT('Check Stripe status', '查看 Stripe 服务状态')}</span>
               </a>
             </Button>
             <Button asChild variant="ghost" size="sm">
               <a href={STRIPE_API_KEYS_URL} target="_blank" rel="noopener noreferrer">
-                <span>{uiT('Open Stripe API keys', '前往 Stripe API 密钥')}</span>
                 <IconExternalLink size={14} aria-hidden="true" />
+                  <span>{uiT('Open Stripe API keys', '前往 Stripe API 密钥')}</span>
               </a>
             </Button>
           </div>
@@ -535,8 +535,8 @@ function PaymentConfiguration({ token }: { token: string }) {
                           </Button>
                           <Button asChild variant="ghost" size="sm">
                             <a href={STRIPE_DASHBOARD_HOME_URL} target="_blank" rel="noopener noreferrer">
-                              <span>{uiT("Open Stripe Dashboard", "打开 Stripe 后台")}</span>
                               <IconExternalLink size={14} aria-hidden="true" />
+                  <span>{uiT("Open Stripe Dashboard", "打开 Stripe 后台")}</span>
                             </a>
                           </Button>
                         </>

@@ -5,7 +5,6 @@ import '../models.css';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { IconCpu as Boxes } from "@tabler/icons-react";
 import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
-import { IconArrowUpRight as ArrowUpRight } from "@tabler/icons-react";
 import { IconCheck as Check } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { IconCopy as Clipboard } from "@tabler/icons-react";
@@ -568,11 +567,11 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
                         const trial = modelTrialLabels(model, uiT);
                         return <>
                           {(hasChatOutput(model) || canTryUnverifiedChat(model)) && (needsApiKey
-                            ? <Button type="button" variant="outline" size="sm" className="models-card-try" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'chat' }); }}>{trial.chat}<ArrowUpRight size={14} aria-hidden="true" /></Button>
-                            : <Button asChild variant="outline" size="sm" className="models-card-try"><Link to={generationHref(model, 'chat')}>{trial.chat}<ArrowUpRight size={14} aria-hidden="true" /></Link></Button>)}
+                            ? <Button type="button" variant="outline" size="sm" className="models-card-try" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'chat' }); }}>{trial.chat}</Button>
+                            : <Button asChild variant="outline" size="sm" className="models-card-try"><Link to={generationHref(model, 'chat')}>{trial.chat}</Link></Button>)}
                           {isVideoModel(model) && (needsApiKey
-                            ? <Button type="button" variant="outline" size="sm" className="models-card-try" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'video' }); }}>{trial.video}<ArrowUpRight size={14} aria-hidden="true" /></Button>
-                            : <Button asChild variant="outline" size="sm" className="models-card-try"><Link to={generationHref(model, 'video')}>{trial.video}<ArrowUpRight size={14} aria-hidden="true" /></Link></Button>)}
+                            ? <Button type="button" variant="outline" size="sm" className="models-card-try" onClick={event => { pendingTryTriggerRef.current = event.currentTarget; quickKey.setError(''); setPendingTry({ model, kind: 'video' }); }}>{trial.video}</Button>
+                            : <Button asChild variant="outline" size="sm" className="models-card-try"><Link to={generationHref(model, 'video')}>{trial.video}</Link></Button>)}
                         </>;
                       })()}
                     </div>

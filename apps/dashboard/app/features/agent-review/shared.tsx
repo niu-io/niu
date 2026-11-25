@@ -121,8 +121,8 @@ export function ReviewEmptyState({
         {actions}
         <Button variant="ghost" asChild>
           <a href={`${import.meta.env.BASE_URL}docs/agents/`} target="_blank" rel="noopener">
-            <span>{uiT('Agent setup guide')}</span>
             <IconExternalLink size={15} aria-hidden="true" />
+            <span>{uiT('Agent setup guide')}</span>
           </a>
         </Button>
       </EmptyContent>

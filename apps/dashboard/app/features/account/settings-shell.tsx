@@ -13,7 +13,7 @@ import type { DashboardContext } from '@/shell/dashboard-context';
 import { readTheme, saveTheme, subscribeTheme, type Theme } from '@/shell/theme';
 import { useLocale, type Locale } from '@/shell/ui-locale';
 import { IconChevronDown, IconSun, IconMoon, IconDeviceDesktop, IconLanguage } from '@tabler/icons-react';
-import { IconBook, IconVersions, IconBrandGithub, IconBug, IconLicense, IconCopyright, IconExternalLink } from '@tabler/icons-react';
+import { IconBook, IconVersions, IconBrandGithub, IconBug, IconLicense, IconCopyright } from '@tabler/icons-react';
 import NiuBrand from '@/components/NiuBrand';
 import { MetricStripSkeleton } from '@/components/PageSkeletons';
 import { settingsHref } from './settings-routes';
@@ -106,10 +106,10 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
           <p>{t('Documentation, releases, source, and support.', '文档、发布说明、源码与支持。')}</p>
         </header>
         <nav aria-label={uiT("Product resources")} className="settings-about-links">
-          <Button asChild variant="ghost" className="settings-about-link"><a href={`${import.meta.env.BASE_URL}docs/`} target="_blank" rel="noopener" aria-label={t('Docs (opens in a new tab)', '文档（新标签页）')}><IconBook aria-hidden="true"/><span className="settings-about-link-label">{t('Docs', '文档')}</span><IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
-          <Button asChild variant="ghost" className="settings-about-link"><a href="https://github.com/niu-io/niu/releases" target="_blank" rel="noopener noreferrer"><IconVersions aria-hidden="true"/><span className="settings-about-link-label">{t('Release notes', '发布说明')}</span><IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
-          <Button asChild variant="ghost" className="settings-about-link"><a href="https://github.com/niu-io/niu" target="_blank" rel="noopener noreferrer"><IconBrandGithub aria-hidden="true"/><span className="settings-about-link-label">GitHub</span><IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
-          <Button asChild variant="ghost" className="settings-about-link"><a href="https://github.com/niu-io/niu/issues" target="_blank" rel="noopener noreferrer"><IconBug aria-hidden="true"/><span className="settings-about-link-label">{t('Report an issue', '反馈')}</span><IconExternalLink className="ml-auto text-muted-foreground" aria-hidden="true"/></a></Button>
+          <Button asChild variant="ghost" className="settings-about-link"><a href={`${import.meta.env.BASE_URL}docs/`} target="_blank" rel="noopener" aria-label={t('Docs (opens in a new tab)', '文档（新标签页）')}><IconBook aria-hidden="true"/><span className="settings-about-link-label">{t('Docs', '文档')}</span></a></Button>
+          <Button asChild variant="ghost" className="settings-about-link"><a href="https://github.com/niu-io/niu/releases" target="_blank" rel="noopener noreferrer"><IconVersions aria-hidden="true"/><span className="settings-about-link-label">{t('Release notes', '发布说明')}</span></a></Button>
+          <Button asChild variant="ghost" className="settings-about-link"><a href="https://github.com/niu-io/niu" target="_blank" rel="noopener noreferrer"><IconBrandGithub aria-hidden="true"/><span className="settings-about-link-label">GitHub</span></a></Button>
+          <Button asChild variant="ghost" className="settings-about-link"><a href="https://github.com/niu-io/niu/issues" target="_blank" rel="noopener noreferrer"><IconBug aria-hidden="true"/><span className="settings-about-link-label">{t('Report an issue', '反馈')}</span></a></Button>
         </nav>
       </section>
       <footer className="settings-about-legal">

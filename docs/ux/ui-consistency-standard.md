@@ -23,6 +23,7 @@ This document defines the mandatory, product-wide UI and interaction standards f
   - Never nest a `Dialog` inside an already-open modal; keep secondary confirmations inside modals inline.
   - Every labeled form field pairs `<Label>` (which uses `leading-snug` so CJK glyphs never clip or touch controls below) and its input/trigger inside an explicit `grid gap-2` (or `space-y-2`) container. A global zero-specificity CSS safeguard in `foundation.css` also enforces `display: grid; gap: 0.5rem;` on any unspaced block container holding a visible `<Label>` inside forms, dialogs, and popovers.
 
+- **No trailing arrow icons in button labels**: Action buttons and button-styled links never append a diagonal arrow or external-link glyph after their label. Use a leading meaningful icon, no icon, or a trailing `ChevronRight` for directional navigation; external links keep the external affordance in the leading icon or accessible name.
 ## 3. Uniform Choice, Header & Toolbar Controls
 
 - **DropdownMenu only**: Never use native `<select>` / `<option>`, shadcn `Select`, or custom dropdown abstractions. Compose shadcn `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, and `DropdownMenuRadioGroup` / `DropdownMenuRadioItem` (or `DropdownMenuCheckboxItem`) directly, keeping the selection check on the right aligned with standard items.

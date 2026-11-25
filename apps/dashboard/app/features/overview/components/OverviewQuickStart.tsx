@@ -1,4 +1,4 @@
-import { IconArrowRight, IconArrowUpRight, IconRoute } from '@tabler/icons-react';
+import { IconChevronRight, IconRoute } from '@tabler/icons-react';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
@@ -50,14 +50,14 @@ export default function OverviewQuickStart({ workspaceRoot, modelsHref, canWrite
           <span aria-hidden="true">{index + 1}</span>
           <strong>{step.label}</strong>
           <small>{step.detail}</small>
-          <IconArrowRight size={15} aria-hidden="true" />
+          <IconChevronRight size={15} aria-hidden="true" />
         </Button>
       ) : (
         <Link key={step.to} to={step.to} reloadDocument={step.to.startsWith('/docs/')} aria-label={step.label}>
           <span aria-hidden="true">{index + 1}</span>
           <strong>{step.label}</strong>
           <small>{step.detail}</small>
-          {step.to.startsWith('/docs/') ? <IconArrowUpRight size={15} aria-hidden="true" /> : <IconArrowRight size={15} aria-hidden="true" />}
+          <IconChevronRight size={15} aria-hidden="true" />
         </Link>
       ))}
     </div>

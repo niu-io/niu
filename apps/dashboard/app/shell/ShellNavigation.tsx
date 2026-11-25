@@ -1,7 +1,6 @@
 import {
   IconArrowLeft,
   IconBook,
-  IconExternalLink,
   IconLayoutSidebarLeftCollapse as PanelLeftClose,
   IconLayoutSidebarLeftExpand as PanelLeftOpen,
   IconShieldLock,
@@ -222,7 +221,6 @@ export function ShellAccount() {
           <a href={`${import.meta.env.BASE_URL}docs/`} target="_blank" rel="noopener" aria-label={docsLinkLabel}>
             <IconBook aria-hidden="true" />
             <span className="group-data-[collapsible=icon]:hidden">{docsLabel}</span>
-            <IconExternalLink className="ml-auto text-muted-foreground group-data-[collapsible=icon]:hidden" aria-hidden="true" />
           </a>
         </SidebarMenuButton>
       </SidebarMenuItem>
