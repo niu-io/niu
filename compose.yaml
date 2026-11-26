@@ -1,11 +1,10 @@
 services:
   niu:
     build: .
-    image: ${NIU_IMAGE:-ghcr.io/niu-io/niu:v0.4.0}
+    image: ${NIU_IMAGE:-ghcr.io/niu-io/niu:v0.4.1}
     ports:
       - "${NIU_HOST_PORT:-2555}:2555"
     environment:
-      NIU_OPERATING_MODE: ${NIU_OPERATING_MODE:-internal}
       NIU_CONFIG_FILE: /etc/niu/niu.toml
       NIU_AUTH_PUBLIC_ORIGIN: ${NIU_AUTH_PUBLIC_ORIGIN:-}
       NIU_DATABASE_URL: postgres://niu:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD to a URL-safe random password}@postgres:5432/niu

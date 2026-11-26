@@ -74,18 +74,23 @@ fn default_luminance(token: &str, dark: bool) -> Option<f64> {
 }
 
 fn compute_default_luminance(token: &str, dark: bool) -> Option<f64> {
-    // Read the checked-in opaque OKLCH defaults, rather than copying values
-    // that can silently diverge from CSS. Unsupported source syntax fails closed.
+    // Read the checked-in opaque hex or OKLCH defaults, rather than copying
+    // values that can silently diverge from CSS. Unsupported source syntax fails closed.
     let (light, dark_block) = TOKENS.split_once(".dark,")?;
     let block = if dark { dark_block } else { light };
     let declaration = format!("--{token}:");
     let value = block
         .lines()
         .find_map(|line| line.trim().strip_prefix(&declaration))?
+        .trim()
+        .strip_suffix(';')?
         .trim();
+    if value.starts_with('#') {
+        return hex_luminance(value);
+    }
     let components = value
         .strip_prefix("oklch(")?
-        .strip_suffix(");")?
+        .strip_suffix(')')?
         .split_whitespace()
         .map(str::parse::<f64>)
         .collect::<Result<Vec<_>, _>>()

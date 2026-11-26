@@ -186,7 +186,17 @@ export function CreditEditor({
   const openerRef = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const { currency: platformCurrency } = usePlatformCurrency();
   const currency = account?.currency ?? platformCurrency;
-  const [amount, setAmount] = useState(amountFromNanos(account?.credit_limit_nanos ?? '0'));
+  type CreditMode = 'prepaid' | 'fixed' | 'unlimited';
+  const initialMode: CreditMode = account?.unlimited_credit
+    ? 'unlimited'
+    : account && BigInt(account.credit_limit_nanos) > 0n
+      ? 'fixed'
+      : 'prepaid';
+  const [creditMode, setCreditMode] = useState<CreditMode>(initialMode);
+  const [amount, setAmount] = useState(() => {
+    const raw = account?.credit_limit_nanos ?? '0';
+    return BigInt(raw) > 0n ? amountFromNanos(raw) : '100';
+  });
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const [uncertain, setUncertain] = useState(false);
@@ -194,16 +204,19 @@ export function CreditEditor({
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (pending || uncertain) return;
-    let nanos: string;
+    let nanos = '0';
+    const unlimitedCredit = creditMode === 'unlimited';
     if (!/^[A-Z]{3}$/.test(currency)) {
       setError('Configure the platform currency in Admin → Settings before approving credit.');
       return;
     }
-    try {
-      nanos = amountToNanos(amount, true);
-    } catch {
-      setError('Enter a nonnegative credit amount with at most nine decimal places, within the supported range.');
-      return;
+    if (creditMode === 'fixed') {
+      try {
+        nanos = amountToNanos(amount, true);
+      } catch {
+        setError('Enter a nonnegative credit amount with at most nine decimal places, within the supported range.');
+        return;
+      }
     }
     setPending(true);
     setError('');
@@ -214,6 +227,7 @@ export function CreditEditor({
         'PUT',
         {
           credit_limit_nanos: nanos,
+          unlimited_credit: unlimitedCredit,
           warning_threshold_nanos: account?.warning_threshold_nanos ?? null,
           expected_revision: account?.policy_revision ?? '0',
         },
@@ -235,11 +249,23 @@ export function CreditEditor({
   }
 
   let preview: string | null = null;
-  try {
-    preview = money(amountToNanos(amount, true), currency);
-  } catch {
-    /* Invalid input is explained on submit. */
+  if (creditMode === 'unlimited') {
+    preview = uiT('Unlimited credit', '无限授信');
+  } else if (creditMode === 'prepaid') {
+    preview = currency ? money('0', currency) : '0';
+  } else {
+    try {
+      preview = money(amountToNanos(amount, true), currency);
+    } catch {
+      /* Invalid input is explained on submit. */
+    }
   }
+
+  const currentCreditLabel = !account
+    ? uiT('No currency account')
+    : account.unlimited_credit
+      ? uiT('Unlimited credit', '无限授信')
+      : money(account.credit_limit_nanos, currency);
 
   return (
     <Dialog open onOpenChange={open => { if (!open && !pending) onClose(); }}>
@@ -254,14 +280,17 @@ export function CreditEditor({
         <DialogHeader>
           <DialogTitle>{uiT("Set approved credit")}</DialogTitle>
           <DialogDescription>
-            {company.organization_name || uiT("Unnamed company")}{" "}
-            {uiT("· Allows the balance to become negative up to this limit. It does not change the posted balance.")}
+            {customerDisplayName(company, uiT)}{" "}
+            {uiT(
+              "· Configure prepaid, fixed credit limit, or unlimited credit (for self-use and postpaid accounts). It does not change the posted balance.",
+              "· 配置预付费、固定授信额度或无限授信（适用于自用及后付费账号）。修改授信不会改变当前账面余额。",
+            )}
           </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4 border-b pb-4">
           <div>
             <p className="text-sm text-muted-foreground">{uiT("Current credit")}</p>
-            <p className="font-medium">{account ? money(account.credit_limit_nanos, currency) : uiT("No currency account")}</p>
+            <p className="font-medium">{currentCreditLabel}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">{uiT("New credit")}</p>
@@ -270,20 +299,70 @@ export function CreditEditor({
         </div>
         <form className="space-y-4" onSubmit={event => void submit(event)}>
           <p className="text-sm text-muted-foreground">{uiT("Currency:")}{" "}{currency || uiT("configure in Admin")}</p>
-          <div className="space-y-2">
-            <Label htmlFor="approved-credit">{uiT("Approved credit limit")}</Label>
-            <Input
-              id="approved-credit"
-              inputMode="decimal"
-              value={amount}
-              disabled={pending || uncertain}
-              onChange={event => {
-                setAmount(event.target.value);
-                setError('');
-              }}
-            />
-            <p className="text-sm text-muted-foreground">{uiT("Zero requires prepayment. Existing request liabilities must still settle.")}</p>
+          <div className="grid gap-2">
+            <Label>{uiT("Credit mode", "授信方式")}</Label>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-pressed={creditMode === 'prepaid'}
+                disabled={pending || uncertain}
+                onClick={() => { setCreditMode('prepaid'); setError(''); }}
+              >
+                {uiT("Prepaid ($0)", "预付费（$0）")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-pressed={creditMode === 'fixed'}
+                disabled={pending || uncertain}
+                onClick={() => { setCreditMode('fixed'); setError(''); }}
+              >
+                {uiT("Credit limit", "固定授信")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-pressed={creditMode === 'unlimited'}
+                disabled={pending || uncertain}
+                onClick={() => { setCreditMode('unlimited'); setError(''); }}
+              >
+                {uiT("Unlimited credit", "无限授信")}
+              </Button>
+            </div>
           </div>
+          {creditMode === 'fixed' && (
+            <div className="grid gap-2">
+              <Label htmlFor="approved-credit">{uiT("Approved credit limit")}</Label>
+              <Input
+                id="approved-credit"
+                inputMode="decimal"
+                value={amount}
+                disabled={pending || uncertain}
+                onChange={event => {
+                  setAmount(event.target.value);
+                  setError('');
+                }}
+              />
+              <p className="text-sm text-muted-foreground">{uiT("Allows negative balance up to this amount. Existing request liabilities must still settle.", "允许余额透支至此上限；进行中的请求负债仍会正常结算。")}</p>
+            </div>
+          )}
+          {creditMode === 'prepaid' && (
+            <p className="text-sm text-muted-foreground">
+              {uiT("Requires positive prepaid balance before paid requests can run.", "调用付费模型前需先充值保持正余额。")}
+            </p>
+          )}
+          {creditMode === 'unlimited' && (
+            <p className="text-sm text-muted-foreground">
+              {uiT(
+                "Allows continuous negative balance without payment-gateway setup (recommended for self-use and internal teams). Workspace and API key spending limits remain enforced.",
+                "允许持续欠费记账，无需配置在线收款网关（推荐自用及内部团队使用）；工作空间与 API 密钥消费限额继续生效。",
+              )}
+            </p>
+          )}
           {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" disabled={pending} onClick={onClose}>{uiT("Cancel")}</Button>

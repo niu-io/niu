@@ -9,8 +9,8 @@ Niu serves documentation, the public model catalog, workspace dashboard, inferen
 
 The Dockerfile builds the Rust gateway, TypeScript dashboard and Astro documentation, and packages the static model catalog into one image. The community root redirects to the workspace; a composed hosted build can supply a separate website artifact using `NIU_SITE_DIR`. The product URLs are `/`, `/docs/`, `/models/`, `/workspaces/default/`, `/v1/…` and `/api/v1/…`.
 
-:::note[Operating mode]
-Deployment policy is controlled by `NIU_OPERATING_MODE`. Omitted or `internal` starts **Internal use** mode (no customer pricing, currency setup, or merchant payment setup required; static TOML routes are rejected). Set `NIU_OPERATING_MODE=resale` explicitly for commercial multi-tenant resale deployments. Use `scripts/install.sh` for versioned installation, pre-upgrade backups, encryption checks, and rollback.
+:::note[Unified billing and credit policy]
+Every Niu deployment runs one unified Provider, pricing, workspace, and ledger workflow. Completing `/setup` initializes the platform currency (default `USD`) and grants the initial administrator organization **Unlimited credit** so self-use works immediately with continuous arrears allowed and no online payment-gateway setup required. External customer organizations default to prepaid (`$0` credit limit) until topped up or granted credit in **Admin → Customers**. Legacy `NIU_OPERATING_MODE=internal` or `resale` environment variables remain accepted on upgrade for backward compatibility. Use `scripts/install.sh` for versioned installation, pre-upgrade backups, encryption checks, and rollback.
 :::
 
 ## Run with Docker Compose
@@ -22,7 +22,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The product is available on port `2555`. Open `http://localhost:2555/` for the workspace, `/docs/` for documentation, `/models/` for the public catalog, and `/workspaces/default/` for the dashboard. New default `NIU_OPERATING_MODE=internal` installations start with an empty model list: sign in at `/installation` with your installation administrator token to connect a Provider and import models. Advanced static TOML routes in `config/niu.example.toml` require `NIU_OPERATING_MODE=resale` and are rejected in default `internal` mode. Only routes with `public_catalog = true` appear in the public catalog.
+The product is available on port `2555`. Open `http://localhost:2555/` for the workspace, `/docs/` for documentation, `/models/` for the public catalog, and `/workspaces/default/` for the dashboard. New installations start with an empty model list: complete initial administrator setup at `/setup` (or sign in with your installation administrator token), connect a Provider, and import models. Available models are enabled at the Provider's standard price (`100%`, no discount) by default. Only routes with `public_catalog = true` appear in the public catalog.
 
 ## Included source notices
 
@@ -159,8 +159,8 @@ Niu 从单一源（origin）提供文档、公开模型目录、工作空间控�
 
 Dockerfile 会构建 Rust 网关、TypeScript 控制台和 Astro 文档，并将静态模型目录打包进同一镜像。社区版根路径会重定向至工作空间；组合式托管构建可通过 `NIU_SITE_DIR` 提供独立的网站构建产物。产品 URL 包括 `/`、`/docs/`、`/models/`、`/workspaces/default/`、`/v1/…` 和 `/api/v1/…`。
 
-:::note[运行模式]
-部署策略由 `NIU_OPERATING_MODE` 控制。省略或设为 `internal` 时以**内部使用（Internal use）**模式启动（无需配置客户定价、平台币种或商户支付网关；静态 TOML 路由会被拒绝）。商业多租户转售部署请显式设置 `NIU_OPERATING_MODE=resale`。建议使用 `scripts/install.sh` 执行版本化安装、升级前备份、加密校验与回滚。
+:::note[统一计费与授信机制]
+所有 Niu 部署均运行同一套模型供应商、标准售价、工作空间与账本流程。完成 `/setup` 初始化时会自动配置平台计费币种（默认 `USD`），并为首个管理员组织开启**无限授信（Unlimited credit）**，无需配置在线支付网关即可直接自用并持续记账；外部客户组织默认为预付费（`$0` 授信额度），可在「管理后台 → 客户管理」中充值或配置固定/无限授信。旧版 `NIU_OPERATING_MODE=internal` 或 `resale` 环境变量在升级时继续兼容。建议使用 `scripts/install.sh` 执行版本化安装、升级前备份、加密校验与回滚。
 :::
 
 ## 使用 Docker Compose 运行
@@ -172,7 +172,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-产品在端口 `2555` 上可用。打开 `http://localhost:2555/` 进入工作空间，`/docs/` 查看文档，`/models/` 浏览公开模型目录，`/workspaces/default/` 进入控制台。全新的默认 `NIU_OPERATING_MODE=internal` 实例启动时模型列表为空：请使用安装管理员令牌登录 `/installation`，连接模型供应商（Provider）并导入模型。`config/niu.example.toml` 中的高级静态 TOML 路由需要 `NIU_OPERATING_MODE=resale`，在默认 `internal` 模式下会被拒绝。只有设置了 `public_catalog = true` 的路由才会出现在公开模型目录中。
+产品在端口 `2555` 上可用。打开 `http://localhost:2555/` 进入工作空间，`/docs/` 查看文档，`/models/` 浏览公开模型目录，`/workspaces/default/` 进入控制台。全新实例启动时模型列表为空：请在 `/setup` 完成管理员初始化（或使用管理员令牌登录），连接模型供应商（Provider）并导入模型；可用模型默认按供应商标准售价（`100%` 无折扣）启用。只有设置了 `public_catalog = true` 的路由才会出现在公开模型目录中。
 
 ## 包含的源码声明
 

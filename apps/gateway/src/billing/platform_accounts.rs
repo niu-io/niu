@@ -121,6 +121,7 @@ async fn actor(state: &AppState, headers: &HeaderMap) -> Result<OperatorAuditAct
 ///                             "outstanding_nanos",
 ///                             "available_nanos",
 ///                             "credit_limit_nanos",
+///                             "unlimited_credit",
 ///                             "policy_revision",
 ///                             "warning_threshold_nanos",
 ///                             "low_balance",
@@ -144,6 +145,9 @@ async fn actor(state: &AppState, headers: &HeaderMap) -> Result<OperatorAuditAct
 ///                             },
 ///                             "credit_limit_nanos": {
 ///                               "type": "string"
+///                             },
+///                             "unlimited_credit": {
+///                               "type": "boolean"
 ///                             },
 ///                             "policy_revision": {
 ///                               "type": "string"

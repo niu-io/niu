@@ -25,6 +25,9 @@ export type ResolvedModelRow = {
   stdInputNanos: string | null;
   stdOutputNanos: string | null;
   stdCachedNanos: string | null;
+  stdCacheWriteNanos?: string | null;
+  stdReasoningOutputNanos?: string | null;
+  stdContextTiers?: NonNullable<ProviderOffer['context_tiers']>;
   discountPercent: number | null;
   isActive: boolean;
   offerActiveButMissingRetail: boolean;

@@ -1,6 +1,6 @@
 {
   "name": "@niu-io/sdk",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "TypeScript client for the Niu AI gateway",
   "license": "MIT",
   "type": "module",

@@ -15,6 +15,7 @@ export type CustomerBalancePolicyHistory = {
     data: Array<{
         revision: string;
         credit_limit_nanos: string;
+        unlimited_credit?: boolean;
         warning_threshold_nanos: string | null;
         created_at: string;
         is_current: boolean;

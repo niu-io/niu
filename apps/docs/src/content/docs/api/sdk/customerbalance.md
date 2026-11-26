@@ -16,6 +16,8 @@ export type CustomerBalance = {
     /** Outstanding holds including known unsettled media overruns; absent on older gateways. */
     outstanding_nanos?: string;
     credit_limit_nanos: string;
+    /** True when continuous negative-balance arrears are allowed without a numeric credit ceiling. */
+    unlimited_credit?: boolean;
     warning_threshold_nanos: string | null;
     policy_revision: string;
     low_balance: boolean;

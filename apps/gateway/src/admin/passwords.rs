@@ -744,6 +744,8 @@ pub struct InstallationSetupInput {
     password: String,
     #[serde(default)]
     name: Option<String>,
+    #[serde(default)]
+    currency: Option<String>,
 }
 
 /// # OpenAPI
@@ -755,7 +757,7 @@ pub struct InstallationSetupInput {
 ///     "operationId": "completeSetup",
 ///     "tags": ["Authentication"],
 ///     "summary": "Create the first platform administrator account during initial setup",
-///     "description": "One-time first-run bootstrap for a blank deployment where password authentication is configured and no active password-enabled platform administrator exists yet. Checks initialization state first and immediately returns 409 Conflict once initialized. Authenticates the deployment's NIU_ADMIN_TOKENS credential via Authorization: Bearer. Creates the first owner account with platform administration enabled in the default workspace, establishes an eight-hour HttpOnly browser cookie when called from the trusted browser Origin, and also supports headless CLI/automation callers without an Origin header. Responses are not cached.",
+///     "description": "One-time first-run bootstrap for a blank deployment where password authentication is configured and no active password-enabled platform administrator exists yet. Checks initialization state first and immediately returns 409 Conflict once initialized. Authenticates the deployment's NIU_ADMIN_TOKENS credential via Authorization: Bearer. Initializes the installation currency (defaulting to USD when omitted), grants the initial organization unlimited credit for self-use, creates the first owner account with platform administration enabled in the default workspace, establishes an eight-hour HttpOnly browser cookie when called from the trusted browser Origin, and also supports headless CLI/automation callers without an Origin header. Responses are not cached.",
 ///     "security": [{"bearerAuth": []}],
 ///     "x-niu-implementation": "implemented",
 ///     "requestBody": {
@@ -780,6 +782,11 @@ pub struct InstallationSetupInput {
 ///                 "type": "string",
 ///                 "minLength": 15,
 ///                 "description": "Account password (at least 15 characters and at most 1024 bytes)."
+///               },
+///               "currency": {
+///                 "type": "string",
+///                 "pattern": "^[A-Z]{3}$",
+///                 "description": "Optional three-letter ISO 4217 billing currency (defaults to USD when omitted)."
 ///               }
 ///             }
 ///           }
@@ -874,7 +881,12 @@ pub async fn complete_installation_setup(
     let hash = auth.hash_password_bounded(input.password).await?;
     let issued = state
         .store
-        .complete_initial_installation(&input.email, input.name.as_deref(), &hash)
+        .complete_initial_installation_with_currency(
+            &input.email,
+            input.name.as_deref(),
+            &hash,
+            input.currency.as_deref(),
+        )
         .await
         .map_err(|error| match error {
             niu_storage::StoreError::Conflict => ApiError::installation_already_initialized(),

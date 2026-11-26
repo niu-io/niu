@@ -7,7 +7,7 @@ import { settingsHref } from './settings-routes';
 
 export function settingsNavigationEntries(context: DashboardContext, t: ReturnType<typeof useLocale>['t']) {
   const personal = context.session?.kind === 'operator';
-  const canViewBilling = context.session?.operating_mode !== 'internal' && (context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role)));
+  const canViewBilling = context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role));
   const canManageMembers = Boolean(context.organization && context.session?.permissions?.manage_operators);
   return [
     ...(personal ? [{path:'account',label:t('Account', '账户'),icon:IconUserCircle}] : []),

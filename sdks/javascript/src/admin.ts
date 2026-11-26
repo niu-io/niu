@@ -882,7 +882,10 @@ export type CustomerBalance = {
   currency: string; balance_nanos: string; reserved_nanos: string; available_nanos: string;
   /** Outstanding holds including known unsettled media overruns; absent on older gateways. */
   outstanding_nanos?: string;
-  credit_limit_nanos: string; warning_threshold_nanos: string | null; policy_revision: string;
+  credit_limit_nanos: string;
+  /** True when continuous negative-balance arrears are allowed without a numeric credit ceiling. */
+  unlimited_credit?: boolean;
+  warning_threshold_nanos: string | null; policy_revision: string;
   low_balance: boolean; posted_credit_exhausted: boolean;
 };
 /** Standard-unit display summary for one customer, with no atoms, lots or provenance. */
@@ -924,7 +927,7 @@ export type CustomerTopup = {
 /** Customer-safe immutable credit and warning policy history. */
 export type CustomerBalancePolicyHistory = {
   current_revision: string; next_before: string | null;
-  data: Array<{ revision: string; credit_limit_nanos: string; warning_threshold_nanos: string | null; created_at: string; is_current: boolean }>;
+  data: Array<{ revision: string; credit_limit_nanos: string; unlimited_credit?: boolean; warning_threshold_nanos: string | null; created_at: string; is_current: boolean }>;
 };
 /** Durable intent; prepared does not prove an in-flight publication failed. */
 export type PreparedCustomerBalanceGrant = {
@@ -956,7 +959,7 @@ function checkedBalanceGrantInput(currency: string, input: CustomerBalanceGrantI
 
 /** Exact nonnegative nanounits and optimistic revision for installation credit policy. */
 export type CustomerBalancePolicyInput = {
-  credit_limit_nanos: string; warning_threshold_nanos: string | null; expected_revision: string;
+  credit_limit_nanos: string; unlimited_credit?: boolean; warning_threshold_nanos: string | null; expected_revision: string;
 };
 /** Platform-recorded settled customer account top-up (idempotent on channel + payment_reference). */
 export type SettledCustomerFundingInput = {
@@ -2949,10 +2952,14 @@ export class NiuAdminClient {
     if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
     const exact = (value: unknown, maximum: bigint) => typeof value === 'string' && /^\d{1,19}$/.test(value) && BigInt(value) <= maximum;
     if (!exact(input.credit_limit_nanos, 9223372036854775807n)
+      || (input.unlimited_credit !== undefined && typeof input.unlimited_credit !== 'boolean')
       || (input.warning_threshold_nanos !== null && !exact(input.warning_threshold_nanos, 9223372036854775807n))
       || !exact(input.expected_revision, 9223372036854775806n)) throw new TypeError('Use exact nonnegative amounts and revision');
     return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${encodeURIComponent(currency)}/policy`, {
-      credit_limit_nanos: input.credit_limit_nanos, warning_threshold_nanos: input.warning_threshold_nanos, expected_revision: input.expected_revision,
+      credit_limit_nanos: input.credit_limit_nanos,
+      ...(input.unlimited_credit !== undefined ? { unlimited_credit: input.unlimited_credit } : {}),
+      warning_threshold_nanos: input.warning_threshold_nanos,
+      expected_revision: input.expected_revision,
     }, options, 'PUT');
   }
 

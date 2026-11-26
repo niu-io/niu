@@ -2575,3 +2575,211 @@ async fn fail_closed_billing_rejects_unpriced_and_zero_tariff_paid_models(pool: 
     assert!(captured.0.lock().unwrap().is_some());
     server.abort();
 }
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn unlimited_credit_allows_postpaid_arrears_without_merchant_while_enforcing_workspace_limits(
+    pool: sqlx::PgPool,
+) {
+    const ADMIN_TOKEN: &str = "niu-test-admin-token-that-is-long-1234";
+    let captured = Captured::default();
+    let upstream = Router::new()
+        .route("/v1/chat/completions", post(provider))
+        .with_state(captured.clone());
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+    let mut state = test_state(Some(format!("http://{address}/v1")), pool);
+    state
+        .store
+        .configure_platform_currency("USD")
+        .await
+        .unwrap();
+    // Deliberately leave state.stripe_payments / epay_payments / payments NONE:
+    // self-use and unlimited-credit organizations must never require merchant setup.
+    Arc::make_mut(&mut state.config)
+        .models
+        .get_mut("fast")
+        .unwrap()
+        .pricing = Some(crate::config::RoutePricing {
+        currency: "USD".into(),
+        api_prompt_rate: 1_000_000,
+        api_completion_rate: 2_000_000,
+        cash_prompt_rate: 1_000_000,
+        cash_completion_rate: 2_000_000,
+        max_input_tokens: PRICED_INPUT_BOUND,
+        max_output_tokens: 10,
+    });
+
+    let org = state
+        .store
+        .create_prepaid_organization("Self-Use Team", "USD")
+        .await
+        .unwrap();
+    let scope = state.store.create_project(org, "Default").await.unwrap();
+    state
+        .store
+        .publish_customer_tariff(
+            scope,
+            &niu_storage::ProviderOfferInput {
+                model_alias: "fast".into(),
+                currency: "USD".into(),
+                prompt_rate: "1000000".into(),
+                completion_rate: "2000000".into(),
+                expected_revision: None,
+            },
+        )
+        .await
+        .unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "self-use-agent", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let owner = state
+        .store
+        .create_operator(
+            niu_storage::OperatorScope {
+                organization_id: org,
+                project_id: None,
+            },
+            "Founder",
+            niu_storage::OperatorRole::Owner,
+            3600,
+            niu_storage::OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(state.clone());
+
+    // Before unlimited_credit is granted, an unfunded $0-credit org without a merchant gateway is gated.
+    let pre_gate = app
+        .clone()
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","messages":[{"role":"user","content":"hi"}]}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(pre_gate.status(), StatusCode::SERVICE_UNAVAILABLE);
+
+    // Enable unlimited_credit via the platform policy API (credit_limit_nanos omitted -> defaults to "0").
+    let policy_res = app
+        .clone()
+        .oneshot(
+            Request::put(format!(
+                "/api/v1/organizations/{org}/billing/accounts/USD/policy"
+            ))
+            .header("authorization", format!("Bearer {ADMIN_TOKEN}"))
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(
+                json!({"unlimited_credit": true, "expected_revision": "0"}).to_string(),
+            ))
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(policy_res.status(), StatusCode::OK);
+
+    // Payment readiness for this organization is now immediately ready without any merchant gateway.
+    let readiness_res = app
+        .clone()
+        .oneshot(
+            Request::get(format!("/api/v1/payments/readiness?organization={org}"))
+                .header("authorization", format!("Bearer {}", owner.token))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(readiness_res.status(), StatusCode::OK);
+    let readiness_body: Value = serde_json::from_slice(
+        &readiness_res
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes(),
+    )
+    .unwrap();
+    assert_eq!(readiness_body["data"]["ready"], true);
+
+    // Paid inference succeeds with $0 initial funds and accrues negative posted balance cleanly.
+    let call_ok = app
+        .clone()
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","messages":[{"role":"user","content":"hi"}]}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(call_ok.status(), StatusCode::OK);
+    let _ = call_ok.into_body().collect().await.unwrap();
+
+    let summary = state.store.customer_balance_summary(org).await.unwrap();
+    assert_eq!(summary[0]["unlimited_credit"], true);
+    assert_eq!(summary[0]["posted_credit_exhausted"], false);
+    let posted: i64 = summary[0]["balance_nanos"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(
+        posted < 0,
+        "expected negative arrears balance, got {posted}"
+    );
+
+    let history = state
+        .store
+        .customer_balance_policy_history(org, "USD", None, 10)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(history["data"][0]["unlimited_credit"], true);
+
+    // Workspace spending limits MUST still enforce even when organization credit is unlimited!
+    let limit_res = app
+        .clone()
+        .oneshot(
+            Request::put(format!(
+                "/api/v1/workspaces/{}/spending-limit/USD",
+                scope.project_id
+            ))
+            .header("authorization", format!("Bearer {}", owner.token))
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(
+                json!({"limit_nanos": (-posted).to_string(), "expected_revision": "0"}).to_string(),
+            ))
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(limit_res.status(), StatusCode::OK);
+
+    let limited = app
+        .clone()
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","messages":[{"role":"user","content":"hi again"}]})
+                        .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(limited.status(), StatusCode::PAYMENT_REQUIRED);
+    server.abort();
+}

@@ -67,6 +67,10 @@ impl Store {
     }
 }
 
+pub(crate) fn is_supported_platform_currency(currency: &str) -> bool {
+    PLATFORM_CURRENCIES.contains(&currency)
+}
+
 // ISO 4217 accounting units supported by the dashboard runtime (ICU).
 const PLATFORM_CURRENCIES: &[&str] = &[
     "AED", "AFN", "ALL", "AMD", "ANG", "AOA", "ARS", "AUD", "AWG", "AZN", "BAM", "BBD", "BDT",

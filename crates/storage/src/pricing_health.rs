@@ -55,18 +55,14 @@ fn build_pricing_health(schedule: &Value, currency: &str, matching: &[&Value]) -
         "unconfigured"
     };
 
-    let targets: Vec<&Value> = if active_supply_routes > 0 {
-        ready.into_iter().copied().collect()
-    } else {
-        matching.to_vec()
-    };
+    let targets: Vec<&Value> = ready.into_iter().copied().collect();
 
     let mut checks = Vec::new();
     for cost in targets {
         checks.push(compare(schedule, currency, cost));
     }
     if checks.is_empty() {
-        checks.push(json!({"status":"comparison_unavailable","message":"No managed Provider price is available for comparison.","dimensions":[]}));
+        checks.push(json!({"status":"comparison_unavailable","message":"No active Provider supply route is available for comparison.","dimensions":[]}));
     }
     json!({
         "checks": checks,
@@ -441,6 +437,78 @@ mod tests {
         assert_eq!(inactive_health["supply_status"], "inactive");
         assert_eq!(inactive_health["active_supply_routes"], 0);
         assert_eq!(inactive_health["active_providers"], json!([]));
+        assert_eq!(
+            inactive_health["checks"][0]["status"],
+            "comparison_unavailable"
+        );
+
+        let disabled_expensive = json!({
+            "route": "qiniu/deepseek-v4.1-flash",
+            "provider": "FastRouter",
+            "configured": true,
+            "supply_ready": false,
+            "currency": "USD",
+            "rate_kind": "text",
+            "schedule": {
+                "prompt_rate": "9000",
+                "completion_rate": "18000",
+                "cached_prompt_rate": null,
+                "cache_write_prompt_rate": null,
+                "reasoning_completion_rate": null,
+                "context_tiers": []
+            }
+        });
+        let inactive_expensive_health = build_pricing_health(&sell, "USD", &[&disabled_expensive]);
+        assert_eq!(inactive_expensive_health["supply_status"], "inactive");
+        assert_ne!(
+            inactive_expensive_health["checks"][0]["status"],
+            "below_cost"
+        );
+
+        // Equal 100% Provider unit rates (no discount) across all dimensions never report below_cost.
+        let equal_sell = json!({
+            "kind": "text",
+            "prompt_rate": "3000000000",
+            "completion_rate": "15000000000",
+            "cached_prompt_rate": "300000000",
+            "cache_write_prompt_rate": "3750000000",
+            "reasoning_completion_rate": null,
+            "context_tiers": [{
+                "minimum_input_tokens": "200000",
+                "prompt_rate": "6000000000",
+                "completion_rate": "22500000000",
+                "cached_prompt_rate": "600000000",
+                "cache_write_prompt_rate": "7500000000",
+                "reasoning_completion_rate": null
+            }]
+        });
+        let equal_cost = json!({
+            "route": "openrouter/claude-sonnet-4",
+            "provider": "OpenRouter",
+            "configured": true,
+            "supply_ready": true,
+            "currency": "USD",
+            "rate_kind": "text",
+            "schedule": {
+                "prompt_rate": "3000000000",
+                "completion_rate": "15000000000",
+                "cached_prompt_rate": "300000000",
+                "cache_write_prompt_rate": "3750000000",
+                "reasoning_completion_rate": null,
+                "context_tiers": [{
+                    "minimum_input_tokens": "200000",
+                    "prompt_rate": "6000000000",
+                    "completion_rate": "22500000000",
+                    "cached_prompt_rate": "600000000",
+                    "cache_write_prompt_rate": "7500000000",
+                    "reasoning_completion_rate": null
+                }]
+            }
+        });
+        assert_eq!(
+            compare(&equal_sell, "USD", &equal_cost)["status"],
+            "no_lower_unit_rates"
+        );
 
         let unconfigured_health = build_pricing_health(&sell, "USD", &[&unconfigured]);
         assert_eq!(unconfigured_health["supply_status"], "unconfigured");

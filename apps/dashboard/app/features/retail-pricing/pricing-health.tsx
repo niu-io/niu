@@ -23,7 +23,7 @@ export function PricingHealthNotice({ health }: { health?: PricingHealth }) {
   const checks = health?.checks;
   const supply = supplyStateOf(health);
   const unsupplied = supply === 'inactive' || supply === 'unconfigured';
-  const below = checks?.some(check => check.status === 'below_cost');
+  const below = !unsupplied && checks?.some(check => check.status === 'below_cost');
   const missing = !unsupplied && checks?.some(check => check.status === 'missing_provider_price');
   const unknown = !checks?.length || checks.some(check => check.status === 'comparison_unavailable');
   const label = below
@@ -36,7 +36,7 @@ export function PricingHealthNotice({ health }: { health?: PricingHealth }) {
           ? uiT("Supply inactive", "供应已停用")
           : unknown
             ? uiT("Comparison unavailable")
-            : uiT("No lower unit rates");
+            : uiT("No lower unit rates", "正常（不低于成本）");
   return <div className="flex min-w-0 sm:min-w-36 max-w-sm flex-wrap items-center gap-1 whitespace-normal">
     <Badge variant={below || missing ? 'destructive' : 'outline'} className="h-auto max-w-full whitespace-normal break-words text-left">{(below || missing) && <IconAlertTriangle size={14} />}{label}</Badge>
     <Dialog><DialogTrigger asChild><Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Price check details")} title={uiT("Price check details")}><IconInfoCircle /></Button></DialogTrigger><DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl"><DialogHeader><DialogTitle>{label}</DialogTitle><DialogDescription>{uiT("Current configuration advice. Refresh after changing prices. Below-cost rates do not block publication.")}</DialogDescription></DialogHeader><div className="space-y-3 text-sm">

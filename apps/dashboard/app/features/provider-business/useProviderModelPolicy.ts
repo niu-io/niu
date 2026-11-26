@@ -59,7 +59,7 @@ export function useProviderModelPolicy(providerId: string) {
   const isZh = locale === 'zh-CN';
   const { token, session, refreshModels } = useDashboardContext();
   const { currency: platformCurrency } = usePlatformCurrency();
-  const commercialEnabled = session?.operating_mode !== 'internal';
+  const commercialEnabled = true;
   const canManage = Boolean(session?.kind === 'installation' || session?.permissions?.platform_admin);
   const [search, setSearch] = useSearchParams();
 
@@ -475,14 +475,37 @@ export function useProviderModelPolicy(providerId: string) {
         list.push(entry);
         freshByAlias.set(entry.model.alias, list);
       }
+      let effectiveUpstream = upstreamPrices;
+      let effectiveRetail = retailPrices;
+      if (commercialEnabled && canManage) {
+        const [freshRetailRes, freshAdapterRes] = await Promise.allSettled([
+          effectiveRetail.size === 0 ? fetchAllStandardTextPrices(token, new AbortController().signal) : Promise.resolve(effectiveRetail),
+          effectiveUpstream.size === 0 && supportsAdapterPricing(connections)
+            ? request<AdapterPricingResponse>(
+                token,
+                `/api/v1/admin/providers/${encodeURIComponent(providerId)}/pricing`,
+                'GET',
+              )
+            : Promise.resolve(null),
+        ]);
+        if (freshRetailRes.status === 'fulfilled' && freshRetailRes.value) {
+          effectiveRetail = freshRetailRes.value;
+          setRetailPrices(effectiveRetail);
+        }
+        if (freshAdapterRes.status === 'fulfilled' && freshAdapterRes.value) {
+          effectiveUpstream = extractUpstreamStandardPrices(freshAdapterRes.value);
+          setUpstreamPrices(effectiveUpstream);
+        }
+      }
+
       const freshAliases = [...new Set([...freshEntries.map(e => e.model.alias), ...offers.map(o => o.model_alias)])].sort();
       const freshRows = freshAliases.map(alias =>
         buildResolvedModelRow({
           alias,
           entriesByAlias: freshByAlias,
           offerByAlias,
-          retailPrices,
-          upstreamPrices,
+          retailPrices: effectiveRetail,
+          upstreamPrices: effectiveUpstream,
           commercialEnabled,
           platformCurrency,
           connections,

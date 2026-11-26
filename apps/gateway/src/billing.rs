@@ -2394,6 +2394,7 @@ pub async fn payment(
 ///                       "outstanding_nanos",
 ///                       "available_nanos",
 ///                       "credit_limit_nanos",
+///                       "unlimited_credit",
 ///                       "warning_threshold_nanos",
 ///                       "policy_revision",
 ///                       "low_balance",
@@ -2425,6 +2426,10 @@ pub async fn payment(
 ///                       "credit_limit_nanos": {
 ///                         "type": "string",
 ///                         "pattern": "^[0-9]+$"
+///                       },
+///                       "unlimited_credit": {
+///                         "type": "boolean",
+///                         "description": "True when continuous negative-balance arrears are permitted without a numeric credit ceiling (workspace and API key spending limits still apply)."
 ///                       },
 ///                       "policy_revision": {
 ///                         "type": "string",
@@ -2785,10 +2790,17 @@ pub async fn settled_funding(
     Ok(Json(json!({"data":{"recorded":true}})))
 }
 
+fn default_zero_nanos() -> String {
+    "0".to_owned()
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BalancePolicyInput {
+    #[serde(default = "default_zero_nanos")]
     credit_limit_nanos: String,
+    #[serde(default)]
+    unlimited_credit: bool,
     warning_threshold_nanos: Option<String>,
     expected_revision: String,
 }
@@ -2800,7 +2812,7 @@ pub struct BalancePolicyInput {
 ///   "operation": {
 ///     "operationId": "configureCustomerBalancePolicy",
 ///     "summary": "Configure approved credit and low-balance threshold",
-///     "description": "Explicit platform administration required; ordinary company owners/admins cannot approve their own credit. Creates a zero-balance account if absent, with expected revision zero. Updates are revision checked and recorded in immutable history with an authenticated credit-approval actor in the same transaction. Historical revisions remain unattributed. Credit changes do not credit funds. Reductions that would invalidate held reservations are rejected. With no holds, reduced credit can exhaust capacity while preserving the actual debt. A null warning threshold disables low-balance warnings. This configures warning state, not notification-channel delivery.",
+///     "description": "Explicit platform administration required; ordinary company owners/admins cannot approve their own credit. Creates a zero-balance account if absent, with expected revision zero. Updates are revision checked and recorded in immutable history with an authenticated credit-approval actor in the same transaction. Historical revisions remain unattributed. Credit changes do not credit funds. Setting unlimited_credit to true permits continuous postpaid arrears without a numeric credit ceiling while preserving workspace and API key spending limits. Reductions that would invalidate held reservations are rejected. With no holds, reduced credit can exhaust capacity while preserving the actual debt. A null warning threshold disables low-balance warnings. This configures warning state, not notification-channel delivery.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -2809,13 +2821,17 @@ pub struct BalancePolicyInput {
 ///             "type": "object",
 ///             "additionalProperties": false,
 ///             "required": [
-///               "credit_limit_nanos",
 ///               "expected_revision"
 ///             ],
 ///             "properties": {
 ///               "credit_limit_nanos": {
 ///                 "type": "string",
-///                 "pattern": "^[0-9]+$"
+///                 "pattern": "^[0-9]+$",
+///                 "default": "0"
+///               },
+///               "unlimited_credit": {
+///                 "type": "boolean",
+///                 "default": false
 ///               },
 ///               "warning_threshold_nanos": {
 ///                 "type": [
@@ -2931,6 +2947,7 @@ pub async fn balance_policy(
             organization,
             &currency,
             credit,
+            input.unlimited_credit,
             warning,
             revision,
             Some(actor),

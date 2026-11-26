@@ -148,7 +148,7 @@ function OrgBalanceStrip({ token, organizationId, organizationName, canFund, wor
   workspaceSettingsHref: string;
 }) {
   const { t } = useUILocale();
-  type OrgAccount = { currency: string; available_nanos: string };
+  type OrgAccount = { currency: string; available_nanos: string; balance_nanos?: string; unlimited_credit?: boolean };
   const path = `/api/v1/organizations/${encodeURIComponent(organizationId)}/billing/balance`;
   const initial = peekCachedGet<{ data: OrgAccount[] }>(token, path)?.data ?? null;
   const [accounts, setAccounts] = useState<OrgAccount[] | null>(initial);
@@ -164,16 +164,20 @@ function OrgBalanceStrip({ token, organizationId, organizationName, canFund, wor
     return () => controller.abort();
   }, [token, path]);
   const primary = accounts?.[0] ?? null;
+  const unlimited = Boolean(primary?.unlimited_credit);
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius-panel)] bg-card px-5 py-4">
       <div className="min-w-0 space-y-1">
-        <p className="text-xs text-muted-foreground">
-          {organizationName
-            ? `${organizationName} · ${t('Shared balance across workspaces', '组织内各工作空间共享余额')}`
-            : t('Shared balance across workspaces', '组织内各工作空间共享余额')}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs text-muted-foreground">
+            {organizationName
+              ? `${organizationName} · ${t('Shared balance across workspaces', '组织内各工作空间共享余额')}`
+              : t('Shared balance across workspaces', '组织内各工作空间共享余额')}
+          </p>
+          {unlimited && <Badge variant="secondary">{t('Unlimited credit', '无限授信')}</Badge>}
+        </div>
         <p className="text-2xl font-semibold tabular-nums tracking-tight">
-          {primary ? money(primary.available_nanos, primary.currency) : '—'}
+          {primary ? money(unlimited ? (primary.balance_nanos ?? primary.available_nanos) : primary.available_nanos, primary.currency) : '—'}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -194,12 +198,11 @@ export default function BillingRoute() {
   const { t: uiT } = useUILocale();
   useOptionalRouteLoaderData();
   const { token, workspace, session, organization } = useDashboardContext();
-  const internal = session?.operating_mode === 'internal';
   const canFund = session?.kind === 'installation' || (session?.operator?.organization_id === workspace?.organization_id && session?.operator?.project_id === null && ['owner','admin'].includes(session.operator.role));
   if (!token || !workspace) return <><PageHeader title={uiT("Usage statements")} /><p>{uiT("Select a workspace to review billing.")}</p></>;
   const organizationName = organizationDisplayName(workspace.organization_name) || organizationDisplayName(organization?.id === workspace.organization_id ? organization.name : '') || '';
   const matchingOrganization = organization?.id === workspace.organization_id;
-  const headerAction = !internal && matchingOrganization && canFund
+  const headerAction = matchingOrganization && canFund
     ? <><Button asChild variant="outline" size="sm" className="hidden sm:inline-flex"><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="sm:hidden" aria-label={uiT("Billing actions")}><IconDots size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem asChild><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></DropdownMenuItem></DropdownMenuContent></DropdownMenu></>
     : undefined;
   const zhOrgPossessive = organizationName
@@ -208,7 +211,7 @@ export default function BillingRoute() {
       : `${organizationName}的`
     : '';
   return <>
-    {!internal && matchingOrganization && (
+    {matchingOrganization && (
       <OrgBalanceStrip
         token={token}
         organizationId={workspace.organization_id}
@@ -218,8 +221,8 @@ export default function BillingRoute() {
       />
     )}
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <p className="text-sm text-muted-foreground">{internal ? uiT("Workspace spending limits apply to Niu charges. Usage billed by a Provider is paid directly to that Provider.") : organizationName ? uiT(`Spending and limits apply to this workspace. ${organizationName}'s Niu balance is shared across its workspaces.`, `支出与限额适用于此工作空间，${zhOrgPossessive} Niu 余额由组织内各工作空间共享。`) : uiT("Spending and limits apply to this workspace. Its organization's Niu balance is shared across its workspaces.")}</p>
-      {!internal && (!matchingOrganization ? <p className="text-sm text-muted-foreground">{uiT("Organization billing is unavailable. Refresh or switch to this workspace's organization.")}</p> : !canFund ? <p className="text-sm text-muted-foreground">{uiT("Contact your organization owner to add credits.")}</p> : null)}
+      <p className="text-sm text-muted-foreground">{organizationName ? uiT(`Spending and limits apply to this workspace. ${organizationName}'s Niu balance is shared across its workspaces.`, `支出与限额适用于此工作空间，${zhOrgPossessive} Niu 余额由组织内各工作空间共享。`) : uiT("Spending and limits apply to this workspace. Its organization's Niu balance is shared across its workspaces.")}</p>
+      {!matchingOrganization ? <p className="text-sm text-muted-foreground">{uiT("Organization billing is unavailable. Refresh or switch to this workspace's organization.")}</p> : !canFund ? <p className="text-sm text-muted-foreground">{uiT("Contact your organization owner to add credits.")}</p> : null}
     </div>
     <BillingView key={`${token}:${workspace.id}`} token={token} organization={workspace.organization_id} project={workspace.id} headerAction={headerAction} />
   </>;

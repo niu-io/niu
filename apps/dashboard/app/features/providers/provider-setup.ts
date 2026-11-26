@@ -16,16 +16,8 @@ export type SupplierSetup = ProviderSetup;
  * Never report unconfigured resources (no stored API key credential, no imported models, or no configured offers)
  * as "disabled" / "inactive"; reserve "disabled" strictly for saved resources that were explicitly turned off.
  */
-export function providerAvailability(provider: ProviderSetup, operatingMode?: string) {
+export function providerAvailability(provider: ProviderSetup, _operatingMode?: string) {
   const configuredKeys = provider.configured_api_keys ?? provider.api_keys ?? 0;
-  if (operatingMode === 'internal') {
-    if (!configuredKeys) return { label: 'Pending setup', detail: 'API key not configured.', usable: false, action: 'Configure API key', section: 'config' };
-    if (provider.enabled_api_keys !== undefined && !provider.enabled_api_keys) return { label: 'API keys disabled', detail: 'All configured API keys are disabled.', usable: false, action: 'Enable API key', section: 'config' };
-    const routes = provider.internal_model_routes ?? provider.models ?? 0;
-    if (!routes) return { label: 'Pending setup', detail: 'No models imported yet.', usable: false, action: 'Configure', section: 'config' };
-    if (provider.enabled_model_routes !== undefined && !provider.enabled_model_routes) return { label: 'Models disabled', detail: 'All imported models are disabled.', usable: false, action: 'Configure', section: 'config' };
-    return { label: 'Ready', detail: `${provider.enabled_model_routes ?? routes} models active`, usable: true, action: 'Configure', section: 'config' };
-  }
   if (configuredKeys > 0 && provider.internal_api_keys && provider.internal_api_keys === provider.api_keys) return {
     label: provider.internal_model_routes ? 'Models configured' : 'API key saved',
     detail: 'Internal use. Upstream fees are paid directly.',

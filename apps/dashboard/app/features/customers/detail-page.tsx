@@ -328,7 +328,7 @@ export function CustomerDetail({
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl bg-muted/45 p-4 space-y-1">
               <p className="text-xs text-muted-foreground">{uiT('Balance', '账户余额')}</p>
-              <p className={`text-xl font-semibold tabular-nums ${balanceNanos < 0n ? 'text-destructive' : ''}`}>
+              <p className={`text-xl font-semibold tabular-nums ${!primaryAccount?.unlimited_credit && balanceNanos < 0n ? 'text-destructive' : ''}`}>
                 {primaryAccount ? formatRateMoney(primaryAccount.balance_nanos, primaryAccount.currency) : uiT('No balance yet', '暂无余额')}
               </p>
               <p className="text-xs text-muted-foreground">
@@ -344,12 +344,16 @@ export function CustomerDetail({
               <p className="text-xs text-muted-foreground">{uiT('Credit limit', '信用额度')}</p>
               <p className="text-xl font-semibold tabular-nums">
                 {primaryAccount
-                  ? formatRateMoney(primaryAccount.credit_limit_nanos, primaryAccount.currency)
+                  ? primaryAccount.unlimited_credit
+                    ? uiT('Unlimited', '无限授信')
+                    : formatRateMoney(primaryAccount.credit_limit_nanos, primaryAccount.currency)
                   : formatRateMoney('0', platformCurrency || 'USD')}
               </p>
               <p className="text-xs text-muted-foreground tabular-nums">
                 {primaryAccount
-                  ? uiF('Available to spend: {0}', [formatRateMoney(primaryAccount.available_nanos, primaryAccount.currency)])
+                  ? primaryAccount.unlimited_credit
+                    ? uiT('Continuous arrears allowed', '允许持续欠费记账')
+                    : uiF('Available to spend: {0}', [formatRateMoney(primaryAccount.available_nanos, primaryAccount.currency)])
                   : uiT('Prepaid only', '仅预付费')}
               </p>
             </div>
@@ -502,8 +506,8 @@ export function CustomerDetail({
                     <TableRow key={acc.currency}>
                       <TableCell>{acc.currency}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatRateMoney(acc.balance_nanos, acc.currency)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatRateMoney(acc.credit_limit_nanos, acc.currency)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatRateMoney(acc.available_nanos, acc.currency)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{acc.unlimited_credit ? uiT('Unlimited', '无限授信') : formatRateMoney(acc.credit_limit_nanos, acc.currency)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{acc.unlimited_credit ? uiT('Unlimited', '无限额度') : formatRateMoney(acc.available_nanos, acc.currency)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
