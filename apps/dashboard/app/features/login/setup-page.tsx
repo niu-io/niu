@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { IconChevronDown, IconLanguage } from '@tabler/icons-react';
 import { invalidateAuthConfigCache, loadAuthConfig } from '@/lib/auth-config';
+import { sanitizeUserFacingErrorText } from '@/lib/user-facing-error';
 import { loadPublicCatalogModels } from '@/features/models/public-catalog';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useLocale, type Locale } from '@/shell/ui-locale';
@@ -113,8 +114,8 @@ export default function SetupRoute() {
       setSetupError(t('Enter a valid email address.', '请输入有效的邮箱地址。'));
       return;
     }
-    if ([...password].length < 15) {
-      setSetupError(t('Password must be at least 15 characters.', '密码长度至少为 15 位字符。'));
+    if ([...password].length < 8) {
+      setSetupError(t('Password must be at least 8 characters.', '密码长度至少为 8 位字符。'));
       return;
     }
     if (password !== confirmPassword) {
@@ -164,7 +165,12 @@ export default function SetupRoute() {
           return;
         }
         if (response.status === 400 && typeof payload?.error?.message === 'string') {
-          setSetupError(payload.error.message);
+          setSetupError(
+            sanitizeUserFacingErrorText(payload.error.message, locale, {
+              errorType,
+              status: response.status,
+            }),
+          );
           return;
         }
         setSetupError(t('Could not complete initial setup. Try again.', '无法完成初始化设置，请重试。'));
@@ -281,7 +287,7 @@ export default function SetupRoute() {
               <Input
                 id="installation-admin-password"
                 type="password"
-                placeholder={t('At least 15 characters', '至少 15 位字符')}
+                placeholder={t('At least 8 characters', '至少 8 位字符')}
                 autoComplete="new-password"
                 required
                 disabled={submitting}

@@ -234,3 +234,27 @@ pub fn map(error: sqlx::Error) -> StoreError {
         None => StoreError::Database(error),
     }
 }
+
+/// Classify non-trigger PostgreSQL unique-constraint and serialization/deadlock
+/// errors into user-safe [`StoreError`] variants so raw database errors never
+/// surface as generic 503 storage failures.
+pub fn classify_integrity_or_concurrency(error: &sqlx::Error) -> Option<StoreError> {
+    let database = error.as_database_error()?;
+    let code = database.code();
+    if code.as_deref() == Some("23505") {
+        return match database.constraint() {
+            Some("member_password_credentials_email_key") => {
+                Some(StoreError::RegistrationEmailExists)
+            }
+            Some("organizations_slug_key") => Some(StoreError::OrganizationSlugTaken),
+            Some("projects_organization_id_slug_key" | "projects_route_slug_key") => {
+                Some(StoreError::WorkspaceSlugTaken)
+            }
+            _ => None,
+        };
+    }
+    if matches!(code.as_deref(), Some("40001" | "40P01")) {
+        return Some(StoreError::Conflict);
+    }
+    None
+}

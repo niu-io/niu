@@ -128,11 +128,11 @@ export default function RegisterRoute() {
       setErrorMessage(t('Enter a valid email address.', '请输入有效的邮箱地址。'));
       return;
     }
-    if ([...password].length < 15 || UTF8.encode(password).length > 1024) {
+    if ([...password].length < 8 || UTF8.encode(password).length > 1024) {
       setErrorMessage(
         t(
-          'Choose a password with at least 15 characters and at most 1024 bytes.',
-          '密码需至少包含 15 个字符，且不超过 1024 字节。',
+          'Choose a password with at least 8 characters and at most 1024 bytes.',
+          '密码需至少包含 8 个字符，且不超过 1024 字节。',
         ),
       );
       return;
@@ -200,8 +200,8 @@ export default function RegisterRoute() {
         if (response.status === 400) {
           setErrorMessage(
             t(
-              'Check your name, email, and password (minimum 15 characters) and try again.',
-              '请检查您的姓名、邮箱和密码（至少 15 个字符）后重试。',
+              'Check your name, email, and password (minimum 8 characters) and try again.',
+              '请检查您的姓名、邮箱和密码（至少 8 个字符）后重试。',
             ),
           );
           return;
@@ -406,7 +406,7 @@ export default function RegisterRoute() {
                     maxLength={1024}
                     disabled={submitting}
                     className="pr-10"
-                    placeholder={t('At least 15 characters', '至少 15 个字符')}
+                    placeholder={t('At least 8 characters', '至少 8 个字符')}
                     value={password}
                     onChange={event => {
                       setPassword(event.target.value);
@@ -426,8 +426,8 @@ export default function RegisterRoute() {
                 </div>
                 <p className="dashboard-login-hint">
                   {t(
-                    'At least 15 characters. You will use this exact password to sign in once approved.',
-                    '至少 15 个字符。审批通过后将直接使用此密码登录。',
+                    'At least 8 characters. You will use this exact password to sign in once approved.',
+                    '至少 8 个字符。审批通过后将直接使用此密码登录。',
                   )}
                 </p>
               </div>

@@ -1,8 +1,10 @@
 import { authenticatedFetch as fetch } from '@/lib/authenticated-fetch';
+import { readLocale } from '@/shell/locale';
 import { fetchQuery, invalidateForMutation, invalidateQueries, peekQuery, prefetchQuery, type FetchQueryOptions } from './query-cache';
+import { sanitizeUserFacingErrorText } from './user-facing-error';
 
 export class ApiRequestError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(message: string, readonly status: number, readonly errorType?: string) {
     super(message);
     this.name = 'ApiRequestError';
   }
@@ -27,7 +29,17 @@ export async function request<T>(
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    throw new ApiRequestError(payload?.error?.message ?? 'Request failed (' + response.status + ')', response.status);
+    const errorType = typeof payload?.error?.type === 'string'
+      ? payload.error.type
+      : response.headers.get('x-niu-error-code') ?? undefined;
+    const rawMessage = typeof payload?.error?.message === 'string'
+      ? payload.error.message
+      : `Request failed (${response.status})`;
+    const safeMessage = sanitizeUserFacingErrorText(rawMessage, readLocale(), {
+      errorType,
+      status: response.status,
+    });
+    throw new ApiRequestError(safeMessage, response.status, errorType);
   }
   const upper = method.toUpperCase();
   if (upper !== 'GET' && upper !== 'HEAD') {

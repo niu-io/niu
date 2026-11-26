@@ -2,16 +2,18 @@ import { IconArrowLeft, IconHome, IconChevronDown } from '@tabler/icons-react';
 import { Link, isRouteErrorResponse, useRouteError } from 'react-router';
 import { useBranding } from './branding';
 import { useLocale } from './ui-locale';
+import { sanitizeUserFacingErrorText } from '@/lib/user-facing-error';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { useEffect } from 'react';
 
 type RouteFallbackProps = { notFound?: boolean };
 
-function diagnosticText(value: string) {
-  return value
+function diagnosticText(value: string, locale: 'en' | 'zh-CN') {
+  return sanitizeUserFacingErrorText(value, locale)
     .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
     .replace(/(token|password|secret|api[_-]?key)([=:]\s*)[^\s&]+/gi, '$1$2[redacted]')
+    .replace(/\b(?:SQLSTATE|PgDatabaseError|sqlx::\S+|constraint\s+"[^"]+"|relation\s+"[^"]+"|column\s+"[^"]+")/gi, '[internal]')
     .replace(/https?:\/\/[^\s)]+/g, '[URL]')
     .replace(/(?:\/Users\/|\/home\/|[A-Z]:\\)[^\s)]+/g, '[path]')
     .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '[reference]')
@@ -25,7 +27,7 @@ function RouteFallbackView({
   status?: number;
   error?: unknown;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { settings: branding, logo } = useBranding();
   const response = isRouteErrorResponse(error) ? error : null;
   const effectiveStatus = status ?? response?.status;
@@ -63,6 +65,7 @@ function RouteFallbackView({
         : '';
   const detail = diagnosticText(
     error instanceof Error ? error.message : responseMessage || response?.statusText || description,
+    locale,
   );
   const details = [effectiveStatus ? String(effectiveStatus) : error instanceof Error ? error.name : title, detail]
     .filter(Boolean)
