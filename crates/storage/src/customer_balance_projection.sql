@@ -15,11 +15,13 @@ WITH accounts AS MATERIALIZED (
             SELECT organization_id,jsonb_build_object(
                 'currency',currency,'balance_nanos',balance::text,
                 'credit_limit_nanos',credit_limit_nanos::text,
+                'unlimited_credit',unlimited_credit,
                 'policy_revision',policy_revision::text,
                 'warning_threshold_nanos',warning_threshold_nanos::text,
                 'low_balance',CASE WHEN warning_threshold_nanos IS NULL THEN false
                     ELSE balance<warning_threshold_nanos END,
-                'posted_credit_exhausted',balance+credit_limit_nanos<=0,
+                'posted_credit_exhausted',CASE WHEN unlimited_credit THEN false
+                    ELSE balance+credit_limit_nanos<=0 END,
                 'reserved_nanos',reserved::text,'outstanding_nanos',outstanding::text,
                 'available_nanos',(balance+credit_limit_nanos-outstanding)::text
             ) FROM accounts ORDER BY organization_id,currency;

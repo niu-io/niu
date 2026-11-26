@@ -3,6 +3,7 @@ WITH account AS MATERIALIZED (
     WHERE organization_id=$1 AND currency=$2
 ), windowed AS MATERIALIZED (
     SELECT h.revision::text, h.credit_limit_nanos::text,
+           h.unlimited_credit,
            h.warning_threshold_nanos::text, h.created_at,
            h.revision=a.policy_revision AS is_current
     FROM customer_balance_policy_revisions h JOIN account a ON a.id=h.account_id

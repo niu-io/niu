@@ -3998,7 +3998,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Below Provider cost": "低于 Provider 成本",
   "Provider price missing": "缺少 Provider 价格",
   "Comparison unavailable": "对比不可用",
-  "No lower unit rates": "高于采购成本",
+  "No lower unit rates": "正常（不低于成本）",
   "Saved image": "已保存图片",
   "Own Provider account": "自有 Provider 账户",
   "Not settled": "未结算",

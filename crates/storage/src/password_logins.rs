@@ -72,19 +72,45 @@ impl Store {
     }
 
     /// One-time first-run bootstrap: create the initial password-enabled platform
-    /// administrator account in the default organization and issue an elevated
-    /// browser session. Fails with Conflict once any active password-enabled
-    /// platform administrator exists.
+    /// administrator account in the default organization, ensure the installation
+    /// currency is initialized (defaulting to USD), grant the bootstrap admin's
+    /// organization unlimited credit (`unlimited_credit = true`) for seamless
+    /// self-use, and issue an elevated browser session. Fails with Conflict once
+    /// any active password-enabled platform administrator exists.
     pub async fn complete_initial_installation(
         &self,
         email: &str,
         display_name: Option<&str>,
         password_hash: &str,
     ) -> Result<IssuedOperatorSession, StoreError> {
+        self.complete_initial_installation_with_currency(email, display_name, password_hash, None)
+            .await
+    }
+
+    pub async fn complete_initial_installation_with_currency(
+        &self,
+        email: &str,
+        display_name: Option<&str>,
+        password_hash: &str,
+        preferred_currency: Option<&str>,
+    ) -> Result<IssuedOperatorSession, StoreError> {
         let email = email_address(email).ok_or(StoreError::InvalidOperator)?;
         if !crate::passwords::supported_password_hash(password_hash) {
             return Err(StoreError::InvalidOperator);
         }
+        let requested_currency = match preferred_currency
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            Some(value) => {
+                let upper = value.to_ascii_uppercase();
+                if upper.len() != 3 || !upper.bytes().all(|b| b.is_ascii_uppercase()) {
+                    return Err(StoreError::InvalidOperator);
+                }
+                Some(upper)
+            }
+            None => None,
+        };
         let name = match display_name
             .map(str::trim)
             .filter(|value| !value.is_empty())
@@ -110,6 +136,9 @@ impl Store {
         sqlx::query("SELECT pg_advisory_xact_lock(78641239)")
             .execute(&mut *tx)
             .await?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-platform-currency',0))")
+            .execute(&mut *tx)
+            .await?;
         let already_initialized: bool = sqlx::query_scalar(
             "SELECT EXISTS( \
                  SELECT 1 \
@@ -132,6 +161,87 @@ impl Store {
         .await?;
         if email_exists {
             return Err(StoreError::RegistrationEmailExists);
+        }
+        let saved_currency: Option<String> =
+            sqlx::query_scalar("SELECT currency FROM platform_currency WHERE singleton")
+                .fetch_optional(&mut *tx)
+                .await?;
+        let effective_currency = match (saved_currency, requested_currency) {
+            (Some(saved), Some(req)) if saved != req => return Err(StoreError::Conflict),
+            (Some(saved), _) => saved,
+            (None, Some(req)) => {
+                if !crate::platform_currency::is_supported_platform_currency(&req) {
+                    return Err(StoreError::InvalidOperator);
+                }
+                sqlx::query("INSERT INTO platform_currency(currency) VALUES($1)")
+                    .bind(&req)
+                    .execute(&mut *tx)
+                    .await?;
+                req
+            }
+            (None, None) => {
+                sqlx::query("INSERT INTO platform_currency(currency) VALUES('USD')")
+                    .execute(&mut *tx)
+                    .await?;
+                "USD".to_owned()
+            }
+        };
+        sqlx::query(
+            "INSERT INTO customer_balance_accounts(id, organization_id, currency) \
+             VALUES($1, $2, $3) ON CONFLICT(organization_id, currency) DO NOTHING",
+        )
+        .bind(Uuid::new_v4())
+        .bind(workspace.organization_id)
+        .bind(&effective_currency)
+        .execute(&mut *tx)
+        .await?;
+        let (account_id, credit_limit, warning_threshold, unlimited, policy_rev): (
+            Uuid,
+            i64,
+            Option<i64>,
+            bool,
+            i64,
+        ) = sqlx::query_as(
+            "SELECT id, credit_limit_nanos, warning_threshold_nanos, unlimited_credit, policy_revision \
+             FROM customer_balance_accounts \
+             WHERE organization_id = $1 AND currency = $2 FOR NO KEY UPDATE",
+        )
+        .bind(workspace.organization_id)
+        .bind(&effective_currency)
+        .fetch_one(&mut *tx)
+        .await?;
+        if !unlimited {
+            let next_rev = policy_rev + 1;
+            sqlx::query(
+                "INSERT INTO customer_balance_policy_revisions(organization_id, account_id, currency, revision, credit_limit_nanos, unlimited_credit, warning_threshold_nanos) \
+                 VALUES($1, $2, $3, $4, $5, true, $6)",
+            )
+            .bind(workspace.organization_id)
+            .bind(account_id)
+            .bind(&effective_currency)
+            .bind(next_rev)
+            .bind(credit_limit)
+            .bind(warning_threshold)
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query(
+                "UPDATE customer_balance_accounts \
+                 SET unlimited_credit = true, policy_revision = $2 \
+                 WHERE id = $1",
+            )
+            .bind(account_id)
+            .bind(next_rev)
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query(
+                "INSERT INTO customer_credit_policy_events(id, account_id, revision, actor_kind, actor_operator_id) \
+                 VALUES($1, $2, $3, 'installation', NULL)",
+            )
+            .bind(Uuid::new_v4())
+            .bind(account_id)
+            .bind(next_rev)
+            .execute(&mut *tx)
+            .await?;
         }
         let operator_id = Uuid::new_v4();
         sqlx::query(
@@ -225,6 +335,7 @@ impl Store {
         )
         .await?;
         crate::commit_tx(tx).await?;
+        let _ = self.platform_currency_cache.set(effective_currency);
         Ok(issued)
     }
 

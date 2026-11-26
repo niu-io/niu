@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ProviderRequestError, request, writeMayHaveCommitted } from '@/features/providers/api';
 import { amountFromNanos, amountToNanos } from '@/lib/money';
-import { registeredRetailModels } from './api';
+import { lookupProviderDefaultTextSchedule, registeredRetailModels } from './api';
 import type { RetailPriceRecord, RetailPublicationResult, RetailStandardPublication } from '@niu-io/sdk/admin';
 
 import { categories, ratesFrom, checkedRates, type Rates, type Tier } from './text-terms';
@@ -46,6 +46,25 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
       .catch(failure => { if (!controller.signal.aborted) setModelsError(failure instanceof Error ? failure.message : 'Registered models unavailable.'); });
     return () => controller.abort();
   }, [token, previous]);
+  useEffect(() => {
+    if (previous || !model || !/^[A-Z]{3}$/.test(currency)) return;
+    const controller = new AbortController();
+    void lookupProviderDefaultTextSchedule(token, model, currency, controller.signal).then(schedule => {
+      if (controller.signal.aborted || !schedule) return;
+      setRates(current => {
+        if (current.prompt_rate.trim() || current.completion_rate.trim()) return current;
+        return ratesFrom(schedule);
+      });
+      setTiers(current => {
+        if (current.length > 0 || !schedule.context_tiers.length) return current;
+        return schedule.context_tiers.map(tier => ({
+          minimum_input_tokens: tier.minimum_input_tokens,
+          rates: ratesFrom(tier),
+        }));
+      });
+    });
+    return () => controller.abort();
+  }, [token, previous, model, currency]);
   const locked = busy || !!attempt || conflict;
   async function publish(event: FormEvent) {
     event.preventDefault(); if (busy || conflict) return;

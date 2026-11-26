@@ -83,10 +83,10 @@ type ChecklistStep = {
 };
 
 export default function AdminOverviewPage() {
-  const { token, session, workspace, workspaces } = useDashboardContext();
+  const { token, workspace, workspaces } = useDashboardContext();
   const { currency, billingMode, ready: currencyReady, failed: currencyFailed, reload: reloadCurrency } = usePlatformCurrency();
   const { t, format } = useLocale();
-  const isInternal = session?.operating_mode === 'internal';
+  const isInternal = false;
   const [snapshot, setSnapshot] = useState<OverviewSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
@@ -452,20 +452,15 @@ export default function AdminOverviewPage() {
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-sm font-semibold">
-              {isInternal ? t('Internal use mode', '自用模式（Internal use）') : t('Resale mode', '转售模式（Resale）')}
+              {t('Platform setup', '平台上线引导')}
             </h2>
-            <Badge variant="secondary">{isInternal ? t('Direct Provider billing', '直连上游付款') : t('Commercial billing', '商业转售计费')}</Badge>
+            <Badge variant="secondary">{t('Unified workflow', '统一计费与路由')}</Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {isInternal
-              ? t(
-                  'Connect Providers and import models for your internal workspaces. No customer pricing, collection, or commercial offer approval is required.',
-                  '接入供应商并导入模型即可供内部工作空间直接调用，无需配置客户定价、收款网关或采购报价授权。',
-                )
-              : t(
-                  'Follow the setup steps below in order: set currency, connect Providers and approve purchase offers, publish customer prices, then verify payments and onboard customers.',
-                  '请按下方依赖顺序完成上线配置：先设平台币种 → 接供应商与模型路由 → 授权采购报价 → 发布客户售价 → 验证收款与客户开户。',
-                )}
+            {t(
+              'Connect Providers, keep default standard prices aligned with Provider rates (or customize discounts), and manage credit per customer. Your initial organization defaults to unlimited credit for immediate self-use; external customers default to prepaid ($0 credit limit) until topped up or granted credit.',
+              '接入模型供应商并同步标准售价（默认与供应商售价一致，也可按需设置折扣）。初始化管理员组织默认开启「无限授信」可直接自用并记账；外部客户默认预付费（$0 授信），可按需充值或调整授信额度。',
+            )}
           </p>
         </div>
       </div>

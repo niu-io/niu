@@ -287,6 +287,7 @@ SELECT jsonb_build_object(
             organization,
             currency,
             credit_limit_nanos,
+            false,
             warning_threshold_nanos,
             expected_revision,
             None,
@@ -294,11 +295,13 @@ SELECT jsonb_build_object(
         .await
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn configure_customer_balance_policy_recorded(
         &self,
         organization: Uuid,
         currency: &str,
         credit_limit_nanos: i64,
+        unlimited_credit: bool,
         warning_threshold_nanos: Option<i64>,
         expected_revision: i64,
         actor: Option<crate::OperatorAuditActor>,
@@ -325,16 +328,23 @@ SELECT jsonb_build_object(
         if revision != expected_revision {
             return Err(StoreError::Conflict);
         }
-        let safe:bool=sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM customer_balance_reservations WHERE account_id=$1 AND released_at IS NULL) OR COALESCE((SELECT posted_balance_nanos FROM customer_balance_accounts WHERE id=$1),0)+$2-niu_customer_account_outstanding($1)>=0")
-            .bind(account).bind(credit_limit_nanos).fetch_one(&mut *tx).await?;
+        let safe: bool = if unlimited_credit {
+            true
+        } else {
+            sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM customer_balance_reservations WHERE account_id=$1 AND released_at IS NULL) OR COALESCE((SELECT posted_balance_nanos FROM customer_balance_accounts WHERE id=$1),0)+$2-niu_customer_account_outstanding($1)>=0")
+                .bind(account)
+                .bind(credit_limit_nanos)
+                .fetch_one(&mut *tx)
+                .await?
+        };
         if !safe {
             return Err(StoreError::Unresolved);
         }
         let next = revision + 1;
-        sqlx::query("INSERT INTO customer_balance_policy_revisions(organization_id,account_id,currency,revision,credit_limit_nanos,warning_threshold_nanos) VALUES($1,$2,$3,$4,$5,$6)")
-            .bind(organization).bind(account).bind(currency).bind(next).bind(credit_limit_nanos).bind(warning_threshold_nanos).execute(&mut *tx).await?;
-        sqlx::query("UPDATE customer_balance_accounts SET credit_limit_nanos=$2,warning_threshold_nanos=$3,policy_revision=$4 WHERE id=$1")
-            .bind(account).bind(credit_limit_nanos).bind(warning_threshold_nanos).bind(next).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO customer_balance_policy_revisions(organization_id,account_id,currency,revision,credit_limit_nanos,unlimited_credit,warning_threshold_nanos) VALUES($1,$2,$3,$4,$5,$6,$7)")
+            .bind(organization).bind(account).bind(currency).bind(next).bind(credit_limit_nanos).bind(unlimited_credit).bind(warning_threshold_nanos).execute(&mut *tx).await?;
+        sqlx::query("UPDATE customer_balance_accounts SET credit_limit_nanos=$2,unlimited_credit=$3,warning_threshold_nanos=$4,policy_revision=$5 WHERE id=$1")
+            .bind(account).bind(credit_limit_nanos).bind(unlimited_credit).bind(warning_threshold_nanos).bind(next).execute(&mut *tx).await?;
         if let Some(actor) = actor {
             let (kind, operator) = actor.kind_and_id();
             sqlx::query("INSERT INTO customer_credit_policy_events(id,account_id,revision,actor_kind,actor_operator_id) VALUES($1,$2,$3,$4,$5)")
@@ -366,12 +376,12 @@ SELECT jsonb_build_object(
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(StoreError::Conflict)?;
-        let (account,credit,revision):(Uuid,i64,i64)=sqlx::query_as("SELECT id,credit_limit_nanos,policy_revision FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE").bind(organization).bind(currency).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+        let (account,credit,unlimited_credit,revision):(Uuid,i64,bool,i64)=sqlx::query_as("SELECT id,credit_limit_nanos,unlimited_credit,policy_revision FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR NO KEY UPDATE").bind(organization).bind(currency).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         if revision != expected_revision {
             return Err(StoreError::Conflict);
         }
         let next = revision + 1;
-        sqlx::query("INSERT INTO customer_balance_policy_revisions(organization_id,account_id,currency,revision,credit_limit_nanos,warning_threshold_nanos) VALUES($1,$2,$3,$4,$5,$6)").bind(organization).bind(account).bind(currency).bind(next).bind(credit).bind(threshold).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO customer_balance_policy_revisions(organization_id,account_id,currency,revision,credit_limit_nanos,unlimited_credit,warning_threshold_nanos) VALUES($1,$2,$3,$4,$5,$6,$7)").bind(organization).bind(account).bind(currency).bind(next).bind(credit).bind(unlimited_credit).bind(threshold).execute(&mut *tx).await?;
         sqlx::query("UPDATE customer_balance_accounts SET warning_threshold_nanos=$2,policy_revision=$3 WHERE id=$1").bind(account).bind(threshold).bind(next).execute(&mut *tx).await?;
         crate::commit_tx(tx).await?;
         Ok(next)
@@ -1876,7 +1886,7 @@ pub(crate) async fn reserve_customer_balance_for_locked_account_in_tx(
             Err(StoreError::Conflict)
         };
     }
-    let funded: bool = sqlx::query_scalar("SELECT a.posted_balance_nanos+a.credit_limit_nanos-niu_customer_account_outstanding(a.id)>=$2 FROM customer_balance_accounts a WHERE a.id=$1")
+    let funded: bool = sqlx::query_scalar("SELECT a.unlimited_credit OR (a.posted_balance_nanos+a.credit_limit_nanos-niu_customer_account_outstanding(a.id)>=$2) FROM customer_balance_accounts a WHERE a.id=$1")
             .bind(account).bind(maximum_nanos).fetch_one(&mut **tx).await?;
     if !funded {
         return Err(StoreError::BudgetExceeded);

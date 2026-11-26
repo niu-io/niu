@@ -161,16 +161,34 @@ describe("customer billing", () => {
     expect(screen.queryByRole('link',{name:'Manage credits'})).toBeNull();
     expect(screen.getByText('Contact your organization owner to add credits.')).toBeTruthy();
   });
-  it('does not offer credits management in internal mode', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => Response.json({data})));
+  it('displays Unlimited credit badge and shared balance cleanly on self-use / postpaid accounts', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (String(url).includes('/billing/balance')) {
+        return Response.json({
+          data: [{
+            currency: 'USD',
+            balance_nanos: '-12500000000',
+            available_nanos: '-12500000000',
+            reserved_nanos: '0',
+            credit_limit_nanos: '0',
+            unlimited_credit: true,
+            policy_revision: '1',
+            warning_threshold_nanos: null,
+            low_balance: false,
+            posted_credit_exhausted: false,
+          }],
+        });
+      }
+      return Response.json({ data });
+    }));
     fixture.context = {
       token:'test', workspace:{id:'workspace',organization_id:'org-a',organization_name:'Alpha'}, organization:{id:'org-a',name:'Alpha'},
-      session:{kind:'operator',operating_mode:'internal',operator:{role:'owner',organization_id:'org-a',project_id:null}}, models:[],
+      session:{kind:'operator',operating_mode:'resale',operator:{role:'owner',organization_id:'org-a',project_id:null}}, models:[],
     } as unknown as DashboardContext;
     render(<MemoryRouter><BillingRoute /></MemoryRouter>);
-    expect(screen.getByText(/Usage billed by a Provider is paid directly/)).toBeTruthy();
-    expect(screen.queryByRole('link',{name:'Manage credits'})).toBeNull();
-    expect(screen.queryByText('Contact your organization owner to add credits.')).toBeNull();
+    expect(await screen.findByText('Unlimited credit')).toBeTruthy();
+    expect(await screen.findByText(/12\.5/)).toBeTruthy();
+    expect(screen.getByRole('link',{name:'Manage credits'})).toBeTruthy();
   });
   it("opens a directly linked billing tab", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ data })));

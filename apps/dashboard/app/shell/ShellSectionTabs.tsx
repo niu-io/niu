@@ -44,10 +44,9 @@ export default function ShellSectionTabs({ context }: {
   } else if (location.pathname.startsWith('/settings')) {
     label = t('Settings sections', '设置页面');
     const personal = context.session?.kind === 'operator';
-    const billing = context.session?.operating_mode !== 'internal' && (
+    const billing =
       context.session?.kind === 'installation' ||
-      (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role))
-    );
+      (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role));
     const accountPath = personal ? '/settings/account' : '/settings/appearance';
     entries = [
       ...(context.organization ? [{ path: '/settings/organization', label: t('Organization', '组织') }] : []),
@@ -69,25 +68,22 @@ export default function ShellSectionTabs({ context }: {
         ? `${routeWorkspaceBase}/routing`
         : `${routeWorkspaceBase}/models`;
   } else if (/^\/workspaces\/[^/]+\/(usage|billing)\/?$/.test(location.pathname) && routeWorkspaceBase) {
-    const internal = context.session?.operating_mode === 'internal';
-    if (!internal) {
-      label = t('Usage and billing sections', '用量与账单页面');
-      entries = [
-        { path: `${routeWorkspaceBase}/usage`, label: t('Usage', '用量') },
-        { path: `${routeWorkspaceBase}/billing?tab=balance`, label: t('Spending', '支出') },
-        { path: `${routeWorkspaceBase}/billing?tab=statements`, label: t('Statements', '账单') },
-        { path: `${routeWorkspaceBase}/billing?tab=rates`, label: t('Rates', '费率') },
-      ];
-      if (/\/billing\/?$/.test(location.pathname)) {
-        const billingTab = new URLSearchParams(location.search).get('tab');
-        selected = billingTab === 'statements'
-          ? `${routeWorkspaceBase}/billing?tab=statements`
-          : billingTab === 'rates'
-            ? `${routeWorkspaceBase}/billing?tab=rates`
-            : `${routeWorkspaceBase}/billing?tab=balance`;
-      } else {
-        selected = `${routeWorkspaceBase}/usage`;
-      }
+    label = t('Usage and billing sections', '用量与账单页面');
+    entries = [
+      { path: `${routeWorkspaceBase}/usage`, label: t('Usage', '用量') },
+      { path: `${routeWorkspaceBase}/billing?tab=balance`, label: t('Spending', '支出') },
+      { path: `${routeWorkspaceBase}/billing?tab=statements`, label: t('Statements', '账单') },
+      { path: `${routeWorkspaceBase}/billing?tab=rates`, label: t('Rates', '费率') },
+    ];
+    if (/\/billing\/?$/.test(location.pathname)) {
+      const billingTab = new URLSearchParams(location.search).get('tab');
+      selected = billingTab === 'statements'
+        ? `${routeWorkspaceBase}/billing?tab=statements`
+        : billingTab === 'rates'
+          ? `${routeWorkspaceBase}/billing?tab=rates`
+          : `${routeWorkspaceBase}/billing?tab=balance`;
+    } else {
+      selected = `${routeWorkspaceBase}/usage`;
     }
   } else if (/^\/workspaces\/[^/]+\/(settings|guardrails|events)\/?$/.test(location.pathname) && routeWorkspaceBase) {
     label = t('Workspace settings sections', '工作空间设置页面');

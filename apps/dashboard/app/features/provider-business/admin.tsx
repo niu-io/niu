@@ -95,7 +95,7 @@ export default function ProviderAdministration() {
 function Administration({ token }: { token: string }) {
   const { t: uiT, format: uiF } = useUILocale();
   const { session, organization } = useDashboardContext();
-  const internal = session?.operating_mode === 'internal';
+  const internal = false;
   const { section: rawSection, providerId, supplierId } = useProviderParams();
   const section = !rawSection || rawSection === "overview" ? "models" : rawSection;
   const routeProviderId = providerId ?? supplierId;

@@ -75,6 +75,7 @@ Content type: `application/json`.
           "outstanding_nanos",
           "available_nanos",
           "credit_limit_nanos",
+          "unlimited_credit",
           "warning_threshold_nanos",
           "policy_revision",
           "low_balance",
@@ -106,6 +107,10 @@ Content type: `application/json`.
           "credit_limit_nanos": {
             "type": "string",
             "pattern": "^[0-9]+$"
+          },
+          "unlimited_credit": {
+            "type": "boolean",
+            "description": "True when continuous negative-balance arrears are permitted without a numeric credit ceiling (workspace and API key spending limits still apply)."
           },
           "policy_revision": {
             "type": "string",

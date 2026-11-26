@@ -107,10 +107,6 @@ export function ModelDiscountDialog({
       setValidationError(uiT('Enter valid non-negative upstream standard input and output prices per 1M tokens.', '请填写有效的上游标准输入/输出价格（每百万 tokens）。'));
       return;
     }
-    if (BigInt(inputNanos) === 0n && BigInt(outputNanos) === 0n) {
-      setValidationError(uiT('Upstream standard price cannot be zero for both input and output.', '上游标准输入和输出价格不能同时为 0。'));
-      return;
-    }
     if (standardCached.trim() !== '' && cachedNanos === null) {
       setValidationError(uiT('Enter a valid cached input price or leave it blank.', '请填写有效的缓存读取价格，或留空。'));
       return;
@@ -228,7 +224,8 @@ export function ModelDiscountDialog({
                   key={preset}
                   type="button"
                   size="xs"
-                  variant={discountPercent === preset ? 'default' : 'outline'}
+                  variant="outline"
+                  aria-pressed={discountPercent === preset}
                   disabled={busy}
                   onClick={() => { setDiscountInput(String(preset)); setValidationError(''); }}
                 >
@@ -400,7 +397,8 @@ export function BatchDiscountDialog({
                   key={preset}
                   type="button"
                   size="xs"
-                  variant={discountPercent === preset ? 'default' : 'outline'}
+                  variant="outline"
+                  aria-pressed={discountPercent === preset}
                   disabled={busy}
                   onClick={() => { setDiscountInput(String(preset)); setValidationError(''); }}
                 >

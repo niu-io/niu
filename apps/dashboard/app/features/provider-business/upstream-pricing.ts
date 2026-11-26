@@ -7,6 +7,8 @@ export type UpstreamStandardPrice = {
   inputPer1MNanos: string;
   outputPer1MNanos: string;
   cachedInputPer1MNanos: string | null;
+  cacheWriteInputPer1MNanos?: string | null;
+  reasoningOutputPer1MNanos?: string | null;
   source: 'official' | 'native_ratio';
 };
 
@@ -119,12 +121,18 @@ export function extractUpstreamStandardPrices(response: AdapterPricingResponse |
     if (inputNanos === null || outputNanos === null) continue;
     const cached = pool.find(r => r.meter === 'cached_input_tokens' && r.amount && r.currency === input.currency && r.per_units);
     const cachedNanos = cached?.amount && cached.per_units ? rateToPer1MNanos(cached.amount, cached.per_units) : null;
+    const cacheWrite = pool.find(r => r.meter === 'cache_write_tokens' && r.amount && r.currency === input.currency && r.per_units);
+    const cacheWriteNanos = cacheWrite?.amount && cacheWrite.per_units ? rateToPer1MNanos(cacheWrite.amount, cacheWrite.per_units) : null;
+    const reasoning = pool.find(r => r.meter === 'reasoning_tokens' && r.amount && r.currency === input.currency && r.per_units);
+    const reasoningNanos = reasoning?.amount && reasoning.per_units ? rateToPer1MNanos(reasoning.amount, reasoning.per_units) : null;
     const entry: UpstreamStandardPrice = {
       model: item.model,
       currency: input.currency.toUpperCase(),
       inputPer1MNanos: inputNanos.toString(),
       outputPer1MNanos: outputNanos.toString(),
       cachedInputPer1MNanos: cachedNanos !== null ? cachedNanos.toString() : null,
+      cacheWriteInputPer1MNanos: cacheWriteNanos !== null ? cacheWriteNanos.toString() : null,
+      reasoningOutputPer1MNanos: reasoningNanos !== null ? reasoningNanos.toString() : null,
       source: 'official',
     };
     map.set(item.model, entry);

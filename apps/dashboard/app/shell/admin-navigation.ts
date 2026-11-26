@@ -49,12 +49,8 @@ const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   },
 ];
 
-export function getAdminNavGroups(operatingMode?: string): AdminNavGroup[] {
-  const isInternal = operatingMode === 'internal';
-  return ADMIN_NAV_GROUPS.map(group => ({
-    ...group,
-    items: isInternal ? group.items.filter(item => !item.resaleOnly) : group.items,
-  })).filter(group => group.items.length > 0);
+export function getAdminNavGroups(_operatingMode?: string): AdminNavGroup[] {
+  return ADMIN_NAV_GROUPS;
 }
 
 export function isAdminNavItemActive(item: AdminNavItem, pathname: string): boolean {
