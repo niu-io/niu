@@ -643,7 +643,7 @@ export function Customers({
               organization_id: company.id,
               organization_name: company.name,
               account_kind: options?.accountKind ?? 'organization',
-              owner: options?.ownerEmail ? { name: company.name, email: options.ownerEmail } : null,
+              owner: options?.ownerEmail ? { name: options.ownerName || company.name, email: options.ownerEmail } : null,
               workspace_count: options?.workspaceCreated ? 1 : 0,
               member_count: options?.ownerEmail ? 1 : 0,
               custom_price_count: 0,
