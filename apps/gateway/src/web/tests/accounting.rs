@@ -2616,11 +2616,7 @@ async fn unlimited_credit_allows_postpaid_arrears_without_merchant_while_enforci
         .create_prepaid_organization("Self-Use Team", "USD")
         .await
         .unwrap();
-    let scope = state
-        .store
-        .create_project(org, "Default")
-        .await
-        .unwrap();
+    let scope = state.store.create_project(org, "Default").await.unwrap();
     state
         .store
         .publish_customer_tariff(
@@ -2676,13 +2672,15 @@ async fn unlimited_credit_allows_postpaid_arrears_without_merchant_while_enforci
     let policy_res = app
         .clone()
         .oneshot(
-            Request::put(format!("/api/v1/organizations/{org}/billing/accounts/USD/policy"))
-                .header("authorization", format!("Bearer {ADMIN_TOKEN}"))
-                .header("content-type", "application/json")
-                .body(axum::body::Body::from(
-                    json!({"unlimited_credit": true, "expected_revision": "0"}).to_string(),
-                ))
-                .unwrap(),
+            Request::put(format!(
+                "/api/v1/organizations/{org}/billing/accounts/USD/policy"
+            ))
+            .header("authorization", format!("Bearer {ADMIN_TOKEN}"))
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(
+                json!({"unlimited_credit": true, "expected_revision": "0"}).to_string(),
+            ))
+            .unwrap(),
         )
         .await
         .unwrap();
@@ -2700,9 +2698,15 @@ async fn unlimited_credit_allows_postpaid_arrears_without_merchant_while_enforci
         .await
         .unwrap();
     assert_eq!(readiness_res.status(), StatusCode::OK);
-    let readiness_body: Value =
-        serde_json::from_slice(&readiness_res.into_body().collect().await.unwrap().to_bytes())
-            .unwrap();
+    let readiness_body: Value = serde_json::from_slice(
+        &readiness_res
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes(),
+    )
+    .unwrap();
     assert_eq!(readiness_body["data"]["ready"], true);
 
     // Paid inference succeeds with $0 initial funds and accrues negative posted balance cleanly.
@@ -2725,8 +2729,15 @@ async fn unlimited_credit_allows_postpaid_arrears_without_merchant_while_enforci
     let summary = state.store.customer_balance_summary(org).await.unwrap();
     assert_eq!(summary[0]["unlimited_credit"], true);
     assert_eq!(summary[0]["posted_credit_exhausted"], false);
-    let posted: i64 = summary[0]["balance_nanos"].as_str().unwrap().parse().unwrap();
-    assert!(posted < 0, "expected negative arrears balance, got {posted}");
+    let posted: i64 = summary[0]["balance_nanos"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(
+        posted < 0,
+        "expected negative arrears balance, got {posted}"
+    );
 
     let history = state
         .store
