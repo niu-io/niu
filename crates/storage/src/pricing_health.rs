@@ -437,7 +437,10 @@ mod tests {
         assert_eq!(inactive_health["supply_status"], "inactive");
         assert_eq!(inactive_health["active_supply_routes"], 0);
         assert_eq!(inactive_health["active_providers"], json!([]));
-        assert_eq!(inactive_health["checks"][0]["status"], "comparison_unavailable");
+        assert_eq!(
+            inactive_health["checks"][0]["status"],
+            "comparison_unavailable"
+        );
 
         let disabled_expensive = json!({
             "route": "qiniu/deepseek-v4.1-flash",
@@ -455,10 +458,12 @@ mod tests {
                 "context_tiers": []
             }
         });
-        let inactive_expensive_health =
-            build_pricing_health(&sell, "USD", &[&disabled_expensive]);
+        let inactive_expensive_health = build_pricing_health(&sell, "USD", &[&disabled_expensive]);
         assert_eq!(inactive_expensive_health["supply_status"], "inactive");
-        assert_ne!(inactive_expensive_health["checks"][0]["status"], "below_cost");
+        assert_ne!(
+            inactive_expensive_health["checks"][0]["status"],
+            "below_cost"
+        );
 
         // Equal 100% Provider unit rates (no discount) across all dimensions never report below_cost.
         let equal_sell = json!({
