@@ -14,10 +14,15 @@ impl ApiError {
         // Storage methods translate trigger failures they observe. This catch
         // keeps errors returned from custom SQL in other paths on the same
         // table instead of exposing a generic storage failure.
-        if let niu_storage::StoreError::Database(ref database) = error
-            && let Some(mapped) = niu_storage::trigger_error::classify(database)
-        {
-            return Self::from_store(mapped);
+        if let niu_storage::StoreError::Database(ref database) = error {
+            if let Some(mapped) = niu_storage::trigger_error::classify(database) {
+                return Self::from_store(mapped);
+            }
+            if let Some(mapped) =
+                niu_storage::trigger_error::classify_integrity_or_concurrency(database)
+            {
+                return Self::from_store(mapped);
+            }
         }
         match error {
             niu_storage::StoreError::RequestExportTooLarge => Self::export_too_large(),
@@ -297,7 +302,7 @@ impl ApiError {
                 failure: None,
                 status: StatusCode::CONFLICT,
                 kind: "conflict_error",
-                message: "The record is unavailable or its state changed",
+                message: "This item was updated or is no longer available. Refresh and try again.",
             },
             error => {
                 if let Some(diagnostic) = error.database_diagnostic() {
@@ -313,7 +318,7 @@ impl ApiError {
                     failure: None,
                     status: StatusCode::SERVICE_UNAVAILABLE,
                     kind: "storage_error",
-                    message: "Durable storage is unavailable",
+                    message: "Service is temporarily unavailable. Please try again in a moment.",
                 }
             }
         }
@@ -378,7 +383,7 @@ impl ApiError {
             failure: None,
             status: StatusCode::CONFLICT,
             kind: "registration_email_exists",
-            message: "An active account already uses this email address. Review existing members instead of approving a duplicate account.",
+            message: "This email address is already used by an existing account.",
         }
     }
 
@@ -627,7 +632,7 @@ impl ApiError {
             failure: None,
             status: StatusCode::SERVICE_UNAVAILABLE,
             kind: "storage_error",
-            message: "Durable storage is unavailable",
+            message: "Service is temporarily unavailable. Please try again in a moment.",
         }
     }
 
@@ -972,5 +977,21 @@ mod endpoint_tests {
             ApiError::unavailable().message,
             "The configured provider credential is unavailable"
         );
+    }
+
+    #[test]
+    fn storage_and_conflict_errors_never_expose_raw_database_jargon() {
+        for err in [
+            ApiError::from_store(niu_storage::StoreError::Conflict),
+            ApiError::from_store(niu_storage::StoreError::MigrationBaselineInvalid),
+            ApiError::storage_unavailable(),
+            ApiError::registration_email_exists(),
+        ] {
+            assert!(!err.message.contains("The record is unavailable"));
+            assert!(!err.message.contains("Durable storage"));
+            assert!(!err.message.contains("SQLSTATE"));
+            assert!(!err.message.contains("sqlx"));
+            assert!(!err.message.contains("constraint"));
+        }
     }
 }
