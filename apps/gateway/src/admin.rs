@@ -100,6 +100,8 @@ pub struct OperatorInput {
     expires_in_seconds: Option<i64>,
     #[serde(default = "issue_initial_session")]
     issue_session: bool,
+    email: Option<String>,
+    password: Option<String>,
 }
 
 fn issue_initial_session() -> bool {
@@ -219,7 +221,7 @@ async fn authorize_operator_management(
     }
 }
 /// Shared creation header policy; never persist the caller's raw key.
-fn creation_idempotency_key(headers: &HeaderMap) -> Result<Option<Vec<u8>>, ApiError> {
+pub(crate) fn creation_idempotency_key(headers: &HeaderMap) -> Result<Option<Vec<u8>>, ApiError> {
     use sha2::{Digest, Sha256};
     let mut keys = headers.get_all("idempotency-key").iter();
     let Some(key) = keys.next() else {
@@ -1678,12 +1680,33 @@ pub async fn create_operator(
         let key = key.ok_or_else(|| {
             ApiError::invalid_request("Identity-only creation requires Idempotency-Key")
         })?;
+        let password_pair = match (input.email.as_deref(), input.password) {
+            (None, None) => None,
+            (Some(email), Some(password)) => {
+                if !niu_storage::is_valid_email_address(email) {
+                    return Err(ApiError::invalid_request("Invalid email address"));
+                }
+                let hash = crate::admin::passwords::hash_member_password_for_admin(
+                    &state, &headers, password,
+                )
+                .await?;
+                Some((email.to_owned(), hash))
+            }
+            _ => {
+                return Err(ApiError::invalid_request(
+                    "Supply both email and password or omit both",
+                ));
+            }
+        };
         let operator = state
             .store
-            .create_operator_identity(
+            .create_operator_identity_with_password(
                 scope,
                 &input.name,
                 input.role,
+                password_pair
+                    .as_ref()
+                    .map(|(e, h)| (e.as_str(), h.as_str())),
                 &key,
                 audit_actor(authorization),
             )
@@ -1693,6 +1716,11 @@ pub async fn create_operator(
             StatusCode::CREATED,
             [("cache-control".into(), "no-store".into())],
             Json(json!({"operator":operator,"session":null,"token":null})),
+        ));
+    }
+    if input.email.is_some() || input.password.is_some() {
+        return Err(ApiError::invalid_request(
+            "Password provisioning during member creation requires issue_session false",
         ));
     }
     if key.is_some() {

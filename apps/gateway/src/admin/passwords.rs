@@ -344,10 +344,42 @@ pub(super) fn worker_error(error: PasswordWorkError) -> ApiError {
         PasswordWorkError::Capacity => ApiError::sign_in_limited(),
         PasswordWorkError::Credential(niu_storage::passwords::PasswordError::InvalidPassword) => {
             ApiError::invalid_request(
-                "Password must contain at least 15 characters and at most 1024 bytes",
+                "Password must contain at least 8 characters and at most 1024 bytes",
             )
         }
         _ => ApiError::storage_unavailable(),
+    }
+}
+
+pub(crate) async fn hash_member_password_for_admin(
+    state: &AppState,
+    headers: &HeaderMap,
+    password: String,
+) -> Result<String, ApiError> {
+    if password.len() > 1024
+        || password.chars().count() < niu_storage::passwords::MIN_PASSWORD_CHARACTERS
+    {
+        return Err(ApiError::invalid_request(
+            "Password must contain at least 8 characters and at most 1024 bytes",
+        ));
+    }
+    if let Some(rt) = state.password_auth.as_deref() {
+        rt.check_origin(headers)?;
+        rt.workers.hash(password).await.map_err(worker_error)
+    } else {
+        tokio::task::spawn_blocking(move || niu_storage::passwords::hash_password(&password))
+            .await
+            .map_err(|_| ApiError::storage_unavailable())?
+            .map_err(|err| match err {
+                niu_storage::passwords::PasswordError::InvalidPassword => {
+                    ApiError::invalid_request(
+                        "Password must contain at least 8 characters and at most 1024 bytes",
+                    )
+                }
+                niu_storage::passwords::PasswordError::Unavailable => {
+                    ApiError::storage_unavailable()
+                }
+            })
     }
 }
 
@@ -780,8 +812,8 @@ pub struct InstallationSetupInput {
 ///               },
 ///               "password": {
 ///                 "type": "string",
-///                 "minLength": 15,
-///                 "description": "Account password (at least 15 characters and at most 1024 bytes)."
+///                 "minLength": 8,
+///                 "description": "Account password (at least 8 characters and at most 1024 bytes)."
 ///               },
 ///               "currency": {
 ///                 "type": "string",

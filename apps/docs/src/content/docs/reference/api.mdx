@@ -162,11 +162,11 @@ with platform administrator review in `/admin/registrations` (or disabled via
 `/admin/settings/registration`); unmoderated self-registration and identity
 federation remain unimplemented.
 
-`PUT /api/v1/operators/{operator}/password` lets an installation administrator
+`PUT /api/v1/members/{operator}/password` lets an installation administrator
 or a scoped owner provision an existing member with `email`, `password` and
-optional `expected_revision`. First provision omits the revision; resets require
+optional `expected_revision`. First provision omits the revision (or passes `null` / `0`); resets require
 the last returned revision and revoke all prior sessions atomically. Passwords
-require at least 15 characters and at most 1,024 UTF-8 bytes; spaces and Unicode
+require at least 8 characters and at most 1,024 UTF-8 bytes; spaces and Unicode
 are preserved. The response contains the new revision, never the hash.
 
 `POST /api/v1/auth/login` accepts `email` and `password` and returns a scoped
@@ -1039,7 +1039,7 @@ JavaScript SDK 提供了 `getCustomerBilling`、`publishCustomerTariff`、`issue
 
 `operator` 是现有管理 API 契约中表示组织或工作空间成员的名称；控制台在工作空间导航中使用 **成员（Members）**，在平台管理中使用 **用户（Users）**。账户使用各自的凭据登录，并获得其分配的角色与组织/工作空间访问权限。实例初始设置凭据与成员会话及应用 API 密钥相互独立。密码会话 API 需通过配置 `NIU_AUTH_PUBLIC_ORIGIN` 显式启用，该值必须是不含路径、凭据、查询参数或片段的 HTTPS 源地址（Origin）。请在该源地址的 HTTPS 反向代理后部署服务。启用密码登录后，限量预览（Limited Preview）注册默认采用需审批模式（`approval_required`，通过 `POST /api/v1/auth/registrations` 提交申请，由平台管理员在 `/admin/registrations` 审批或在 `/admin/settings/registration` 关闭）；开放式无审批自助注册与身份联邦（Identity Federation）目前尚未实现。
 
-`PUT /api/v1/operators/{operator}/password` 允许实例管理员或具有作用域的所有者（owner）为现有成员配置 `email`、`password` 以及可选的 `expected_revision`。首次设置密码时省略修订版本；重置密码则需要传入上一次返回的修订版本，并会原子化地吊销该成员此前的所有会话。密码长度要求至少 15 个字符且不超过 1,024 个 UTF-8 字节；空格与 Unicode 字符均会被原样保留。响应返回新的修订版本，绝不会返回密码哈希值。
+`PUT /api/v1/members/{operator}/password` 允许实例管理员或具有作用域的所有者（owner）为现有成员配置 `email`、`password` 以及可选的 `expected_revision`。首次设置密码时省略修订版本（或传入 `null` / `0`）；重置密码则需要传入上一次返回的修订版本，并会原子化地吊销该成员此前的所有会话。密码长度要求至少 8 个字符且不超过 1,024 个 UTF-8 字节；空格与 Unicode 字符均会被原样保留。响应返回新的修订版本，绝不会返回密码哈希值。
 
 `POST /api/v1/auth/login` 接收 `email` 和 `password`，并返回一个带作用域的 8 小时有效期 Bearer `token` 及会话元数据。它仅授予该成员现有的角色与工作空间访问权限，绝不会授予实例级管理权限。密码错误与未知身份返回相同的 HTTP 401 响应。持久化准入限流在 60 秒窗口内允许每个规范化邮箱尝试 5 次、每个实例尝试 120 次；超出限制的请求返回 HTTP 429 并附带 `Retry-After: 60`。这两个路由均将 JSON 请求体限制为 4 KiB，并将成功和错误响应标记为 `Cache-Control: no-store`。若请求包含浏览器 `Origin` 头，则必须与配置的源地址匹配。这些路由不会设置浏览器 Cookie；控制台使用下方独立的浏览器端点。未配置 `NIU_AUTH_PUBLIC_ORIGIN` 时，密码登录返回 HTTP 501。
 

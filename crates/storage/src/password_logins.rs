@@ -563,6 +563,10 @@ impl Store {
                 return Err(StoreError::Conflict);
             }
         }
+        let expected_revision = match expected_revision {
+            Some(0) => None,
+            other => other,
+        };
         let previous: Option<i64> = sqlx::query_scalar(
             "SELECT revision FROM member_password_credentials WHERE operator_id=$1",
         )
@@ -572,6 +576,16 @@ impl Store {
         if previous != expected_revision {
             return Err(StoreError::Conflict);
         }
+        let email_taken_elsewhere: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM member_password_credentials WHERE email = $1 AND operator_id <> $2)",
+        )
+        .bind(&email)
+        .bind(operator_id)
+        .fetch_one(&mut *tx)
+        .await?;
+        if email_taken_elsewhere {
+            return Err(StoreError::RegistrationEmailExists);
+        }
         let revision = previous
             .unwrap_or(0)
             .checked_add(1)
@@ -579,7 +593,7 @@ impl Store {
         sqlx::query("INSERT INTO member_password_credentials(operator_id,email,password_hash,revision) VALUES($1,$2,$3,$4) ON CONFLICT(operator_id) DO UPDATE SET email=EXCLUDED.email,password_hash=EXCLUDED.password_hash,revision=EXCLUDED.revision,changed_at=clock_timestamp()")
             .bind(operator_id).bind(email).bind(password_hash).bind(revision).execute(&mut *tx).await.map_err(|error| {
                 if error.as_database_error().is_some_and(|database| database.is_unique_violation()) {
-                    StoreError::Conflict
+                    StoreError::RegistrationEmailExists
                 } else {
                     error.into()
                 }

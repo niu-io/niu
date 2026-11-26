@@ -76,7 +76,7 @@ No path, query, or header parameters are declared.
     },
     "password": {
       "type": "string",
-      "minLength": 15,
+      "minLength": 8,
       "maxLength": 1024,
       "writeOnly": true
     }

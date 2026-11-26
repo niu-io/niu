@@ -504,13 +504,44 @@ impl Store {
         key_sha256: &[u8],
         actor: OperatorAuditActor,
     ) -> Result<OperatorView, StoreError> {
+        self.create_operator_identity_with_password(scope, name, role, None, key_sha256, actor)
+            .await
+    }
+
+    /// Atomically create a durable identity and optional initial sign-in password
+    /// credential in a single PostgreSQL transaction so duplicate-email failures
+    /// never leave orphan operator rows.
+    pub async fn create_operator_identity_with_password(
+        &self,
+        scope: OperatorScope,
+        name: &str,
+        role: OperatorRole,
+        password_credential: Option<(&str, &str)>,
+        key_sha256: &[u8],
+        actor: OperatorAuditActor,
+    ) -> Result<OperatorView, StoreError> {
         validate_operator(name, MIN_SESSION_SECONDS)?;
         if key_sha256.len() != 32 {
             return Err(StoreError::Conflict);
         }
-        let request =
-            serde_json::to_vec(&serde_json::json!({"scope":scope,"name":name.trim(),"role":role}))
-                .map_err(|_| StoreError::Conflict)?;
+        let validated_credential = match password_credential {
+            Some((email, password_hash)) => {
+                let normalized_email = crate::password_logins::email_address(email)
+                    .ok_or(StoreError::InvalidOperator)?;
+                if !crate::passwords::supported_password_hash(password_hash) {
+                    return Err(StoreError::InvalidOperator);
+                }
+                Some((normalized_email, password_hash))
+            }
+            None => None,
+        };
+        let request_json = match &validated_credential {
+            Some((email, _)) => {
+                serde_json::json!({"scope":scope,"name":name.trim(),"role":role,"email":email})
+            }
+            None => serde_json::json!({"scope":scope,"name":name.trim(),"role":role}),
+        };
+        let request = serde_json::to_vec(&request_json).map_err(|_| StoreError::Conflict)?;
         let digest = Sha256::digest(request).to_vec();
         let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-user-create:'||$1::text||':'||encode($2::bytea,'hex'),0))")
@@ -555,12 +586,59 @@ impl Store {
                 return Err(StoreError::Conflict);
             }
         }
+        if let Some((ref email, _)) = validated_credential {
+            sqlx::query(
+                "SELECT pg_advisory_xact_lock(hashtextextended('niu-registration-email:' || $1, 0))",
+            )
+            .bind(email)
+            .execute(&mut *tx)
+            .await?;
+            let email_exists: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM member_password_credentials WHERE email = $1)",
+            )
+            .bind(email)
+            .fetch_one(&mut *tx)
+            .await?;
+            if email_exists {
+                return Err(StoreError::RegistrationEmailExists);
+            }
+        }
         let id = Uuid::new_v4();
         sqlx::query("INSERT INTO admin_operators(id,name,role,organization_id,project_id) VALUES($1,$2,$3,$4,$5)")
             .bind(id).bind(name.trim()).bind(role.as_str()).bind(scope.organization_id).bind(scope.project_id).execute(&mut *tx).await?;
+        if let Some((ref email, password_hash)) = validated_credential {
+            crate::account_organization_creation::ensure_operator_identity_in_tx(
+                &mut tx,
+                id,
+                scope.organization_id,
+            )
+            .await?;
+            sqlx::query(
+                "INSERT INTO member_password_credentials(operator_id,email,password_hash,revision) VALUES($1,$2,$3,1)",
+            )
+            .bind(id)
+            .bind(email)
+            .bind(password_hash)
+            .execute(&mut *tx)
+            .await
+            .map_err(|error| {
+                if error
+                    .as_database_error()
+                    .is_some_and(|db| db.is_unique_violation())
+                {
+                    StoreError::RegistrationEmailExists
+                } else {
+                    error.into()
+                }
+            })?;
+        }
         sqlx::query("INSERT INTO operator_creation_receipts(organization_id,key_sha256,request_sha256,operator_id) VALUES($1,$2,$3,$4)")
             .bind(scope.organization_id).bind(key_sha256).bind(digest).bind(id).execute(&mut *tx).await?;
         insert_operator_audit_event(&mut tx, actor, "operator_created", id, None, scope).await?;
+        if validated_credential.is_some() {
+            insert_operator_audit_event(&mut tx, actor, "password_changed", id, None, scope)
+                .await?;
+        }
         crate::commit_tx(tx).await?;
         Ok(OperatorView {
             id,

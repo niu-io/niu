@@ -417,7 +417,9 @@ fn billing_and_pricing_routes(app: Router<AppState>) -> Router<AppState> {
         get(crate::billing::noncash_grants::prepared_by_key),
     )
     .route("/api/v1/admin/customers",
-        get(crate::billing::platform_accounts::list),
+        get(crate::billing::platform_accounts::list)
+            .post(crate::billing::platform_accounts::onboard_customer)
+            .layer(axum::extract::DefaultBodyLimit::max(8192)),
     )
     .route("/api/v1/admin/customers/{customer}",
         get(crate::billing::platform_accounts::get_customer),

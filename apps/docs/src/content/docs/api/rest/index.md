@@ -242,6 +242,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`GET /api/v1/admin/configuration` — Read platform payment configuration presence](/docs/api/rest/getplatformconfiguration/)
 - [`PUT /api/v1/admin/currency` — Configure the installation currency once](/docs/api/rest/configureplatformcurrency/)
 - [`GET /api/v1/admin/customers` — Discover named customer accounts and Credits summaries for platform financial administration](/docs/api/rest/listplatformcustomeraccounts/)
+- [`POST /api/v1/admin/customers` — Atomically onboard a customer account, Default workspace, optional owner sign-in, and optional trial credit](/docs/api/rest/onboardplatformcustomer/)
 - [`GET /api/v1/admin/customers/{customer}` — Read one customer company's overview, balances, workspaces, members, and recent billing activity](/docs/api/rest/getplatformcustomer/)
 - [`GET /api/v1/admin/customers/{customer}/pricing` — List platform standard prices paired with one customer's active customer-specific prices](/docs/api/rest/listplatformcustomerpricing/)
 - [`PUT /api/v1/admin/customers/{customer}/pricing` — Atomically set or reset customer-specific model prices](/docs/api/rest/setplatformcustomerpricing/)

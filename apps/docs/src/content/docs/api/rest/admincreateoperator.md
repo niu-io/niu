@@ -126,6 +126,24 @@ Location: **header**. Optional. Required only for identity-only creation; 1–12
       "type": "integer",
       "minimum": 60,
       "maximum": 31536000
+    },
+    "email": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 254,
+      "description": "Optional sign-in email when issue_session is false; requires password."
+    },
+    "password": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 8,
+      "maxLength": 1024,
+      "writeOnly": true,
+      "description": "Optional sign-in password (8–1024 bytes) committed atomically with the member when issue_session is false."
     }
   }
 }

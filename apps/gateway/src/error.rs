@@ -199,7 +199,7 @@ impl ApiError {
                 Self::invalid_request("Invalid operator name, role, or session lifetime")
             }
             niu_storage::StoreError::InvalidRegistration => Self::invalid_request(
-                "Enter a valid name, email, organization or workspace name, note, and a password of 15 to 1024 bytes",
+                "Enter a valid name, email, organization or workspace name, note, and a password of 8 to 1024 bytes",
             ),
             niu_storage::StoreError::InvalidRegistrationQuery => {
                 Self::invalid_request("Invalid registration status filter, cursor, or page size")
