@@ -131,12 +131,14 @@ compareWorkspaceReviewEvaluationRuns(workspace: string, slug: string, left: stri
 /** Owner-only scoped role change. Preserves sessions/scope; reload after a stale-role409.
  * Rejects self changes and protected actors. Never issues a replacement token.
  */
-/** Durable identity-only creation. Replay returns the same user, never a new session or token. */
+/** Durable identity-only creation (with optional atomic sign-in email/password). Replay returns the same user, never a new session or token. */
 createOperatorIdentity(input: {
     organization_id: string;
     project_id?: string | null;
     name: string;
     role: OperatorAccessRole;
+    email?: string;
+    password?: string;
 }, options: RequestOptions & {
     idempotencyKey: string;
 }): Promise<{
@@ -728,6 +730,15 @@ listCompanies(options?: RequestOptions): Promise<{
 ```typescript
 /** Atomic company/account creation; retain idempotencyKey on uncertain responses. */
 createCompany(input: CompanyCreationInput, options?: CompanyCreateOptions): Promise<CreatedCompany>;
+```
+
+### onboardPlatformCustomer
+
+```typescript
+/** Atomically onboard a customer account, Default workspace, optional owner sign-in, and optional trial credit in one transaction. */
+onboardPlatformCustomer(input: PlatformCustomerOnboardingInput, options?: CompanyCreateOptions): Promise<{
+    data: OnboardedPlatformCustomer;
+}>;
 ```
 
 ### renameCompany

@@ -81,7 +81,7 @@ Location: **header**. Optional.
     },
     "password": {
       "type": "string",
-      "minLength": 15,
+      "minLength": 8,
       "maxLength": 1024,
       "description": "At most 1024 UTF-8 bytes; spaces and Unicode are preserved."
     },
@@ -90,7 +90,7 @@ Location: **header**. Optional.
         "integer",
         "null"
       ],
-      "minimum": 1
+      "minimum": 0
     }
   }
 }

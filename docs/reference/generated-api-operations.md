@@ -5503,8 +5503,8 @@ Content type: `application/json`.
     },
     "password": {
       "type": "string",
-      "minLength": 15,
-      "description": "Account password (at least 15 characters and at most 1024 bytes)."
+      "minLength": 8,
+      "description": "Account password (at least 8 characters and at most 1024 bytes)."
     },
     "currency": {
       "type": "string",
@@ -6043,7 +6043,7 @@ HTTP 409: expected_revision does not match the saved profile; reload before retr
 
 `POST /api/v1/auth/registrations`
 
-Public capability gated by NIU_AUTH_PUBLIC_ORIGIN and the configured registration policy. Requires the configured HTTPS Origin header. Passwords are validated (minimum 15 characters, maximum 1024 UTF-8 bytes) and Argon2id-hashed at submission time; no plaintext password is stored. No email provider is required: once approved by an administrator, the applicant signs in immediately with the submitted email and password. Existing accounts and duplicate pending emails return the same 202 response without overwriting credentials. Responses use Cache-Control no-store.
+Public capability gated by NIU_AUTH_PUBLIC_ORIGIN and the configured registration policy. Requires the configured HTTPS Origin header. Passwords are validated (minimum 8 characters, maximum 1024 UTF-8 bytes) and Argon2id-hashed at submission time; no plaintext password is stored. No email provider is required: once approved by an administrator, the applicant signs in immediately with the submitted email and password. Existing accounts and duplicate pending emails return the same 202 response without overwriting credentials. Responses use Cache-Control no-store.
 
 Implementation: `implemented`. Operation: `submitLimitedPreviewRegistration`.
 
@@ -6088,7 +6088,7 @@ Content type: `application/json`.
     },
     "password": {
       "type": "string",
-      "minLength": 15,
+      "minLength": 8,
       "maxLength": 1024,
       "writeOnly": true
     },
@@ -13380,6 +13380,120 @@ HTTP 401: Authentication required
 HTTP 403: Platform administration required
 
 HTTP 409: Missing company cursor
+
+## Atomically onboard a customer account, Default workspace, optional owner sign-in, and optional trial credit
+
+`POST /api/v1/admin/customers`
+
+Explicit platform administration required. Commits the customer organization (or personal customer account), its currency balance account, optional Default workspace, optional owner sign-in credential (8 to 1024 bytes), and optional noncash trial credit grant in a single PostgreSQL transaction. Any validation or duplicate-email error rolls back completely without leaving partial organizations, workspaces, or operators. Supports Idempotency-Key for safe network retries.
+
+Implementation: `implemented`. Operation: `onboardPlatformCustomer`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`Idempotency-Key` (header, optional)
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 128,
+  "pattern": "^[!-~]+$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "account_kind": {
+      "type": "string",
+      "enum": [
+        "personal",
+        "organization"
+      ],
+      "default": "organization"
+    },
+    "create_default_workspace": {
+      "type": "boolean",
+      "default": true
+    },
+    "owner": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "email",
+        "password"
+      ],
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 200
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 254
+        },
+        "password": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 1024,
+          "writeOnly": true
+        }
+      }
+    },
+    "trial_credit_nanos": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[1-9][0-9]{0,18}$"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 201: Customer onboarded atomically (or identical idempotent replay returned)
+
+HTTP 400: Invalid customer name, email, password, or trial credit amount
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Owner email is already registered or Idempotency-Key reused with different input
 
 ## Read one customer company's overview, balances, workspaces, members, and recent billing activity
 

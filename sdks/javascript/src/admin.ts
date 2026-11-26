@@ -239,6 +239,27 @@ export type MemberPasswordConfiguration =
   | { configured: false; email: null; revision: null }
   | { configured: true; email: string; revision: number };
 export type MemberPasswordInput = { email: string; password: string; expected_revision?: number | null };
+export type PlatformCustomerOnboardingInput = {
+  name?: string;
+  account_kind?: 'personal' | 'organization';
+  create_default_workspace?: boolean;
+  owner?: { name?: string | null; email: string; password: string } | null;
+  trial_credit_nanos?: string | null;
+};
+export type OnboardedPlatformCustomer = {
+  id: string;
+  slug: string;
+  name: string;
+  account_kind: 'personal' | 'organization' | string;
+  currency: string;
+  workspace_id: string | null;
+  workspace_name: string | null;
+  workspace_slug: string | null;
+  owner_id: string | null;
+  owner_name: string | null;
+  owner_email: string | null;
+  trial_credit_nanos: string | null;
+};
 export type OperatorRoleUpdate = { role: OperatorAccessRole; expected_role: OperatorAccessRole };
 export type OperatorAccessView = {
   id: string; name: string; role: OperatorAccessRole;
@@ -1804,10 +1825,13 @@ export class NiuAdminClient {
   /** Owner-only scoped role change. Preserves sessions/scope; reload after a stale-role409.
    * Rejects self changes and protected actors. Never issues a replacement token.
    */
-  /** Durable identity-only creation. Replay returns the same user, never a new session or token. */
-  createOperatorIdentity(input: { organization_id: string; project_id?: string | null; name: string; role: OperatorAccessRole }, options: RequestOptions & { idempotencyKey: string }): Promise<{ operator: OperatorAccessView; session: null; token: null }> {
+  /** Durable identity-only creation (with optional atomic sign-in email/password). Replay returns the same user, never a new session or token. */
+  createOperatorIdentity(input: { organization_id: string; project_id?: string | null; name: string; role: OperatorAccessRole; email?: string; password?: string }, options: RequestOptions & { idempotencyKey: string }): Promise<{ operator: OperatorAccessView; session: null; token: null }> {
     if (!options.idempotencyKey) throw new TypeError('An idempotency key is required for user creation');
-    return this.request('/members', { organization_id: uuid(input.organization_id), project_id: input.project_id ? uuid(input.project_id) : null, name: input.name, role: input.role, issue_session: false }, options, 'POST');
+    const body: Record<string, unknown> = { organization_id: uuid(input.organization_id), project_id: input.project_id ? uuid(input.project_id) : null, name: input.name, role: input.role, issue_session: false };
+    if (input.email !== undefined) body.email = input.email;
+    if (input.password !== undefined) body.password = input.password;
+    return this.request('/members', body, options, 'POST');
   }
 
   /** Create a one-time invitation and return its link secret exactly once. */
@@ -2181,6 +2205,11 @@ export class NiuAdminClient {
   /** Atomic company/account creation; retain idempotencyKey on uncertain responses. */
   createCompany(input: CompanyCreationInput, options?: CompanyCreateOptions): Promise<CreatedCompany> {
     return this.request('/organizations', input, options, 'POST');
+  }
+
+  /** Atomically onboard a customer account, Default workspace, optional owner sign-in, and optional trial credit in one transaction. */
+  onboardPlatformCustomer(input: PlatformCustomerOnboardingInput, options?: CompanyCreateOptions): Promise<{ data: OnboardedPlatformCustomer }> {
+    return this.apiRequest('/admin/customers', input, options, 'POST');
   }
 
   /** Rename an organization while preserving its immutable slug and UUID. */

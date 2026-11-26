@@ -57,3 +57,64 @@ test('identity creation sends a stable retry key without requesting credentials'
   assert.throws(()=>client.createOperatorIdentity(input,{idempotencyKey:''}),/idempotency key/);
   assert.equal(calls.length,2);
 });
+
+test('atomic customer onboarding and inline member credentials forward idempotency keys and 8-char passwords', async () => {
+  const calls=[];
+  const onboarded={
+    data:{
+      id:member,
+      slug:'tiwater',
+      name:'Tiwater',
+      account_kind:'organization',
+      currency:'USD',
+      workspace_id:member,
+      workspace_name:'Default',
+      workspace_slug:'default',
+      owner_id:member,
+      owner_name:'Tiwater Owner',
+      owner_email:'owner@tiwater.test',
+      trial_credit_nanos:'5000000000',
+    },
+  };
+  const client=new NiuAdminClient({adminToken:'test',fetch:async(url,init)=>{
+    calls.push({url,init});
+    if(url.endsWith('/api/v1/admin/customers')) return Response.json(onboarded,{status:201});
+    if(url.endsWith('/api/v1/members')) return Response.json({operator:{id:member,name:'Teammate',role:'admin'},session:null,token:null},{status:201});
+    return Response.json({revision:1},{status:200});
+  }});
+
+  const customerInput={
+    name:'Tiwater',
+    account_kind:'organization',
+    create_default_workspace:true,
+    owner:{name:'Tiwater Owner',email:'owner@tiwater.test',password:'Secret88'},
+    trial_credit_nanos:'5000000000',
+  };
+  assert.deepEqual(await client.onboardPlatformCustomer(customerInput,{idempotencyKey:'onboard-tiwater-1'}),onboarded);
+  assert.ok(calls[0].url.endsWith('/api/v1/admin/customers'));
+  assert.equal(new Headers(calls[0].init.headers).get('Idempotency-Key'),'onboard-tiwater-1');
+  assert.deepEqual(JSON.parse(calls[0].init.body),customerInput);
+  await assert.rejects(()=>client.onboardPlatformCustomer(customerInput,{idempotencyKey:''}),/idempotencyKey/);
+
+  await client.createOperatorIdentity(
+    {organization_id:member,name:'Teammate',role:'admin',email:'team@tiwater.test',password:'TeamPass'},
+    {idempotencyKey:'member-with-pw-1'},
+  );
+  assert.ok(calls[1].url.endsWith('/api/v1/members'));
+  assert.equal(new Headers(calls[1].init.headers).get('Idempotency-Key'),'member-with-pw-1');
+  assert.deepEqual(JSON.parse(calls[1].init.body),{
+    organization_id:member,
+    project_id:null,
+    name:'Teammate',
+    role:'admin',
+    issue_session:false,
+    email:'team@tiwater.test',
+    password:'TeamPass',
+  });
+
+  assert.deepEqual(
+    await client.setMemberPassword(member,{email:'retry@tiwater.test',password:'Retry888',expected_revision:0}),
+    {revision:1},
+  );
+  assert.deepEqual(JSON.parse(calls[2].init.body),{email:'retry@tiwater.test',password:'Retry888',expected_revision:0});
+});

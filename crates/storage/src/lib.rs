@@ -244,6 +244,7 @@ pub use context_pricing::{
 mod account_organization_creation;
 mod company_creation;
 pub use account_organization_creation::CreatedAccountOrganization;
+pub use company_creation::{CustomerOwnerOnboarding, OnboardedPlatformCustomer};
 mod company_directory;
 mod company_write_authorization;
 mod workspace_creation;

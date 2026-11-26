@@ -8,12 +8,12 @@ use argon2::{
 use rand_core::{OsRng, RngCore};
 
 const MAX_PASSWORD_BYTES: usize = 1024;
-const MIN_PASSWORD_CHARACTERS: usize = 15;
+pub const MIN_PASSWORD_CHARACTERS: usize = 8;
 const MAX_HASH_BYTES: usize = 256;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PasswordError {
-    #[error("password must contain at least 15 characters and at most 1024 bytes")]
+    #[error("password must contain at least 8 characters and at most 1024 bytes")]
     InvalidPassword,
     #[error("password credential creation is unavailable")]
     Unavailable,
@@ -136,7 +136,7 @@ mod tests {
     #[test]
     fn registration_bounds_use_characters_and_bytes() {
         assert!(matches!(
-            hash_password("short"),
+            hash_password("short77"),
             Err(PasswordError::InvalidPassword)
         ));
         assert!(matches!(
@@ -144,9 +144,10 @@ mod tests {
             Err(PasswordError::InvalidPassword)
         ));
         assert!(matches!(
-            hash_password(&"密".repeat(14)),
+            hash_password(&"密".repeat(7)),
             Err(PasswordError::InvalidPassword)
         ));
-        assert!(hash_password(&"密".repeat(15)).is_ok());
+        assert!(hash_password(&"密".repeat(8)).is_ok());
+        assert!(hash_password("ordinary8").is_ok());
     }
 }

@@ -66,8 +66,8 @@ No path, query, or header parameters are declared.
     },
     "password": {
       "type": "string",
-      "minLength": 15,
-      "description": "Account password (at least 15 characters and at most 1024 bytes)."
+      "minLength": 8,
+      "description": "Account password (at least 8 characters and at most 1024 bytes)."
     },
     "currency": {
       "type": "string",

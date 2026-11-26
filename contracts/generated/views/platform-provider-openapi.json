@@ -9170,6 +9170,126 @@
           "required_capability": "read",
           "scope": "platform"
         }
+      },
+      "post": {
+        "operationId": "onboardPlatformCustomer",
+        "summary": "Atomically onboard a customer account, Default workspace, optional owner sign-in, and optional trial credit",
+        "description": "Explicit platform administration required. Commits the customer organization (or personal customer account), its currency balance account, optional Default workspace, optional owner sign-in credential (8 to 1024 bytes), and optional noncash trial credit grant in a single PostgreSQL transaction. Any validation or duplicate-email error rolls back completely without leaving partial organizations, workspaces, or operators. Supports Idempotency-Key for safe network retries.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[!-~]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "account_kind": {
+                    "type": "string",
+                    "enum": [
+                      "personal",
+                      "organization"
+                    ],
+                    "default": "organization"
+                  },
+                  "create_default_workspace": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "owner": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "additionalProperties": false,
+                    "required": [
+                      "email",
+                      "password"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 200
+                      },
+                      "email": {
+                        "type": "string",
+                        "maxLength": 254
+                      },
+                      "password": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 1024,
+                        "writeOnly": true
+                      }
+                    }
+                  },
+                  "trial_credit_nanos": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[1-9][0-9]{0,18}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Customer onboarded atomically (or identical idempotent replay returned)"
+          },
+          "400": {
+            "description": "Invalid customer name, email, password, or trial credit amount"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "409": {
+            "description": "Owner email is already registered or Idempotency-Key reused with different input"
+          }
+        },
+        "tags": [
+          "Customer balances"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "platform_admin",
+          "scope": "platform"
+        }
       }
     },
     "/api/v1/admin/customers/{customer}": {
@@ -12886,8 +13006,8 @@
                   },
                   "password": {
                     "type": "string",
-                    "minLength": 15,
-                    "description": "Account password (at least 15 characters and at most 1024 bytes)."
+                    "minLength": 8,
+                    "description": "Account password (at least 8 characters and at most 1024 bytes)."
                   },
                   "currency": {
                     "type": "string",
@@ -13565,7 +13685,7 @@
                   },
                   "password": {
                     "type": "string",
-                    "minLength": 15,
+                    "minLength": 8,
                     "maxLength": 1024,
                     "description": "At most 1024 UTF-8 bytes; spaces and Unicode are preserved."
                   },
@@ -13574,7 +13694,7 @@
                       "integer",
                       "null"
                     ],
-                    "minimum": 1
+                    "minimum": 0
                   }
                 }
               }
@@ -25638,6 +25758,24 @@
             "type": "integer",
             "minimum": 60,
             "maximum": 31536000
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 254,
+            "description": "Optional sign-in email when issue_session is false; requires password."
+          },
+          "password": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 8,
+            "maxLength": 1024,
+            "writeOnly": true,
+            "description": "Optional sign-in password (8–1024 bytes) committed atomically with the member when issue_session is false."
           }
         }
       },
