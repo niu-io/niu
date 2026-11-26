@@ -475,6 +475,24 @@ describe('Shared UI primitives layout safeguards', () => {
     const pricingHealth = readFileSync(join(appDir, 'features/retail-pricing/pricing-health.tsx'), 'utf8');
     expect(pricingHealth).toContain("const below = !unsupplied && checks?.some(check => check.status === 'below_cost')");
   });
+
+  it('places customer Account type at the top of CreateCompany and keeps organizationName separate from personName', () => {
+    const createCompany = readFileSync(join(appDir, 'features/customers/create-company.tsx'), 'utf8');
+    const formStart = createCompany.indexOf('<form onSubmit={submit}');
+    const accountTypePos = createCompany.indexOf("aria-pressed={mode === 'personal'}", formStart);
+    const firstInputPos = createCompany.indexOf('<Input', formStart);
+    expect(formStart).toBeGreaterThan(-1);
+    expect(accountTypePos).toBeGreaterThan(formStart);
+    expect(accountTypePos).toBeLessThan(firstInputPos);
+    expect(createCompany).toContain('const [organizationName, setOrganizationName]');
+    expect(createCompany).toContain('const [personName, setPersonName]');
+    expect(createCompany).not.toContain('Organization (optional)');
+    expect(createCompany).not.toContain('归属组织（可选）');
+
+    const customerPricingDialogs = readFileSync(join(appDir, 'features/customers/customer-pricing-dialogs.tsx'), 'utf8');
+    expect(customerPricingDialogs).toContain('aria-pressed={discountInput.trim() === String(preset)}');
+    expect(customerPricingDialogs).not.toContain("variant={discountInput.trim() === String(preset) ? 'default' : 'outline'}");
+  });
 });
 
 it('keeps model mapping actions outside the scrollable advanced settings', () => {

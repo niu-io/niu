@@ -66,8 +66,7 @@ it('preserves the original organization creation request on retry and requires e
   const user = userEvent.setup();
   render(<MemoryRouter><Customers token="company-create-test" canSetup onWorkspaceCreated={() => {}} /></MemoryRouter>);
   await user.click((await screen.findAllByRole('button', { name: 'New customer' }))[0]);
-  await user.click(screen.getByRole('button', { name: 'Account organization' }));
-  await user.click(await screen.findByRole('menuitemradio', { name: 'New organization' }));
+  await user.click(screen.getByRole('button', { name: 'New organization' }));
 
   await user.type(screen.getByLabelText('Organization name'), 'Acme');
   await user.click(screen.getByRole('button', { name: 'Create customer' }));
@@ -210,8 +209,7 @@ it('can optionally add a login directly to an existing organization without crea
   expect(await screen.findByText('Acme Studio')).toBeTruthy();
 
   await user.click(screen.getByRole('button', { name: 'New customer' }));
-  await user.click(screen.getByRole('button', { name: 'Account organization' }));
-  await user.click(await screen.findByRole('menuitemradio', { name: 'Join existing organization' }));
+  await user.click(screen.getByRole('button', { name: 'Join organization' }));
   await user.type(screen.getByLabelText('Login email'), 'bob@acme.com');
   await user.type(screen.getByLabelText('Name (optional)'), 'Bob');
   await user.click(screen.getByRole('button', { name: 'Generate' }));
@@ -234,4 +232,114 @@ it('can optionally add a login directly to an existing organization without crea
     'op-bob',
     expect.objectContaining({ email: 'bob@acme.com', expected_revision: 0 }),
   );
+});
+
+it('places Account type at the top of the dialog and preserves personal name across mode switches without aliasing it to Organization name', async () => {
+  const createCompany = vi.spyOn(NiuAdminClient.prototype, 'createCompany').mockResolvedValueOnce({
+    id: '40000000-0000-4000-8000-000000000004',
+    name: 'Tiwater',
+    account_kind: 'organization',
+  } as never);
+  vi.spyOn(NiuAdminClient.prototype, 'createWorkspace').mockResolvedValueOnce({
+    id: 'ws-tiwater',
+    organization_id: '40000000-0000-4000-8000-000000000004',
+    name: 'Default',
+    slug: 'tiwater',
+  } as never);
+  const createOwner = vi.spyOn(NiuAdminClient.prototype, 'createOperatorIdentity').mockResolvedValueOnce({
+    operator: {
+      id: 'op-hugh',
+      organization_id: '40000000-0000-4000-8000-000000000004',
+      project_id: null,
+      name: 'Hugh',
+      role: 'owner',
+      revoked: false,
+    },
+  } as never);
+  vi.spyOn(NiuAdminClient.prototype, 'setMemberPassword').mockResolvedValueOnce({ revision: 1 } as never);
+
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async input => {
+      const url = String(input);
+      if (url.includes('/admin/customers')) {
+        return Response.json({
+          data: [
+            {
+              organization_id: '30000000-0000-4000-8000-000000000003',
+              organization_name: 'Existing Co',
+              account_kind: 'organization',
+              owner: { name: 'Alex', email: 'alex@existing.com' },
+              workspace_count: 1,
+              member_count: 1,
+              custom_price_count: 0,
+              accounts: [],
+              credits: null,
+            },
+          ],
+          next_after: null,
+        });
+      }
+      if (url.includes('/admin/registrations')) {
+        return Response.json({ data: [], counts: { pending: 0, approved: 0, rejected: 0 }, next_after: null });
+      }
+      return Response.json({ data: [] });
+    }),
+  );
+
+  const user = userEvent.setup();
+  render(<MemoryRouter><Customers token="preserve-person-name-token" canSetup onWorkspaceCreated={() => {}} /></MemoryRouter>);
+  expect(await screen.findByText('Existing Co')).toBeTruthy();
+
+  await user.click(screen.getByRole('button', { name: 'New customer' }));
+
+  const accountTypeGroup = screen.getByRole('group', { name: 'Account type' });
+  const emailInput = screen.getByLabelText('Login email') as HTMLInputElement;
+  const personNameInput = screen.getByLabelText('Name (optional)') as HTMLInputElement;
+  expect(accountTypeGroup.compareDocumentPosition(emailInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Account organization' })).toBeNull();
+
+  // Fill personal info first while in default Personal account mode
+  await user.type(emailInput, 'hugh@tiwater.com');
+  await user.type(personNameInput, 'Hugh');
+  await user.click(screen.getByRole('button', { name: 'Generate' }));
+
+  // Switch to New organization — personal name and email must stay intact, while Organization name starts blank
+  await user.click(screen.getByRole('button', { name: 'New organization' }));
+  const orgNameInput = screen.getByLabelText('Organization name') as HTMLInputElement;
+  const ownerNameInput = screen.getByLabelText('Owner name (optional)') as HTMLInputElement;
+  const ownerEmailInput = screen.getByLabelText('Owner email (optional)') as HTMLInputElement;
+  expect(accountTypeGroup.compareDocumentPosition(orgNameInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(orgNameInput.value).toBe('');
+  expect(ownerNameInput.value).toBe('Hugh');
+  expect(ownerEmailInput.value).toBe('hugh@tiwater.com');
+
+  await user.type(orgNameInput, 'Tiwater');
+
+  // Switch to Join organization and back — neither Hugh nor Tiwater is cleared
+  await user.click(screen.getByRole('button', { name: 'Join organization' }));
+  expect((screen.getByLabelText('Name (optional)') as HTMLInputElement).value).toBe('Hugh');
+  expect((screen.getByLabelText('Login email') as HTMLInputElement).value).toBe('hugh@tiwater.com');
+
+  await user.click(screen.getByRole('button', { name: 'New organization' }));
+  expect((screen.getByLabelText('Organization name') as HTMLInputElement).value).toBe('Tiwater');
+  expect((screen.getByLabelText('Owner name (optional)') as HTMLInputElement).value).toBe('Hugh');
+
+  await user.click(screen.getByRole('button', { name: 'Create customer' }));
+
+  expect(await screen.findByText('Customer ready')).toBeTruthy();
+  expect(createCompany).toHaveBeenCalledWith(
+    { name: 'Tiwater', account_kind: 'organization', attach_creator: false },
+    expect.objectContaining({ idempotencyKey: expect.any(String) }),
+  );
+  expect(createOwner).toHaveBeenCalledWith(
+    {
+      organization_id: '40000000-0000-4000-8000-000000000004',
+      project_id: null,
+      name: 'Hugh',
+      role: 'owner',
+    },
+    expect.objectContaining({ idempotencyKey: expect.any(String) }),
+  );
+  expect(screen.getByText('Hugh')).toBeTruthy();
 });

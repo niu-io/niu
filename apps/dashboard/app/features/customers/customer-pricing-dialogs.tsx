@@ -230,7 +230,8 @@ export function CustomerModelPriceDialog({
                     key={preset}
                     type="button"
                     size="xs"
-                    variant={discountInput.trim() === String(preset) ? 'default' : 'outline'}
+                    variant="outline"
+                    aria-pressed={discountInput.trim() === String(preset)}
                     disabled={busy}
                     onClick={() => { setDiscountInput(String(preset)); setValidationError(''); }}
                   >
@@ -388,7 +389,8 @@ export function CustomerBatchPriceDialog({
                   key={preset}
                   type="button"
                   size="xs"
-                  variant={discountInput.trim() === String(preset) ? 'default' : 'outline'}
+                  variant="outline"
+                  aria-pressed={discountInput.trim() === String(preset)}
                   disabled={busy}
                   onClick={() => { setDiscountInput(String(preset)); setValidationError(''); }}
                 >

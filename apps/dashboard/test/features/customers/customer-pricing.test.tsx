@@ -339,7 +339,7 @@ describe('CustomerDetail', () => {
     await user.click(screen.getByRole('tab', { name: /Workspaces & members/ }));
     expect(await screen.findByRole('link', { name: 'Production' })).toBeTruthy();
     expect(screen.getByText('/orbit-prod')).toBeTruthy();
-    expect(screen.getByText('alice@orbit.ai')).toBeTruthy();
+    expect(screen.getAllByText('alice@orbit.ai').some(node => !node.closest('[hidden]'))).toBe(true);
     expect(screen.getByText('bob@orbit.ai')).toBeTruthy();
     expect(screen.getByText('All workspaces')).toBeTruthy();
   });
