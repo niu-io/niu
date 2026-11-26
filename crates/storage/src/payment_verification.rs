@@ -169,7 +169,8 @@ impl Store {
                 WHERE a.organization_id=$1
                   AND a.currency=$2
                   AND (
-                      a.credit_limit_nanos>0
+                      a.unlimited_credit
+                      OR a.credit_limit_nanos>0
                       OR EXISTS(SELECT 1 FROM customer_balance_entries e WHERE e.account_id=a.id AND e.kind='funding')
                       OR EXISTS(
                           SELECT 1 FROM customer_balance_grants g

@@ -101,9 +101,9 @@ export function ProviderNav({ context }: { context: DashboardContext }) {
         { to: `/providers/${provider}/models`, label: 'Models', labelZh: '模型', end: false },
         { to: `/providers/${provider}/usage`, label: 'Usage', labelZh: '调用量', end: false },
         { to: `/providers/${provider}/settlements`, label: 'Settlements', labelZh: '结算账单', end: false },
-      ].filter(item => context.session?.operating_mode !== 'internal' || !item.to.endsWith('/settlements'))
+      ]
     : [];
-  const adminGroups = !provider ? getAdminNavGroups(context.session?.operating_mode) : [];
+  const adminGroups = !provider ? getAdminNavGroups() : [];
 
   return (
     <>

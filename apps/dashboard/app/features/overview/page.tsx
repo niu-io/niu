@@ -118,10 +118,10 @@ export default function OverviewRoute() {
             <span className="text-xs text-muted-foreground">{t('Manage', '管理')} →</span>
           </Link>
         )}
-        <Link to={session?.operating_mode === 'internal' ? `${workspaceRoot}/usage` : `${workspaceRoot}/billing`} className="flex items-center justify-between gap-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5 transition-colors hover:bg-accent/50">
+        <Link to={`${workspaceRoot}/billing`} className="flex items-center justify-between gap-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5 transition-colors hover:bg-accent/50">
           <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">{session?.operating_mode === 'internal' ? t('Workspace usage', '工作空间用量') : t('Credits & billing', '额度与账单')}</p>
-            <p className="mt-1 text-sm font-medium text-foreground">{session?.operating_mode === 'internal' ? t('Inspect calls & tokens', '查看请求与用量') : t('Balance, top-ups & rates', '余额、充值与费率')}</p>
+            <p className="text-xs text-muted-foreground">{t('Credits & billing', '额度与账单')}</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{t('Balance, top-ups & rates', '余额、充值与费率')}</p>
           </div>
           <span className="text-xs text-muted-foreground">{t('Open', '查看')} →</span>
         </Link>
@@ -142,7 +142,7 @@ export default function OverviewRoute() {
     />
 
     <section className="cost-workbench" aria-label={uiT("Recent gateway requests")}>
-      {token ? <GatewayActivity compact emptyState={emptyState} workspaceRoute={workspaceRoot} hideBillingLink={session?.operating_mode === 'internal'} key={`${token}:${workspace?.id ?? ''}`} token={token} models={models.map(model => model.id)} initialScope={scope} /> : <div className="cost-connect panel">
+      {token ? <GatewayActivity compact emptyState={emptyState} workspaceRoute={workspaceRoot} hideBillingLink={false} key={`${token}:${workspace?.id ?? ''}`} token={token} models={models.map(model => model.id)} initialScope={scope} /> : <div className="cost-connect panel">
         <ConnectPrompt />
       </div>}
     </section>

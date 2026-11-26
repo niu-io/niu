@@ -16,9 +16,8 @@ export const shouldRevalidate = routeShouldRevalidate;
 
 export default function ActivityRoute() {
   useOptionalRouteLoaderData();
-  const { workspace, session } = useDashboardContext();
+  const { workspace } = useDashboardContext();
   const scope = workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null;
-  const isInternalMode = session?.operating_mode === 'internal';
   return <ConnectGate>
     {({ token, models }) => <GatewayActivity
       key={`${token}:${workspace?.id ?? ''}`}
@@ -26,7 +25,7 @@ export default function ActivityRoute() {
       models={models.map(model => model.id)}
       initialScope={scope}
       statisticsOnly
-      hideBillingLink={isInternalMode}
+      hideBillingLink={false}
     />}
   </ConnectGate>;
 }

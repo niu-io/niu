@@ -11,9 +11,21 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import NiuBrand from '@/components/NiuBrand';
+import { currencySymbol } from '@/lib/money';
 import { useBranding } from '@/shell/branding';
 
 type SetupMode = 'loading' | 'initial_setup' | 'token_fallback' | 'redirecting';
+
+const SETUP_CURRENCIES = ['USD', 'CNY', 'EUR', 'GBP', 'HKD', 'JPY', 'SGD'] as const;
+
+function formatSetupCurrencyOption(code: string, locale: Locale): string {
+  try {
+    const names = new Intl.DisplayNames([locale], { type: 'currency' });
+    return `${names.of(code) ?? code} (${code}) · ${currencySymbol(code)}`;
+  } catch {
+    return `${code} · ${currencySymbol(code)}`;
+  }
+}
 
 /** First-run platform administrator setup wizard, with direct token fallback only when password sign-in is unconfigured. */
 export default function SetupRoute() {
@@ -29,6 +41,7 @@ export default function SetupRoute() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [currency, setCurrency] = useState<string>('USD');
   const [setupError, setSetupError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const requestRef = useRef<AbortController | null>(null);
@@ -123,6 +136,7 @@ export default function SetupRoute() {
         body: JSON.stringify({
           email: trimmedEmail,
           password,
+          ...(currency !== 'USD' ? { currency } : {}),
           ...(trimmedName ? { name: trimmedName } : {}),
         }),
         cache: 'no-store',
@@ -289,6 +303,32 @@ export default function SetupRoute() {
                 onChange={event => setConfirmPassword(event.target.value)}
                 aria-describedby="installation-setup-error"
               />
+            </div>
+            <div className="dashboard-login-field">
+              <Label>{t('Billing currency', '平台计费币种')}</Label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={submitting}
+                    className="w-full justify-between font-normal"
+                    aria-label={t('Billing currency', '平台计费币种')}
+                  >
+                    <span>{formatSetupCurrencyOption(currency, locale)}</span>
+                    <IconChevronDown size={14} aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                  <DropdownMenuRadioGroup value={currency} onValueChange={setCurrency}>
+                    {SETUP_CURRENCIES.map(code => (
+                      <DropdownMenuRadioItem key={code} value={code}>
+                        {formatSetupCurrencyOption(code, locale)}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             {setupError && <p id="installation-setup-error" className="dashboard-login-error" role="alert">{t(setupError)}</p>}
             <Button type="submit" className="dashboard-login-submit" disabled={submitting}>

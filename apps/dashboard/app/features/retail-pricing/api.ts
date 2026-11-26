@@ -1,5 +1,10 @@
-import type { RetailPriceRecord } from '@niu-io/sdk/admin';
+import type { ContextPriceTier, ProviderOffer, RetailPriceRecord } from '@niu-io/sdk/admin';
 import { request } from '@/features/providers/api';
+import {
+  extractUpstreamStandardPrices,
+  lookupUpstreamPrice,
+  type AdapterPricingResponse,
+} from '@/features/provider-business/upstream-pricing';
 export type RetailModelChoice = { model_alias: string; media: { channel: string; resolutions: string[]; reference_video: boolean; meter: string } | null };
 /** Registration supports price preparation; never infer supply from this list. */
 export async function registeredRetailModelChoices(token: string, signal: AbortSignal): Promise<RetailModelChoice[]> {
@@ -51,4 +56,94 @@ export async function fetchAllStandardTextPrices(token: string, signal: AbortSig
     after = nextCursor;
   }
   return nextRetail;
+}
+
+export type DefaultProviderTextSchedule = {
+  prompt_rate: string;
+  completion_rate: string;
+  cached_prompt_rate: string | null;
+  cache_write_prompt_rate: string | null;
+  reasoning_completion_rate: string | null;
+  context_tiers: ContextPriceTier[];
+};
+
+export async function lookupProviderDefaultTextSchedule(
+  token: string,
+  modelAlias: string,
+  currency: string,
+  signal: AbortSignal,
+): Promise<DefaultProviderTextSchedule | null> {
+  if (!modelAlias || !currency) return null;
+  try {
+    const providersRes = await request<{ data: Array<{ id: string; slug?: string; name: string }> }>(
+      token,
+      '/api/v1/admin/providers',
+      'GET',
+      undefined,
+      signal,
+    );
+    const providers = Array.isArray(providersRes?.data) ? providersRes.data : [];
+    if (!providers.length || signal.aborted) return null;
+    const prefix = modelAlias.includes('/') ? modelAlias.split('/')[0].toLowerCase() : '';
+    const ordered = prefix
+      ? [
+          ...providers.filter(p => (p.slug ?? '').toLowerCase() === prefix || p.name.toLowerCase() === prefix),
+          ...providers.filter(p => (p.slug ?? '').toLowerCase() !== prefix && p.name.toLowerCase() !== prefix),
+        ]
+      : providers;
+    const unprefixed = modelAlias.includes('/') ? modelAlias.slice(modelAlias.indexOf('/') + 1) : modelAlias;
+
+    for (const provider of ordered.slice(0, 6)) {
+      if (signal.aborted) return null;
+      const [pricingRes, offersRes] = await Promise.allSettled([
+        request<AdapterPricingResponse>(
+          token,
+          `/api/v1/admin/providers/${encodeURIComponent(provider.id)}/pricing`,
+          'GET',
+          undefined,
+          signal,
+        ),
+        request<{ data: ProviderOffer[] }>(
+          token,
+          `/api/v1/admin/providers/${encodeURIComponent(provider.id)}/offers?limit=100`,
+          'GET',
+          undefined,
+          signal,
+        ),
+      ]);
+      const offer =
+        offersRes.status === 'fulfilled' && Array.isArray(offersRes.value?.data)
+          ? offersRes.value.data.find(
+              item => item.model_alias === modelAlias && item.rate_kind !== 'media' && item.currency === currency,
+            ) ?? null
+          : null;
+      if (pricingRes.status === 'fulfilled' && pricingRes.value) {
+        const upstreamMap = extractUpstreamStandardPrices(pricingRes.value);
+        const upstream = lookupUpstreamPrice(upstreamMap, modelAlias, unprefixed);
+        if (upstream && upstream.currency === currency) {
+          return {
+            prompt_rate: upstream.inputPer1MNanos,
+            completion_rate: upstream.outputPer1MNanos,
+            cached_prompt_rate: upstream.cachedInputPer1MNanos ?? null,
+            cache_write_prompt_rate: upstream.cacheWriteInputPer1MNanos ?? offer?.cache_write_prompt_rate ?? null,
+            reasoning_completion_rate: upstream.reasoningOutputPer1MNanos ?? offer?.reasoning_completion_rate ?? null,
+            context_tiers: offer?.context_tiers ?? [],
+          };
+        }
+      }
+      if (offer && offer.rate_kind !== 'media') {
+        return {
+          prompt_rate: offer.prompt_rate,
+          completion_rate: offer.completion_rate,
+          cached_prompt_rate: offer.cached_prompt_rate ?? null,
+          cache_write_prompt_rate: offer.cache_write_prompt_rate ?? null,
+          reasoning_completion_rate: offer.reasoning_completion_rate ?? null,
+          context_tiers: offer.context_tiers ?? [],
+        };
+      }
+    }
+  } catch {
+    // Prefill is best-effort convenience; manual entry stays available.
+  }
+  return null;
 }

@@ -442,6 +442,39 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(foundationCss).not.toContain('color-mix(in srgb, var(--background) 94%, transparent)');
     expect(shellHeader).toContain('data-scrolled={scrolled ? \'true\' : undefined}');
   });
+
+  it('enforces a single unified credit-governed workflow with aria-pressed credit modes and zero operating_mode UI splits', () => {
+    for (const rel of [
+      'shell/admin-navigation.ts',
+      'shell/ShellNavigation.tsx',
+      'shell/ShellSectionTabs.tsx',
+      'features/platform-settings/page.tsx',
+      'features/account/settings-navigation.tsx',
+      'features/account/settings-shell.tsx',
+      'features/billing/page.tsx',
+      'features/providers/ProviderList.tsx',
+      'features/providers/components/ProviderConnectDialog.tsx',
+    ]) {
+      const source = readFileSync(join(appDir, rel), 'utf8');
+      expect(source, `${rel} must not split UI on operating_mode === 'internal'`).not.toContain("operating_mode === 'internal'");
+      expect(source, `${rel} must not split UI on operating_mode !== 'internal'`).not.toContain("operating_mode !== 'internal'");
+    }
+
+    const creditEditor = readFileSync(join(appDir, 'features/customers/customer-shared.tsx'), 'utf8');
+    expect(creditEditor).toContain("aria-pressed={creditMode === 'prepaid'}");
+    expect(creditEditor).toContain("aria-pressed={creditMode === 'fixed'}");
+    expect(creditEditor).toContain("aria-pressed={creditMode === 'unlimited'}");
+    expect(creditEditor).toContain('unlimited_credit: unlimitedCredit');
+
+    const accountBilling = readFileSync(join(appDir, 'features/billing/AccountBilling.tsx'), 'utf8');
+    expect(accountBilling).toContain('!unlimited && BigInt(account.available_nanos) <= 0n');
+
+    const discountDialog = readFileSync(join(appDir, 'features/provider-business/ModelDiscountDialog.tsx'), 'utf8');
+    expect(discountDialog).toContain('aria-pressed={discountPercent === preset}');
+
+    const pricingHealth = readFileSync(join(appDir, 'features/retail-pricing/pricing-health.tsx'), 'utf8');
+    expect(pricingHealth).toContain("const below = !unsupplied && checks?.some(check => check.status === 'below_cost')");
+  });
 });
 
 it('keeps model mapping actions outside the scrollable advanced settings', () => {

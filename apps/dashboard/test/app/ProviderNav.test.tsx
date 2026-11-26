@@ -60,7 +60,7 @@ it('lets Provider members switch provider without losing the section or carrying
   expect(screen.queryByRole('menu')).toBeNull();
 });
 
-it('keeps Settings as the final Admin navigation link in both resale and internal modes', () => {
+it('keeps unified Admin navigation with Settings as the final link regardless of operating_mode', () => {
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({data:[]})));
   const internalContext = {token:'test',session:{kind:'installation',operating_mode:'internal',operator:null}} as unknown as DashboardContext;
   render(
@@ -71,7 +71,15 @@ it('keeps Settings as the final Admin navigation link in both resale and interna
     </MemoryRouter>
   );
   const links = screen.getByRole('navigation', { name: 'Admin navigation' }).querySelectorAll('a');
-  expect([...links].map(a => a.getAttribute('href'))).toEqual(['/admin/providers', '/admin/audit', '/admin/settings']);
+  expect([...links].map(a => a.getAttribute('href'))).toEqual([
+    '/admin',
+    '/admin/providers',
+    '/admin/pricing',
+    '/admin/customers',
+    '/admin/reports',
+    '/admin/audit',
+    '/admin/settings',
+  ]);
 });
 
 function PathEcho() {

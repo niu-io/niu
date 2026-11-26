@@ -5466,7 +5466,7 @@ HTTP 503: Durable storage unavailable.
 
 `POST /api/v1/setup`
 
-One-time first-run bootstrap for a blank deployment where password authentication is configured and no active password-enabled platform administrator exists yet. Checks initialization state first and immediately returns 409 Conflict once initialized. Authenticates the deployment's NIU_ADMIN_TOKENS credential via Authorization: Bearer. Creates the first owner account with platform administration enabled in the default workspace, establishes an eight-hour HttpOnly browser cookie when called from the trusted browser Origin, and also supports headless CLI/automation callers without an Origin header. Responses are not cached.
+One-time first-run bootstrap for a blank deployment where password authentication is configured and no active password-enabled platform administrator exists yet. Checks initialization state first and immediately returns 409 Conflict once initialized. Authenticates the deployment's NIU_ADMIN_TOKENS credential via Authorization: Bearer. Initializes the installation currency (defaulting to USD when omitted), grants the initial organization unlimited credit for self-use, creates the first owner account with platform administration enabled in the default workspace, establishes an eight-hour HttpOnly browser cookie when called from the trusted browser Origin, and also supports headless CLI/automation callers without an Origin header. Responses are not cached.
 
 Implementation: `implemented`. Operation: `completeSetup`.
 
@@ -5510,6 +5510,11 @@ Content type: `application/json`.
       "type": "string",
       "minLength": 15,
       "description": "Account password (at least 15 characters and at most 1024 bytes)."
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "description": "Optional three-letter ISO 4217 billing currency (defaults to USD when omitted)."
     }
   }
 }
@@ -10236,6 +10241,7 @@ Content type: `application/json`.
         "required": [
           "revision",
           "credit_limit_nanos",
+          "unlimited_credit",
           "warning_threshold_nanos",
           "created_at",
           "is_current"
@@ -10248,6 +10254,9 @@ Content type: `application/json`.
           "credit_limit_nanos": {
             "type": "string",
             "pattern": "^[0-9]+$"
+          },
+          "unlimited_credit": {
+            "type": "boolean"
           },
           "warning_threshold_nanos": {
             "type": [
@@ -13277,6 +13286,7 @@ Content type: `application/json`.
                 "outstanding_nanos",
                 "available_nanos",
                 "credit_limit_nanos",
+                "unlimited_credit",
                 "policy_revision",
                 "warning_threshold_nanos",
                 "low_balance",
@@ -13300,6 +13310,9 @@ Content type: `application/json`.
                 },
                 "credit_limit_nanos": {
                   "type": "string"
+                },
+                "unlimited_credit": {
+                  "type": "boolean"
                 },
                 "policy_revision": {
                   "type": "string"
@@ -17344,6 +17357,7 @@ Content type: `application/json`.
           "outstanding_nanos",
           "available_nanos",
           "credit_limit_nanos",
+          "unlimited_credit",
           "warning_threshold_nanos",
           "policy_revision",
           "low_balance",
@@ -17375,6 +17389,10 @@ Content type: `application/json`.
           "credit_limit_nanos": {
             "type": "string",
             "pattern": "^[0-9]+$"
+          },
+          "unlimited_credit": {
+            "type": "boolean",
+            "description": "True when continuous negative-balance arrears are permitted without a numeric credit ceiling (workspace and API key spending limits still apply)."
           },
           "policy_revision": {
             "type": "string",
@@ -17635,7 +17653,7 @@ HTTP 409: Unknown company or conflicting payment reference reuse
 
 `PUT /api/v1/organizations/{organization}/billing/accounts/{currency}/policy`
 
-Explicit platform administration required; ordinary company owners/admins cannot approve their own credit. Creates a zero-balance account if absent, with expected revision zero. Updates are revision checked and recorded in immutable history with an authenticated credit-approval actor in the same transaction. Historical revisions remain unattributed. Credit changes do not credit funds. Reductions that would invalidate held reservations are rejected. With no holds, reduced credit can exhaust capacity while preserving the actual debt. A null warning threshold disables low-balance warnings. This configures warning state, not notification-channel delivery.
+Explicit platform administration required; ordinary company owners/admins cannot approve their own credit. Creates a zero-balance account if absent, with expected revision zero. Updates are revision checked and recorded in immutable history with an authenticated credit-approval actor in the same transaction. Historical revisions remain unattributed. Credit changes do not credit funds. Setting unlimited_credit to true permits continuous postpaid arrears without a numeric credit ceiling while preserving workspace and API key spending limits. Reductions that would invalidate held reservations are rejected. With no holds, reduced credit can exhaust capacity while preserving the actual debt. A null warning threshold disables low-balance warnings. This configures warning state, not notification-channel delivery.
 
 Implementation: `implemented`. Operation: `configureCustomerBalancePolicy`.
 
@@ -17682,13 +17700,17 @@ Content type: `application/json`.
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "credit_limit_nanos",
     "expected_revision"
   ],
   "properties": {
     "credit_limit_nanos": {
       "type": "string",
-      "pattern": "^[0-9]+$"
+      "pattern": "^[0-9]+$",
+      "default": "0"
+    },
+    "unlimited_credit": {
+      "type": "boolean",
+      "default": false
     },
     "warning_threshold_nanos": {
       "type": [

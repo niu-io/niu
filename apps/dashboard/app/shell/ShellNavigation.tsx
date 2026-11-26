@@ -57,10 +57,9 @@ export function ShellNavigation({
   const [pendingRegistrations, setPendingRegistrations] = useState(0);
   const context = value?.context;
   const adminScope = Boolean(context && (pathname === '/admin' || pathname.startsWith('/admin/')) && canManagePlatform(context.session));
-  const isInternalAdmin = context?.session?.operating_mode === 'internal';
   const adminToken = context?.token ?? '';
   useEffect(() => {
-    if (!adminScope || !adminToken || isInternalAdmin) {
+    if (!adminScope || !adminToken) {
       setPendingRegistrations(0);
       return;
     }
@@ -85,7 +84,7 @@ export function ShellNavigation({
       cancelled = true;
       window.removeEventListener('niu:registrations-updated', onUpdated);
     };
-  }, [adminScope, adminToken, isInternalAdmin]);
+  }, [adminScope, adminToken]);
   if (!value || !context) return null;
   const { workspacePath, generationsHref } = value;
   const expanded = isMobile ? openMobile : state === 'expanded';

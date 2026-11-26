@@ -236,17 +236,22 @@ export function Customers({
     }
     const balanceNanos = BigInt(account.balance_nanos);
     const creditNanos = BigInt(account.credit_limit_nanos);
+    const unlimited = Boolean(account.unlimited_credit);
     const extraCurrencies = Math.max(0, company.accounts.length - 1);
     return (
       <div className="space-y-0.5">
-        <p className={`whitespace-nowrap font-medium tabular-nums ${balanceNanos < 0n ? 'text-destructive' : ''}`}>
+        <p className={`whitespace-nowrap font-medium tabular-nums ${!unlimited && balanceNanos < 0n ? 'text-destructive' : ''}`}>
           {formatRateMoney(account.balance_nanos, account.currency)}
         </p>
-        {creditNanos > 0n && (
+        {unlimited ? (
+          <p className="whitespace-nowrap text-xs text-muted-foreground">
+            {uiT("Unlimited credit", "无限授信")}
+          </p>
+        ) : creditNanos > 0n ? (
           <p className="whitespace-nowrap text-xs text-muted-foreground tabular-nums">
             {uiF("Credit {0}", [formatRateMoney(account.credit_limit_nanos, account.currency)])}
           </p>
-        )}
+        ) : null}
         {extraCurrencies > 0 && (
           <p className="whitespace-nowrap text-xs text-muted-foreground">
             {extraCurrencies === 1 ? uiT("+1 currency", "+1 种币种") : uiF("+{0} currencies", [extraCurrencies])}

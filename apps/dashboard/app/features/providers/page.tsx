@@ -74,7 +74,7 @@ export default function ProvidersRoute() {
     );
   }
   if (section && !validSections.has(section)) {
-    if (section === "settlements" && context.session?.operating_mode !== 'internal') {
+    if (section === "settlements") {
       return (
         <>
           <CanonicalProviderRedirect to={`/admin/providers/${encodeURIComponent(canonicalSegment)}/usage${location.search}${location.hash}`} />

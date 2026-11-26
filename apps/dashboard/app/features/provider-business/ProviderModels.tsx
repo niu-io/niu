@@ -48,6 +48,7 @@ import {
   disableProviderModel,
   enableInternalProviderModel,
   hasEnabledPoolKey,
+  shouldAutoSyncCustomerPrice,
 } from './provider-model-actions';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -343,17 +344,20 @@ function ScopedModels({
     }
 
     const effectiveDiscount = info.discountPercent ?? 100;
+    const pricingBase = {
+      standardInputNanos: stdIn,
+      standardOutputNanos: stdOut,
+      standardCachedInputNanos: info.stdCachedNanos,
+      discountPercent: effectiveDiscount,
+      purchaseInputNanos: applyDiscountNanos(stdIn, effectiveDiscount),
+      purchaseOutputNanos: applyDiscountNanos(stdOut, effectiveDiscount),
+      purchaseCachedInputNanos: info.stdCachedNanos ? applyDiscountNanos(info.stdCachedNanos, effectiveDiscount) : null,
+    };
     setRowBusy(alias);
     try {
       await activateModelWithPricing(alias, {
-        standardInputNanos: stdIn,
-        standardOutputNanos: stdOut,
-        standardCachedInputNanos: info.stdCachedNanos,
-        discountPercent: effectiveDiscount,
-        purchaseInputNanos: applyDiscountNanos(stdIn, effectiveDiscount),
-        purchaseOutputNanos: applyDiscountNanos(stdOut, effectiveDiscount),
-        purchaseCachedInputNanos: info.stdCachedNanos ? applyDiscountNanos(info.stdCachedNanos, effectiveDiscount) : null,
-        updateCustomerPrice: !info.retail,
+        ...pricingBase,
+        updateCustomerPrice: shouldAutoSyncCustomerPrice(info, pricingBase, platformCurrency),
       });
       setNotice(uiF('{0} is now active.', [alias]));
       refreshAll();
@@ -425,7 +429,7 @@ function ScopedModels({
       for (const info of batchSummary.eligible) {
         if (!info.stdInputNanos || !info.stdOutputNanos) continue;
         try {
-          await activateModelWithPricing(info.alias, {
+          const pricingBase = {
             standardInputNanos: info.stdInputNanos,
             standardOutputNanos: info.stdOutputNanos,
             standardCachedInputNanos: info.stdCachedNanos,
@@ -433,7 +437,10 @@ function ScopedModels({
             purchaseInputNanos: applyDiscountNanos(info.stdInputNanos, discountPercent),
             purchaseOutputNanos: applyDiscountNanos(info.stdOutputNanos, discountPercent),
             purchaseCachedInputNanos: info.stdCachedNanos ? applyDiscountNanos(info.stdCachedNanos, discountPercent) : null,
-            updateCustomerPrice: !info.retail,
+          };
+          await activateModelWithPricing(info.alias, {
+            ...pricingBase,
+            updateCustomerPrice: shouldAutoSyncCustomerPrice(info, pricingBase, platformCurrency),
           });
           succeeded += 1;
         } catch (reason) {

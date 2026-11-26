@@ -1,5 +1,5 @@
 import { request, type ProviderConnection, type ProviderModel } from '@/features/providers/api';
-import type { ProviderOffer, RetailPriceRecord } from '@niu-io/sdk/admin';
+import type { ContextPriceTier, ProviderOffer, RetailPriceRecord } from '@niu-io/sdk/admin';
 import {
   applyDiscountNanos,
   inferDiscountPercent,
@@ -38,6 +38,192 @@ export function hasEnabledPoolKey(
   );
 }
 
+type ComparableTextSchedule = {
+  prompt_rate: string;
+  completion_rate: string;
+  cached_prompt_rate?: string | null;
+  cache_write_prompt_rate?: string | null;
+  reasoning_completion_rate?: string | null;
+  context_tiers?: ContextPriceTier[];
+};
+
+function unscaleOfferNanos(offerNanos: string, discountPercent: number | null): string {
+  if (!discountPercent || Math.abs(discountPercent - 100) < 0.05 || discountPercent <= 0) {
+    return offerNanos;
+  }
+  const offer = BigInt(offerNanos);
+  if (offer <= 0n) return '0';
+  const bps = BigInt(Math.round(discountPercent * 100));
+  if (bps <= 0n) return offerNanos;
+  return ((offer * 10_000n + bps - 1n) / bps).toString();
+}
+
+function scaleContextTiers(tiers: ContextPriceTier[], discountPercent: number): ContextPriceTier[] {
+  return tiers.map(tier => ({
+    minimum_input_tokens: tier.minimum_input_tokens,
+    prompt_rate: applyDiscountNanos(tier.prompt_rate, discountPercent),
+    completion_rate: applyDiscountNanos(tier.completion_rate, discountPercent),
+    cached_prompt_rate:
+      tier.cached_prompt_rate != null ? applyDiscountNanos(tier.cached_prompt_rate, discountPercent) : null,
+    cache_write_prompt_rate:
+      tier.cache_write_prompt_rate != null ? applyDiscountNanos(tier.cache_write_prompt_rate, discountPercent) : null,
+    reasoning_completion_rate:
+      tier.reasoning_completion_rate != null
+        ? applyDiscountNanos(tier.reasoning_completion_rate, discountPercent)
+        : null,
+  }));
+}
+
+function unscaleContextTiers(tiers: ContextPriceTier[], discountPercent: number | null): ContextPriceTier[] {
+  return tiers.map(tier => ({
+    minimum_input_tokens: tier.minimum_input_tokens,
+    prompt_rate: unscaleOfferNanos(tier.prompt_rate, discountPercent),
+    completion_rate: unscaleOfferNanos(tier.completion_rate, discountPercent),
+    cached_prompt_rate:
+      tier.cached_prompt_rate != null ? unscaleOfferNanos(tier.cached_prompt_rate, discountPercent) : null,
+    cache_write_prompt_rate:
+      tier.cache_write_prompt_rate != null ? unscaleOfferNanos(tier.cache_write_prompt_rate, discountPercent) : null,
+    reasoning_completion_rate:
+      tier.reasoning_completion_rate != null
+        ? unscaleOfferNanos(tier.reasoning_completion_rate, discountPercent)
+        : null,
+  }));
+}
+
+function tierAtInput(schedule: ComparableTextSchedule, inputTokens: bigint): ComparableTextSchedule {
+  let matched: ComparableTextSchedule = schedule;
+  let bestThreshold = -1n;
+  for (const tier of schedule.context_tiers ?? []) {
+    try {
+      const threshold = BigInt(tier.minimum_input_tokens);
+      if (threshold <= inputTokens && threshold >= bestThreshold) {
+        bestThreshold = threshold;
+        matched = tier;
+      }
+    } catch {
+      // Ignore malformed tier thresholds during advisory comparison.
+    }
+  }
+  return matched;
+}
+
+function effectiveDimensionRate(
+  schedule: ComparableTextSchedule,
+  field: keyof Pick<
+    ComparableTextSchedule,
+    'prompt_rate' | 'completion_rate' | 'cached_prompt_rate' | 'cache_write_prompt_rate' | 'reasoning_completion_rate'
+  >,
+  fallback: 'prompt_rate' | 'completion_rate',
+): bigint | null {
+  const raw = schedule[field] != null ? schedule[field] : schedule[fallback];
+  if (typeof raw !== 'string' || !/^\d+$/.test(raw)) return null;
+  try {
+    return BigInt(raw);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Mirrors backend `pricing_health::compare` for text schedules so any existing
+ * standard price that would fall below the Provider purchase schedule in ANY
+ * dimension (including cache write, reasoning output, or context tiers) is
+ * detected and aligned to the Provider standard price automatically.
+ */
+export function isRetailBelowPurchaseSchedule(
+  retail: RetailPriceRecord | null | undefined,
+  purchase: ComparableTextSchedule,
+  currency: string,
+): boolean {
+  if (retail?.schedule.kind !== 'text' || retail.currency !== currency) {
+    return true;
+  }
+  const sell = retail.schedule;
+  const boundaries = new Set<bigint>([0n]);
+  for (const tier of [...(sell.context_tiers ?? []), ...(purchase.context_tiers ?? [])]) {
+    try {
+      boundaries.add(BigInt(tier.minimum_input_tokens));
+    } catch {
+      return true;
+    }
+  }
+  const dimensions: Array<
+    [
+      'prompt_rate' | 'completion_rate' | 'cached_prompt_rate' | 'cache_write_prompt_rate' | 'reasoning_completion_rate',
+      'prompt_rate' | 'completion_rate',
+    ]
+  > = [
+    ['prompt_rate', 'prompt_rate'],
+    ['completion_rate', 'completion_rate'],
+    ['cached_prompt_rate', 'prompt_rate'],
+    ['cache_write_prompt_rate', 'prompt_rate'],
+    ['reasoning_completion_rate', 'completion_rate'],
+  ];
+  for (const input of boundaries) {
+    const sellingAt = tierAtInput(sell, input);
+    const purchaseAt = tierAtInput(purchase, input);
+    for (const [field, fallback] of dimensions) {
+      const s = effectiveDimensionRate(sellingAt, field, fallback);
+      const c = effectiveDimensionRate(purchaseAt, field, fallback);
+      if (s === null || c === null) return true;
+      if (s < c && c > 1n) return true;
+    }
+  }
+  return false;
+}
+
+export function buildStandardAndPurchaseSchedules(
+  info: Pick<ResolvedModelRow, 'stdCacheWriteNanos' | 'stdReasoningOutputNanos' | 'stdContextTiers' | 'offer' | 'retail'>,
+  pricing: Pick<
+    SingleModelPricingSubmit,
+    | 'standardInputNanos'
+    | 'standardOutputNanos'
+    | 'standardCachedInputNanos'
+    | 'discountPercent'
+    | 'purchaseInputNanos'
+    | 'purchaseOutputNanos'
+    | 'purchaseCachedInputNanos'
+  >,
+): { standard: ComparableTextSchedule; purchase: ComparableTextSchedule } {
+  const stdCacheWrite = info.stdCacheWriteNanos ?? null;
+  const stdReasoning = info.stdReasoningOutputNanos ?? null;
+  const stdTiers = info.stdContextTiers ?? [];
+  const standard: ComparableTextSchedule = {
+    prompt_rate: pricing.standardInputNanos,
+    completion_rate: pricing.standardOutputNanos,
+    cached_prompt_rate: pricing.standardCachedInputNanos,
+    cache_write_prompt_rate: stdCacheWrite,
+    reasoning_completion_rate: stdReasoning,
+    context_tiers: stdTiers,
+  };
+  const purchase: ComparableTextSchedule = {
+    prompt_rate: pricing.purchaseInputNanos,
+    completion_rate: pricing.purchaseOutputNanos,
+    cached_prompt_rate: pricing.purchaseCachedInputNanos,
+    cache_write_prompt_rate:
+      stdCacheWrite != null ? applyDiscountNanos(stdCacheWrite, pricing.discountPercent) : null,
+    reasoning_completion_rate:
+      stdReasoning != null ? applyDiscountNanos(stdReasoning, pricing.discountPercent) : null,
+    context_tiers: stdTiers.length > 0 ? scaleContextTiers(stdTiers, pricing.discountPercent) : [],
+  };
+  return { standard, purchase };
+}
+
+export function shouldAutoSyncCustomerPrice(
+  info: ResolvedModelRow,
+  pricing: Omit<SingleModelPricingSubmit, 'updateCustomerPrice'>,
+  currency: string,
+): boolean {
+  if (!info.retail) return true;
+  if (pricing.discountPercent <= 100) {
+    const { purchase } = buildStandardAndPurchaseSchedules(info, pricing);
+    if (isRetailBelowPurchaseSchedule(info.retail, purchase, currency)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function buildResolvedModelRow({
   alias,
   entriesByAlias,
@@ -66,25 +252,49 @@ export function buildResolvedModelRow({
   let stdInputNanos: string | null = null;
   let stdOutputNanos: string | null = null;
   let stdCachedNanos: string | null = null;
+  let stdCacheWriteNanos: string | null = null;
+  let stdReasoningOutputNanos: string | null = null;
 
   if (upstream && platformCurrency && upstream.currency === platformCurrency) {
     stdInputNanos = upstream.inputPer1MNanos;
     stdOutputNanos = upstream.outputPer1MNanos;
     stdCachedNanos = upstream.cachedInputPer1MNanos;
+    stdCacheWriteNanos = upstream.cacheWriteInputPer1MNanos ?? null;
+    stdReasoningOutputNanos = upstream.reasoningOutputPer1MNanos ?? null;
   } else if (retail && retail.schedule.kind === 'text' && (!platformCurrency || retail.currency === platformCurrency)) {
     stdInputNanos = retail.schedule.prompt_rate;
     stdOutputNanos = retail.schedule.completion_rate;
     stdCachedNanos = retail.schedule.cached_prompt_rate ?? null;
+    stdCacheWriteNanos = retail.schedule.cache_write_prompt_rate ?? null;
+    stdReasoningOutputNanos = retail.schedule.reasoning_completion_rate ?? null;
   } else if (offer && offer.rate_kind !== 'media' && (!platformCurrency || offer.currency === platformCurrency)) {
     stdInputNanos = offer.prompt_rate;
     stdOutputNanos = offer.completion_rate;
     stdCachedNanos = offer.cached_prompt_rate ?? null;
+    stdCacheWriteNanos = offer.cache_write_prompt_rate ?? null;
+    stdReasoningOutputNanos = offer.reasoning_completion_rate ?? null;
   }
 
   const discountPercent =
     offer && offer.rate_kind !== 'media' && stdInputNanos
       ? inferDiscountPercent(offer.prompt_rate, stdInputNanos)
       : null;
+
+  if (offer && offer.rate_kind !== 'media' && (!platformCurrency || offer.currency === platformCurrency)) {
+    if (stdCacheWriteNanos === null && offer.cache_write_prompt_rate != null) {
+      stdCacheWriteNanos = unscaleOfferNanos(offer.cache_write_prompt_rate, discountPercent);
+    }
+    if (stdReasoningOutputNanos === null && offer.reasoning_completion_rate != null) {
+      stdReasoningOutputNanos = unscaleOfferNanos(offer.reasoning_completion_rate, discountPercent);
+    }
+  }
+
+  const stdContextTiers: ContextPriceTier[] =
+    offer?.context_tiers?.length
+      ? unscaleContextTiers(offer.context_tiers, discountPercent)
+      : retail?.schedule.kind === 'text' && retail.schedule.context_tiers?.length
+        ? retail.schedule.context_tiers
+        : [];
 
   const routeActive = routes.some(
     r => r.model.enabled && hasEnabledPoolKey(r.connection, connections),
@@ -106,6 +316,9 @@ export function buildResolvedModelRow({
     stdInputNanos,
     stdOutputNanos,
     stdCachedNanos,
+    stdCacheWriteNanos,
+    stdReasoningOutputNanos,
+    stdContextTiers,
     discountPercent,
     isActive,
     offerActiveButMissingRetail,
@@ -117,6 +330,7 @@ export function buildResolvedModelRow({
  * 1. Ensures the model route is enabled and public
  * 2. Publishes & atomically authorizes/activates the Provider offer at the discounted purchase rate
  * 3. Ensures a customer standard selling price exists at the upstream standard price (100%)
+ *    across ALL rate dimensions (including cache write, reasoning output, and context tiers)
  */
 export async function activateProviderModel({
   token,
@@ -162,19 +376,17 @@ export async function activateProviderModel({
   if (!platformCurrency) throw new Error('Configure the platform currency in Settings first.');
 
   const currentOffer = info.offer;
+  const { standard, purchase } = buildStandardAndPurchaseSchedules(info, pricing);
+
   await request(token, `/api/v1/admin/providers/${encodeURIComponent(providerId)}/offers`, 'POST', {
     model_alias: info.alias,
     currency: platformCurrency,
-    prompt_rate: pricing.purchaseInputNanos,
-    completion_rate: pricing.purchaseOutputNanos,
-    cached_prompt_rate: pricing.purchaseCachedInputNanos,
-    ...(currentOffer
-      ? {
-          reasoning_completion_rate: currentOffer.reasoning_completion_rate,
-          cache_write_prompt_rate: currentOffer.cache_write_prompt_rate,
-          context_tiers: currentOffer.context_tiers,
-        }
-      : {}),
+    prompt_rate: purchase.prompt_rate,
+    completion_rate: purchase.completion_rate,
+    cached_prompt_rate: purchase.cached_prompt_rate ?? null,
+    reasoning_completion_rate: purchase.reasoning_completion_rate ?? null,
+    cache_write_prompt_rate: purchase.cache_write_prompt_rate ?? null,
+    context_tiers: purchase.context_tiers ?? [],
     expected_revision: currentOffer?.revision ?? null,
     activate: true,
   });
@@ -186,14 +398,16 @@ export async function activateProviderModel({
       currency: platformCurrency,
       schedule: {
         kind: 'text',
-        prompt_rate: pricing.standardInputNanos,
-        completion_rate: pricing.standardOutputNanos,
-        cached_prompt_rate: pricing.standardCachedInputNanos,
-        cache_write_prompt_rate: null,
-        reasoning_completion_rate: null,
-        request_fee_nanos: '0',
-        minimum_charge_nanos: '0',
-        context_tiers: [],
+        prompt_rate: standard.prompt_rate,
+        completion_rate: standard.completion_rate,
+        cached_prompt_rate: standard.cached_prompt_rate ?? null,
+        cache_write_prompt_rate: standard.cache_write_prompt_rate ?? null,
+        reasoning_completion_rate: standard.reasoning_completion_rate ?? null,
+        request_fee_nanos:
+          existingRetail?.schedule.kind === 'text' ? existingRetail.schedule.request_fee_nanos : '0',
+        minimum_charge_nanos:
+          existingRetail?.schedule.kind === 'text' ? existingRetail.schedule.minimum_charge_nanos : '0',
+        context_tiers: standard.context_tiers ?? [],
       },
       expected_version: existingRetail?.version ?? '0',
       idempotency_key: crypto.randomUUID(),
@@ -353,12 +567,25 @@ export async function syncProviderPolicyModels({
       continue;
     }
 
+    const pricingBase = {
+      standardInputNanos: stdIn,
+      standardOutputNanos: stdOut,
+      standardCachedInputNanos: row.stdCachedNanos,
+      discountPercent,
+      purchaseInputNanos: applyDiscountNanos(stdIn, discountPercent),
+      purchaseOutputNanos: applyDiscountNanos(stdOut, discountPercent),
+      purchaseCachedInputNanos: row.stdCachedNanos
+        ? applyDiscountNanos(row.stdCachedNanos, discountPercent)
+        : null,
+    };
+    const needsRetailRepair = shouldAutoSyncCustomerPrice(row, pricingBase, platformCurrency);
+
     const alreadyMatchesDiscount =
       row.isActive &&
       row.discountPercent !== null &&
       Math.abs(row.discountPercent - discountPercent) < 0.05;
 
-    if (row.isActive && (!updateExistingDiscounts || alreadyMatchesDiscount)) {
+    if (row.isActive && !needsRetailRepair && (!updateExistingDiscounts || alreadyMatchesDiscount)) {
       continue;
     }
 
@@ -372,16 +599,8 @@ export async function syncProviderPolicyModels({
           info: row,
           connections,
           pricing: {
-            standardInputNanos: stdIn,
-            standardOutputNanos: stdOut,
-            standardCachedInputNanos: row.stdCachedNanos,
-            discountPercent,
-            purchaseInputNanos: applyDiscountNanos(stdIn, discountPercent),
-            purchaseOutputNanos: applyDiscountNanos(stdOut, discountPercent),
-            purchaseCachedInputNanos: row.stdCachedNanos
-              ? applyDiscountNanos(row.stdCachedNanos, discountPercent)
-              : null,
-            updateCustomerPrice: !row.retail,
+            ...pricingBase,
+            updateCustomerPrice: needsRetailRepair,
           },
         });
         activated += 1;

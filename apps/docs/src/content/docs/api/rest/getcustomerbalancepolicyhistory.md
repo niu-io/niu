@@ -112,6 +112,7 @@ Content type: `application/json`.
         "required": [
           "revision",
           "credit_limit_nanos",
+          "unlimited_credit",
           "warning_threshold_nanos",
           "created_at",
           "is_current"
@@ -124,6 +125,9 @@ Content type: `application/json`.
           "credit_limit_nanos": {
             "type": "string",
             "pattern": "^[0-9]+$"
+          },
+          "unlimited_credit": {
+            "type": "boolean"
           },
           "warning_threshold_nanos": {
             "type": [

@@ -97,24 +97,9 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
 }
 
 describe("installation Provider commercial offer lifecycle", () => {
-  it("opens Models directly in internal mode without commercial pricing clutter", async () => {
-    setup("1000000000", false, false, "overview", null, undefined, false, 'internal');
-    await screen.findByText('Choose which imported models are enabled.');
-    expect(screen.queryByText('3. Approve commercial purchase offers')).toBeNull();
-    expect(screen.queryByText('Model offers')).toBeNull();
-    expect(screen.queryByText('Provider qualification')).toBeNull();
-    expect(screen.queryByText('Provider payables')).toBeNull();
-  });
-
-  it("ignores a commercial rates deep link in internal mode", async () => {
+  it("exposes the unified commercial offer lifecycle even when legacy operating_mode is internal", async () => {
     setup("1000000000", false, false, "models", null, undefined, false, 'internal');
-    await screen.findByText('Choose which imported models are enabled.');
-    await screen.findByText('No models configured yet.');
-    expect(screen.queryByRole('tab', {name: 'Text rates'})).toBeNull();
-    expect(screen.queryByRole('tab', {name: 'Media rates'})).toBeNull();
-    expect(screen.queryByText('Provider qualification')).toBeNull();
-    expect(screen.queryByRole('button', {name: 'Set agreed rates'})).toBeNull();
-    expect(screen.queryByText('example/model')).toBeNull();
+    expect(await screen.findByText('example/model')).toBeTruthy();
   });
   it("ignores a previous Provider settlement save failure after navigating to another Provider", async () => {
     const { router } = setup("1000000000", false, false, "settlements");

@@ -7,7 +7,7 @@ description: "POST /api/v1/setup"
 
 `POST /api/v1/setup`
 
-One-time first-run bootstrap for a blank deployment where password authentication is configured and no active password-enabled platform administrator exists yet. Checks initialization state first and immediately returns 409 Conflict once initialized. Authenticates the deployment's NIU_ADMIN_TOKENS credential via Authorization: Bearer. Creates the first owner account with platform administration enabled in the default workspace, establishes an eight-hour HttpOnly browser cookie when called from the trusted browser Origin, and also supports headless CLI/automation callers without an Origin header. Responses are not cached.
+One-time first-run bootstrap for a blank deployment where password authentication is configured and no active password-enabled platform administrator exists yet. Checks initialization state first and immediately returns 409 Conflict once initialized. Authenticates the deployment's NIU_ADMIN_TOKENS credential via Authorization: Bearer. Initializes the installation currency (defaulting to USD when omitted), grants the initial organization unlimited credit for self-use, creates the first owner account with platform administration enabled in the default workspace, establishes an eight-hour HttpOnly browser cookie when called from the trusted browser Origin, and also supports headless CLI/automation callers without an Origin header. Responses are not cached.
 
 Operation: `completeSetup`.
 
@@ -68,6 +68,11 @@ No path, query, or header parameters are declared.
       "type": "string",
       "minLength": 15,
       "description": "Account password (at least 15 characters and at most 1024 bytes)."
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "description": "Optional three-letter ISO 4217 billing currency (defaults to USD when omitted)."
     }
   }
 }
@@ -152,6 +157,6 @@ Password authentication is not configured.
 
 ## Behavior and supported scope
 
-One-time first-run bootstrap for a blank deployment where password authentication is configured and no active password-enabled platform administrator exists yet. Checks initialization state first and immediately returns 409 Conflict once initialized. Authenticates the deployment's NIU_ADMIN_TOKENS credential via Authorization: Bearer. Creates the first owner account with platform administration enabled in the default workspace, establishes an eight-hour HttpOnly browser cookie when called from the trusted browser Origin, and also supports headless CLI/automation callers without an Origin header. Responses are not cached.
+One-time first-run bootstrap for a blank deployment where password authentication is configured and no active password-enabled platform administrator exists yet. Checks initialization state first and immediately returns 409 Conflict once initialized. Authenticates the deployment's NIU_ADMIN_TOKENS credential via Authorization: Bearer. Initializes the installation currency (defaulting to USD when omitted), grants the initial organization unlimited credit for self-use, creates the first owner account with platform administration enabled in the default workspace, establishes an eight-hour HttpOnly browser cookie when called from the trusted browser Origin, and also supports headless CLI/automation callers without an Origin header. Responses are not cached.
 
 **Supported scope:** implemented

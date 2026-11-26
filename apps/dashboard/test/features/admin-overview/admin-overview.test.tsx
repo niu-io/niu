@@ -103,13 +103,20 @@ describe('AdminOverviewPage', () => {
     expect(screen.getByRole('link', { name: 'Review requests' }).getAttribute('href')).toBe('/admin/registrations');
   });
 
-  it('renders streamlined Internal use setup steps without commercial billing steps', async () => {
+  it('renders the same unified setup workflow even when legacy operating_mode is internal', async () => {
     fixture.context = {
       token: 'admin-token',
       session: { kind: 'installation', operating_mode: 'internal', operator: null, permissions: { read: true, write: true, platform_admin: true } },
       workspace: { id: 'ws-1', slug: 'engineering', organization_id: 'org-1', name: 'Engineering' },
       workspaces: [{ id: 'ws-1', slug: 'engineering', organization_id: 'org-1', name: 'Engineering' }],
     } as unknown as DashboardContext;
+    fixture.currency = {
+      currency: 'USD',
+      billingMode: 'currency',
+      ready: true,
+      failed: false,
+      reload: vi.fn(),
+    };
 
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
@@ -118,16 +125,21 @@ describe('AdminOverviewPage', () => {
         return Response.json({ data: [], next_before: null, coverage: { request_observed: true, proactive_probe: 'not_configured' } });
       }
       if (path.startsWith('/api/v1/admin/routing/index')) return Response.json({ data: [], has_more: false, next_after: null });
+      if (path.startsWith('/api/v1/admin/pricing/standard-prices')) return Response.json({ data: [], next_after: null });
+      if (path === '/api/v1/admin/units') return Response.json({ data: { text_tariffs: [] } });
+      if (path === '/api/v1/admin/units/media/tariffs') return Response.json({ data: [] });
+      if (path === '/api/v1/admin/configuration') return Response.json({ data: { payment_gateways: [], verification: { currency_configured: true, gateways: [] } } });
+      if (path === '/api/v1/admin/payments/bank') return Response.json({ data: { details: null } });
+      if (path.startsWith('/api/v1/admin/registrations')) return Response.json({ data: [], counts: { pending: 0, approved: 0, rejected: 0 }, next_cursor: null });
+      if (path.startsWith('/api/v1/admin/customers')) return Response.json({ data: [], next_after: null });
       return Response.json({ data: [] });
     }));
 
     render(<MemoryRouter><AdminOverviewPage /></MemoryRouter>);
 
-    expect(await screen.findByText('Internal use mode')).toBeTruthy();
-    expect(screen.getByText('1. Connect Providers & import models')).toBeTruthy();
-    expect(screen.getByText('2. Custom models & routing (optional)')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Open workspace' }).getAttribute('href')).toBe('/workspaces/engineering');
-    expect(screen.queryByText('1. Configure platform currency & billing mode')).toBeNull();
-    expect(screen.queryByText('4. Publish customer selling prices')).toBeNull();
+    expect(await screen.findByText('Platform setup')).toBeTruthy();
+    expect(screen.getByText('1. Configure platform currency & billing mode')).toBeTruthy();
+    expect(screen.getByText('4. Publish customer selling prices')).toBeTruthy();
+    expect(screen.queryByText('Internal use mode')).toBeNull();
   });
 });

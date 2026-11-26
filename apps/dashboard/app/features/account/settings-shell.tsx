@@ -39,7 +39,7 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
   const requestedWorkspace = section === 'members' ? lockedWorkspace || new URLSearchParams(location.search).get('workspace') : null;
   const scopedWorkspace = lockedWorkspace ? context.workspaces.find(item => item.id === lockedWorkspace) : requestedWorkspace ? resolveWorkspacePathSegment(requestedWorkspace, context.workspaces) : undefined;
   const personal = context.session?.kind === 'operator';
-  const canViewBilling = context.session?.operating_mode !== 'internal' && (context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role)));
+  const canViewBilling = context.session?.kind === 'installation' || (context.session?.operator?.project_id === null && ['owner', 'admin'].includes(context.session.operator.role));
   const themeLabel = theme === 'light' ? t('Light', '浅色') : theme === 'dark' ? t('Dark', '深色') : t('System', '系统');
   return <div className="settings-page w-full min-w-0 space-y-8">
     {section === 'organization' && <OrganizationSettings key={context.organization?.id} context={context} />}

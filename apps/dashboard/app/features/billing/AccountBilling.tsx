@@ -17,7 +17,7 @@ import { cachedGet, markCachedStale, peekCachedGet, request, VendorRequestError 
 import TopupFunding, { type UnitBalanceSnapshot } from './TopupFunding';
 type Balance = {
   currency: string; balance_nanos: string; available_nanos: string; reserved_nanos: string;
-  credit_limit_nanos: string; policy_revision: string; warning_threshold_nanos: string | null; low_balance: boolean;
+  credit_limit_nanos: string; unlimited_credit?: boolean; policy_revision: string; warning_threshold_nanos: string | null; low_balance: boolean;
 };
 type BalanceTransaction = { id: string; kind: 'funding' | 'charge' | 'refund' | 'funding_reversal' | 'adjustment'; currency: string; amount_nanos: string; created_at: string };
 const transactionNames = { funding: 'Top-up', charge: 'Request charge', refund: 'Refund', funding_reversal: 'Payment reversal', adjustment: 'Balance adjustment' };
@@ -31,6 +31,7 @@ function checkedAccounts(result:{data:Balance[]}):Balance[] {
  if (!Array.isArray(result?.data) || !result.data.every(account => account && /^[A-Z]{3}$/.test(account.currency)
   && validNanos(account.balance_nanos) && validNanos(account.available_nanos)
   && validNanos(account.reserved_nanos,true) && validNanos(account.credit_limit_nanos,true)
+  && (account.unlimited_credit===undefined || typeof account.unlimited_credit==='boolean')
   && (account.warning_threshold_nanos===null || validNanos(account.warning_threshold_nanos,true))
   && typeof account.policy_revision==='string' && /^\d{1,20}$/.test(account.policy_revision)
   && BigInt(account.policy_revision)<=18_446_744_073_709_551_615n && typeof account.low_balance==='boolean')) {
@@ -240,24 +241,30 @@ export default function AccountBilling({token, organization, canConfigure = fals
               </dl>
             </div>;
           })()}
-          {(unitSnapshot?.billing_mode ?? platformBillingMode) !== 'credits' && accounts?.map(account => <div className="billing-account" key={account.currency}>
-            <span className="text-muted-foreground">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? t(`Preserved monetary balance (${account.currency})`, `保留的货币余额（${account.currency}）`) : account.currency === platformCurrency ? t("Available to spend", "可用余额") : t("Recorded balance (original currency)")}</span>
-            <strong className="billing-available">{money(account.available_nanos, account.currency)}</strong>
-            {(account.balance_nanos !== account.available_nanos || BigInt(account.credit_limit_nanos) > 0n || BigInt(account.reserved_nanos) > 0n) && <dl className="billing-account-details">
-              {account.balance_nanos !== account.available_nanos && <div><dt>{t("Balance", "账面余额")}</dt><dd>{money(account.balance_nanos, account.currency)}</dd></div>}
-              {BigInt(account.credit_limit_nanos) > 0n && <div><dt>{t("Approved credit")}</dt><dd>{money(account.credit_limit_nanos, account.currency)}</dd></div>}
+          {(unitSnapshot?.billing_mode ?? platformBillingMode) !== 'credits' && accounts?.map(account => {
+            const unlimited = Boolean(account.unlimited_credit);
+            return <div className="billing-account" key={account.currency}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-muted-foreground">{(unitSnapshot?.billing_mode ?? platformBillingMode) === 'credits' ? t(`Preserved monetary balance (${account.currency})`, `保留的货币余额（${account.currency}）`) : account.currency === platformCurrency ? (unlimited ? t("Balance", "账面余额") : t("Available to spend", "可用余额")) : t("Recorded balance (original currency)")}</span>
+              {unlimited && <Badge variant="secondary">{t("Unlimited credit", "无限授信")}</Badge>}
+            </div>
+            <strong className="billing-available">{money(unlimited ? account.balance_nanos : account.available_nanos, account.currency)}</strong>
+            {(unlimited || account.balance_nanos !== account.available_nanos || BigInt(account.credit_limit_nanos) > 0n || BigInt(account.reserved_nanos) > 0n) && <dl className="billing-account-details">
+              {!unlimited && account.balance_nanos !== account.available_nanos && <div><dt>{t("Balance", "账面余额")}</dt><dd>{money(account.balance_nanos, account.currency)}</dd></div>}
+              {unlimited ? <div><dt>{t("Approved credit")}</dt><dd>{t("Unlimited", "无限授信")}</dd></div> : BigInt(account.credit_limit_nanos) > 0n && <div><dt>{t("Approved credit")}</dt><dd>{money(account.credit_limit_nanos, account.currency)}</dd></div>}
               {BigInt(account.reserved_nanos) > 0n && <div><dt>{t("Reserved for requests", "请求预留")}</dt><dd>{money(account.reserved_nanos, account.currency)}</dd></div>}
             </dl>}
             <div className="flex items-center justify-between gap-3 py-3">
               <div><h3 className="font-medium">{t("Low balance warning", "余额提醒")}</h3><p className="text-sm text-muted-foreground">{account.warning_threshold_nanos === null ? t("Disabled", "已关闭") : t(`Below ${money(account.warning_threshold_nanos,account.currency)} · In app`, `低于 ${money(account.warning_threshold_nanos,account.currency)}`)}</p></div>
               {canConfigure && account.currency === platformCurrency && <Button variant="outline" size="sm" className="shrink-0" aria-label={t(`Configure ${account.currency} low balance warning`, `设置 ${account.currency} 余额提醒`)} onClick={event=>{warningOpener.current=event.currentTarget;editWarning(account);}}>{t("Configure")}</Button>}
             </div>
-            {(unitSnapshot?.billing_mode ?? platformBillingMode) !== 'credits' && account.currency === platformCurrency && (BigInt(account.available_nanos) <= 0n
+            {(unitSnapshot?.billing_mode ?? platformBillingMode) !== 'credits' && account.currency === platformCurrency && (!unlimited && BigInt(account.available_nanos) <= 0n
               ? <Alert variant="destructive"><AlertTitle>{t("Insufficient funds")}</AlertTitle><AlertDescription>{canConfigure ? t("Paid requests are paused until funds are added.") : t("Paid requests are paused. Contact your billing administrator to add funds.")}</AlertDescription></Alert>
               : account.low_balance
                 ? <Alert><AlertTitle>{t("Low balance")}</AlertTitle><AlertDescription>{t("Your account balance is below the warning threshold. Approved credit is excluded from this warning.")}</AlertDescription></Alert>
-                : BigInt(account.balance_nanos) < 0n && BigInt(account.credit_limit_nanos) > 0n && <Alert><AlertTitle>{t("Using approved credit")}</AlertTitle><AlertDescription>{t("Your posted balance is negative, and paid requests continue using your remaining approved credit limit.")}</AlertDescription></Alert>)}
-          </div>)}
+                : !unlimited && BigInt(account.balance_nanos) < 0n && BigInt(account.credit_limit_nanos) > 0n && <Alert><AlertTitle>{t("Using approved credit")}</AlertTitle><AlertDescription>{t("Your posted balance is negative, and paid requests continue using your remaining approved credit limit.")}</AlertDescription></Alert>)}
+          </div>;
+          })}
           {!accountError && accounts?.length === 0 && (unitSnapshot?.balances.length ?? 0) === 0 && <Empty className="min-h-36 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconCoins size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{canConfigure ? t("No prepaid account configured.") : t("No prepaid account configured. Contact your billing administrator.")}</EmptyDescription></EmptyHeader></Empty>}
         </section>}
         {accounts && section !== 'billing' && <TopupFunding key={`funding-${accessGeneration.current.value}`} token={token} organization={organization} canCreate={canConfigure} currencies={accounts.map(account => account.currency)} unitSnapshot={unitSnapshot} onPaid={() => setRevision(value => value + 1)} />}

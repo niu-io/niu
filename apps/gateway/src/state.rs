@@ -22,8 +22,11 @@ pub enum OperatingMode {
 impl OperatingMode {
     fn parse(value: Option<&str>) -> Result<Self, &'static str> {
         match value.map(str::trim) {
-            None | Some("") | Some("internal") => Ok(Self::Internal),
-            Some("resale") => Ok(Self::Resale),
+            // Self-use and commercial deployments share the single unified pricing,
+            // workspace, and ledger workflow (with self-use organizations granted
+            // unlimited_credit). Accept legacy `internal` env values seamlessly so
+            // existing Compose / .env deployments upgrade without startup failure.
+            None | Some("") | Some("internal") | Some("resale") => Ok(Self::Resale),
             _ => Err("NIU_OPERATING_MODE must be internal or resale"),
         }
     }
@@ -280,16 +283,6 @@ impl AppState {
         crate::vendors::validate_saved_codex_credentials(&store, vendor_cipher.as_deref()).await?;
         let seeds =
             crate::vendors::collect_seeds_from_env(&store, vendor_cipher.as_deref()).await?;
-        if operating_mode == OperatingMode::Internal {
-            let shared = store
-                .vendors_with_supplier(None)
-                .await?
-                .iter()
-                .any(|v| v["enabled"] == true && v["owner_funded"] != true);
-            if !config.models.is_empty() || !seeds.is_empty() || shared {
-                return Err("Internal use cannot activate existing shared/commercial or static routes. Keep NIU_OPERATING_MODE=resale for this installation; do not change historical ownership or billing.".into());
-            }
-        }
         let expected_generation = match env::var("NIU_ROUTING_EXPECTED_GENERATION") {
             Ok(value) => Some(
                 value
@@ -1051,11 +1044,15 @@ mod tests {
 mod operating_mode_tests {
     use super::OperatingMode;
     #[test]
-    fn only_explicit_resale_enables_resale() {
-        assert_eq!(OperatingMode::parse(None).unwrap(), OperatingMode::Internal);
+    fn unifies_default_internal_and_resale_env_values() {
+        assert_eq!(OperatingMode::parse(None).unwrap(), OperatingMode::Resale);
+        assert_eq!(
+            OperatingMode::parse(Some("")).unwrap(),
+            OperatingMode::Resale
+        );
         assert_eq!(
             OperatingMode::parse(Some("internal")).unwrap(),
-            OperatingMode::Internal
+            OperatingMode::Resale
         );
         assert_eq!(
             OperatingMode::parse(Some("resale")).unwrap(),

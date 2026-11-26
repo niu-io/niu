@@ -11,6 +11,7 @@ description: "Generated TypeScript declaration for CustomerBalancePolicyInput"
 /** Exact nonnegative nanounits and optimistic revision for installation credit policy. */
 export type CustomerBalancePolicyInput = {
     credit_limit_nanos: string;
+    unlimited_credit?: boolean;
     warning_threshold_nanos: string | null;
     expected_revision: string;
 };

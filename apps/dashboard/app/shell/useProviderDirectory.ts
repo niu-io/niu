@@ -65,7 +65,7 @@ export function useProviderDirectory(
       nextParts[index] = encodeURIComponent(provider.slug);
     }
     if (nextParts[1] === 'admin' && nextParts[2] === 'providers' && nextParts.length >= 5) {
-      if (nextParts[4] === 'settlements' && session?.operating_mode !== 'internal') {
+      if (nextParts[4] === 'settlements') {
         nextParts[4] = 'usage';
       } else if (nextParts[4] !== 'usage') {
         nextParts.splice(4);
@@ -74,7 +74,7 @@ export function useProviderDirectory(
     const nextPathname = nextParts.join('/');
     if (nextPathname === location.pathname) return;
     navigate({ pathname: nextPathname, search: location.search, hash: location.hash }, { replace: true });
-  }, [location.pathname, location.search, location.hash, authorizedProviders, navigate, session?.operating_mode]);
+  }, [location.pathname, location.search, location.hash, authorizedProviders, navigate]);
 
   return {
     authorizedProviders,

@@ -258,8 +258,15 @@ function History({ token, price, onClose, onCloseAutoFocus }: { token: string; p
     finally { if (!controller.signal.aborted) setLoading(false); }
   }
   useEffect(() => { void load(); return () => active.current?.abort(); }, [token, price.price_id]);
-  const belowCost = Boolean(price.pricing_health?.checks?.some(check => check.status === 'below_cost'));
+  const historySupply = supplyStateOf(price.pricing_health);
+  const historyUnsupplied = historySupply === 'inactive' || historySupply === 'unconfigured';
+  const belowCost = !historyUnsupplied && Boolean(price.pricing_health?.checks?.some(check => check.status === 'below_cost'));
+  const providerAlsoFree =
+    historySupply === 'active' &&
+    Boolean(price.pricing_health?.checks?.length) &&
+    Boolean(price.pricing_health?.checks?.every(check => check.status === 'no_lower_unit_rates'));
   const currentZeroTextPrice =
+    !providerAlsoFree &&
     price.schedule.kind === 'text' &&
     price.schedule.prompt_rate === '0' &&
     price.schedule.completion_rate === '0';
