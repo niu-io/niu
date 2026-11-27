@@ -76,6 +76,13 @@ it('clears both a Provider filter and an unmatched search to recover the catalog
   expect(screen.getAllByRole('article')).toHaveLength(20);
 });
 
+it('shows the request fee when base token rates are zero', () => {
+  const tariff = { currency: 'USD', unit: 'nanounits_per_million_tokens' as const, prompt_rate: '0', completion_rate: '0', request_fee_nanos: '10000000', minimum_charge_nanos: '0', context_tiers: [] };
+  render(<MemoryRouter><SidebarProvider><ModelTable models={[{ ...models[0], customer_pricing: tariff }]} /></SidebarProvider></MemoryRouter>);
+  expect(screen.queryByText('Free')).toBeNull();
+  expect(screen.getByText('Request fee · $0.01')).toBeTruthy();
+});
+
 it('formats published token rates without floating point artifacts or rounding tiny rates to zero', () => {
   const enriched = [{ ...models[0], customer_pricing: {currency:'USD',unit:'nanounits_per_million_tokens' as const,prompt_rate:'1100000000',completion_rate:'1000'} }];
   render(<MemoryRouter><SidebarProvider><ModelTable models={enriched}/></SidebarProvider></MemoryRouter>);

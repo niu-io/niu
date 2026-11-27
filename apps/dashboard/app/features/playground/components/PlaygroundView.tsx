@@ -35,7 +35,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { money } from '@/lib/money';
+import { formatUnitAtoms, money } from '@/lib/money';
+import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useWorkspaceVideo } from '@/features/provider-modules/useWorkspaceVideo';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { workspacePathSegment } from '@/shell/workspace-route';
@@ -365,6 +366,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   initialScope: Scope | null;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
+  const { billingMode } = usePlatformCurrency();
   const { isMobile, setOpenMobile } = useSidebar();
   const location = useLocation();
   const comparisonController = useRef<AbortController | null>(null);
@@ -787,6 +789,26 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const selectedKey = sessionKeys.find(key => key.id === selectedKeyId);
   const managedKey = workspaceKeys.find(key => key.id === selectedKeyId);
   const videoKey = useWorkspaceVideo(dashboard.token ? dashboard : { ...dashboard, token }, managedKey?.id, workspaceKeysReady ? workspaceKeys : null);
+  function trialRate(alias: string) {
+    const model = dashboard.models?.find(item => item.id === alias);
+    if (!managedKey || !model?.billing_source) return null;
+    if (model.billing_source === 'own_api_key') return uiT('No Niu charge');
+    const units = model.customer_unit_pricing;
+    const price = model.customer_pricing;
+    let input: string;
+    let output: string;
+    if (units && (billingMode === 'credits' || !price)) {
+      input = formatUnitAtoms(units.prompt_rate, units.unit_name, units.display_precision);
+      output = formatUnitAtoms(units.completion_rate, units.unit_name, units.display_precision);
+    } else if (price) {
+      input = money(price.prompt_rate, price.currency);
+      output = money(price.completion_rate, price.currency);
+    } else {
+      return uiT("Rate unavailable", "费率暂不可用");
+    }
+    return input + uiT("/M input tokens") + ' · ' + output + uiT("/M output tokens");
+  }
+  const singleTrialRate = selectedModels.length === 1 ? trialRate(selectedModels[0]) : null;
   const billingSources = selectedModels.map(alias => dashboard.models?.find(model => model.id === alias)?.billing_source);
   const billingSummary = !managedKey
     ? uiT("Usage is billed according to the workspace of your API key. Choose a saved workspace key to see how usage is billed.")
@@ -1163,7 +1185,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                   <div className="flex items-center justify-between"><strong className="text-sm">{uiT("Comparison models")}</strong><Button type="button" variant="ghost" size="sm" disabled={!draft.ready || running || settingsSaving} onClick={openModelPicker}>{uiT("Edit")}</Button></div>
                   <div className="space-y-2">{selectedModels.map(model => <div key={model} className="flex items-center gap-3">
                     <ProviderLogo provider={modelIdentity(dashboard.models?.find(item => item.id === model) ?? { id: model })} size="small" />
-                    <Link className="min-w-0 flex-1 break-words text-sm hover:underline" to={`${workspaceRoot}/models/${model.split('/').map(encodeURIComponent).join('/')}`}>{catalogTitle(dashboard.models?.find(item => item.id === model) ?? { id: model })}</Link>
+                    <div className="min-w-0 flex-1"><Link className="break-words text-sm hover:underline" to={`${workspaceRoot}/models/${model.split('/').map(encodeURIComponent).join('/')}`}>{catalogTitle(dashboard.models?.find(item => item.id === model) ?? { id: model })}</Link>{selectedModels.length > 1 && <p className="text-xs text-muted-foreground">{trialRate(model)}</p>}</div>
                     <Button type="button" variant="ghost" size="icon" disabled={!draft.ready || running || settingsSaving} aria-label={uiF("Remove {0}", [model])} onClick={() => toggleModel(model)}><X size={14} /></Button>
                   </div>)}</div>
                   <Button type="button" variant="outline" size="sm" disabled={!draft.ready || running || settingsSaving} onClick={openModelPicker}><Plus size={14} />{uiT("Add models")}</Button>
@@ -1180,6 +1202,8 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
               actions={session?.permissions.write !== false && <>{keyChoices.length > 0 && <Button type="button" variant="outline" onClick={() => setApiSettingsOpen(true)}>{uiT("Choose API key")}</Button>}<Button type="button" disabled={quickKey.busy} onClick={() => { quickKey.setError(''); setQuickKeyDialogOpen(true); }}>{uiT("Auto-create key", "自动创建试用密钥")}</Button></>} /> : null}
           />
           <p role="note" aria-label={uiT("Usage billing")} className="sr-only">{billingSummary}</p>
+          {singleTrialRate && <Link className="block text-center text-xs text-muted-foreground hover:underline" to={`${workspaceRoot}/models/${selectedModels[0].split('/').map(encodeURIComponent).join('/')}`}>{singleTrialRate}</Link>}
+
                 <PopoverContent side="top" align="end" sideOffset={12} collisionPadding={12} aria-labelledby="chat-settings-title" className="w-[min(24rem,calc(100vw-2rem))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto space-y-4">
                   {settingsSaving && <p role="status" className="text-sm text-muted-foreground">{uiT("Saving settings…")}</p>}
                   {settingsSaveError && <div className="grid gap-2"><p role="alert" className="text-sm text-destructive">{uiT(settingsSaveError)}</p><Button type="button" variant="secondary" disabled={settingsSaving} onClick={() => void closeChatSettings()}>{uiT("Retry saving settings")}</Button></div>}
@@ -1413,7 +1437,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
       maxModels={maxComparisonModels}
       unverifiedModels={unverifiedModels}
       catalogModels={dashboard.models}
-      managedKey={Boolean(managedKey)}
+      rateForModel={trialRate}
       modelsLoading={modelsLoading}
       modelsError={modelsError}
       query={modelQuery}

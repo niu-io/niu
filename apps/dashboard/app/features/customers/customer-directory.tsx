@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RegistrationRequestsQueue } from '@/features/platform-settings/registration-review';
 import { cachedGet, markCachedStale, peekCachedGet, request } from '@/features/providers/api';
 import { invalidateQueries } from '@/lib/query-cache';
-import { formatRateMoney } from '@/lib/money';
+import { formatBalanceMoney, formatRateMoney } from '@/lib/money';
 import { NiuAdminClient, type CompanyMetadata, type CustomerBalance, type PlatformRegistrationQueuePage } from '@niu-io/sdk/admin';
 import CustomerSetup from './setup';
 import { GrantEditor, GrantHistory } from './grants';
@@ -242,8 +242,8 @@ export function Customers({
     const extraCurrencies = Math.max(0, company.accounts.length - 1);
     return (
       <div className="space-y-0.5">
-        <p className={`whitespace-nowrap font-medium tabular-nums ${!unlimited && balanceNanos < 0n ? 'text-destructive' : ''}`}>
-          {formatRateMoney(account.balance_nanos, account.currency)}
+        <p title={formatRateMoney(account.balance_nanos, account.currency)} className={`whitespace-nowrap font-medium tabular-nums ${!unlimited && balanceNanos < 0n ? 'text-destructive' : ''}`}>
+          {formatBalanceMoney(account.balance_nanos, account.currency)}
         </p>
         {unlimited ? (
           <p className="whitespace-nowrap text-xs text-muted-foreground">

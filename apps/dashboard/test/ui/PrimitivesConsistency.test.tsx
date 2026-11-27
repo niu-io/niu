@@ -519,3 +519,12 @@ it('preserves visited panel state without mounting unvisited panels', () => {
   expect(page.getByLabelText('First draft')).toBe(draft);
   expect(draft.value).toBe('unfinished');
 });
+
+it('keeps tbody row headers on cell metrics and fills 404 empty states', () => {
+  const appDir = resolve(process.cwd(), 'app');
+  const table = readFileSync(join(appDir, 'components/ui/table.tsx'), 'utf8');
+  expect(table).toContain('[&[scope=row]]:h-auto');
+  expect(table).toContain('[&[scope=row]]:py-3.5');
+  const surfaces = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
+  expect(surfaces).toMatch(/\.not-found-empty \{[^}]*flex: 1 1 auto;[^}]*justify-content: center/);
+});

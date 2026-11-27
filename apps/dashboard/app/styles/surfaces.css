@@ -174,7 +174,7 @@
 .page-content:has(.provider-admin-panel > .supplier-ledger-empty), .provider-admin-panel:has(> .supplier-ledger-empty) { display: flex; flex: 0 0 auto; flex-direction: column; }
 .provider-admin-panel > .supplier-ledger-empty { flex: 0 0 auto; min-height: 200px; }
 .page-content:has(.not-found-empty) { display: flex; flex: 1; flex-direction: column; }
-.not-found-empty { min-height: 240px; }
+.not-found-empty { flex: 1 1 auto; min-height: 240px; justify-content: center; }
 .provider-admin-panel > p { font-size: 13px; color: var(--muted-foreground); }
 .provider-admin-form { display: grid; gap: 18px; }
 .provider-admin-form label { display: grid; gap: 7px; font-size: 13px; }
