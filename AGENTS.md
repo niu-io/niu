@@ -165,6 +165,8 @@ The backend is the source of truth for saved product data, including Chat sessio
 
 ## Commercial data boundaries
 
+Group grant history with customer inspection actions and place balance-changing actions after a menu separator. Apply this order in the directory and customer detail.
+
 Provider purchase prices, upstream expenses, procurement budgets, and platform margins are confidential platform information. Never show them in customer workspace pages, Chat, Observability, usage reports, exports, or customer API responses. Customer billing and request costs mean customer-facing charges only; never substitute supplier cost when a customer charge is unavailable. Keep procurement controls in platform administration, and restrict providers to their own agreed rates and settlements. Enforce these boundaries in backend authorization and response serialization, not merely by hiding UI elements. Installation administrator access does not justify mixing procurement information into customer-facing workspace screens.
 
 Zero-key generation sessions must disable the prompt, attachments, starter prompts and all submission paths. Keep prior drafts readable. Confirm key creation separately from sending a request. Aggregate duplicate empty notices for one collection and keep the recovery action beside the empty result. See the UI consistency standard.
@@ -190,3 +192,5 @@ New text price and credit tariff menus use the registered route’s text eligibi
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
+
+Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
