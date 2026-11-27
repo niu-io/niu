@@ -25,10 +25,9 @@ describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
 
-  it('keeps the price row available for focus on editor cancellation', () => {
-    const page = readFileSync(join(appDir, 'features/retail-pricing/page.tsx'), 'utf8');
-    expect(page).toContain('if (conflict) reloadFresh();');
-    expect(page).not.toContain('if (!pending) { setEditor(null); reloadFresh(); }');
+  it('keeps storage precision guidance out of the credit tariff heading', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/unit-tariffs.tsx'), 'utf8');
+    expect(source).not.toContain('decimal places are stored exactly');
   });
 
   it('keeps per-workspace charge headers and values visible on phones', () => {
@@ -379,6 +378,12 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(effect).toContain('new ResizeObserver(revealSelectedTab)');
     expect(effect).toContain('host.scrollLeft');
     expect(effect).not.toMatch(/scrollIntoView|\.focus\(/);
+  });
+
+  it('keeps the price row available for focus on editor cancellation', () => {
+    const page = readFileSync(join(appDir, 'features/retail-pricing/page.tsx'), 'utf8');
+    expect(page).toContain('if (conflict) reloadFresh();');
+    expect(page).not.toContain('if (!pending) { setEditor(null); reloadFresh(); }');
   });
 
   it('keeps dialog framing, bounded scroll, and close affordances in the shared primitive', () => {

@@ -215,7 +215,7 @@ describe('organization switching', () => {
     await user.click(await within(settingsDialog).findByRole('button', { name: 'Create organization' }));
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     const createDialog = await within(settingsDialog).findByRole('region', { name: 'Create organization' });
-    expect(within(createDialog).getByText(/New organizations start with 0 credits/)).toBeTruthy();
+    expect(within(createDialog).queryByText(/New organizations start with 0 credits/)).toBeNull();
     await user.type(within(createDialog).getByLabelText('Organization name'), 'Studio Alpha');
     expect((within(createDialog).getByLabelText('Slug') as HTMLInputElement).value).toBe('studio-alpha');
     await user.click(within(createDialog).getByRole('button', { name: 'Create organization' }));
