@@ -103,7 +103,7 @@ export default function ActivityCharts({ buckets, models, compact = false, loadi
     <div className={compact ? 'min-w-0 lg:col-span-2' : 'min-w-0'}>
       <h2 className="text-sm font-semibold">{uiT("Requests over time")}</h2>
       {loading && !buckets?.length ? <p role="status" className="flex h-44 items-center justify-center px-4 text-center text-sm text-muted-foreground">{uiT("Loading activity chart…")}</p> : hasBucketTraffic ? <ChartContainer config={config} className="h-56 w-full" aria-label={uiT("Request volume over time")}>
-        <AreaChart accessibilityLayer data={buckets} margin={{left:0,right:12,top:12,bottom:0}}>
+        <AreaChart accessibilityLayer data={buckets} margin={{left:0,right:44,top:12,bottom:0}}>
           <CartesianGrid vertical={false}/><XAxis dataKey="start_ms" tickFormatter={date} minTickGap={70} tickLine={false} axisLine={false}/><YAxis allowDecimals={false} domain={bucketAxis.domain} ticks={bucketAxis.ticks} tickFormatter={count} tickLine={false} axisLine={false} width={44}/>
           <ChartTooltip content={<ChartTooltipContent labelFormatter={(_label, payload) => payload[0]?.payload ? `${date(payload[0].payload.start_ms)} – ${date(payload[0].payload.end_ms)}` : ''}/>}/>
           <Area type="linear" baseValue={0} strokeLinecap="round" strokeLinejoin="round" dataKey="request_count" stroke="var(--color-request_count)" fill="var(--color-request_count)" fillOpacity={0.12} strokeWidth={2} dot={(buckets?.length ?? 0) === 1 ? {r: 4, fill: 'var(--color-request_count)', strokeWidth: 0} : false} isAnimationActive={false}/>
