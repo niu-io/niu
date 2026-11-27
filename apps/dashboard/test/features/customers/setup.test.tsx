@@ -54,3 +54,13 @@ it('lets a workspace slug be edited after an uncertain request without silently 
  await user.type(await screen.findByLabelText('Workspace name'),'Customer');await user.click(screen.getByRole('button',{name:'Create workspace'}));await screen.findByText(/Creation is unconfirmed/);await user.type(screen.getByLabelText('Slug'),'-team');expect((screen.getByRole('button',{name:'Retry creation'}) as HTMLButtonElement).disabled).toBe(true);
  await user.click(screen.getByRole('button',{name:'Start a new request'}));await user.click(screen.getByRole('button',{name:'Create workspace'}));await screen.findByRole('link',{name:'Customer'});expect(api.createWorkspace.mock.calls[1][0].slug).toBe('customer-team');expect(api.createWorkspace.mock.calls[1][1].idempotencyKey).not.toBe(api.createWorkspace.mock.calls[0][1].idempotencyKey);
 });
+
+it('copies the sign-in address of the current installation', async () => {
+  fixture();
+  const user = userEvent.setup();
+  show(client());
+  const address = await screen.findByLabelText('Sign-in address');
+  expect((address as HTMLInputElement).value).toBe(new URL('/login', location.origin).href);
+  await user.click(screen.getByRole('button', { name: 'Copy address' }));
+  expect(await navigator.clipboard.readText()).toBe((address as HTMLInputElement).value);
+});

@@ -153,3 +153,5 @@ When an explicit pricing tab is open, keep both tab destinations available acros
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
 
 Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action.
+
+Customer access handoff presents a copyable sign-in address for the current installation. Keep first-request instructions in the linked guide.
