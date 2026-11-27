@@ -34,7 +34,7 @@ export function PriceComparison({ health, currency }: { health?: PricingHealth; 
     {health.checks.map((check, index) => <section key={index} className="space-y-2">
       <h3 className="break-all font-medium">{[check.provider, check.route].filter(Boolean).join(' · ')}</h3>
       {check.status === 'below_cost' && <p className="text-destructive">{t('Below purchase cost', '低于采购成本')}</p>}
-      {check.rates?.length ? <Table>
+      {check.rates?.length ? <Table className="unit-price-comparison">
         <caption className="caption-top pb-2 text-left text-sm">{currency} / {t('million tokens', '百万 Token')}</caption>
         <TableHeader><TableRow>{[t('Item'), t('Purchase price', '采购价'), t('Selling price', '售价'), t('Unit spread', '单位价差')].map(label => <TableHead key={label}>{label}</TableHead>)}</TableRow></TableHeader>
         <TableBody>{check.rates.map(rate => <TableRow key={rate.minimum_input_tokens + rate.dimension}>
