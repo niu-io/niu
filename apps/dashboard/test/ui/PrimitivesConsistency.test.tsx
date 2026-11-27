@@ -25,6 +25,13 @@ describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
 
+  it('pins both credit tariff writes to the revision shown on opening', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/unit-tariffs.tsx'), 'utf8');
+    expect(source.match(/const \[config\] = useState\(openingConfig\)/g)).toHaveLength(2);
+    expect(source.match(/expected_revision: config\.revision/g)).toHaveLength(2);
+    expect(source).not.toContain('expected_revision: latestCfg');
+  });
+
   it('keeps per-workspace charge headers and values visible on phones', () => {
     const source = readFileSync(join(appDir, 'features/activity/global-page.tsx'), 'utf8');
     const section = source.split('<section aria-label={uiT("Activity by workspace")}')[1].split('</section>')[0];
