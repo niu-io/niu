@@ -16,7 +16,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupContent, useSidebar } from '@/components/ui/sidebar';
 import ProviderLogo from '@/components/ProviderLogo';
-import { modelIdentity, modelDeveloper, modelProviderName, catalogTitle, disambiguatedCatalogTitle } from '@/lib/providers';
+import { modelIdentity, modelProviderName, catalogTitle, disambiguatedCatalogTitle } from '@/lib/providers';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -181,14 +181,6 @@ function catalogTier(model: Model): number {
 
 function ModelTableContent({ models, header, publicMode = false }: { models: Model[]; header?: ReactNode; publicMode?: boolean }) {
   const { t: uiT, format: uiF, isZh } = useUILocale();
-  function chooseAuthor(value: string) {
-    setAuthorsSelected(current => {
-      const nextAuthors = current.includes(value) ? current.filter(id => id !== value) : [...current, value];
-      syncCatalogUrl({ authors: nextAuthors });
-      return nextAuthors;
-    });
-    setLimit(20);
-  }
   const { token, workspace, workspaces, session, rememberChatKey, reloadWorkspaces } = useDashboardContext();
   const isPlatformAdmin = Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false));
   const canWrite = session?.permissions?.write !== false;
@@ -210,7 +202,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
   const popularModels = ranked.models;
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [authorsSelected, setAuthorsSelected] = useState<string[]>(() => searchParams.getAll('dev').filter(Boolean));
   const [providersSelected, setProvidersSelected] = useState<string[]>(() => searchParams.getAll('provider').filter(Boolean));
   const [capabilities, setCapabilities] = useState<Record<CapabilityGroup, string[]>>(() => ({
     input: searchParams.getAll('input').filter(Boolean),
@@ -219,10 +210,8 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
   }));
   const hasCapabilities = Object.values(capabilities).some(values => values.length > 0);
   const activeFilterCount =
-    authorsSelected.length +
     providersSelected.length +
     Object.values(capabilities).reduce((sum, list) => sum + list.length, 0);
-  const [allAuthors, setAllAuthors] = useState(false);
   const [sort, setSort] = useState<'recommended' | 'name' | 'context'>(() => {
     const initial = searchParams.get('sort');
     return initial === 'name' || initial === 'context' ? initial : 'recommended';
@@ -230,13 +219,11 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
   function syncCatalogUrl(overrides: {
     query?: string;
     sort?: string;
-    authors?: string[];
     providers?: string[];
     capabilities?: Record<CapabilityGroup, string[]>;
   } = {}) {
     const nextQuery = overrides.query ?? query;
     const nextSort = overrides.sort ?? sort;
-    const nextAuthors = overrides.authors ?? authorsSelected;
     const nextProviders = overrides.providers ?? providersSelected;
     const nextCapabilities = overrides.capabilities ?? capabilities;
     const next = new URLSearchParams(location.search);
@@ -252,7 +239,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     next.delete('cap');
     for (const item of nextCapabilities.features) next.append('cap', item);
     next.delete('dev');
-    for (const item of nextAuthors) next.append('dev', item);
     next.delete('provider');
     for (const item of nextProviders) next.append('provider', item);
     next.delete('source');
@@ -275,17 +261,15 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
   }
   function clearAllFilters() {
     const cleared = emptyCapabilities();
-    setAuthorsSelected([]);
     setProvidersSelected([]);
     setCapabilities(cleared);
     setQuery('');
     setLimit(20);
-    syncCatalogUrl({ query: '', authors: [], providers: [], capabilities: cleared });
+    syncCatalogUrl({ query: '', providers: [], capabilities: cleared });
     searchInputRef.current?.focus();
   }
   const availableCapabilities = capabilityGroups.map(group => ({ ...group, options: group.options.filter(([value]) => models.some(model => capabilityValues(model, group.id).includes(value))) }));
   const providers = [...new Set(models.map(modelProviderName).filter((provider): provider is string => Boolean(provider)))].sort();
-  const authors = useMemo(() => [...new Map(models.flatMap(model => { const identity = modelDeveloper(model); return identity ? [[identity.id, identity] as const] : []; })).values()].sort((a, b) => a.name.localeCompare(b.name)), [models]);
   const [limit, setLimit] = useState(20);
   const requestedId = params['*'] || null;
   const selectedId = requestedId && !models.some(model => model.id === requestedId)
@@ -302,11 +286,10 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     for (const item of capabilities.input) sp.append('input', item);
     for (const item of capabilities.output) sp.append('output', item);
     for (const item of capabilities.features) sp.append('cap', item);
-    for (const item of authorsSelected) sp.append('dev', item);
     for (const item of providersSelected) sp.append('provider', item);
     const serialized = sp.toString();
     return serialized ? `?${serialized}` : '';
-  }, [query, sort, capabilities, authorsSelected, providersSelected]);
+  }, [query, sort, capabilities, providersSelected]);
   function generationHref(model: Model, kind: 'chat' | 'video', keyRef?: string) {
     const query = new URLSearchParams({new: kind === 'video' ? 'video' : '1', model: model.id});
     if (!publicMode && workspace) query.set('workspace', workspacePathSegment(workspace, workspaces ?? [workspace]));
@@ -349,10 +332,9 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     const matches = popularModels.filter(
       model =>
         matchesCapabilities(model, capabilities) &&
-        (!authorsSelected.length || authorsSelected.includes(modelDeveloper(model)?.id ?? '')) &&
         (!providersSelected.length || providersSelected.includes(modelProviderName(model) ?? '')) &&
         (!value ||
-          `${model.id} ${model.catalog?.name ?? ''} ${model.catalog?.description ?? ''} ${model.provider ?? ''} ${model.upstream_model ?? ''} ${modelIdentity(model).name}`
+          `${model.id} ${model.catalog?.name ?? ''} ${model.catalog?.description ?? ''} ${model.provider ?? ''} ${model.upstream_model ?? ''}`
             .toLowerCase()
             .includes(value)),
     );
@@ -363,7 +345,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
       return [...matches].sort((a, b) => (b.catalog?.context_length ?? -1) - (a.catalog?.context_length ?? -1) || (a.catalog?.name || a.id).localeCompare(b.catalog?.name || b.id, 'en', {numeric:true,sensitivity:'base'}));
     }
     return [...matches].sort((a, b) => catalogTier(a) - catalogTier(b));
-  }, [popularModels, query, authorsSelected, providersSelected, capabilities, sort]);
+  }, [popularModels, query, providersSelected, capabilities, sort]);
   const visible = filtered.slice(0, limit);
   const selected = models.find(model => model.id === selectedId) ?? null;
   const showOriginalDescription = Boolean(selected?.catalog?.description) && (!publicMode || (isZh ? !/\p{Script=Han}/u.test(selected?.catalog?.description ?? '') : /\p{Script=Han}/u.test(selected?.catalog?.description ?? '')));
@@ -455,12 +437,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
               </Label>)}</div>
             </CollapsibleContent>
           </Collapsible>)}
-          <Collapsible className="models-filter-group pt-2 mt-1" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Inferred developer", "推测的开发者")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Inferred developer filters")}>
-          <p className="text-xs text-muted-foreground">{uiT("Inferred from model identifiers; not verified.")}</p><div className="models-filter-options">
-            {(allAuthors ? authors : authors.slice(0, 10)).map(identity => <Label key={identity.id}><Checkbox aria-label={identity.name} checked={authorsSelected.includes(identity.id)} onCheckedChange={() => chooseAuthor(identity.id)} />{identity.name}<span>{models.filter(model => modelDeveloper(model)?.id === identity.id).length}</span></Label>)}
-          </div>
-          {authors.length > 10 && <Button variant="ghost" size="sm" onClick={() => setAllAuthors(value => !value)}>{allAuthors ? uiT("Show fewer") : uiT("Show all developers")}</Button>}
-          </CollapsibleContent></Collapsible>
           {providers.length > 0 && <Collapsible className="models-filter-group" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Providers")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Provider filters")}><div className="models-filter-options">
             {providers.map(provider => <Label key={provider}><Checkbox aria-label={provider} checked={providersSelected.includes(provider)} onCheckedChange={() => { setProvidersSelected(current => { const nextProviders = current.includes(provider) ? current.filter(id => id !== provider) : [...current, provider]; syncCatalogUrl({ providers: nextProviders }); return nextProviders; }); setLimit(20); }} />{provider}<span>{models.filter(model => modelProviderName(model) === provider).length}</span></Label>)}
           </div></CollapsibleContent></Collapsible>}
@@ -494,13 +470,12 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
           </div>
         </div>
 
-        {(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities) && <div className="flex flex-wrap gap-2 pt-3" aria-label={uiT("Active model filters")}>
+        {(providersSelected.length > 0 || hasCapabilities) && <div className="flex flex-wrap gap-2 pt-3" aria-label={uiT("Active model filters")}>
           {capabilityGroups.flatMap(group => group.options.filter(([value]) => capabilities[group.id].includes(value)).map(([value, label]) => <Button key={`${group.id}-${value}`} variant="secondary" size="sm" aria-label={isZh ? uiF("Remove {0} {1} filter", [uiT(label), group.id === 'input' ? '输入' : group.id === 'output' ? '输出' : '能力']) : uiF("Remove {0} {1} filter", [label, group.id])} onClick={() => toggleCapability(group.id, value)}>{group.id === 'features' ? uiT(label) : `${uiT(group.id === 'input' ? 'Input' : 'Output')}: ${uiT(label)}`}<X size={12} aria-hidden="true" /></Button>))}
-          {authors.filter(author => authorsSelected.includes(author.id)).map(author => <Button key={author.id} variant="secondary" size="sm" aria-label={uiF("Remove {0} developer filter", [author.name])} onClick={() => chooseAuthor(author.id)}>{uiT("Developer:")}{" "}{author.name}<X size={12} aria-hidden="true" /></Button>)}
           {providersSelected.map(provider => <Button key={provider} variant="secondary" size="sm" aria-label={uiF("Remove {0} provider filter", [provider])} onClick={() => { setProvidersSelected(current => { const nextProviders = current.filter(value => value !== provider); syncCatalogUrl({ providers: nextProviders }); return nextProviders; }); setLimit(20); }}>{uiT("Provider:")}{" "}{provider}<X size={12} aria-hidden="true" /></Button>)}
         </div>}
-        <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString(readUILocale())} {filtered.length === 1 ? uiT("model") : uiT("models")}</span>{filtered.length > 0 && (authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <Button variant="ghost" size="sm" onClick={clearAllFilters}>{uiT("Clear filters")}</Button>}</div>
-        {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle><EmptyDescription>{uiT("Try another search or remove a filter.")}</EmptyDescription></EmptyHeader>{(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <EmptyContent><Button variant="outline" onClick={clearAllFilters}>{uiT("Clear filters")}</Button></EmptyContent>}</Empty> : <div className="models-cards">
+        <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString(readUILocale())} {filtered.length === 1 ? uiT("model") : uiT("models")}</span>{filtered.length > 0 && (providersSelected.length > 0 || hasCapabilities || query) && <Button variant="ghost" size="sm" onClick={clearAllFilters}>{uiT("Clear filters")}</Button>}</div>
+        {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle><EmptyDescription>{uiT("Try another search or remove a filter.")}</EmptyDescription></EmptyHeader>{(providersSelected.length > 0 || hasCapabilities || query) && <EmptyContent><Button variant="outline" onClick={clearAllFilters}>{uiT("Clear filters")}</Button></EmptyContent>}</Empty> : <div className="models-cards">
           {visible.map(model => {
             const cardTitle = disambiguatedCatalogTitle(model, models);
             const rawDesc = model.catalog?.description;
@@ -621,7 +596,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
         {!!selected.catalog?.input_modalities?.length && <div><dt>{uiT("Input modalities")}</dt><dd>{formatModalityList(selected.catalog.input_modalities, isZh)}</dd></div>}
         {!!capabilityValues(selected,'output').length && <div><dt>{uiT("Output modalities")}</dt><dd>{formatModalityList(capabilityValues(selected,'output'), isZh)}</dd></div>}
 
-        {modelDeveloper(selected) && <div><dt>{uiT("Inferred developer", "推测的开发者")}</dt><dd>{modelDeveloper(selected)!.name}</dd></div>}
         {modelProviderName(selected) && <div><dt>{uiT("Provider")}</dt><dd>{modelProviderName(selected)}</dd></div>}
         {selected.upstream_model && selected.upstream_model !== selected.id && <div><dt>{uiT("Upstream model")}</dt><dd>{selected.upstream_model}</dd></div>}
       </dl>
