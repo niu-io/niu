@@ -140,6 +140,18 @@ function DialogModelPicker({
   );
 }
 
+function useTariffDismiss(draft: readonly unknown[], saving: boolean, onClose: () => void) {
+  const values = JSON.stringify(draft);
+  const [original] = useState(values);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  function dismiss() {
+    if (saving) return;
+    if (values === original) onClose();
+    else setConfirmDiscard(true);
+  }
+  return { dismiss, confirmDiscard, keepEditing: () => setConfirmDiscard(false) };
+}
+
 function MissingTariffModel({ message, failed, loading, onRefresh, onClose }: { message: string; failed: boolean; loading: boolean; onRefresh: () => void; onClose: () => void }) {
   const { t } = useUILocale();
   return <>
@@ -420,6 +432,7 @@ function UnitTextTariffDialog({
   const [minimumCharge, setMinimumCharge] = useState(initial ? unitAmountFromAtoms(initial.price.minimum_charge_atoms) : '0');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const { dismiss, confirmDiscard, keepEditing } = useTariffDismiss([modelAlias, rates, tiers, requestFee, minimumCharge], saving, onClose);
 
   useEffect(() => {
     if (initial) return;
@@ -470,13 +483,16 @@ function UnitTextTariffDialog({
   }
 
   return (
-    <Dialog open onOpenChange={open => { if (!open && !saving) onClose(); }}>
+    <Dialog open onOpenChange={open => { if (!open) dismiss(); }}>
       <DialogContent onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(); }} className="w-[calc(100vw-2rem)] sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{initial ? uiF("Revise {0} text tariff", [unitName]) : uiF("Publish {0} text tariff", [unitName])}</DialogTitle>
           <DialogDescription>{uiF("Rates are in {0} per 1,000,000 tokens. Up to 9 decimal places are stored exactly.", [unitName])}</DialogDescription>
         </DialogHeader>
-        {!initial && (!modelsLoading || modelsRevision > 0) && (modelsError || !models.length) ? <MissingTariffModel message={modelsError ? uiT(modelsError) : uiT("No registered models are available for pricing.")} failed={Boolean(modelsError)} loading={modelsLoading} onRefresh={() => refreshModels(value => value + 1)} onClose={onClose} /> : <form className="space-y-4" onSubmit={event => void submit(event)}>
+        {confirmDiscard ? <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>{uiT("Discard changes", "放弃修改")}</Button>
+          <Button type="button" autoFocus onClick={keepEditing}>{uiT("Keep editing", "继续编辑")}</Button>
+        </DialogFooter> : !initial && (!modelsLoading || modelsRevision > 0) && (modelsError || !models.length) ? <MissingTariffModel message={modelsError ? uiT(modelsError) : uiT("No registered models are available for pricing.")} failed={Boolean(modelsError)} loading={modelsLoading} onRefresh={() => refreshModels(value => value + 1)} onClose={onClose} /> : <form className="space-y-4" onSubmit={event => void submit(event)}>
           <div className="space-y-1.5">
             <Label htmlFor="unit-tariff-model">{uiT("Model")}</Label>
             {initial ? <p className="break-words">{modelAlias}</p> : <DialogModelPicker id="unit-tariff-model" modelAlias={modelAlias} onSelect={choice => { setModelAlias(choice.model_alias); setError(''); }} choices={models} loading={modelsLoading} ariaLabel={uiT("Credits text tariff model")} />}
@@ -497,7 +513,7 @@ function UnitTextTariffDialog({
           </div>
           {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
           <div className="flex flex-wrap justify-end gap-2">
-            <Button type="button" variant="outline" disabled={saving} onClick={onClose}>{uiT("Cancel")}</Button>
+            <Button type="button" variant="outline" disabled={saving} onClick={dismiss}>{uiT("Cancel")}</Button>
             <Button type="submit" disabled={saving || !modelAlias.trim() || !rates.prompt_rate.trim() || !rates.completion_rate.trim()}>{saving ? uiT("Publishing…") : initial ? uiF("Revise {0} tariff", [unitName]) : uiF("Publish {0} tariff", [unitName])}</Button>
           </div>
         </form>}
@@ -537,6 +553,7 @@ function UnitMediaTariffDialog({
   const [rounding, setRounding] = useState<'Down' | 'Up' | 'HalfEven'>(initial?.price.rounding ?? 'Up');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const { dismiss, confirmDiscard, keepEditing } = useTariffDismiss([modelAlias, channel, resolution, referenceVideo, amount, perQuantity, minimumQuantity, rounding], saving, onClose);
 
   useEffect(() => {
     if (initial) return;
@@ -609,12 +626,15 @@ function UnitMediaTariffDialog({
   }
 
   return (
-    <Dialog open onOpenChange={open => { if (!open && !saving) onClose(); }}>
+    <Dialog open onOpenChange={open => { if (!open) dismiss(); }}>
       <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(); }} className="w-[calc(100vw-2rem)] sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{initial ? uiF("Revise {0} media tariff", [unitName]) : uiF("Publish {0} media tariff", [unitName])}</DialogTitle>
         </DialogHeader>
-        {!initial && (!modelsLoading || modelsRevision > 0) && (modelsError || !models.length) ? <MissingTariffModel message={modelsError ? uiT(modelsError) : uiT("No registered models use video-token media pricing.")} failed={Boolean(modelsError)} loading={modelsLoading} onRefresh={() => refreshModels(value => value + 1)} onClose={onClose} /> : <form className="space-y-4" onSubmit={event => void submit(event)}>
+        {confirmDiscard ? <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>{uiT("Discard changes", "放弃修改")}</Button>
+          <Button type="button" autoFocus onClick={keepEditing}>{uiT("Keep editing", "继续编辑")}</Button>
+        </DialogFooter> : !initial && (!modelsLoading || modelsRevision > 0) && (modelsError || !models.length) ? <MissingTariffModel message={modelsError ? uiT(modelsError) : uiT("No registered models use video-token media pricing.")} failed={Boolean(modelsError)} loading={modelsLoading} onRefresh={() => refreshModels(value => value + 1)} onClose={onClose} /> : <form className="space-y-4" onSubmit={event => void submit(event)}>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="unit-media-model">{uiT("Model")}</Label>
@@ -673,7 +693,7 @@ function UnitMediaTariffDialog({
             </Alert>
           )}
           <div className="flex flex-wrap justify-end gap-2">
-            <Button type="button" variant="outline" disabled={saving} onClick={onClose}>{uiT("Cancel")}</Button>
+            <Button type="button" variant="outline" disabled={saving} onClick={dismiss}>{uiT("Cancel")}</Button>
             <Button type="submit" disabled={saving || !modelAlias.trim() || !resolution.trim() || !amount.trim()}>{saving ? uiT("Publishing…") : initial ? uiF("Revise {0} tariff", [unitName]) : uiF("Publish {0} tariff", [unitName])}</Button>
           </div>
         </form>}
