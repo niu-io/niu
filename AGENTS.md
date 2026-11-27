@@ -141,6 +141,8 @@ Before delivery, compare the rendered result directly against both the reference
 
 ## Navigation hierarchy
 
+The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
+
 Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
 
 Returning from request details restores the inspected row, focus and loaded page depth for that log history entry. Restore only from workspaces that are still authorized.
