@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ProviderRequestError, request, writeMayHaveCommitted } from '@/features/providers/api';
 import { compactMediaAmount, mediaAmountUnits, mediaQuantity, mediaQuantityInput, mediaPriceExample } from '@/lib/media-price';
@@ -18,7 +18,7 @@ import type { RetailPriceRecord, RetailPublicationResult, RetailSchedule, Retail
 
 type MediaSchedule = Extract<RetailSchedule, { kind: 'media' }>;
 /** Explicit media dimensions and metering; price configuration is not qualification. */
-export function MediaStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean) => void; onSaved: () => void }) {
+export function MediaStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean, conflict?: boolean) => void; onSaved: () => void }) {
   const { t: uiT } = useUILocale();
   const original = previous?.schedule.kind === 'media' ? previous.schedule : undefined;
   const [model, setModel] = useState(previous?.model_alias ?? initialModel);
@@ -62,7 +62,7 @@ export function MediaStandardEditor({ token, previous, initialModel = '', open =
   try { if (meter && price) example = mediaPriceExample(price, places, per, minimum, exampleQuantity, rounding); } catch { /* Invalid draft fields have no price example. */ }
   const locked = busy || !!attempt || conflict, identityLocked = locked || !!previous;
   async function publish(event: FormEvent) {
-    event.preventDefault(); if (busy || conflict) return;
+    event.preventDefault(); if (busy || conflict || confirmDiscard) return;
     let input = attempt;
     if (!input) {
       try {
@@ -92,7 +92,7 @@ export function MediaStandardEditor({ token, previous, initialModel = '', open =
   function requestClose() {
     if (busy) return;
     if (dirty && !attempt && !conflict) setConfirmDiscard(true);
-    else onClose(!!attempt && !conflict);
+    else onClose(!!attempt && !conflict, conflict);
   }
   return <Dialog open={open} onOpenChange={value => { if (!value) requestClose(); }}><DialogContent aria-describedby={undefined} onCloseAutoFocus={onCloseAutoFocus} className="w-[calc(100vw-2rem)] sm:max-w-3xl"><DialogHeader><DialogTitle>{previous ? uiT("Revise media standard price") : uiT("Publish media standard price")}</DialogTitle></DialogHeader><form onChange={() => setDirty(true)} className="space-y-4" onSubmit={event => void publish(event)}>
     {(previous || !modelsLoaded || models.length > 0) && <div className="space-y-2"><Label>{uiT("Model")}</Label>{previous ? <p className="break-words">{model}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={locked || !modelsLoaded || !!modelsError} aria-label={uiT("Media standard model")}>{model || (modelsLoaded ? uiT("Choose media model") : uiT("Loading media models…"))}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><Input aria-label={uiT("Filter registered media models")} placeholder={uiT("Filter models")} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key.length === 1 || event.key === 'Backspace' || event.key === 'Delete') event.stopPropagation(); }} /><DropdownMenuRadioGroup value={model} onValueChange={value => { const choice=models.find(item=>item.model_alias===value)?.media; setModel(value);setChannel(choice?.channel ?? '');setMeter(choice?.meter ?? '');setResolution(choice?.resolutions.length===1?choice.resolutions[0]:'');setReference(false);setError(''); }}>{models.filter(item => item.model_alias.toLowerCase().includes(query.trim().toLowerCase())).map(item => <DropdownMenuRadioItem key={item.model_alias} value={item.model_alias}>{item.model_alias}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>{!models.length && <p className="p-2 text-sm">{uiT("No configured media models available.")}</p>}</DropdownMenuContent></DropdownMenu>}</div>}
@@ -109,11 +109,9 @@ export function MediaStandardEditor({ token, previous, initialModel = '', open =
     <div className="space-y-2"><Label htmlFor="media-reason">{uiT("Note (optional)")}</Label><Input id="media-reason" maxLength={500} value={reason} disabled={locked} onChange={event => { setReason(event.target.value); setError(''); }} /></div>
     </>}
     {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
-    {confirmDiscard && <Alert><AlertDescription className="flex flex-wrap items-center gap-2">
-      {uiT("Discard unpublished changes?", "放弃未发布的修改？")}
-      <Button type="button" onClick={() => setConfirmDiscard(false)}>{uiT("Keep editing", "继续编辑")}</Button>
+    {confirmDiscard ? <DialogFooter key="discard">
       <Button type="button" variant="outline" onClick={() => onClose(false)}>{uiT("Discard changes", "放弃修改")}</Button>
-    </AlertDescription></Alert>}
-    <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" onClick={requestClose}>{uiT("Close")}</Button>{showFields && <Button type="submit" disabled={busy || conflict || !model || (!previous && (!selected || !resolution))}>{busy ? uiT("Publishing…") : attempt ? uiT("Retry exact publication") : uiT("Publish media standard")}</Button>}</div>
+      <Button type="button" autoFocus onClick={() => setConfirmDiscard(false)}>{uiT("Keep editing", "继续编辑")}</Button>
+    </DialogFooter> : <DialogFooter key="publish"><Button type="button" variant="outline" onClick={requestClose}>{uiT("Close")}</Button>{showFields && <Button type="submit" disabled={busy || conflict || !model || (!previous && (!selected || !resolution))}>{busy ? uiT("Publishing…") : attempt ? uiT("Retry exact publication") : uiT("Publish media standard")}</Button>}</DialogFooter>}
   </form></DialogContent></Dialog>;
 }

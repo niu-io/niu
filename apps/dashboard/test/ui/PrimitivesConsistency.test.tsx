@@ -25,6 +25,18 @@ describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
 
+  it('pins both credit tariff writes to the revision shown on opening', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/unit-tariffs.tsx'), 'utf8');
+    expect(source.match(/const \[config\] = useState\(openingConfig\)/g)).toHaveLength(2);
+    expect(source.match(/expected_revision: config\.revision/g)).toHaveLength(2);
+    expect(source).not.toContain('expected_revision: latestCfg');
+  });
+
+  it('keeps storage precision guidance out of the credit tariff heading', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/unit-tariffs.tsx'), 'utf8');
+    expect(source).not.toContain('decimal places are stored exactly');
+  });
+
   it('keeps per-workspace charge headers and values visible on phones', () => {
     const source = readFileSync(join(appDir, 'features/activity/global-page.tsx'), 'utf8');
     const section = source.split('<section aria-label={uiT("Activity by workspace")}')[1].split('</section>')[0];
@@ -141,6 +153,29 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(fallback.className).not.toContain('bg-muted');
   });
 
+  it('sizes the narrow log date control to its selected range', () => {
+    const css = readFileSync(join(appDir, 'styles/operations.css'), 'utf8');
+    expect(css).not.toMatch(/\.request-date-trigger\s*\{\s*width:\s*100px;/);
+  });
+
+  it('reserves room for the current breadcrumb in narrow headers', () => {
+    const css = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
+    expect(css).toContain('[data-slot="breadcrumb-item"]:last-child { flex: 1 0 auto;');
+    expect(css).toContain('[data-slot="breadcrumb-item"]:only-child { max-width: 100%; }');
+  });
+
+  it('keeps the customer creation label visible on phones', () => {
+    const customers = readFileSync(join(appDir, 'features/customers/customer-directory.tsx'), 'utf8');
+    expect(customers).not.toMatch(/className="hidden sm:inline">\{uiT\("New customer"\)/);
+  });
+
+  it('offers recovery when an audit category or search yields no matches', () => {
+    const source = readFileSync(join(appDir, 'features/audit-logs/page.tsx'), 'utf8');
+    expect(source).toContain("const filtered = category !== 'all' || Boolean(query.trim())");
+    expect(source).toContain('filtered && <EmptyContent>');
+    expect(source).toContain('searchInput.current?.focus()');
+  });
+
   it('keeps the key directory as a responsive list instead of a fixed-width table', () => {
     const css = readFileSync(resolve(process.cwd(), 'app/styles/operations.css'), 'utf8');
     const keys = readFileSync(join(appDir, 'features/keys/components/KeysView.tsx'), 'utf8');
@@ -166,6 +201,12 @@ describe('Shared UI primitives layout safeguards', () => {
       }
     }
     expect(violations).toEqual([]);
+  });
+
+  it('keeps account activity reachable on both global activity tabs', () => {
+    const rail = readFileSync(join(appDir, 'shell/ShellNavigation.tsx'), 'utf8');
+    expect(rail).toContain('<ProductRailLink to="/activity"');
+    expect(rail).toContain("isActive={pathname === '/activity' || pathname.startsWith('/activity/')}");
   });
 
   it('portals top-level PageHeader tabs into #dashboard-page-tabs and falls back inline when nested', () => {
@@ -226,6 +267,14 @@ describe('Shared UI primitives layout safeguards', () => {
     ]) {
       const source = readFileSync(join(appDir, rel), 'utf8');
       expect(source, `${rel} should pass primary section tabs into PageHeader`).toMatch(/<PageHeader[\s\S]*?tabs=/);
+    }
+  });
+
+  it('guards submission while price editors ask whether to discard a draft', () => {
+    for (const kind of ['text', 'media']) {
+      const source = readFileSync(join(appDir, 'features/retail-pricing', `${kind}-editor.tsx`), 'utf8');
+      expect(source).toContain('if (busy || conflict || confirmDiscard) return;');
+      expect(source).toContain('{confirmDiscard ? <DialogFooter');
     }
   });
 
@@ -349,6 +398,23 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(surfaces).toContain('.dashboard-page-header:has(.dashboard-page-tabs:not(:empty)) .dashboard-page-tabs { order: 10; flex: 1 0 100%;');
     expect(shell).toContain('.page-content { width: 100%; max-width: none; flex: 1 0 auto; margin: 0; padding-block: 24px 72px; }');
     expect(foundation).not.toMatch(/\.page-content\s*\{[^}]*padding:/);
+  });
+
+  it('reveals the selected header tab after portal selection and strip resize without moving focus', () => {
+    const shell = readFileSync(join(appDir, 'shell/ShellHeader.tsx'), 'utf8');
+    const start = shell.indexOf('function revealSelectedTab');
+    const effect = shell.slice(start, shell.indexOf('}, []);', start));
+    expect(effect).toContain('aria-selected="true"');
+    expect(effect).toContain('new MutationObserver(revealSelectedTab)');
+    expect(effect).toContain('new ResizeObserver(revealSelectedTab)');
+    expect(effect).toContain('host.scrollLeft');
+    expect(effect).not.toMatch(/scrollIntoView|\.focus\(/);
+  });
+
+  it('keeps the price row available for focus on editor cancellation', () => {
+    const page = readFileSync(join(appDir, 'features/retail-pricing/page.tsx'), 'utf8');
+    expect(page).toContain('if (conflict) reloadFresh();');
+    expect(page).not.toContain('if (!pending) { setEditor(null); reloadFresh(); }');
   });
 
   it('keeps dialog framing, bounded scroll, and close affordances in the shared primitive', () => {

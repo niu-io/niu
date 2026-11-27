@@ -232,7 +232,18 @@ function GlobalActivity({token, models}: {token: string; models: string[]}) {
   }, [pages, loading]);
   const totals = activityTotals(pages);
   const rows = pages.flatMap(item => item.page.data.map(request => ({workspace: item.workspace, request}))).sort((a,b) => b.request.created_at.localeCompare(a.request.created_at));
-  const chooseWorkspace = (id: string) => {const query = new URLSearchParams(); if (pendingOnly) query.set('settlement','pending'); if (id) query.set('workspace',id); setParams(query);};
+  function chooseWorkspace(id: string) {
+    const query = new URLSearchParams();
+    if (pendingOnly) query.set('settlement', 'pending');
+    if (id) {
+      query.set('workspace', id);
+      for (const bound of ['from', 'to']) {
+        const date = params.get(bound);
+        if (date) query.set(bound, date);
+      }
+    }
+    setParams(query);
+  }
   const workspaceFilterMenu = <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={loading} aria-label={uiT("Filter Activity by workspace")} className="min-w-0"><span className="max-w-52 truncate">{selected ? name(selected) : selectedId ? uiT("Unavailable workspace") : uiT("All workspaces")}</span><IconChevronDown size={16} className="shrink-0"/></Button></DropdownMenuTrigger><DropdownMenuContent align="end" collisionPadding={16} className="max-h-80 max-w-[calc(100vw-32px)] overflow-y-auto"><DropdownMenuRadioGroup value={selected ? scopeSegment(selected, workspaces) : selectedId} onValueChange={chooseWorkspace}><DropdownMenuRadioItem value="">{uiT("All workspaces")}</DropdownMenuRadioItem>{workspaces.map(workspace => <DropdownMenuRadioItem key={workspace.id} value={scopeSegment(workspace, workspaces)}><span className="min-w-0 whitespace-normal break-words">{name(workspace)}{workspace.organization_name ? ` · ${organizationDisplayName(workspace.organization_name)}` : ''}</span></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>;
   return <div className="grid min-w-0 grid-cols-1 gap-4">
     <PageHeader title={section === 'logs' ? uiT("Logs") : uiT("Overview")} action={<>{workspaceFilterMenu}{!selected && <Button variant="ghost" size="icon-sm" aria-label={uiT("Refresh Activity")} disabled={loading || older} onClick={()=>setRevision(value=>value+1)}><IconRefresh size={16}/></Button>}</>} />

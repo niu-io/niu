@@ -9,6 +9,7 @@ import CommercialPositionPage from '../../../app/features/commercial-position/pa
 vi.mock('../../../app/shell/dashboard-context', () => ({
   useDashboardContext: () => ({
     token: 'platform-admin-token',
+    workspaces: [{ id: 'w1', slug: 'research', name: 'Research' }],
   }),
 }));
 
@@ -326,4 +327,25 @@ it('compacts sub-cent-hundredth figures and single-nanounit quotes while surfaci
   const unitTable = screen.getByRole('table', { name: 'Provider commercial positions' });
   expect(within(unitTable).getByText('In <$0.000001 · Out <$0.000001 / 1M')).toBeTruthy();
   expect(within(unitTable).queryByText(/\$0\.000000001/)).toBeNull();
+});
+
+it('links pending evidence only for accessible workspaces', async () => {
+  const row = {
+    ...samplePosition.data[0],
+    unresolved_attempts: '2',
+    pending_attempts: [
+      { attempt: 'a1', workspace_id: 'w1', reference: 'req-1', charge_missing: true },
+      { attempt: 'a2', workspace_id: 'other', reference: 'req-2', charge_missing: true },
+    ],
+  };
+  vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => Response.json(
+    String(url).includes('/finance/position') ? {...samplePosition, data: [row]} : sampleSummary,
+  )));
+  const user = userEvent.setup();
+  render(<MemoryRouter initialEntries={['/admin/reports?tab=unit-economics']}><CommercialPositionPage/></MemoryRouter>);
+  await user.click(await screen.findByRole('button', {name: /Pending.*2.*unresolved/i}));
+  const sheet = within(screen.getByRole('dialog'));
+  expect(sheet.getByRole('link', {name: 'req-1'}).getAttribute('href')).toBe('/workspaces/research/executions#gateway-attempt-req-1');
+  expect(sheet.getByText('req-2')).toBeTruthy();
+  expect(sheet.queryByRole('link', {name: 'req-2'})).toBeNull();
 });

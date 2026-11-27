@@ -2,6 +2,8 @@
 
 This document defines the mandatory, product-wide UI and interaction standards for the Niu dashboard. Every new or modified page, dialog, menu, composer, and status surface must conform to these rules so the product looks and behaves as one coherent system rather than a collection of ad-hoc overrides.
 
+In narrow headers, truncate the parent breadcrumb before clipping a short current page title. Keep the workspace picker and page actions reachable.
+
 ## 1. Visual System & Semantic Tokens
 
 - **Single token source**: Define brand, surface, text, border, and elevation tokens in [`branding/tokens.css`](../../branding/tokens.css) and map them in [`apps/dashboard/app/styles/theme.css`](../../apps/dashboard/app/styles/theme.css). Never hardcode one-off hex colors in feature stylesheets or JSX.
@@ -10,7 +12,11 @@ This document defines the mandatory, product-wide UI and interaction standards f
 - **Sidebar hierarchy**: Active navigation items use a clear, unmistakable fill (`#E8E3DC` light / `#2F2A26` dark) with medium-semibold ink (`--sidebar-accent-foreground`).
 - **Concise Chinese labels**: Use the shortest unambiguous Chinese noun or verb for navigation, buttons, field labels, statuses, and headings. Do not retain qualifier phrases already established by the section, icon, or entity name (`在对话中试用` → `试用`; `外观与语言` → `外观`; `成员管理` → `成员`; `额度与充值` → `额度`; `保存更改` → `保存`; `版本发布说明` → `发布说明`). Keep entity, authorization, scope, and financial terms intact, and keep the English label coherent with the Chinese action. Explanatory and metric labels stay complete when the short form would be ambiguous (`可用余额`, `账面余额`, `请求预留`, `已关闭`).
 
-The API key directory shows one labeled creation action at every width, including when an active filter hides historical keys.
+Account-wide Activity belongs in the account section of the workspace sidebar. Keep that destination selected on both the overview and logs tabs. Workspace Logs stays scoped to the selected workspace.
+
+The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
+
+Customer and API key directories keep their primary creation action visibly labeled at every width. The key directory shows one creation action even when an active filter hides historical keys.
 
 ## 2. Stable Dialog Frames & In-Control Loading
 
@@ -28,6 +34,10 @@ The API key directory shows one labeled creation action at every width, includin
 - **No trailing arrow icons in button labels**: Action buttons and button-styled links never append a diagonal arrow or external-link glyph after their label. Use a leading meaningful icon, no icon, or a trailing `ChevronRight` for directional navigation; external links keep the external affordance in the leading icon or accessible name.
 - **Transparent top navigation bars at rest, frosted glass on scroll**: Sticky/fixed top navigation bars (`.public-header`, Starlight `header.header`, `.public-models-topbar`, and `.dashboard-page-header`) must render completely transparent when unscrolled (`background: transparent`, `backdrop-filter: none`, `box-shadow: none`, and transparent bottom border unless hosting active header section tabs) and switch to frosted glass only when scrolled (`scrollY > 8` / `scrollTop > 8`: `68%–72%` translucent `--background` + `saturate(180%) blur(20px)` + subtle bottom hairline).
 ## 3. Uniform Choice, Header & Toolbar Controls
+
+Legacy platform settings URLs open the matching tab in the shared settings header. Keep unrelated query parameters and fragments when redirecting.
+
+Request toolbar date controls show both selected bounds at phone widths. Let the controls wrap below the request count when the row is too narrow.
 
 Search paginated audit history on the server before applying page limits. Match localized display labels, load further results only on request, and restore the first page when search is cleared.
 
@@ -66,12 +76,18 @@ Pending settlement drilldowns preserve the source scope and filter by customer c
 
 Financial report model counts use distinct active model aliases across Providers. Provider-by-model rows retain their individual financial amounts.
 
+Closing an unchanged pricing editor restores focus to its opening control. Refresh prices after a confirmed publication or revision conflict, and keep the price list mounted on ordinary cancellation.
+
 Returning from request details restores the inspected row, focus and loaded page depth for that log history entry. Restore only from workspaces that are still authorized.
 
 - **No raw unstyled loading paragraphs or visible skeleton captions**: Never render bare `<p role="status">Loading…</p>` in pages or dialogs, and never render visible `"Loading…"` / `"正在加载…"` captions above skeleton shimmer bars. Use `TableSkeleton`, `FormSectionSkeleton`, `ListRowsSkeleton`, `CardGridSkeleton`, or `WorkspaceShellSkeleton` (from [`PageSkeletons.tsx`](../../apps/dashboard/app/components/PageSkeletons.tsx)) with `<span className="sr-only">{label}</span>` so screen readers receive `role="status"` announcements while sighted users see clean shimmer geometry. Overview and checklist surfaces (`/admin`, `/workspaces/:workspace`) must gate zero-resource `"Action needed"` / `"Admin setup"` warnings until their snapshot or catalog load settles, and `<Navigate>` call sites must never pass inline object literals (`state={{ ... }}` or `to={{ ... }}`), which restart React Router transitions in an infinite loop.
 - **Quiet, card-free, vertically centered empty placeholders**: Never wrap empty list/table/sidebar placeholders in bulky rounded `bg-card` or `bg-muted` card slabs or decorative shadows. `<Empty>` stays transparent (`bg-transparent`, `border-0`, `w-full`) across full-width management pages, dialogs, embedded cards, and sidebars so it sits naturally on its host surface while spanning `100%` of the available width. Full-page empty states center vertically in the remaining canvas height through the shared `.empty-region` / route-level `[data-slot="empty"]` flex rules in `apps/dashboard/app/styles/surfaces.css` (never pinned to the upper half with a hardcoded `min-h` cap) and maintain relaxed proportions (`gap-5`, `text-base font-semibold leading-snug` title, `max-w-[36rem]` `text-balance` relaxed 14px description, `max-w-xl` action bar with uniform button heights and clear primary/secondary/tertiary hierarchy so desktop actions sit comfortably on a single row). Narrow sidebars and rails (such as Generations `Sessions`) override with compact padding and an unboxed muted icon (`EmptyMedia` default variant) rather than a boxed icon tile. Keep sibling configuration sections consistent with their surrounding `bg-card` peers.
 - **Sibling first-run parity**: Sibling creation surfaces in Generations (`Chat` and `Video`) share the same centered mode switcher (`Chat` / `Video`), heading scale (`.playground-first-run-heading`), and `.playground-starters` / `.playground-starter` card grid (`<strong>` title, `<span>` summary, trailing arrow icon).
 - **Never leak internal IDs**: Never render UUIDs/GUIDs in UI labels, tooltips, badges, dialogs, or error notices.
+
+Customer access lists retain workspace links, member roles and workspace scope on narrow screens. Show labeled values within each row without horizontal scrolling.
+
+A filtered registration queue with zero results shows the relevant empty title. Omit raw submission URLs and generic audit explanations.
 
 ## 6. Primitive & Stylesheet Hygiene
 
@@ -108,6 +124,8 @@ Upstream Providers are platform-managed vendor connections rather than multi-use
 
 Model mapping dialogs show a single title, the editable mapping fields and visible Cancel and Save actions. Keep catalog metadata and optional capabilities under advanced settings. Show video configuration for declared video output, unknown output, or an existing saved video configuration. On model catalog cards and detail pages (`ModelTable`), use concise **`Try`** (`试用`) for single-workflow trial actions (disambiguating `Try chat` / `Try video` only when a single model exposes both simultaneously) rather than verbose `"Try in Chat"` (`在对话中试用`), `"Try in Video"` (`在视频中试用`), or `"Open Generations"` (`打开多模态生成`), preserve distinguishing date suffixes (`disambiguatedCatalogTitle`) when dated and undated sibling variants coexist, reserve **`Not published`** (`未发布`) strictly for genuinely uncallable commercial models (`callable === false`, with zero trial links), and never stamp `"Capabilities not published"` (`能力未发布`) on callable models.
 
+Switching between named workspaces in Activity preserves the reporting dates. Workspace-specific keys do not follow the switch, and the all-workspaces summary retains its all-time scope.
+
 Tab navigation must preserve already available data within the same authorization and resource scope. A presentation-only tab change must not revalidate unrelated route loaders. Keep slow first reads and errors local to the affected panel. Verify both cold activation and return visits with browser frames.
 
 Workspace users discover models in one catalog. Platform administrators manage upstream Provider credentials. Never present internal funding classifications as model sources or imply that workspace users supply upstream keys. Workspace API keys authorize access to Niu.
@@ -126,11 +144,17 @@ Multi-mode creation and configuration dialogs MUST follow top-down causal order:
 
 Rounded financial amounts and changes must expose their exact values to touch and keyboard users. Use a focusable amount button and a popover when precision is omitted.
 
+Workspace spending labels identify the shared balance and the all-time workspace charge at their amounts. Show one funding action linked to account billing and keep workspace limits separately accessible.
+
 Group grant history with customer inspection actions and place balance-changing actions after a menu separator. Apply this order in the directory and customer detail.
 
 The base text rate starts at zero. Both monetary and credit editors show the inclusive range for each band, accept positive increasing token thresholds, and stop offering additional bands at 32.
 
 Use a right-side sheet for a current price comparison. Show both comparable rates with the currency, unit, route and threshold used by the platform. Distinguish unit spread from realized gross profit and label missing evidence. Place historical revision differences behind the current comparison. Price editors show complete input-token bands and preserve dirty input through accidental dismissal. Workspace model trials present applicable customer rates separately from upstream plan descriptions.
+
+Audit history distinguishes an empty filtered result from an empty journal. Clearing filters resets the category and query together and returns focus to search.
+
+A tab that groups multiple entity types must not show an unlabeled count for just one type. Keep counts with the entity they describe.
 
 ## Decision-focused interface copy
 
@@ -142,6 +166,8 @@ New text price and credit tariff menus use the registered route’s text eligibi
 
 A catalog model can be labeled free only when the complete applicable tariff establishes zero charges, including all token categories, context tiers, the request fee and the minimum charge. Show positive per-request charges alongside token rates.
 
+Unresolved financial report entries link their public request reference to the owning workspace log when that workspace is accessible. Older responses without scope remain readable.
+
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
@@ -149,3 +175,21 @@ On pricing tabs, identify the mode used for billing independently of the selecte
 When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
 
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
+
+Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action.
+
+On workspace Overview, expose a prerequisite action once. Keep the primary action visibly labeled on phones and use status counts to inspect the underlying resources.
+
+Direct video-mode links open the Video composer and its existing availability or setup state. A saved session retains its own workflow.
+
+Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
+
+Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
+
+Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
+
+Pricing editors show a single decision footer. When confirming draft dismissal, focus Keep editing, offer Discard changes, and prevent publication until editing resumes.
+
+When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
+
+Registration validation focuses the first invalid field and associates the inline error with that control. Editing an unrelated field preserves the error.

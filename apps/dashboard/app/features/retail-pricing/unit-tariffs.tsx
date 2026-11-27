@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { request } from '@/features/providers/api';
+import { ProviderRequestError, request } from '@/features/providers/api';
 import { registeredRetailModelChoices, registeredTextModelChoices, type RetailModelChoice } from './api';
 
 import type { ContextPriceTier } from '@niu-io/sdk/admin';
@@ -373,6 +373,7 @@ export function BrandedUnitTariffsSection({ token, filter, searchControl }: { to
         <UnitTextTariffDialog
           token={token}
           config={config}
+          onConflict={() => void load(true)}
           restoreFocus={() => tariffTrigger.current?.focus()}
           initial={textEditor === 'new' ? null : textEditor}
           onClose={() => setTextEditor(null)}
@@ -388,6 +389,7 @@ export function BrandedUnitTariffsSection({ token, filter, searchControl }: { to
         <UnitMediaTariffDialog
           token={token}
           config={config}
+          onConflict={() => void load(true)}
           restoreFocus={() => tariffTrigger.current?.focus()}
           initial={mediaEditor === 'new' ? null : mediaEditor}
           onClose={() => setMediaEditor(null)}
@@ -402,9 +404,16 @@ export function BrandedUnitTariffsSection({ token, filter, searchControl }: { to
   );
 }
 
+function focusConflictAlert(alert: HTMLDivElement | null) {
+  if (!alert) return;
+  alert.focus({ preventScroll: true });
+  alert.scrollIntoView({ block: 'center', behavior: 'instant' });
+}
+
 function UnitTextTariffDialog({
   token,
-  config,
+  config: openingConfig,
+  onConflict,
   initial,
   onClose,
   onSaved,
@@ -412,12 +421,15 @@ function UnitTextTariffDialog({
 }: {
   token: string;
   config: UnitPlatformConfig;
+  onConflict: () => void;
   initial: UnitTextTariffRecord | null;
   restoreFocus: () => void;
   onClose: () => void;
   onSaved: (modelAlias: string) => void;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
+  const [config] = useState(openingConfig);
+  const [conflict, setConflict] = useState(false);
   const unitName = config.definition?.name ?? uiT("Niu Credits");
   const [modelAlias, setModelAlias] = useState(initial?.model_alias ?? '');
   const [models, setModels] = useState<RetailModelChoice[]>([]);
@@ -431,6 +443,7 @@ function UnitTextTariffDialog({
   const [requestFee, setRequestFee] = useState(initial ? unitAmountFromAtoms(initial.price.request_fee_atoms) : '0');
   const [minimumCharge, setMinimumCharge] = useState(initial ? unitAmountFromAtoms(initial.price.minimum_charge_atoms) : '0');
   const [saving, setSaving] = useState(false);
+  const draftLocked = saving || modelsLoading;
   const [error, setError] = useState('');
   const { dismiss, confirmDiscard, keepEditing } = useTariffDismiss([modelAlias, rates, tiers, requestFee, minimumCharge], saving, onClose);
 
@@ -447,7 +460,7 @@ function UnitTextTariffDialog({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (saving || !config.definition) return;
+    if (saving || conflict || !config.definition) return;
     const model = modelAlias.trim();
     if (!model) { setError(uiT("Choose a registered model.")); return; }
     if (!rates.prompt_rate.trim() || !rates.completion_rate.trim()) { setError(uiT("Enter input and output rates.")); return; }
@@ -476,7 +489,13 @@ function UnitTextTariffDialog({
       });
       onSaved(model);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : uiT('Could not publish Credits text tariff.'));
+      if (cause instanceof ProviderRequestError && cause.status === 409) {
+        setConflict(true);
+        setError(uiT('Pricing changed. Reopen the tariff to review the current rate.', '价格已更新。重新打开费率可查看现价。'));
+        onConflict();
+      } else {
+        setError(cause instanceof Error ? cause.message : uiT('Could not publish Credits text tariff.'));
+      }
     } finally {
       setSaving(false);
     }
@@ -484,10 +503,9 @@ function UnitTextTariffDialog({
 
   return (
     <Dialog open onOpenChange={open => { if (!open) dismiss(); }}>
-      <DialogContent onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(); }} className="w-[calc(100vw-2rem)] sm:max-w-xl">
+      <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(); }} className="w-[calc(100vw-2rem)] sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{initial ? uiF("Revise {0} text tariff", [unitName]) : uiF("Publish {0} text tariff", [unitName])}</DialogTitle>
-          <DialogDescription>{uiF("Rates are in {0} per 1,000,000 tokens. Up to 9 decimal places are stored exactly.", [unitName])}</DialogDescription>
         </DialogHeader>
         {confirmDiscard ? <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>{uiT("Discard changes", "放弃修改")}</Button>
@@ -499,22 +517,22 @@ function UnitTextTariffDialog({
           </div>
           <h3 className="font-medium">{uiT("Base rates", "基础单价")}{tiers.length > 0 && ` · ${tokenBand('0', tiers[0].minimum_input_tokens)} ${uiT('Tokens')}`}</h3>
           <TextRateBand id="unit-tariff" rates={rates} previous={initial ? ratesFrom(initial.price) : undefined}
-            disabled={saving} onChange={(key, value) => setRates(current => ({ ...current, [key]: value }))} />
-          <ContextTierFields tiers={tiers} setTiers={setTiers} previous={initial?.price.context_tiers} locked={saving} />
+            disabled={draftLocked} onChange={(key, value) => setRates(current => ({ ...current, [key]: value }))} />
+          <ContextTierFields tiers={tiers} setTiers={setTiers} previous={initial?.price.context_tiers} locked={draftLocked} />
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="unit-tariff-fee">{uiT("Fixed request fee (")}{unitName})</Label>
-              <Input id="unit-tariff-fee" inputMode="decimal" value={requestFee} disabled={saving} onChange={event => setRequestFee(event.target.value)} />
+              <Input id="unit-tariff-fee" inputMode="decimal" value={requestFee} disabled={draftLocked} onChange={event => setRequestFee(event.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unit-tariff-min">{uiT("Minimum request charge (")}{unitName})</Label>
-              <Input id="unit-tariff-min" inputMode="decimal" value={minimumCharge} disabled={saving} onChange={event => setMinimumCharge(event.target.value)} />
+              <Input id="unit-tariff-min" inputMode="decimal" value={minimumCharge} disabled={draftLocked} onChange={event => setMinimumCharge(event.target.value)} />
             </div>
           </div>
-          {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
+          {error && <Alert variant="destructive" className={conflict ? "sticky bottom-0 z-10 bg-[var(--background)]!" : undefined} tabIndex={-1} ref={conflict ? focusConflictAlert : undefined}><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
           <div className="flex flex-wrap justify-end gap-2">
             <Button type="button" variant="outline" disabled={saving} onClick={dismiss}>{uiT("Cancel")}</Button>
-            <Button type="submit" disabled={saving || !modelAlias.trim() || !rates.prompt_rate.trim() || !rates.completion_rate.trim()}>{saving ? uiT("Publishing…") : initial ? uiF("Revise {0} tariff", [unitName]) : uiF("Publish {0} tariff", [unitName])}</Button>
+            <Button type="submit" disabled={saving || conflict || !modelAlias.trim() || !rates.prompt_rate.trim() || !rates.completion_rate.trim()}>{saving ? uiT("Publishing…") : uiT("Publish", "发布")}</Button>
           </div>
         </form>}
       </DialogContent>
@@ -524,7 +542,8 @@ function UnitTextTariffDialog({
 
 function UnitMediaTariffDialog({
   token,
-  config,
+  config: openingConfig,
+  onConflict,
   initial,
   onClose,
   onSaved,
@@ -532,12 +551,15 @@ function UnitMediaTariffDialog({
 }: {
   token: string;
   config: UnitPlatformConfig;
+  onConflict: () => void;
   initial: UnitMediaTariffRecord | null;
   restoreFocus: () => void;
   onClose: () => void;
   onSaved: (modelAlias: string) => void;
 }) {
   const { t: uiT, format: uiF } = useUILocale();
+  const [config] = useState(openingConfig);
+  const [conflict, setConflict] = useState(false);
   const unitName = config.definition?.name ?? uiT("Niu Credits");
   const [modelAlias, setModelAlias] = useState(initial?.model_alias ?? '');
   const [models, setModels] = useState<RetailModelChoice[]>([]);
@@ -552,6 +574,7 @@ function UnitMediaTariffDialog({
   const [minimumQuantity, setMinimumQuantity] = useState(initial ? mediaQuantityInput(initial.price.minimum_quantity) : '1');
   const [rounding, setRounding] = useState<'Down' | 'Up' | 'HalfEven'>(initial?.price.rounding ?? 'Up');
   const [saving, setSaving] = useState(false);
+  const draftLocked = saving || modelsLoading;
   const [error, setError] = useState('');
   const { dismiss, confirmDiscard, keepEditing } = useTariffDismiss([modelAlias, channel, resolution, referenceVideo, amount, perQuantity, minimumQuantity, rounding], saving, onClose);
 
@@ -572,7 +595,7 @@ function UnitMediaTariffDialog({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (saving || !config.definition) return;
+    if (saving || conflict || !config.definition) return;
     const model = modelAlias.trim();
     if (!model) { setError(uiT("Choose a registered model.")); return; }
     if (!channel.trim() || !resolution.trim()) { setError(uiT("Choose a supported resolution.")); return; }
@@ -596,12 +619,10 @@ function UnitMediaTariffDialog({
     setSaving(true);
     setError('');
     try {
-      const latestCfg = await request<{ data: UnitPlatformConfig }>(token, '/api/v1/admin/units', 'GET');
-      const defRev = latestCfg.data.definition?.revision ?? config.definition.revision;
       await request(token, '/api/v1/admin/units/media/tariffs', 'POST', {
         model_alias: model,
-        definition_revision: defRev,
-        expected_revision: latestCfg.data.revision,
+        definition_revision: config.definition.revision,
+        expected_revision: config.revision,
         idempotency_key: crypto.randomUUID(),
         price: {
           dimensions: {
@@ -619,7 +640,13 @@ function UnitMediaTariffDialog({
       });
       onSaved(model);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : uiT('Could not publish Credits media tariff.'));
+      if (cause instanceof ProviderRequestError && cause.status === 409) {
+        setConflict(true);
+        setError(uiT('Pricing changed. Reopen the tariff to review the current rate.', '价格已更新。重新打开费率可查看现价。'));
+        onConflict();
+      } else {
+        setError(cause instanceof Error ? cause.message : uiT('Could not publish Credits media tariff.'));
+      }
     } finally {
       setSaving(false);
     }
@@ -656,15 +683,15 @@ function UnitMediaTariffDialog({
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="unit-media-amount">{uiT("Rate (")}{unitName})</Label>
-              <Input id="unit-media-amount" inputMode="decimal" value={amount} disabled={saving} onChange={event => setAmount(event.target.value)} />
+              <Input id="unit-media-amount" inputMode="decimal" value={amount} disabled={draftLocked} onChange={event => setAmount(event.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unit-media-per">{uiT("Per quantity (video tokens)")}</Label>
-              <Input id="unit-media-per" value={perQuantity} disabled={saving} onChange={event => setPerQuantity(event.target.value)} />
+              <Input id="unit-media-per" value={perQuantity} disabled={draftLocked} onChange={event => setPerQuantity(event.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unit-media-min">{uiT("Minimum quantity (video tokens)")}</Label>
-              <Input id="unit-media-min" value={minimumQuantity} disabled={saving} onChange={event => setMinimumQuantity(event.target.value)} />
+              <Input id="unit-media-min" value={minimumQuantity} disabled={draftLocked} onChange={event => setMinimumQuantity(event.target.value)} />
             </div>
           </div>
 
@@ -672,7 +699,7 @@ function UnitMediaTariffDialog({
             <Label htmlFor="unit-media-rounding">{uiT("Rounding")}</Label>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button id="unit-media-rounding" type="button" variant="outline" disabled={saving} className="w-full sm:w-56 justify-between">
+                <Button id="unit-media-rounding" type="button" variant="outline" disabled={draftLocked} className="w-full sm:w-56 justify-between">
                   <span>{uiT(mediaRoundingLabels[rounding])}</span>
                   <ChevronDown className="size-4 shrink-0" />
                 </Button>
@@ -688,13 +715,13 @@ function UnitMediaTariffDialog({
           </div>
 
           {error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className={conflict ? "sticky bottom-0 z-10 bg-[var(--background)]!" : undefined} tabIndex={-1} ref={conflict ? focusConflictAlert : undefined}>
               <AlertDescription>{uiT(error)}</AlertDescription>
             </Alert>
           )}
           <div className="flex flex-wrap justify-end gap-2">
             <Button type="button" variant="outline" disabled={saving} onClick={dismiss}>{uiT("Cancel")}</Button>
-            <Button type="submit" disabled={saving || !modelAlias.trim() || !resolution.trim() || !amount.trim()}>{saving ? uiT("Publishing…") : initial ? uiF("Revise {0} tariff", [unitName]) : uiF("Publish {0} tariff", [unitName])}</Button>
+            <Button type="submit" disabled={saving || conflict || !modelAlias.trim() || !resolution.trim() || !amount.trim()}>{saving ? uiT("Publishing…") : uiT("Publish", "发布")}</Button>
           </div>
         </form>}
       </DialogContent>

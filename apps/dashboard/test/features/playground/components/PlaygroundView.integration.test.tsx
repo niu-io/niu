@@ -113,6 +113,7 @@ describe('Global Chat', () => {
     expect(await screen.findByText('Create an API key to start using models in this workspace.')).toBeTruthy();
     expect(screen.queryByLabelText('Key secret')).toBeNull();
     await user.click(screen.getByRole('button',{name:'Create API key'}));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', {name: 'Custom key'}));
     expect(JSON.parse((await screen.findByTestId('key-handoff')).textContent!)).toEqual({createKey:true,returnTo:'/generations/chat-42?workspace=workspace-a'});
   });
   it('enables message entry only after explicit key creation', async () => {
@@ -138,7 +139,8 @@ describe('Global Chat', () => {
     renderPlayground(['fast']);
     const prompt = await screen.findByLabelText('Prompt for all selected models');
     expect(prompt).toHaveProperty('disabled', true);
-    await user.click(await screen.findByRole('button', { name: 'Auto-create key' }));
+    expect(screen.queryByRole('button', { name: 'Auto-create key' })).toBeNull();
+    await user.click(await screen.findByRole('button', { name: 'Create API key' }));
     const dialog = await screen.findByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: 'Auto-create key' }));
     await waitFor(() => expect(prompt).toHaveProperty('disabled', false));

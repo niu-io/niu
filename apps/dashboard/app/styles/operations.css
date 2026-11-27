@@ -318,22 +318,22 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 
 .request-filter-controls { display: flex; min-width: 0; align-items: center; gap: 8px; }
 @container (max-width: 700px) {
-  .request-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .request-toolbar { gap: 8px; }
   .request-toolbar > h2 { min-width: 0; font-size: 16px; }
   .request-toolbar-actions { display: contents; }
-  .request-filter-controls { grid-column: 2; grid-row: 1; gap: 4px; }
-  .request-search { grid-column: 1 / -1; grid-row: 2; width: 100%; }
-  .request-date-trigger { width: 100px; min-width: 0; font-size: 12px; padding-inline: 8px; }
+  .request-filter-controls { margin-inline-start: auto; gap: 4px; }
+  .request-search { order: 1; flex-basis: 100%; }
+  .request-date-trigger { width: auto; min-width: 0; max-width: none; font-size: 12px; padding-inline: 8px; }
   .request-toolbar > .request-filter-chips,
-  .request-toolbar > p { grid-column: 1 / -1; }}
+  .request-toolbar > p { order: 2; flex-basis: 100%; }}
 
 @media screen and (max-width: 959px) {
-  .commercial-position-table,
-  .commercial-position-table tbody,
-  .commercial-position-table tbody tr { display: block; }
-  .commercial-position-table thead { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
-  .commercial-position-table tbody tr { padding-block: .75rem; }
-  .commercial-position-table td {
+  :is(.commercial-position-table, .customer-access-table),
+  :is(.commercial-position-table, .customer-access-table) tbody,
+  :is(.commercial-position-table, .customer-access-table) tbody tr { display: block; }
+  :is(.commercial-position-table, .customer-access-table) thead { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
+  :is(.commercial-position-table, .customer-access-table) tbody tr { padding-block: .75rem; }
+  :is(.commercial-position-table, .customer-access-table) td {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
     gap: .125rem .75rem;
@@ -343,10 +343,10 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
     overflow-wrap: anywhere;
     text-align: end;
   }
-  .commercial-position-table td::before { content: attr(data-label); grid-column: 1; grid-row: 1; color: var(--muted-foreground); text-align: start; }
-  .commercial-position-table td > * { grid-column: 2; }
-  .commercial-position-table td:first-child { display: block; text-align: start; padding-bottom: .5rem; }
-  .commercial-position-table td:first-child::before { content: none; }
+  :is(.commercial-position-table, .customer-access-table) td::before { content: attr(data-label); grid-column: 1; grid-row: 1; color: var(--muted-foreground); text-align: start; }
+  :is(.commercial-position-table, .customer-access-table) td > * { grid-column: 2; }
+  :is(.commercial-position-table, .customer-access-table) td:first-child { display: block; text-align: start; padding-bottom: .5rem; }
+  :is(.commercial-position-table, .customer-access-table) td:first-child::before { content: none; }
 }
 
 @media screen and (min-width: 960px) {

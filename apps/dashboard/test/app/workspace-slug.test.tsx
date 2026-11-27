@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { WorkspaceCreateDialog } from '../../app/shell/WorkspaceSwitcher';
+import { OrganizationCreateDialog, WorkspaceCreateDialog } from '../../app/shell/WorkspaceSwitcher';
 import type { DashboardContext } from '../../app/shell/dashboard-context';
 import { workspaceSlugFromName, workspacePathSegment, resolveWorkspacePathSegment } from '../../app/shell/workspace-route';
 
@@ -31,6 +31,20 @@ describe('workspace slugs', () => {
     expect(resolveWorkspacePathSegment('research-2', list)).toBe(second);
     expect(resolveWorkspacePathSegment('research-22222222', list)).toBe(second);
   });
+  it('previews the organization address and preserves a custom identifier', async () => {
+    const user = userEvent.setup();
+    render(<OrganizationCreateDialog context={{createOrganization: vi.fn()} as unknown as DashboardContext} open onOpenChange={vi.fn()}/>);
+    const name = screen.getByLabelText('Organization name');
+    await user.type(name, 'Studio');
+    expect(screen.getByText('/settings/organization?organization=studio')).toBeTruthy();
+    expect(screen.queryByLabelText('Address identifier')).toBeNull();
+    await user.click(screen.getByRole('button', {name: 'Edit address'}));
+    const identifier = screen.getByLabelText('Address identifier') as HTMLInputElement;
+    await user.clear(identifier);
+    await user.type(identifier, 'custom');
+    await user.type(name, ' team');
+    expect(identifier.value).toBe('custom');
+  });
   it('suggests pinyin, preserves manual edits, and retains collision errors', async () => {
     const user = userEvent.setup();
     const createWorkspace = vi.fn().mockRejectedValueOnce(new Error('This slug is already in use. Choose a different slug.')).mockResolvedValue({});
@@ -58,8 +72,9 @@ describe('workspace slugs', () => {
     render(<WorkspaceCreateDialog context={{session:{kind:'installation'},createWorkspace} as unknown as DashboardContext} open onOpenChange={vi.fn()}/>);
     await user.type(screen.getByLabelText('Workspace name'), 'Budget test');
     expect(screen.getByLabelText('Spending limit ($)').getAttribute('placeholder')).toBe('No limit');
-    expect(screen.getByText(/zero blocks new paid requests/)).toBeTruthy();
+    expect(screen.queryByText(/prevents workspace deletion/)).toBeNull();
     await user.type(screen.getByLabelText('Spending limit ($)'), '0');
+    expect(screen.getByText(/Zero blocks paid requests/)).toBeTruthy();
     await user.click(screen.getByRole('button', {name:'Create workspace'}));
     expect(createWorkspace).toHaveBeenCalledWith('Budget test',undefined,'budget-test',{currency:'USD',limit_nanos:'0'});
   });
@@ -108,7 +123,7 @@ describe('workspace slugs', () => {
   });
   it('keeps spending controls owner-only', () => {
     render(<WorkspaceCreateDialog context={{session:{kind:'operator',operator:{role:'admin'}},createWorkspace:vi.fn()} as unknown as DashboardContext} open onOpenChange={vi.fn()}/>);
-    expect(screen.queryByRole('heading',{name:'Budget (optional)'})).toBeNull();
+    expect(screen.queryByLabelText(/Spending limit/)).toBeNull();
   });
 
 });
