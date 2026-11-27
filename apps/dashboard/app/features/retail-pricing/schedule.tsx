@@ -3,7 +3,7 @@ import { Fragment } from 'react';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { money } from '@/lib/money';
-import { mediaAmount, mediaQuantityInput } from '@/lib/media-price';
+import { mediaAmount, mediaQuantityInput, mediaRoundingLabels } from '@/lib/media-price';
 import type { RetailSchedule } from '@niu-io/sdk/admin';
 
 export function SellingSchedule({ schedule, currency, compact = false }: { schedule: RetailSchedule; currency: string; compact?: boolean }) {
@@ -18,7 +18,7 @@ export function SellingSchedule({ schedule, currency, compact = false }: { sched
       [uiT('Price'), price],
       [uiT('Media specification'), specification],
       [uiT('Minimum quantity'), `${mediaQuantityInput(schedule.minimum_quantity)} ${meter}`],
-      [uiT('Rounding'), uiT(schedule.rounding)],
+      [uiT('Rounding'), uiT(mediaRoundingLabels[schedule.rounding])],
     ];
     return <Table  aria-label={uiT('Selling price details')}><TableHeader><TableRow><TableHead>{uiT('Item')}</TableHead><TableHead>{uiT('Value')}</TableHead></TableRow></TableHeader><TableBody>{rows.map(([label, value]) => <TableRow key={label}><TableCell className="!py-2 whitespace-normal text-muted-foreground">{label}</TableCell><TableCell className="!py-2 whitespace-normal break-words">{value}</TableCell></TableRow>)}</TableBody></Table>;
   }

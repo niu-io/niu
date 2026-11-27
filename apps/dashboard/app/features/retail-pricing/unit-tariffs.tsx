@@ -9,7 +9,7 @@ import ProviderLogo from '@/components/ProviderLogo';
 import { modelIdentity } from '@/lib/providers';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
 import { formatExactUnitAtoms, formatUnitAtoms, unitAmountFromAtoms, unitAmountToAtoms } from '@/lib/money';
-import { mediaQuantity, mediaQuantityInput } from '@/lib/media-price';
+import { mediaQuantity, mediaQuantityInput, mediaRoundingLabels } from '@/lib/media-price';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -314,7 +314,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
                     {quantityText(row.price.minimum_quantity)} {uiT("video tokens")}
                   </TableCell><TableCell className="text-sm">
-                    {uiT(row.price.rounding)}
+                    {uiT(mediaRoundingLabels[row.price.rounding])}
                   </TableCell>
                   <TableCell>
                     <Button
@@ -646,15 +646,15 @@ function UnitMediaTariffDialog({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button id="unit-media-rounding" type="button" variant="outline" disabled={saving} className="w-full sm:w-56 justify-between">
-                  <span>{uiT(rounding)}</span>
+                  <span>{uiT(mediaRoundingLabels[rounding])}</span>
                   <ChevronDown className="size-4 shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuRadioGroup value={rounding} onValueChange={v => setRounding(v as 'Down' | 'Up' | 'HalfEven')}>
-                  <DropdownMenuRadioItem value="Up">{uiT("Up")}</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="HalfEven">{uiT("HalfEven")}</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="Down">{uiT("Down")}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="Up">{uiT(mediaRoundingLabels.Up)}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="HalfEven">{uiT(mediaRoundingLabels.HalfEven)}</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="Down">{uiT(mediaRoundingLabels.Down)}</DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
