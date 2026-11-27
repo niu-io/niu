@@ -180,7 +180,7 @@ On workspace Overview, expose a prerequisite action once. Keep the primary actio
 
 Direct video-mode links open the Video composer and its existing availability or setup state. A saved session retains its own workflow.
 
-Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
+Organization and workspace creation derive the address from the name. Preview the organization settings or workspace destination and expose identifier constraints when editing the address.
 
 Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
 
