@@ -141,6 +141,12 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(fallback.className).not.toContain('bg-muted');
   });
 
+  it('reserves room for the current breadcrumb in narrow headers', () => {
+    const css = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
+    expect(css).toContain('[data-slot="breadcrumb-item"]:last-child { flex: 1 0 auto;');
+    expect(css).toContain('[data-slot="breadcrumb-item"]:only-child { max-width: 100%; }');
+  });
+
   it('keeps event setup methods in their action labels', () => {
     const events = readFileSync(join(appDir, 'features/event-subscriptions/page.tsx'), 'utf8');
     expect(events).not.toContain('You can use your coding agent or follow the API reference.');

@@ -331,7 +331,8 @@
 @media (max-width: 768px) {
   .dashboard-page-header { flex-wrap: wrap; flex-basis: auto; flex-shrink: 0; height: auto; padding-block: 6px; }
   .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:first-child:not(:last-child) { flex: 0 1 auto; }
-  .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:last-child { flex: 1 1 0; }
+  .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:last-child { flex: 1 0 auto; max-width: 65%; }
+  .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:only-child { max-width: 100%; }
   .dashboard-page-actions { max-width: 100%; }
   .dashboard-page-actions .page-heading-action { width: auto; }
   .dashboard-page-actions .page-heading-action > a { width: auto; }}
