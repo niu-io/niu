@@ -2,6 +2,8 @@ import {afterEach,expect,it,vi} from 'vitest';
 import {cleanup,render,screen,waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router';
+import {ContextTierFields} from '../../../app/features/retail-pricing/text-rate-band';
+import {checkedTiers, ratesFrom} from '../../../app/features/retail-pricing/text-terms';
 import {TextStandardEditor} from '../../../app/features/retail-pricing/text-editor';
 import type {RetailPriceRecord} from '@niu-io/sdk/admin';
 vi.mock('../../../app/shell/platform-currency',()=>({usePlatformCurrency:()=>({currency:'USD'})}));
@@ -34,4 +36,16 @@ it('requires explicit confirmation before publishing a zero customer rate', asyn
   expect(submit.disabled).toBe(false);
   await user.click(submit);
   await waitFor(() => expect(saved).toHaveBeenCalledOnce());
+});
+
+it('reserves zero for the base band and caps additional context bands at 32', () => {
+  const rates = ratesFrom({ prompt_rate: '0', completion_rate: '0' });
+  const tiers = Array.from({ length: 32 }, (_, index) => ({
+    minimum_input_tokens: String(index + 1),
+    rates,
+  }));
+  expect(() => checkedTiers([{ minimum_input_tokens: '0', rates }])).toThrow();
+  expect(checkedTiers(tiers)[0].minimum_input_tokens).toBe('1');
+  render(<ContextTierFields tiers={tiers} setTiers={() => {}} locked={false} />);
+  expect((screen.getByRole('button', { name: 'Add tier' }) as HTMLButtonElement).disabled).toBe(true);
 });
