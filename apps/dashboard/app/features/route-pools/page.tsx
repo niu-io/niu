@@ -616,7 +616,7 @@ function RoutePoolEditorDialog({
                   providerName: provider.name,
                   upstreamModel: model.upstream_model,
                   ownerFunded: Boolean(model.owner_funded ?? provider.owner_funded),
-                  priced: model.pricing !== null && model.pricing !== undefined,
+                  priced: model.pricing != null || model.has_text_offer,
                 }));
             } catch {
               return null;
@@ -775,6 +775,11 @@ function RoutePoolEditorDialog({
       const candidateAlias = candidate.alias.trim();
       if (!candidateAlias || candidateAlias.length > 200) {
         setFormError(t('Every candidate model must specify a valid model mapping alias.', '每个候选模型都必须指定有效的模型映射别名。'));
+        return;
+      }
+      const route = discoveredRoutes.find(item => item.alias === candidateAlias);
+      if (route && !route.ownerFunded && route.priced === false) {
+        setFormError(`${candidateAlias} · ${t('Purchase price not configured', '采购价未配置')}`);
         return;
       }
       if (seenAliases.has(candidateAlias)) {
@@ -1199,7 +1204,7 @@ function RoutePoolEditorDialog({
                               onKeyDown={event => {
                                 if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                                   event.preventDefault();
-                                  const items = event.currentTarget.closest('[role="menu"]')?.querySelectorAll<HTMLElement>('[role="menuitemradio"], [role="menuitem"]');
+                                  const items = event.currentTarget.closest('[role="menu"]')?.querySelectorAll<HTMLElement>('[role="menuitemradio"]:not([data-disabled]), [role="menuitem"]:not([data-disabled])');
                                   if (items?.length) items[event.key === 'ArrowDown' ? 0 : items.length - 1].focus();
                                 }
                               }}
@@ -1218,11 +1223,12 @@ function RoutePoolEditorDialog({
                               <DropdownMenuRadioItem
                                 key={route.alias}
                                 value={route.alias}
+                                disabled={!route.ownerFunded && route.priced === false}
                                 onSelect={() => updateCandidate(index, { alias: route.alias })}
                               >
                                 <span className="min-w-0">
                                   <span className="block truncate font-medium">{route.alias}</span>
-                                  <span className="block truncate text-xs text-muted-foreground">{route.providerName} · {route.upstreamModel}</span>
+                                  <span className="block truncate text-xs text-muted-foreground">{!route.ownerFunded && route.priced === false ? t('Purchase price not configured', '采购价未配置') : `${route.providerName} · ${route.upstreamModel}`}</span>
                                 </span>
                               </DropdownMenuRadioItem>
                             ))}

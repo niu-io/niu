@@ -468,7 +468,7 @@ export type ProviderModel = {
   pricing: Record<string, unknown> | null; revision: number;
 };
 export type SupplierModel = ProviderModel;
-export type ProviderModelAvailability = ProviderModel & { available: boolean; owner_funded: boolean };
+export type ProviderModelAvailability = ProviderModel & { available: boolean; owner_funded: boolean; has_text_offer?: boolean };
 export type SupplierModelAvailability = ProviderModelAvailability;
 /** Catalog reachability only; this does not prove inference or billing readiness. */
 export type ProviderModelCheck = {

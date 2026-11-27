@@ -1017,18 +1017,19 @@ impl Store {
         &self,
         id: Uuid,
     ) -> Result<Vec<Value>, StoreError> {
-        Ok(sqlx::query_scalar::<_, Value>(
+        Ok(sqlx::query_scalar::<_, Value>(concat!(
             "SELECT jsonb_build_object(
                 'alias',m.alias,'vendor_id',m.vendor_id,'upstream_model',m.upstream_model,
                 'public_catalog',m.public_catalog,'enabled',m.enabled,
                 'owner_funded',EXISTS (SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id),
+                'has_text_offer',",include_str!("route_has_text_offer.sql"),",
                 'capabilities',m.capabilities,'pricing',m.pricing,'revision',m.revision,
                 'available',m.enabled AND niu_model_has_enabled_vendor(m.alias)
                     AND (EXISTS (SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id)
                          OR niu_supplier_model_route_available(m.alias)))
              FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id
              WHERE m.vendor_id=$1 ORDER BY m.alias",
-        )
+        ))
         .bind(id)
         .fetch_all(&self.pool)
         .await?)

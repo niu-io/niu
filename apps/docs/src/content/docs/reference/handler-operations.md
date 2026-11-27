@@ -54082,6 +54082,11 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "readOnly": true,
       "description": "Configuration eligibility in the management list; not an upstream health or entitlement check."
     },
+    "has_text_offer": {
+      "type": "boolean",
+      "readOnly": true,
+      "description": "A text Provider offer has a current revision for this model mapping."
+    },
     "owner_funded": {
       "type": "boolean",
       "readOnly": true,

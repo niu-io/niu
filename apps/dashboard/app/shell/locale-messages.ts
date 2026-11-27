@@ -1,5 +1,6 @@
 /** System copy only. Customer names and persisted API values stay unchanged. */
 export const UI_MESSAGES_ZH: Record<string, string> = {
+  "Candidate model pricing is not configured": "候选模型采购价未配置",
   "Role saved.": "角色已保存。",
   "Role saved, but recent activity could not be refreshed.": "角色已保存，但无法刷新近期活动。",
   "The role could not be saved against the current state. Reload the saved role before saving again.": "角色状态已变化，无法保存。请重新加载已保存的角色后再保存。",
