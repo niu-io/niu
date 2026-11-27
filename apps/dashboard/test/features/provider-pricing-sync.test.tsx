@@ -145,7 +145,7 @@ describe('Provider standard pricing alignment & below_cost prevention', () => {
     expect(shouldAutoSyncCustomerPrice({ ...row, retail: alignedRetail }, pricingBase, 'USD')).toBe(false);
   });
 
-  it('never renders Below Provider cost warning when rates match (no_lower_unit_rates) or when supply is inactive', () => {
+  it('never renders Below purchase cost warning when rates match (no_lower_unit_rates) or when supply is inactive', () => {
     const equalRender = render(
       <PriceComparison currency="USD"
         health={{
@@ -166,8 +166,8 @@ describe('Provider standard pricing alignment & below_cost prevention', () => {
         }}
       />,
     );
-    expect(equalRender.container.textContent).not.toContain('Below Provider cost');
-    expect(equalRender.container.textContent).not.toContain('低于 Provider 成本');
+    expect(equalRender.container.textContent).not.toContain('Below purchase cost');
+    expect(equalRender.container.textContent).not.toContain('低于采购成本');
     expect(equalRender.container.textContent).toContain('$1.2');
     equalRender.unmount();
 
@@ -190,7 +190,7 @@ describe('Provider standard pricing alignment & below_cost prevention', () => {
         }}
       />,
     );
-    expect(screen.queryByText(/Below Provider cost|低于 Provider 成本/)).toBeNull();
+    expect(screen.queryByText(/Below purchase cost|低于采购成本/)).toBeNull();
     expect(screen.getByText(/No active purchase quote|暂无生效采购报价/)).toBeTruthy();
   });
 });

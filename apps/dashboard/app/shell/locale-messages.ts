@@ -2768,7 +2768,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Price check details": "价格检查详情",
   "Current configuration advice. Refresh after changing prices. Below-cost rates do not block publication.": "当前配置建议。修改价格后请刷新，低于成本的费率不会阻止发布。",
   "Refresh prices to load current Provider comparisons.": "刷新价格以加载当前 Provider 对比。",
-  "Selling unit rates are below Provider cost. Review the selling price or Provider quote.": "销售单位费率低于 Provider 成本，请审阅销售价格或 Provider 报价。",
+  "Selling unit rates are below Provider cost. Review the selling price or Provider quote.": "销售单价低于采购成本，请核对售价和采购报价。",
   "Review Provider prices": "审阅 Provider 价格",
   "Publish finite promotion": "发布限时促销",
   ". Original standard published": "。原始标准价发布于",
