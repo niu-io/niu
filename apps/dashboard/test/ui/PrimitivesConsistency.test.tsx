@@ -27,6 +27,7 @@ describe('Shared UI primitives layout safeguards', () => {
     const source = readFileSync(join(appDir, 'features/retail-pricing/promotions.tsx'), 'utf8');
     const css = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
     expect(source).toContain('className="promotion-states"');
+    expect(source).toContain('aria-expanded={terms === item.row.revision}');
     expect(source).toContain('<MediaPromotionChanges original={selected.original_schedule} result={selected.schedule}');
     expect(source).toContain('<ScheduleRevision prior={selected.original_schedule} schedule={selected.schedule}');
     expect(css).toContain('.promotion-states > tbody > tr > td:not([data-label]) { grid-column: 1 / -1; }');
