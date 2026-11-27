@@ -130,6 +130,8 @@ The base text rate starts at zero. Both monetary and credit editors show the inc
 
 Use a right-side sheet for a current price comparison. Show both comparable rates with the currency, unit, route and threshold used by the platform. Distinguish unit spread from realized gross profit and label missing evidence. Place historical revision differences behind the current comparison. Price editors show complete input-token bands and preserve dirty input through accidental dismissal. Workspace model trials present applicable customer rates separately from upstream plan descriptions.
 
+A tab that groups multiple entity types must not show an unlabeled count for just one type. Keep counts with the entity they describe.
+
 ## Decision-focused interface copy
 
 Registration policy and the registration review queue link directly to each other within their owning Settings and Customers tabs. Display the pending count on the review action when positive.
@@ -147,5 +149,7 @@ On pricing tabs, identify the mode used for billing independently of the selecte
 When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
 
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
+
+Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action.
 
 Empty workspace Logs and Usage link writers directly to key creation when no key is active. Readers see the missing prerequisite without a mutation action. Filtered empty results offer filter recovery.
