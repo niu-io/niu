@@ -18,7 +18,7 @@ import type { RetailPriceRecord, RetailPublicationResult, RetailSchedule, Retail
 
 type MediaSchedule = Extract<RetailSchedule, { kind: 'media' }>;
 /** Explicit media dimensions and metering; price configuration is not qualification. */
-export function MediaStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean) => void; onSaved: () => void }) {
+export function MediaStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean, conflict?: boolean) => void; onSaved: () => void }) {
   const { t: uiT } = useUILocale();
   const original = previous?.schedule.kind === 'media' ? previous.schedule : undefined;
   const [model, setModel] = useState(previous?.model_alias ?? initialModel);
@@ -92,7 +92,7 @@ export function MediaStandardEditor({ token, previous, initialModel = '', open =
   function requestClose() {
     if (busy) return;
     if (dirty && !attempt && !conflict) setConfirmDiscard(true);
-    else onClose(!!attempt && !conflict);
+    else onClose(!!attempt && !conflict, conflict);
   }
   return <Dialog open={open} onOpenChange={value => { if (!value) requestClose(); }}><DialogContent aria-describedby={undefined} onCloseAutoFocus={onCloseAutoFocus} className="w-[calc(100vw-2rem)] sm:max-w-3xl"><DialogHeader><DialogTitle>{previous ? uiT("Revise media standard price") : uiT("Publish media standard price")}</DialogTitle></DialogHeader><form onChange={() => setDirty(true)} className="space-y-4" onSubmit={event => void publish(event)}>
     {(previous || !modelsLoaded || models.length > 0) && <div className="space-y-2"><Label>{uiT("Model")}</Label>{previous ? <p className="break-words">{model}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={locked || !modelsLoaded || !!modelsError} aria-label={uiT("Media standard model")}>{model || (modelsLoaded ? uiT("Choose media model") : uiT("Loading media models…"))}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><Input aria-label={uiT("Filter registered media models")} placeholder={uiT("Filter models")} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key.length === 1 || event.key === 'Backspace' || event.key === 'Delete') event.stopPropagation(); }} /><DropdownMenuRadioGroup value={model} onValueChange={value => { const choice=models.find(item=>item.model_alias===value)?.media; setModel(value);setChannel(choice?.channel ?? '');setMeter(choice?.meter ?? '');setResolution(choice?.resolutions.length===1?choice.resolutions[0]:'');setReference(false);setError(''); }}>{models.filter(item => item.model_alias.toLowerCase().includes(query.trim().toLowerCase())).map(item => <DropdownMenuRadioItem key={item.model_alias} value={item.model_alias}>{item.model_alias}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>{!models.length && <p className="p-2 text-sm">{uiT("No configured media models available.")}</p>}</DropdownMenuContent></DropdownMenu>}</div>}

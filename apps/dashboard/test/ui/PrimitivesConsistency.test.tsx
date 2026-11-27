@@ -411,6 +411,12 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(effect).not.toMatch(/scrollIntoView|\.focus\(/);
   });
 
+  it('keeps the price row available for focus on editor cancellation', () => {
+    const page = readFileSync(join(appDir, 'features/retail-pricing/page.tsx'), 'utf8');
+    expect(page).toContain('if (conflict) reloadFresh();');
+    expect(page).not.toContain('if (!pending) { setEditor(null); reloadFresh(); }');
+  });
+
   it('keeps dialog framing, bounded scroll, and close affordances in the shared primitive', () => {
     const dialog = readFileSync(join(appDir, 'components/ui/dialog.tsx'), 'utf8');
     const foundation = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
