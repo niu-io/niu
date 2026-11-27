@@ -36,6 +36,8 @@ Use a single word for each API route segment unless a compound is strictly neces
 
 Use SSH for authorized remote inspection and configuration transfers. Do not use Supen to inspect remote sessions or coordinate development unless the user explicitly requests it. Keep transferred credentials outside the public repository.
 
+Registration review rows keep the applicant identity and available decision actions readable without horizontal scrolling across desktop, tablet and phone widths.
+
 ## Dashboard choice controls
 
 Never use a native HTML `<select>` / `<option>` control, the shadcn Select component, or a hand-built Select/Dropdown abstraction anywhere in the product UI. This is a hard design rule, not a preference. Compose the installed shadcn `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, and the appropriate menu item primitives directly at each call site for choice menus, including single-choice form fields, workspace/model selectors, and filters. Use the shared menu primitives' icon gutter and spacing; do not override their internal layout with local CSS. Single-choice and multiple-choice items show the selected state as a check on the right, with text and optional icons aligned to ordinary action items. Keep Radix radio/checkbox semantics; do not add a left radio dot or an extra selection column. See `docs/ux/menu-review-2026-11-01.md` for the agreed convention and audit evidence. Verify each changed menu in the browser, including open state and alignment, before reporting completion.
