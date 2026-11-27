@@ -4,7 +4,7 @@ import { useLocale } from '@/shell/ui-locale';
 import type { Dispatch, SetStateAction } from 'react';
 import type { ContextPriceTier } from '@niu-io/sdk/admin';
 import { Button } from '@/components/ui/button';
-import { categories, ratesFrom, tokenBand, type Tier, type RateKey, type Rates } from './text-terms';
+import { categories, ratesFrom, tokenBand, validTierThreshold, type Tier, type RateKey, type Rates } from './text-terms';
 
 export function TextRateBand({ id, rates, previous, disabled, onChange }: {
   id: string;
@@ -50,7 +50,8 @@ export function ContextTierFields({ tiers, setTiers, previous, locked, onDirty }
           <div className="flex items-end gap-2">
             <div className="grid gap-2">
               <Label htmlFor={'tier-threshold-' + index}>{uiT("Minimum input tokens")}</Label>
-              <Input id={'tier-threshold-' + index} inputMode="numeric" disabled={locked} value={tier.minimum_input_tokens}
+              <Input id={'tier-threshold-' + index} inputMode="numeric" required
+                ref={input => { input?.setCustomValidity(validTierThreshold(tier.minimum_input_tokens, tiers[index - 1]?.minimum_input_tokens ?? '0') ? '' : uiT('Use increasing whole-token thresholds starting at 1 or higher.')); }} disabled={locked} value={tier.minimum_input_tokens}
                 onChange={event => setTiers(current => current.map((item, i) => i === index ? { ...item, minimum_input_tokens: event.target.value } : item))} />
             </div>
             <Button type="button" variant="outline" disabled={locked} onClick={() => {

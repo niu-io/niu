@@ -30,11 +30,16 @@ export function tokenBand(start: string, next?: string): string {
   return lower.toLocaleString() + '–' + (BigInt(next) - 1n).toLocaleString();
 }
 
+export function validTierThreshold(value: string, previous: string) {
+  if (!/^\d+$/.test(value)) return false;
+  const threshold = BigInt(value);
+  const lowerBound = /^\d+$/.test(previous) ? BigInt(previous) : 0n;
+  return threshold > lowerBound && threshold <= 9_223_372_036_854_775_807n;
+}
+
 export function checkedTiers(tiers: Tier[]) {
-  let last = 0n;
-  return tiers.map(tier => {
-    if (!/^\d+$/.test(tier.minimum_input_tokens) || BigInt(tier.minimum_input_tokens) <= last || BigInt(tier.minimum_input_tokens) > 9_223_372_036_854_775_807n) throw new Error('Use increasing whole-token thresholds starting at 1 or higher.');
-    last = BigInt(tier.minimum_input_tokens);
-    return { minimum_input_tokens: last.toString(), ...checkedRates(tier.rates) };
+  return tiers.map((tier, index) => {
+    if (!validTierThreshold(tier.minimum_input_tokens, tiers[index - 1]?.minimum_input_tokens ?? '0')) throw new Error('Use increasing whole-token thresholds starting at 1 or higher.');
+    return { minimum_input_tokens: BigInt(tier.minimum_input_tokens).toString(), ...checkedRates(tier.rates) };
   });
 }

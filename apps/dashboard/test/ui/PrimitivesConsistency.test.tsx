@@ -25,6 +25,13 @@ describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
 
+  it('uses the same tier boundary validation for the editor field and submitted schedule', () => {
+    const field = readFileSync(join(appDir, 'features/retail-pricing/text-rate-band.tsx'), 'utf8');
+    const schedule = readFileSync(join(appDir, 'features/retail-pricing/text-terms.ts'), 'utf8');
+    expect(field).toContain('input?.setCustomValidity(validTierThreshold(');
+    expect(schedule).toContain('if (!validTierThreshold(tier.minimum_input_tokens');
+  });
+
   it('keeps per-workspace charge headers and values visible on phones', () => {
     const source = readFileSync(join(appDir, 'features/activity/global-page.tsx'), 'utf8');
     const section = source.split('<section aria-label={uiT("Activity by workspace")}')[1].split('</section>')[0];
