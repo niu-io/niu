@@ -87,7 +87,10 @@ function PendingAttempts({ row, from, until, token }: {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : uiT("Could not load requests", "无法加载请求"));
     } finally { if (!controller.signal.aborted) setLoading(false); }
   }
-  return <Sheet>
+  const hasMore = !finished && BigInt(attempts.length) < BigInt(row.unresolved_attempts);
+  return <Sheet onOpenChange={open => {
+    if (open && hasMore && rest.length === 0 && !error) void more();
+  }}>
     <SheetTrigger asChild><Button variant="link" size="sm">{uiT("Pending (")}{row.unresolved_attempts} {uiT("unresolved)")}</Button></SheetTrigger>
     <SheetContent className="overflow-y-auto">
       <SheetHeader>
@@ -113,7 +116,7 @@ function PendingAttempts({ row, from, until, token }: {
           </li>;
         })}</ul>
         {error && <p role="alert">{error}</p>}
-        {!finished && BigInt(attempts.length) < BigInt(row.unresolved_attempts) &&
+        {hasMore &&
           <Button variant="outline" size="sm" disabled={loading} onClick={() => void more()}>{uiT("Load more")}</Button>}
       </div>
     </SheetContent>
