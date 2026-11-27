@@ -1,3 +1,4 @@
+import { tokenBand } from '@/features/retail-pricing/text-terms';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -24,6 +25,13 @@ function collectTsxFiles(dir: string): string[] {
 describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
+
+  it('withholds both adjacent previews for unsupported token counts', () => {
+    const overflow = '9223372036854775808';
+    expect(tokenBand('33', overflow)).toBe('—');
+    expect(tokenBand(overflow)).toBe('—');
+    expect(tokenBand('33', '43')).toBe('33–42');
+  });
 
   it('uses the same tier boundary validation for the editor field and submitted schedule', () => {
     const field = readFileSync(join(appDir, 'features/retail-pricing/text-rate-band.tsx'), 'utf8');

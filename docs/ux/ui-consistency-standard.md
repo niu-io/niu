@@ -162,4 +162,4 @@ Present default and custom key setup together in the confirmation dialog. A comp
 
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
 
-Tiered price forms focus the first invalid token threshold on submit and recompute the next threshold when its preceding boundary changes.
+Tiered price forms focus the first invalid token threshold on submit and recompute the next threshold when its preceding boundary changes. Range previews show an em dash for either endpoint outside the supported token count.
