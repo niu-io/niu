@@ -212,3 +212,5 @@ On pricing tabs, identify the mode used for billing independently of the selecte
 When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
 
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
+
+Customer access lists expose one setup action in the tab content. Keep balance policy with billing and describe an empty member list in terms of members.

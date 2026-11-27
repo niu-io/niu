@@ -153,3 +153,5 @@ When an explicit pricing tab is open, keep both tab destinations available acros
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
 
 Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action.
+
+Customer access lists expose one setup action in the tab content. Keep balance policy with billing and describe an empty member list in terms of members.

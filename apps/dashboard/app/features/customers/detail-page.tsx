@@ -571,10 +571,7 @@ export function CustomerDetail({
         </TabsContent>
 
         <TabsContent value="access" className="space-y-6 pt-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              {uiT('Workspaces within this company share its balance.', '该公司下的所有工作空间共享同一账户余额。')}
-            </p>
+          <div className="flex justify-end">
             <Button
               type="button"
               size="sm"
@@ -628,20 +625,7 @@ export function CustomerDetail({
           </div>
 
           <div className="space-y-2.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-medium">{uiT('Members', '成员')}</h2>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={event => {
-                  openerRef.current = event.currentTarget;
-                  setSetupOpen(true);
-                }}
-              >
-                {members.length > 0 ? uiT('Manage login & password', '管理登录密码') : uiT('Create login account', '创建登录账号')}
-              </Button>
-            </div>
+            <h2 className="text-sm font-medium">{uiT('Members', '成员')}</h2>
             {members.length > 0 ? (
               <Table aria-label={uiT('Customer members', '客户成员')}>
                 <TableHeader>
@@ -677,7 +661,7 @@ export function CustomerDetail({
               </Table>
             ) : (
               <div className="rounded-xl bg-muted/45 px-4 py-5 text-sm text-muted-foreground">
-                {uiT('Owner not set')}
+                {uiT('No members yet.', '暂无成员。')}
               </div>
             )}
           </div>
