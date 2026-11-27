@@ -44,6 +44,8 @@ Legacy links to tabbed platform settings must open the matching canonical tab wi
 
 Never use a native HTML `<select>` / `<option>` control, the shadcn Select component, or a hand-built Select/Dropdown abstraction anywhere in the product UI. This is a hard design rule, not a preference. Compose the installed shadcn `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, and the appropriate menu item primitives directly at each call site for choice menus, including single-choice form fields, workspace/model selectors, and filters. Use the shared menu primitives' icon gutter and spacing; do not override their internal layout with local CSS. Single-choice and multiple-choice items show the selected state as a check on the right, with text and optional icons aligned to ordinary action items. Keep Radix radio/checkbox semantics; do not add a left radio dot or an extra selection column. See `docs/ux/menu-review-2026-11-01.md` for the agreed convention and audit evidence. Verify each changed menu in the browser, including open state and alignment, before reporting completion.
 
+Customer access lists retain workspace links, member roles and workspace scope on narrow screens. Show labeled values within each row without horizontal scrolling.
+
 The API key directory shows one labeled creation action at every width, including when an active filter hides historical keys.
 
 ## Shared UI components
@@ -187,6 +189,8 @@ The backend is the source of truth for saved product data, including Chat sessio
 
 ## Commercial data boundaries
 
+Workspace spending-limit feedback uses the parsed amount. Show the consequences of a valid limit only. On invalid submission, focus the amount field, associate its inline error, and clear the error when the amount becomes valid.
+
 Rounded financial amounts and changes must expose their exact values to touch and keyboard users. Use a focusable amount button and a popover when precision is omitted.
 
 Group grant history with customer inspection actions and place balance-changing actions after a menu separator. Apply this order in the directory and customer detail.
@@ -223,4 +227,6 @@ Workspace activity summaries keep the workspace, request count and charge visibl
 
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
 
-Workspace spending-limit feedback uses the parsed amount. Show the consequences of a valid limit only. On invalid submission, focus the amount field, associate its inline error, and clear the error when the amount becomes valid.
+Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
+
+When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
