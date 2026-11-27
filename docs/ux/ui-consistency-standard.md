@@ -138,6 +138,8 @@ The base text rate starts at zero. Both monetary and credit editors show the inc
 
 Use a right-side sheet for a current price comparison. Show both comparable rates with the currency, unit, route and threshold used by the platform. Distinguish unit spread from realized gross profit and label missing evidence. Place historical revision differences behind the current comparison. Price editors show complete input-token bands and preserve dirty input through accidental dismissal. Workspace model trials present applicable customer rates separately from upstream plan descriptions.
 
+Audit history distinguishes an empty filtered result from an empty journal. Clearing filters resets the category and query together and returns focus to search.
+
 A tab that groups multiple entity types must not show an unlabeled count for just one type. Keep counts with the entity they describe.
 
 ## Decision-focused interface copy

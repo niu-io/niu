@@ -76,6 +76,8 @@ Use **workspace** consistently for Niu's customer-facing scope. Do not call the 
 
 ## User-reported issues are global requirements
 
+Audit history distinguishes an empty filtered result from an empty journal. Clearing filters resets the category and query together and returns focus to search.
+
 Treat every defect or UX/engineering complaint raised by the user as a **global product requirement**, never as a one-off local patch. For every user-reported issue:
 
 1. Identify the shared root cause in the underlying UI primitive, base stylesheet, backend contract, or operational workflow.
