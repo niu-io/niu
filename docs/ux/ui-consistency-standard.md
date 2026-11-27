@@ -119,3 +119,5 @@ Use field labels, units, comparable values and action names to make workflows cl
 New text price and credit tariff menus use the registered route’s text eligibility. Missing media price specifications alone never establish eligibility. Inspect route pool candidates and upstream modality metadata even when a public alias hides the underlying model name.
 
 A catalog model can be labeled free only when the complete applicable tariff establishes zero charges, including all token categories, context tiers, the request fee and the minimum charge. Show positive per-request charges alongside token rates.
+
+Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
