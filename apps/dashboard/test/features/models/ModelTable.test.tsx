@@ -18,7 +18,7 @@ afterEach(() => {
   mockedContext.session = null;
   cleanup();
 });
-const models = Array.from({ length: 25 }, (_, i) => ({ id: `openai/model-${i}`, provider: 'openrouter', public_catalog: true, catalog: {output_modalities:['text']} }));
+const models = Array.from({ length: 25 }, (_, i) => ({ id: `openai/model-${i}`, provider: 'openrouter', provider_name: 'OpenRouter', public_catalog: true, catalog: {output_modalities:['text']} }));
 it('searches and opens a model without losing the catalog filter on return', async () => {
   const user = userEvent.setup();
   render(<MemoryRouter initialEntries={['/models']}><Routes><Route path="/models/*" element={<SidebarProvider><Link to="/models">Models breadcrumb</Link><ModelTable models={models} /></SidebarProvider>} /></Routes></MemoryRouter>);
@@ -102,8 +102,8 @@ it('preserves Provider filters when their group is collapsed with the keyboard',
 
 it('does not turn an imported distributor into a model developer', () => {
   const imported = [
-    { id:'babelark/third-party-model', provider:'babelark', catalog:{name:'Third-party model', output_modalities:['text']} },
-    { id:'babelark/deepseek-chat', provider:'babelark', catalog:{name:'DeepSeek Chat', output_modalities:['text']} },
+    { id:'babelark/third-party-model', provider:'babelark', provider_name: 'BabelArk', catalog:{name:'Third-party model', output_modalities:['text']} },
+    { id:'babelark/deepseek-chat', provider:'babelark', provider_name: 'BabelArk', catalog:{name:'DeepSeek Chat', output_modalities:['text']} },
   ];
   const view = render(<MemoryRouter><SidebarProvider><ModelTable models={imported}/></SidebarProvider></MemoryRouter>);
   expect(screen.queryByRole('region',{name:'Inferred developer filters'})).toBeNull();
@@ -202,10 +202,10 @@ it.each([['123456789', '$0.123456789 /M tokens'], ['0', '$0.00 /M tokens'], [nul
 it('keeps developer and provider facets separate without treating access namespaces as companies', async () => {
   const user=userEvent.setup();
   const routes=[
-    {id:'fastrouter/seedance-2.0-mini',provider:'fastrouter',public_catalog:false},
-    {id:'byok/claude-sonnet-4',provider:'openrouter',public_catalog:false},
+    {id:'fastrouter/seedance-2.0-mini',provider:'fastrouter', provider_name: 'FastRouter',public_catalog:false},
+    {id:'byok/claude-sonnet-4',provider:'openrouter', provider_name: 'OpenRouter',public_catalog:false},
     {id:'team/custom',provider:'byok',public_catalog:false},
-    {id:'anthropic/claude-haiku',provider:'fastrouter',public_catalog:true},
+    {id:'anthropic/claude-haiku',provider:'fastrouter', provider_name: 'FastRouter',public_catalog:true},
   ];
   render(<MemoryRouter><SidebarProvider><ModelTable models={routes}/></SidebarProvider></MemoryRouter>);
   const connections=within(screen.getByRole('region',{name:'Provider filters'}));
@@ -222,8 +222,8 @@ it('keeps developer and provider facets separate without treating access namespa
 it('filters explicit modalities and capabilities together, shows tags, and clears selections', async () => {
   const user = userEvent.setup();
   const tagged = [
-    {id:'openai/vision',provider:'openrouter',public_catalog:true,catalog:{input_modalities:['text','image'],output_modalities:['text'],supported_parameters:['tools','structured_outputs']}},
-    {id:'google/video',provider:'openrouter',public_catalog:true,catalog:{input_modalities:['text','image'],output_modalities:['video']}},
+    {id:'openai/vision',provider:'openrouter', provider_name: 'OpenRouter',public_catalog:true,catalog:{input_modalities:['text','image'],output_modalities:['text'],supported_parameters:['tools','structured_outputs']}},
+    {id:'google/video',provider:'openrouter', provider_name: 'OpenRouter',public_catalog:true,catalog:{input_modalities:['text','image'],output_modalities:['video']}},
     {id:'unknown',public_catalog:true},
   ];
   render(<MemoryRouter><SidebarProvider><ModelTable models={tagged}/></SidebarProvider></MemoryRouter>);
@@ -313,8 +313,8 @@ it('explains Video estimation without presenting token prices for a Video-only m
 
 it('ignores legacy inferred developer filters and preserves capability filters on detail links',()=>{
  const catalog=[
-  {id:'anthropic/claude-sonnet-4',provider:'openrouter',public_catalog:true,catalog:{name:'Claude Sonnet 4',input_modalities:['text','image'],output_modalities:['text']}},
-  {id:'openai/gpt-4o',provider:'openrouter',public_catalog:true,catalog:{name:'GPT-4o',input_modalities:['text','image'],output_modalities:['text']}},
+  {id:'anthropic/claude-sonnet-4',provider:'openrouter', provider_name: 'OpenRouter',public_catalog:true,catalog:{name:'Claude Sonnet 4',input_modalities:['text','image'],output_modalities:['text']}},
+  {id:'openai/gpt-4o',provider:'openrouter', provider_name: 'OpenRouter',public_catalog:true,catalog:{name:'GPT-4o',input_modalities:['text','image'],output_modalities:['text']}},
  ];
  render(<MemoryRouter initialEntries={['/models?dev=anthropic&input=image']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={catalog}/></SidebarProvider>}/></Routes></MemoryRouter>);
  expect(screen.getAllByRole('article')).toHaveLength(2);
@@ -337,8 +337,8 @@ it('shows one catalog even when an old billing-source bookmark is opened', () =>
 
 it('renders model card titles and meta action links with default foreground color instead of primary accent', () => {
   const mixed = [
-    { id: 'openai/gpt-4o', provider: 'openrouter', public_catalog: true, catalog: { name: 'GPT-4o', output_modalities: ['text'] } },
-    { id: 'fastrouter/seedance', provider: 'fastrouter', public_catalog: true, generation_capabilities: { chat: false, video: true }, catalog: { name: 'Seedance Video', output_modalities: ['video'] } },
+    { id: 'openai/gpt-4o', provider: 'openrouter', provider_name: 'OpenRouter', public_catalog: true, catalog: { name: 'GPT-4o', output_modalities: ['text'] } },
+    { id: 'fastrouter/seedance', provider: 'fastrouter', provider_name: 'FastRouter', public_catalog: true, generation_capabilities: { chat: false, video: true }, catalog: { name: 'Seedance Video', output_modalities: ['video'] } },
   ];
   render(<MemoryRouter initialEntries={['/models']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={mixed} /></SidebarProvider>} /></Routes></MemoryRouter>);
   const titleLink = screen.getByRole('link', { name: 'GPT-4o' });
@@ -355,7 +355,7 @@ it('renders model card titles and meta action links with default foreground colo
 it('hides active generation and curl CTAs for uncallable commercial models and links admins to missing pricing steps', () => {
   const uncallableModel = {
     id: 'openai/unpriced-commercial',
-    provider: 'openrouter',
+    provider: 'openrouter', provider_name: 'OpenRouter',
     billing_source: 'niu_credits' as const,
     public_catalog: false,
     callable: false,
@@ -364,7 +364,7 @@ it('hides active generation and curl CTAs for uncallable commercial models and l
   };
   const internalOwnKey = {
     id: 'internal/direct-chat',
-    provider: 'openrouter',
+    provider: 'openrouter', provider_name: 'OpenRouter',
     billing_source: 'own_api_key' as const,
     public_catalog: true,
     callable: true,

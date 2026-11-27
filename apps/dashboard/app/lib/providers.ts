@@ -106,13 +106,8 @@ export function modelDeveloper(model: ModelIdentityInput): ProviderIdentity | un
 export function modelIdentity(model: ModelIdentityInput): ProviderIdentity {
   return modelDeveloper(model) ?? { id: 'other', name: 'Other models' };
 }
-export function modelProviderName(model: { provider?: string }): string | undefined {
-  const value = model.provider?.trim();
-  if (!value || /^byok$/i.test(value) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) return;
-  if (value.toLowerCase() === 'fastrouter') return 'FastRouter';
-  // Preserve named connections; only normalize an exact registered service name.
-  const definition = definitions.find(([, , , aliases]) => aliases.some(alias => alias === value.toLowerCase()));
-  return definition?.[1] ?? value;
+export function modelProviderName(model: { provider_name?: string | null }): string | undefined {
+  return model.provider_name?.trim() || undefined;
 }
 export function connectionIdentity(vendor: { name: string; api_base: string; adapter: string }): ProviderIdentity {
   let host = '';
@@ -178,6 +173,6 @@ export function disambiguatedCatalogTitle(
     return peerCandidate === candidate;
   });
   if (sameCandidatePeers.length <= 1) return candidate;
-  const prefix = model.provider?.trim() || (model.id.includes('/') ? model.id.slice(0, model.id.indexOf('/')) : modelProviderName(model));
+  const prefix = model.id.includes('/') ? model.id.slice(0, model.id.indexOf('/')) : undefined;
   return prefix ? `${candidate} (${prefix})` : candidate;
 }
