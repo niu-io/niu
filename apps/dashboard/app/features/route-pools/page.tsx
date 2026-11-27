@@ -586,6 +586,15 @@ function RoutePoolEditorDialog({
   const [discoveryIncomplete, setDiscoveryIncomplete] = useState(false);
   const [discoveryAttempt, setDiscoveryAttempt] = useState(0);
   const [discovering, setDiscovering] = useState(true);
+  const rejectedCandidates = useRef<string[]>([]);
+  const [missingPriceAlias, setMissingPriceAlias] = useState('');
+
+  useEffect(() => {
+    if (!missingPriceAlias) return;
+    const control = document.querySelector<HTMLElement>('[aria-describedby="candidate-price-error"]');
+    control?.focus({ preventScroll: true });
+    control?.scrollIntoView({ block: 'center', behavior: 'instant' });
+  }, [missingPriceAlias]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -632,6 +641,15 @@ function RoutePoolEditorDialog({
           if (!byAlias.has(row.alias)) byAlias.set(row.alias, row);
         }
         setDiscoveredRoutes([...byAlias.values()].sort((a, b) => a.alias.localeCompare(b.alias)));
+        const missing = rejectedCandidates.current.find(alias => {
+          const route = byAlias.get(alias);
+          return route && !route.ownerFunded && route.priced === false;
+        });
+        rejectedCandidates.current = [];
+        if (missing) {
+          setMissingPriceAlias(missing);
+          setFormError('');
+        }
         setDiscoveryIncomplete(incomplete);
       } catch {
         if (!controller.signal.aborted) setDiscoveryIncomplete(true);
@@ -645,6 +663,7 @@ function RoutePoolEditorDialog({
   const winningShares = useMemo(() => computeWinningTierShares(candidates), [candidates]);
 
   function updateCandidate(index: number, patch: Partial<ModelRoutePoolCandidate>) {
+    if (patch.alias && candidates[index]?.alias === missingPriceAlias) setMissingPriceAlias('');
     setCandidates(current => current.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)));
   }
 
@@ -779,7 +798,8 @@ function RoutePoolEditorDialog({
       }
       const route = discoveredRoutes.find(item => item.alias === candidateAlias);
       if (route && !route.ownerFunded && route.priced === false) {
-        setFormError(`${candidateAlias} · ${t('Purchase price not configured', '采购价未配置')}`);
+        setMissingPriceAlias(candidateAlias);
+        setFormError('');
         return;
       }
       if (seenAliases.has(candidateAlias)) {
@@ -904,6 +924,10 @@ function RoutePoolEditorDialog({
           ),
         );
       } else {
+        if (reason instanceof ProviderRequestError && reason.errorType === 'candidate_price_missing') {
+          rejectedCandidates.current = normalizedCandidates.map(candidate => candidate.alias);
+          setDiscoveryAttempt(previous => previous + 1);
+        }
         setFormError(reason instanceof Error ? reason.message : t('Could not save custom model.', '无法保存自定义模型。'));
       }
     } finally {
@@ -1184,6 +1208,8 @@ function RoutePoolEditorDialog({
                         <DropdownMenuTrigger asChild>
                           <Button
                             id={`candidate-model-${index}`}
+                            aria-invalid={!!missingPriceAlias && candidate.alias === missingPriceAlias}
+                            aria-describedby={missingPriceAlias && candidate.alias === missingPriceAlias ? 'candidate-price-error' : undefined}
                             type="button"
                             variant="outline"
                             className="w-full min-w-0 justify-between"
@@ -1248,6 +1274,9 @@ function RoutePoolEditorDialog({
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      {missingPriceAlias && candidate.alias === missingPriceAlias && (
+                        <p id="candidate-price-error" role="alert" className="text-sm text-destructive">{t('Purchase price not configured', '采购价未配置')}</p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
