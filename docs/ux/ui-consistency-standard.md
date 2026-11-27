@@ -213,3 +213,5 @@ Registration validation focuses the first invalid field and associates the inlin
 Workspace spending-limit feedback uses the parsed amount. Show the consequences of a valid limit only. On invalid submission, focus the amount field, associate its inline error, and clear the error when the amount becomes valid.
 
 Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.
+
+Promotion lists keep dates, scope, and actions visible when a quote is expanded. Give the comparison the full row width inside the dialog at desktop, tablet, and phone sizes.

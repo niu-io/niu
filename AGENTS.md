@@ -260,3 +260,5 @@ Pricing editors show a single decision footer. When confirming draft dismissal, 
 When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
 
 Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.
+
+Promotion lists keep dates, scope, and actions visible when a quote is expanded. Give the comparison the full row width inside the dialog at desktop, tablet, and phone sizes.
