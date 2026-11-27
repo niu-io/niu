@@ -48,7 +48,7 @@ function TextComparison({ rates, currency, sellingLabel }: { sellingLabel: strin
 }
 
 /** Display only in platform administration, using the same operands as the comparison. */
-export function PriceComparison({ health, currency, sellingLabel }: { sellingLabel: string; health?: PricingHealth; currency: string }) {
+export function PriceComparison({ health, currency, sellingLabel, summaryShowsLoss = false }: { sellingLabel: string; summaryShowsLoss?: boolean; health?: PricingHealth; currency: string }) {
   const { t } = useLocale();
   const supply = supplyStateOf(health);
   if (supply === 'inactive' || supply === 'unconfigured') {
@@ -58,7 +58,7 @@ export function PriceComparison({ health, currency, sellingLabel }: { sellingLab
   return <div className="space-y-5">
     {health.checks.map((check, index) => <section key={index} className="space-y-2">
       <h3 className="break-all font-medium">{[check.provider, check.route].filter(Boolean).join(' · ')}</h3>
-      {check.status === 'below_cost' && <p className="text-destructive">{t('Below purchase cost', '低于采购成本')}</p>}
+      {check.status === 'below_cost' && (!summaryShowsLoss || health.checks.length > 1) && <p className="text-destructive">{t('Below purchase cost', '低于采购成本')}</p>}
       {check.rates?.length ? <TextComparison sellingLabel={sellingLabel} rates={check.rates} currency={currency} /> : check.media_rates ? <dl className="grid grid-cols-2 gap-2">
         <dt>{t('Purchase price', '采购价')}</dt><dd>{mediaPrice(check.media_rates.purchase, currency, t(check.media_rates.meter))}</dd>
         <dt>{sellingLabel}</dt><dd>{mediaPrice(check.media_rates.selling, currency, t(check.media_rates.meter))}</dd>
