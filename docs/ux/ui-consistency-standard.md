@@ -77,6 +77,8 @@ Returning from request details restores the inspected row, focus and loaded page
 - **Sibling first-run parity**: Sibling creation surfaces in Generations (`Chat` and `Video`) share the same centered mode switcher (`Chat` / `Video`), heading scale (`.playground-first-run-heading`), and `.playground-starters` / `.playground-starter` card grid (`<strong>` title, `<span>` summary, trailing arrow icon).
 - **Never leak internal IDs**: Never render UUIDs/GUIDs in UI labels, tooltips, badges, dialogs, or error notices.
 
+Customer access lists retain workspace links, member roles and workspace scope on narrow screens. Show labeled values within each row without horizontal scrolling.
+
 A filtered registration queue with zero results shows the relevant empty title. Omit raw submission URLs and generic audit explanations.
 
 ## 6. Primitive & Stylesheet Hygiene
