@@ -21,6 +21,7 @@ vi.mock('../../../app/shell/platform-currency', () => ({
 const currencyRow = {
   price_id: 'currency-price',
   model_alias: 'shared-model',
+  catalog: { description: 'Catalog usage instructions for this model.' },
   currency: 'USD',
   version: '1',
   published_at: '2026-11-01T00:00:00Z',
@@ -83,6 +84,7 @@ describe('unified pricing surface', () => {
 
     expect(await screen.findByRole('table', { name: 'Platform standard selling prices' })).toBeTruthy();
     expect(screen.getByText('shared-model')).toBeTruthy();
+    expect(screen.queryByText(currencyRow.catalog.description)).toBeNull();
     expect(screen.getByRole('tab', { name: 'Settlement Currency' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByText('Active billing mode: Settlement Currency')).toBeTruthy();
     expect(screen.queryByRole('table', { name: 'Branded Credits text tariffs' })).toBeNull();
