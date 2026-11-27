@@ -33385,6 +33385,22 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "after_model",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "When more is true, pass both cursor fields from the last returned model."
+          },
+          {
+            "name": "after_owner_funded",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "When more is true, pass both cursor fields from the last returned model."
           }
         ],
         "responses": {

@@ -10,6 +10,12 @@ pub struct IncidentQuery {
     before: Option<String>,
 }
 
+#[derive(Deserialize)]
+pub struct WorkspaceIncidentQuery {
+    after_model: Option<String>,
+    after_owner_funded: Option<bool>,
+}
+
 /// ```openapi
 /// {
 ///   "path": "/api/v1/admin/providers/connections/{vendor}/incidents",
@@ -184,12 +190,13 @@ fn incident_cursor(before: Option<String>) -> Result<Option<i64>, ApiError> {
 }
 
 /// ```openapi
-/// {"path":"/api/v1/workspaces/{workspace}/incidents","method":"get","operation":{"operationId":"listWorkspaceIncidents","summary":"Read active upstream incidents affecting this workspace","description":"Requires current workspace read authority. Returns only model aliases and whether the affected connection is owner-funded for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. notifications states whether this exact workspace has an enabled, currently authorized incident receiver and whether the current lifecycle event is queued, sending, acknowledged, failed or not configured; an absent receiver is never reported as sent. No upstream requests or mutations. Cache-Control no-store.","security":[{"bearerAuth":[]}],"parameters":[{"name":"workspace","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Workspace-scoped active incident projection","content":{"application/json":{"schema":{"type":"object","required":["data","more","notifications"],"properties":{"data":{"type":"array","maxItems":50,"items":{"type":"object","required":["model","owner_funded"],"properties":{"model":{"type":"string"},"owner_funded":{"type":"boolean"}}}},"more":{"type":"boolean"},"notifications":{"type":"object","required":["state","incidents","subscribers","authorized","delivered","failed","cancelled","queued","sending","not_configured","authority_inactive"],"properties":{"state":{"type":"string","enum":["none","not_configured","authority_inactive","delivered","failed","sending","queued"]},"incidents":{"type":"integer","minimum":0},"subscribers":{"type":"integer","minimum":0},"authorized":{"type":"integer","minimum":0},"delivered":{"type":"integer","minimum":0},"failed":{"type":"integer","minimum":0},"cancelled":{"type":"integer","minimum":0},"queued":{"type":"integer","minimum":0},"sending":{"type":"integer","minimum":0},"not_configured":{"type":"integer","minimum":0},"authority_inactive":{"type":"integer","minimum":0}}}}}}}},"401":{"description":"Authentication required"},"403":{"description":"Workspace authority required"},"404":{"description":"Workspace unavailable"},"503":{"description":"Incident evidence unavailable"}},"x-niu-implementation":"implemented"}}
+/// {"path":"/api/v1/workspaces/{workspace}/incidents","method":"get","operation":{"operationId":"listWorkspaceIncidents","summary":"Read active upstream incidents affecting this workspace","description":"Requires current workspace read authority. Returns only model aliases and whether the affected connection is owner-funded for active incidents with a recorded failed request in this exact workspace. No Provider identity, upstream details, procurement data, request content or other workspace information is returned. At most 50 models are returned; more indicates additional results. Empty means no covered incident observed for this workspace, not proof of healthy supply. notifications states whether this exact workspace has an enabled, currently authorized incident receiver and whether the current lifecycle event is queued, sending, acknowledged, failed or not configured; an absent receiver is never reported as sent. No upstream requests or mutations. Cache-Control no-store.","security":[{"bearerAuth":[]}],"parameters":[{"name":"workspace","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"after_model","in":"query","schema":{"type":"string"},"description":"When more is true, pass both cursor fields from the last returned model."},{"name":"after_owner_funded","in":"query","schema":{"type":"boolean"},"description":"When more is true, pass both cursor fields from the last returned model."}],"responses":{"200":{"description":"Workspace-scoped active incident projection","content":{"application/json":{"schema":{"type":"object","required":["data","more","notifications"],"properties":{"data":{"type":"array","maxItems":50,"items":{"type":"object","required":["model","owner_funded"],"properties":{"model":{"type":"string"},"owner_funded":{"type":"boolean"}}}},"more":{"type":"boolean"},"notifications":{"type":"object","required":["state","incidents","subscribers","authorized","delivered","failed","cancelled","queued","sending","not_configured","authority_inactive"],"properties":{"state":{"type":"string","enum":["none","not_configured","authority_inactive","delivered","failed","sending","queued"]},"incidents":{"type":"integer","minimum":0},"subscribers":{"type":"integer","minimum":0},"authorized":{"type":"integer","minimum":0},"delivered":{"type":"integer","minimum":0},"failed":{"type":"integer","minimum":0},"cancelled":{"type":"integer","minimum":0},"queued":{"type":"integer","minimum":0},"sending":{"type":"integer","minimum":0},"not_configured":{"type":"integer","minimum":0},"authority_inactive":{"type":"integer","minimum":0}}}}}}}},"401":{"description":"Authentication required"},"403":{"description":"Workspace authority required"},"404":{"description":"Workspace unavailable"},"503":{"description":"Incident evidence unavailable"}},"x-niu-implementation":"implemented"}}
 /// ```
 pub async fn workspace_list(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(workspace): Path<Uuid>,
+    Query(query): Query<WorkspaceIncidentQuery>,
 ) -> Result<axum::response::Response, ApiError> {
     let (_, scope) = super::workspace_aliases::authorize_workspace(
         &state,
@@ -198,10 +205,17 @@ pub async fn workspace_list(
         AdminPermission::Read,
     )
     .await?;
+    let after = match (query.after_model.as_deref(), query.after_owner_funded) {
+        (None, None) => None,
+        (Some(model), Some(owner)) if !model.is_empty() && model.len() <= 200 => {
+            Some((model, owner))
+        }
+        _ => return Err(ApiError::invalid_request("Invalid affected model cursor")),
+    };
     let mut response = Json(
         state
             .store
-            .workspace_active_incidents(scope)
+            .workspace_active_incidents_page(scope, after)
             .await
             .map_err(ApiError::from_store)?,
     )

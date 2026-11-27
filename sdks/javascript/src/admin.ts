@@ -3565,8 +3565,10 @@ export class NiuAdminClient {
   }
 
   /** Models with recorded active incidents in this authorized workspace only. */
-  listWorkspaceIncidents(workspaceId: string, options?: RequestOptions): Promise<{ data: { model: string; owner_funded: boolean }[]; more: boolean; notifications: WorkspaceIncidentNotifications }> {
-    return this.request(`/workspaces/${uuid(workspaceId)}/incidents`, undefined, options);
+  listWorkspaceIncidents(workspaceId: string, options?: RequestOptions & { after?: { model: string; owner_funded: boolean } }): Promise<{ data: { model: string; owner_funded: boolean }[]; more: boolean; notifications: WorkspaceIncidentNotifications }> {
+    const { after, ...requestOptions } = options ?? {};
+    const cursor = after ? '?' + new URLSearchParams({ after_model: after.model, after_owner_funded: String(after.owner_funded) }) : '';
+    return this.request(`/workspaces/${uuid(workspaceId)}/incidents${cursor}`, undefined, requestOptions);
   }
 
   listConnectionIncidents(page: { status?: 'active' | 'resolved'; before?: string } = {}, options?: RequestOptions): Promise<{ data: PlatformConnectionIncident[]; next_before: string | null; coverage: { request_observed: true; proactive_probe: 'not_configured' } }> {

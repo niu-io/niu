@@ -1833,6 +1833,26 @@ Each array entry is an alternative; schemes within one entry are required togeth
 }
 ```
 
+`after_model` (query, optional)
+
+When more is true, pass both cursor fields from the last returned model.
+
+```json
+{
+  "type": "string"
+}
+```
+
+`after_owner_funded` (query, optional)
+
+When more is true, pass both cursor fields from the last returned model.
+
+```json
+{
+  "type": "boolean"
+}
+```
+
 ### Responses
 
 HTTP 200: Workspace-scoped active incident projection
