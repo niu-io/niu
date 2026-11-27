@@ -935,7 +935,7 @@ function CommercialStatement({ token }: { token: string }) {
                   {uiT("Amounts in")}{" "}{currency} ({currencySymbol(currency)})
                 </span>
               </div>
-              <Table aria-label={uiT("Statement of operations")} className="table-auto">
+              <Table aria-label={uiT("Statement of operations")} className="commercial-statement-table table-auto">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[40%]">{uiT("Line item")}</TableHead>
@@ -1032,7 +1032,7 @@ function CommercialStatement({ token }: { token: string }) {
                   {uiT("Amounts in")}{" "}{currency} ({currencySymbol(currency)})
                 </span>
               </div>
-              <Table aria-label={uiT("Customer financial posting summary")} className="table-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
+              <Table aria-label={uiT("Customer financial posting summary")} className="commercial-statement-table table-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[40%]">{uiT("Measure")}</TableHead>
