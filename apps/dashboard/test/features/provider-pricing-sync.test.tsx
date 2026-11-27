@@ -147,7 +147,7 @@ describe('Provider standard pricing alignment & below_cost prevention', () => {
 
   it('never renders Below purchase cost warning when rates match (no_lower_unit_rates) or when supply is inactive', () => {
     const equalRender = render(
-      <PriceComparison currency="USD"
+      <PriceComparison currency="USD" sellingLabel="Standard selling price"
         health={{
           advisory: true,
           supply_status: 'active',
@@ -169,10 +169,11 @@ describe('Provider standard pricing alignment & below_cost prevention', () => {
     expect(equalRender.container.textContent).not.toContain('Below purchase cost');
     expect(equalRender.container.textContent).not.toContain('低于采购成本');
     expect(equalRender.container.textContent).toContain('$1.2');
+    expect(equalRender.container.querySelector('[data-label="Standard selling price"]')?.textContent).toContain('$1.2');
     equalRender.unmount();
 
     render(
-      <PriceComparison currency="USD"
+      <PriceComparison currency="USD" sellingLabel="Standard selling price"
         health={{
           advisory: true,
           supply_status: 'inactive',

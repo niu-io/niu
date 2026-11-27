@@ -212,4 +212,6 @@ Registration validation focuses the first invalid field and associates the inlin
 
 Workspace spending-limit feedback uses the parsed amount. Show the consequences of a valid limit only. On invalid submission, focus the amount field, associate its inline error, and clear the error when the amount becomes valid.
 
+Purchase comparisons identify the selling rate as standard or promotional in both desktop headers and mobile field labels.
+
 Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.

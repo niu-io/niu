@@ -259,4 +259,6 @@ Pricing editors show a single decision footer. When confirming draft dismissal, 
 
 When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
 
+Purchase comparisons identify the selling rate as standard or promotional in both desktop headers and mobile field labels.
+
 Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.
