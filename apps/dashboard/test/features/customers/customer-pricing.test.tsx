@@ -337,6 +337,7 @@ describe('CustomerDetail', () => {
     expect(await screen.findByText('gpt-4o')).toBeTruthy();
 
     await user.click(screen.getByRole('tab', { name: 'Workspaces & members' }));
+    expect((await screen.findByRole('table', { name: 'Customer workspaces' })).classList.contains('customer-access-table')).toBe(true);
     expect(await screen.findByRole('link', { name: 'Production' })).toBeTruthy();
     expect(screen.getByText('/orbit-prod')).toBeTruthy();
     expect(screen.getAllByRole('button', { name: 'Set up access' })).toHaveLength(1);
