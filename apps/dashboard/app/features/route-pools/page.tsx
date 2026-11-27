@@ -283,17 +283,17 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
       {loading && pools.length === 0 ? (
         <TableSkeleton columns={5} rows={5} label={t('Loading custom models…', '正在加载自定义模型…')} />
       ) : visiblePools.length > 0 ? (
-        <Table aria-label={uiT("Custom models", "自定义模型")}>
-          <TableHeader className="max-sm:sr-only">
+        <div className="@container"><Table className="@max-[64rem]:block" aria-label={uiT("Custom models", "自定义模型")}>
+          <TableHeader className="@max-[64rem]:sr-only">
             <TableRow>
               <TableHead>{t('Custom model alias & identity', '自定义模型别名与标识')}</TableHead>
-              <TableHead className="hidden md:table-cell">{t('Scope & billing', '范围与计费策略')}</TableHead>
+              <TableHead className="hidden @[64rem]:table-cell">{t('Scope & billing', '范围与计费策略')}</TableHead>
               <TableHead>{t('Routing & candidate routes', '分流规则与候选模型')}</TableHead>
-              <TableHead className="hidden sm:table-cell">{t('Status', '状态')}</TableHead>
-              <TableHead className="sm:w-64">{t('Actions', '操作')}</TableHead>
+              <TableHead className="hidden @[64rem]:table-cell">{t('Status', '状态')}</TableHead>
+              <TableHead className="@[64rem]:w-64">{t('Actions', '操作')}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="max-sm:block max-sm:divide-y">
+          <TableBody className="@max-[64rem]:block @max-[64rem]:divide-y">
             {visiblePools.map(pool => {
               const sortedCandidates = [...pool.candidates].sort(
                 (a, b) => b.priority - a.priority || b.weight - a.weight || a.alias.localeCompare(b.alias),
@@ -312,8 +312,8 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                   ? t('Per-candidate billing', '按命中模型分别计费')
                   : t('Unified custom model price', '按自定义模型统一定价');
               return (
-                <TableRow key={pool.alias} className="max-sm:block max-sm:space-y-2.5 max-sm:py-3.5">
-                  <TableCell className="align-top whitespace-normal max-sm:block max-sm:border-b-0 max-sm:p-0">
+                <TableRow key={pool.alias} className="@max-[64rem]:block @max-[64rem]:space-y-2.5 @max-[64rem]:py-3.5">
+                  <TableCell className="align-top whitespace-normal @max-[64rem]:block @max-[64rem]:border-b-0 @max-[64rem]:p-0">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <IconRoute size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -321,7 +321,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                       </div>
                       <Badge
                         variant={pool.enabled && enabledCandidates > 0 ? 'secondary' : 'outline'}
-                        className="sm:hidden"
+                        className="@[64rem]:hidden"
                       >
                         {statusLabel}
                       </Badge>
@@ -330,7 +330,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                       <p className="mt-0.5 text-xs font-medium text-foreground/80">{pool.display_name}</p>
                     )}
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className="md:hidden">{scopeName} · {billingLabel}</span>
+                      <span className="@[64rem]:hidden">{scopeName} · {billingLabel}</span>
                       {!pool.organization_id && pool.public_catalog && (
                         <Badge variant="secondary" className="text-[11px] font-normal">
                           {t('Public catalog', '公开目录')}
@@ -338,7 +338,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="hidden align-top whitespace-normal md:table-cell">
+                  <TableCell className="hidden align-top whitespace-normal @[64rem]:table-cell">
                     <div className="flex flex-wrap gap-1.5">
                       <Badge variant="outline">{scopeName}</Badge>
                       <Badge variant="secondary" className="font-normal">
@@ -347,7 +347,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                     </div>
 
                   </TableCell>
-                  <TableCell className="align-top whitespace-normal max-sm:block max-sm:border-b-0 max-sm:p-0">
+                  <TableCell className="align-top whitespace-normal @max-[64rem]:block @max-[64rem]:border-b-0 @max-[64rem]:p-0">
                     <div className="flex flex-wrap gap-1.5">
                       {enabledRules > 0 && (
                         <Badge variant="secondary" className="font-normal">
@@ -382,12 +382,12 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                         ` · ${t('Rejects requests when no rule matches', '未命中规则时拒绝请求')}`}
                     </p>
                   </TableCell>
-                  <TableCell className="hidden align-top whitespace-normal sm:table-cell">
+                  <TableCell className="hidden align-top whitespace-normal @[64rem]:table-cell">
                     <Badge variant={pool.enabled && enabledCandidates > 0 ? 'secondary' : 'outline'}>
                       {statusLabel}
                     </Badge>
                   </TableCell>
-                  <TableCell className="align-top max-sm:block max-sm:p-0">
+                  <TableCell className="align-top @max-[64rem]:block @max-[64rem]:p-0">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <Button
                         variant="outline"
@@ -447,7 +447,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
               );
             })}
           </TableBody>
-        </Table>
+        </Table></div>
       ) : (
         !error && !cursor && (
           <Empty>
