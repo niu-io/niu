@@ -62,6 +62,8 @@ Follow [the UI consistency standard](docs/ux/ui-consistency-standard.md) for all
 
 A filtered registration queue with zero results shows the relevant empty title. Omit raw submission URLs and generic audit explanations.
 
+Localize billing request counts as complete phrases so each language controls the order of the count, noun and settlement status.
+
 A tab that groups multiple entity types must not show an unlabeled count for just one type. Keep counts with the entity they describe.
 
 ## Icons

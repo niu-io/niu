@@ -158,6 +158,8 @@ Use a right-side sheet for a current price comparison. Show both comparable rate
 
 Audit history distinguishes an empty filtered result from an empty journal. Clearing filters resets the category and query together and returns focus to search.
 
+Localize billing request counts as complete phrases so each language controls the order of the count, noun and settlement status.
+
 A tab that groups multiple entity types must not show an unlabeled count for just one type. Keep counts with the entity they describe.
 
 ## Decision-focused interface copy

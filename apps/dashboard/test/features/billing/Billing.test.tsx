@@ -717,6 +717,7 @@ it('separates pending settlement and missing rates headlines with direct action 
     </MemoryRouter>,
   );
   await screen.findByText('Pending settlement · missing rates');
+  expect(screen.getByText('2 requests awaiting settlement · 3 requests without a customer rate')).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Inspect pending requests' }).getAttribute('href')).toBe('/workspaces/demo/executions?settlement=pending');
   const reviewRates = screen.getByRole('button', { name: 'Review rates' });
   expect(reviewRates).toBeTruthy();
