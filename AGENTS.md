@@ -36,6 +36,8 @@ Use a single word for each API route segment unless a compound is strictly neces
 
 Use SSH for authorized remote inspection and configuration transfers. Do not use Supen to inspect remote sessions or coordinate development unless the user explicitly requests it. Keep transferred credentials outside the public repository.
 
+Registration review rows keep the applicant identity and available decision actions readable without horizontal scrolling across desktop, tablet and phone widths.
+
 ## Dashboard choice controls
 
 Never use a native HTML `<select>` / `<option>` control, the shadcn Select component, or a hand-built Select/Dropdown abstraction anywhere in the product UI. This is a hard design rule, not a preference. Compose the installed shadcn `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, and the appropriate menu item primitives directly at each call site for choice menus, including single-choice form fields, workspace/model selectors, and filters. Use the shared menu primitives' icon gutter and spacing; do not override their internal layout with local CSS. Single-choice and multiple-choice items show the selected state as a check on the right, with text and optional icons aligned to ordinary action items. Keep Radix radio/checkbox semantics; do not add a left radio dot or an extra selection column. See `docs/ux/menu-review-2026-11-01.md` for the agreed convention and audit evidence. Verify each changed menu in the browser, including open state and alignment, before reporting completion.
@@ -46,6 +48,8 @@ Use the shadcn CLI as the source for standard UI primitives. Use its installed `
 
 ## Dialogs and page simplicity
 
+Registration policy and the registration review queue link directly to each other within their owning Settings and Customers tabs. Display the pending count on the review action when positive.
+
 Follow [the UI consistency standard](docs/ux/ui-consistency-standard.md) for all dashboard pages, dialogs, choice controls, composers, loading states, and visual tokens. Keep management and detail pages as scannable reading and inspection surfaces (tables or concise single-panel key-value summaries) without multi-card sprawl or walls of explanatory prose. Every page-level create, edit, rename, publish, limit-setting, and destructive confirmation action must open an installed shadcn `Dialog` (`DialogHeader`, bounded scrollable body such as `max-h-[90dvh] overflow-y-auto`, and `DialogFooter` with cancellation and primary submit actions, restoring focus to its trigger via `onCloseAutoFocus`). Never replace a read view in place with an inline edit form, embed permanent mutation forms inside a summary page, or expand inline confirmation strips on pages. Conversely, never open a nested `Dialog` inside an already-open modal (such as the global `Settings` dialog); keep secondary flows inside an active modal inline or in-dialog views. Never collapse an open dialog's form or detail frame into a full-body skeleton or raw loading paragraph while fetching choice options or secondary metadata; keep the frame stably mounted and show loading inside the affected control or data region.
 
 A filtered registration queue with zero results shows the relevant empty title. Omit raw submission URLs and generic audit explanations.
@@ -55,6 +59,8 @@ A filtered registration queue with zero results shows the relevant empty title. 
 Use only Lucide React and Tabler Icons for product controls and navigation. Choose icons for their meaning; both libraries are allowed. Keep navigation size, stroke weight and alignment consistent, and use the same icon for the same feature across the sidebar and account menu.
 
 Consider Tabler alongside Lucide when choosing icons. Generations uses Tabler `sparkles`; Chat sessions use Tabler `message-chatbot`; `sparkle-highlight` is another suitable candidate for generative AI actions. Do not limit icon selection to Lucide or add Phosphor or IconPark.
+
+After a registration queue refresh or review decision, the queue, customer tab and navigation badges reflect the same pending count, including zero.
 
 ## Workspace terminology
 
@@ -141,6 +147,8 @@ Use Manus as the reference for the shared visual treatment of agent-product surf
 
 ## Status and list information
 
+Search paginated audit history on the server before applying page limits. Match localized display labels, load further results only on request, and restore the first page when search is cleared.
+
 Design management lists around the decision users need to make. Every column and status must distinguish meaningful outcomes or support a concrete action. Do not expose a backend field merely because it exists, or display universal labels such as “Configuration saved” on lists containing only saved records.
 
 Keep API credential presence, configuration, current Provider and offer qualification, supply readiness, live upstream verification, and workspace selling eligibility distinct. An API key or enabled route does not establish sellable inventory. Derive supply readiness from current approved, active model/rate offers and their matching enabled routes and credentials. Customer selling prices and authorization remain workspace-specific. Show missing requirements and link to the relevant remedy; never infer a positive state when evidence is unavailable.
@@ -190,5 +198,7 @@ New text price and credit tariff menus use the registered route’s text eligibi
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
+
+When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
 
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.

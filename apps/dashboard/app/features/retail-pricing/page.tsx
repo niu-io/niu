@@ -48,7 +48,7 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
     tabParam === 'credits' || tabParam === 'currency' ? tabParam : null,
   );
   const activeMode: BillingMode = billingMode ?? 'currency';
-  const showModeTabs = activeMode === 'credits' || Boolean(unit) || tabParam === 'credits';
+  const showModeTabs = activeMode === 'credits' || Boolean(unit) || tabParam === 'credits' || tabParam === 'currency';
   const mode: BillingMode = tabParam === 'credits' || tabParam === 'currency'
     ? tabParam
     : viewMode ?? activeMode;

@@ -27,6 +27,9 @@ export interface PlatformAuditQuery {
   /** Opaque source-qualified reference returned by the previous page. */
   cursor?: string;
   category?: PlatformAuditCategory;
+  search?: string;
+  /** Field identifiers matching localized labels in the caller's UI. */
+  labels?: string[];
 }
 
 /** Construct a bounded read query without treating a cursor as a display label. */
@@ -40,6 +43,8 @@ export function platformAuditQuery(query: PlatformAuditQuery): string {
     if (!['authentication', 'configuration', 'access', 'supplier'].includes(query.category)) throw new TypeError('Unsupported audit category');
     params.set('category', query.category);
   }
+  if (query.search) params.set('search', query.search);
+  if (query.labels?.length) params.set('labels', query.labels.join(','));
   if (query.cursor !== undefined) {
     if (!query.cursor || query.cursor.length > 100) throw new TypeError('Invalid audit cursor');
     params.set('cursor', query.cursor);
