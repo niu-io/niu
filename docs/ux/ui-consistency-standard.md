@@ -27,6 +27,8 @@ This document defines the mandatory, product-wide UI and interaction standards f
 - **Transparent top navigation bars at rest, frosted glass on scroll**: Sticky/fixed top navigation bars (`.public-header`, Starlight `header.header`, `.public-models-topbar`, and `.dashboard-page-header`) must render completely transparent when unscrolled (`background: transparent`, `backdrop-filter: none`, `box-shadow: none`, and transparent bottom border unless hosting active header section tabs) and switch to frosted glass only when scrolled (`scrollY > 8` / `scrollTop > 8`: `68%–72%` translucent `--background` + `saturate(180%) blur(20px)` + subtle bottom hairline).
 ## 3. Uniform Choice, Header & Toolbar Controls
 
+Legacy platform settings URLs open the matching tab in the shared settings header. Keep unrelated query parameters and fragments when redirecting.
+
 - **DropdownMenu only**: Never use native `<select>` / `<option>`, shadcn `Select`, or custom dropdown abstractions. Compose shadcn `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, and `DropdownMenuRadioGroup` / `DropdownMenuRadioItem` (or `DropdownMenuCheckboxItem`) directly, keeping the selection check on the right aligned with standard items.
 - **PageHeader vs. Toolbar division**:
   - Place page-level primary creation/publish actions and the page refresh button in `PageHeader`'s right action slot — never drop primary page actions into a disconnected mid-page row beneath an alert banner.

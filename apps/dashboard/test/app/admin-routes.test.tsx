@@ -14,7 +14,9 @@ it.each([
   ['/admin/customer-accounts', '/admin/customers'],
   ['/admin/balances', '/admin/customers'],
   ['/admin/route-pools', '/admin/routing'],
-  ['/admin/payment-gateways', '/admin/payments'],
+  ['/admin/payment-gateways', '/admin/settings?tab=payments'],
+  ['/admin/payments', '/admin/settings?tab=payments'],
+  ['/admin/branding', '/admin/settings?tab=branding'],
   ['/admin/providers/example/configuration', '/admin/providers/example/keys'],
   ['/admin/providers/example/consumption', '/admin/providers/example/usage'],
   ['/providers/example/consumption', '/providers/example/usage'],
@@ -23,16 +25,19 @@ it.each([
   ['/supplier-accounts/example/consumption', '/providers/example/usage'],
   ['/suppliers/example/consumption', '/providers/example/usage'],
 ])('redirects %s to %s without losing filters or anchors', async (oldPath, newPath) => {
+  const target = new URL(newPath, "https://example.test");
+  const expectedQuery = new URLSearchParams("range=30");
+  for (const [key, value] of target.searchParams) expectedQuery.set(key, value);
   const legacyRoute = matchRoutes(appRoutes, oldPath)?.at(-1)?.route;
   expect(legacyRoute?.element).toBeTruthy();
   const prefix = oldPath.startsWith('/admin/') ? '/admin/' : '/';
   const router = createMemoryRouter([
     { path: prefix + legacyRoute!.path, element: legacyRoute!.element },
-    { path: newPath, element: <p>Canonical page</p> },
+    { path: target.pathname, element: <p>Canonical page</p> },
   ], { initialEntries: [oldPath + '?range=30#details'] });
   render(<RouterProvider router={router} />);
-  await waitFor(() => expect(router.state.location.pathname).toBe(newPath));
-  expect(router.state.location.search).toBe('?range=30');
+  await waitFor(() => expect(router.state.location.pathname).toBe(target.pathname));
+  expect(router.state.location.search).toBe(`?${expectedQuery.toString()}`);
   expect(router.state.location.hash).toBe('#details');
   expect(router.state.historyAction).toBe('REPLACE');
 });
@@ -41,7 +46,7 @@ it.each([
   '/admin/customers',
   '/admin/reports',
   '/admin/routing',
-  '/admin/payments',
+  '/admin/settings',
   '/admin/providers/example/keys',
   '/admin/providers/example/usage',
 ])('registers %s as a page rather than a redirect', path => {

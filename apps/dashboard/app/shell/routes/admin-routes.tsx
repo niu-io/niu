@@ -76,8 +76,8 @@ export const adminRoute: RouteObject = {
     },
     {
       path: 'payment-gateways',
-      loader: legacyPathRedirectLoader('/admin/payments'),
-      element: <LegacyPathRedirect to="/admin/payments" />,
+      loader: legacyRedirectLoader,
+      element: <LegacyRedirectRoute />,
     },
     {
       path: 'financial-reports',
@@ -184,20 +184,14 @@ export const adminRoute: RouteObject = {
     {
       id: 'admin-branding',
       path: 'branding',
-      lazy: bindLazy(routeImporters.branding, {
-        destination: 'Administration',
-        navTo: '/admin/branding',
-        title: { en: 'Branding', zh: '品牌定制' },
-      }),
+      loader: legacyRedirectLoader,
+      element: <LegacyRedirectRoute />,
     },
     {
       id: 'admin-payments',
       path: 'payments',
-      lazy: bindLazy(routeImporters.payments, {
-        destination: 'Administration',
-        navTo: '/admin/payments',
-        title: { en: 'Payments', zh: '收款配置' },
-      }),
+      loader: legacyRedirectLoader,
+      element: <LegacyRedirectRoute />,
     },
     {
       path: 'authentication',
