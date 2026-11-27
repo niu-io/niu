@@ -52,8 +52,9 @@ describe('workspace slugs', () => {
     render(<WorkspaceCreateDialog context={{organization:{id:'org',name:'Company'},createWorkspace} as unknown as DashboardContext} open onOpenChange={onOpenChange}/>);
     const dialog = screen.getByRole('dialog');
     await user.type(within(dialog).getByLabelText('Workspace name'), '产品 实验');
-    await user.click(within(dialog).getByRole('button', {name: 'Edit slug'}));
-    const slug = within(dialog).getByLabelText('Slug') as HTMLInputElement;
+    expect(within(dialog).getByText('/workspaces/chan-pin-shi-yan')).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', {name: 'Edit address'}));
+    const slug = within(dialog).getByLabelText('Address identifier') as HTMLInputElement;
     expect(slug.value).toBe('chan-pin-shi-yan');
     await user.clear(slug); await user.type(slug, 'research');
     await user.type(within(dialog).getByLabelText('Workspace name'), ' 2');

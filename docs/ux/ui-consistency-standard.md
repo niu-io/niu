@@ -72,6 +72,8 @@ After a registration queue refresh or review decision, the queue, customer tab a
 
 ## 5. Structured Loading, Empty, and Error Surfaces
 
+Pending settlement counts in Spending and Activity open request logs filtered by settlement, preserving the workspace and the counted period. All-time totals open without a date limit.
+
 Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
 
 Closing an unchanged pricing editor restores focus to its opening control. Refresh prices after a confirmed publication or revision conflict, and keep the price list mounted on ordinary cancellation.
@@ -182,7 +184,7 @@ On workspace Overview, expose a prerequisite action once. Keep the primary actio
 
 Direct video-mode links open the Video composer and its existing availability or setup state. A saved session retains its own workflow.
 
-Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
+Organization and workspace creation derive the address from the name. Preview the organization settings or workspace destination and expose identifier constraints when editing the address.
 
 Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
 
@@ -197,3 +199,5 @@ Registration validation focuses the first invalid field and associates the inlin
 When a price comparison already identifies the model, label its quotes by provider and include the upstream route only when it differs from the displayed model or the provider name is missing.
 
 Promotion lists keep dates, scope, and actions visible when a quote is expanded. Give the comparison the full row width inside the dialog at desktop, tablet, and phone sizes. Promotion terms show changed rates and media billing terms first, with the original and resulting schedules available on demand. Expand terms in the selected promotion row and associate the toggle with its details.
+
+Workspace spending-limit feedback uses the parsed amount. Show the consequences of a valid limit only. On invalid submission, focus the amount field, associate its inline error, and clear the error when the amount becomes valid.

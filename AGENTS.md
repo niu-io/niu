@@ -151,6 +151,8 @@ Account-wide Activity belongs in the account section of the workspace sidebar. K
 
 The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
 
+Pending settlement counts in Spending and Activity open request logs filtered by settlement, preserving the workspace and the counted period. All-time totals open without a date limit.
+
 Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
 
 Closing an unchanged pricing editor restores focus to its opening control. Refresh prices after a confirmed publication or revision conflict, and keep the price list mounted on ordinary cancellation.
@@ -194,6 +196,8 @@ Use durable, human-readable slugs for named product resources in browser paths a
 The backend is the source of truth for saved product data, including Chat sessions, messages, responses, settings, and attachments. Browser storage may only be a disposable cache. Clearing it or using another browser must not lose saved data. Never replace backend persistence with browser-only storage as a shortcut.
 
 ## Commercial data boundaries
+
+Workspace spending-limit feedback uses the parsed amount. Show the consequences of a valid limit only. On invalid submission, focus the amount field, associate its inline error, and clear the error when the amount becomes valid.
 
 Rounded financial amounts and changes must expose their exact values to touch and keyboard users. Use a focusable amount button and a popover when precision is omitted.
 
@@ -241,7 +245,7 @@ When an explicit pricing tab is open, keep both tab destinations available acros
 
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
 
-Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
+Organization and workspace creation derive the address from the name. Preview the organization settings or workspace destination and expose identifier constraints when editing the address.
 
 Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
 
