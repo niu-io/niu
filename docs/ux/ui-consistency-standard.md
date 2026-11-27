@@ -123,3 +123,5 @@ New text price and credit tariff menus use the registered route’s text eligibi
 A catalog model can be labeled free only when the complete applicable tariff establishes zero charges, including all token categories, context tiers, the request fee and the minimum charge. Show positive per-request charges alongside token rates.
 
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
+
+Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.

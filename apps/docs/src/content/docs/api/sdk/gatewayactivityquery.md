@@ -9,6 +9,7 @@ description: "Generated TypeScript declaration for GatewayActivityQuery"
 
 ```typescript
 export type GatewayActivityQuery = {
+    pendingSettlement?: boolean;
     /** Case-insensitive search of customer-visible request metadata. */
     q?: string;
     limit?: number;
