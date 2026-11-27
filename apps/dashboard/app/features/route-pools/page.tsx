@@ -1,4 +1,4 @@
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyContent } from '@/components/ui/empty';
 import { translateUI, useLocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
@@ -11,7 +11,6 @@ import {
   IconPlus,
   IconRefresh,
   IconRoute,
-  IconSearch,
   IconSparkles,
   IconTrash,
 } from '@tabler/icons-react';
@@ -103,6 +102,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
   const [historyPool, setHistoryPool] = useState<ModelRoutePool | null>(null);
   const [previewPool, setPreviewPool] = useState<ModelRoutePool | null>(null);
   const [auditPool, setAuditPool] = useState<ModelRoutePool | null>(null);
+  const filterInput = useRef<HTMLInputElement>(null);
   const activeRequest = useRef<AbortController | null>(null);
   const dialogTriggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -153,6 +153,10 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
     return () => activeRequest.current?.abort();
   }, [token]);
 
+  useEffect(() => {
+    if (cursor && !loading && !error && (filter.trim() || scopeFilter !== 'all')) void loadPools(cursor);
+  }, [cursor, loading, error, filter, scopeFilter]);
+
   const visiblePools = useMemo(() => {
     const query = filter.trim().toLowerCase();
     return pools.filter(pool => {
@@ -195,13 +199,6 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
           </div>
         }
       />
-      <p className="text-sm text-muted-foreground">
-        {t(
-          'Optional: combine multiple Provider model routes into one callable custom model alias with conditional routing rules, priority/weight failover, unified or pass-through billing, and strategy auditing. Direct Provider models work without creating custom models.',
-          '可选能力：将多个 Provider 模型路由组合为一个可直接调用的自定义模型别名，支持条件分流规则、优先级与权重容灾、统一定价或按命中模型计费以及策略审计。若只需直连单个模型，可跳过此页。',
-        )}
-      </p>
-
       {(pools.length > 0 || Boolean(filter.trim()) || scopeFilter !== 'all') && <div className="flex flex-wrap items-center gap-3">
         <Popover>
           <PopoverTrigger asChild>
@@ -231,35 +228,15 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
             </p>
           </PopoverContent>
         </Popover>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant={filter.trim() ? 'secondary' : 'outline'}
-              size={filter.trim() ? 'sm' : 'icon'}
-              aria-label={filter.trim() ? `${t("Filter custom models", "筛选自定义模型")}: ${filter.trim()}` : uiT("Filter custom models", "筛选自定义模型")}
-              title={t('Filter custom models', '筛选自定义模型')}
-            >
-              <IconSearch size={16} aria-hidden="true" />
-              {filter.trim() && <span className="max-w-36 truncate">{filter.trim()}</span>}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 space-y-2">
-            <Input
-              autoFocus
+        <Input
+              ref={filterInput}
+              className="w-full sm:w-64"
               type="search"
               aria-label={uiT("Filter custom models", "筛选自定义模型")}
               placeholder={t('Filter by custom model or candidate alias', '按自定义模型名称或候选模型筛选')}
               value={filter}
               onChange={event => setFilter(event.target.value)}
             />
-            {filter && (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setFilter('')}>
-                {t('Reset search', '重置筛选')}
-              </Button>
-            )}
-          </PopoverContent>
-        </Popover>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -478,22 +455,19 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
           </TableBody>
         </Table>
       ) : (
-        !error && (
+        !error && !cursor && (
           <Empty>
             <EmptyHeader><EmptyMedia variant="icon"><IconRoute size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>
               {pools.length > 0
                 ? t('No custom models match the current filter.', '没有符合当前筛选条件的自定义模型。')
                 : t('No custom models configured yet.', '尚未配置任何自定义模型。')}
             </EmptyTitle>
-            <EmptyDescription>
-              {pools.length > 0
-                ? t('Try clearing the search query or switching the scope filter.', '请尝试清空搜索关键词或切换范围筛选。')
-                : t('Start by choosing the Provider model routes this custom model should use.', '首先选择该自定义模型要组合的 Provider 模型路由。')}
-            </EmptyDescription></EmptyHeader>
+            </EmptyHeader>
             {pools.length > 0 && <EmptyContent>
               <Button variant="outline" onClick={() => {
                 setFilter('');
                 setScopeFilter('all');
+                filterInput.current?.focus();
               }}>
                 {t('Clear filters', '清空筛选')}
               </Button>
