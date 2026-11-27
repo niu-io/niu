@@ -16,7 +16,7 @@ The shared header tab strip keeps its selected tab fully visible on direct entry
 
 Empty workspace Logs and Usage link writers directly to key creation when no key is active. Readers see the missing prerequisite without a mutation action. Filtered empty results offer filter recovery.
 
-The API key directory shows one labeled creation action at every width, including when an active filter hides historical keys.
+Customer and API key directories keep their primary creation action visibly labeled at every width. The key directory shows one creation action even when an active filter hides historical keys.
 
 ## 2. Stable Dialog Frames & In-Control Loading
 

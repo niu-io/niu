@@ -152,6 +152,11 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(css).toContain('[data-slot="breadcrumb-item"]:only-child { max-width: 100%; }');
   });
 
+  it('keeps the customer creation label visible on phones', () => {
+    const customers = readFileSync(join(appDir, 'features/customers/customer-directory.tsx'), 'utf8');
+    expect(customers).not.toMatch(/className="hidden sm:inline">\{uiT\("New customer"\)/);
+  });
+
   it('offers recovery when an audit category or search yields no matches', () => {
     const source = readFileSync(join(appDir, 'features/audit-logs/page.tsx'), 'utf8');
     expect(source).toContain("const filtered = category !== 'all' || Boolean(query.trim())");
