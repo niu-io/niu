@@ -228,3 +228,5 @@ Organization creation derives the address from the name. Preview the organizatio
 Standard price directories show the comparable unit spread and billing unit alongside selling rates. Identify partial quote coverage, reserve publication timestamps for price details, and keep realized profit in financial reports.
 
 When a price comparison already identifies the model, label its quotes by provider and include the upstream route only when it differs from the displayed model or the provider name is missing.
+
+Promotion lists keep dates, scope, and actions visible when a quote is expanded. Give the comparison the full row width inside the dialog at desktop, tablet, and phone sizes.

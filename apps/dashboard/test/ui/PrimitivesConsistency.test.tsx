@@ -23,6 +23,13 @@ function collectTsxFiles(dir: string): string[] {
 
 describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
+  it('gives expanded promotion quotes a full row in the dialog', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/promotions.tsx'), 'utf8');
+    const css = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
+    expect(source).toContain('className="promotion-states"');
+    expect(css).toContain('.promotion-states > tbody > tr > td:not([data-label]) { grid-column: 1 / -1; }');
+  });
+
   const tsxFiles = collectTsxFiles(appDir);
 
   it('shows unit spread in standard price rows and keeps publication time in the detail sheet', () => {
