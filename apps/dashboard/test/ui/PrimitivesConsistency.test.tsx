@@ -26,18 +26,9 @@ describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
 
-  it('withholds both adjacent previews for unsupported token counts', () => {
-    const overflow = '9223372036854775808';
-    expect(tokenBand('33', overflow)).toBe('—');
-    expect(tokenBand(overflow)).toBe('—');
-    expect(tokenBand('33', '43')).toBe('33–42');
-  });
-
-  it('uses the same tier boundary validation for the editor field and submitted schedule', () => {
-    const field = readFileSync(join(appDir, 'features/retail-pricing/text-rate-band.tsx'), 'utf8');
-    const schedule = readFileSync(join(appDir, 'features/retail-pricing/text-terms.ts'), 'utf8');
-    expect(field).toContain('input?.setCustomValidity(validTierThreshold(');
-    expect(schedule).toContain('if (!validTierThreshold(tier.minimum_input_tokens');
+  it('keeps storage precision guidance out of the credit tariff heading', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/unit-tariffs.tsx'), 'utf8');
+    expect(source).not.toContain('decimal places are stored exactly');
   });
 
   it('keeps per-workspace charge headers and values visible on phones', () => {
@@ -123,6 +114,20 @@ describe('Shared UI primitives layout safeguards', () => {
       }
     }
     expect(violations).toEqual([]);
+  });
+
+  it('withholds both adjacent previews for unsupported token counts', () => {
+    const overflow = '9223372036854775808';
+    expect(tokenBand('33', overflow)).toBe('—');
+    expect(tokenBand(overflow)).toBe('—');
+    expect(tokenBand('33', '43')).toBe('33–42');
+  });
+
+  it('uses the same tier boundary validation for the editor field and submitted schedule', () => {
+    const field = readFileSync(join(appDir, 'features/retail-pricing/text-rate-band.tsx'), 'utf8');
+    const schedule = readFileSync(join(appDir, 'features/retail-pricing/text-terms.ts'), 'utf8');
+    expect(field).toContain('input?.setCustomValidity(validTierThreshold(');
+    expect(schedule).toContain('if (!validTierThreshold(tier.minimum_input_tokens');
   });
 
   it('retains the global zero-specificity field-spacing safeguard in foundation.css', () => {
