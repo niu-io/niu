@@ -203,6 +203,12 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(violations).toEqual([]);
   });
 
+  it('keeps account activity reachable on both global activity tabs', () => {
+    const rail = readFileSync(join(appDir, 'shell/ShellNavigation.tsx'), 'utf8');
+    expect(rail).toContain('<ProductRailLink to="/activity"');
+    expect(rail).toContain("isActive={pathname === '/activity' || pathname.startsWith('/activity/')}");
+  });
+
   it('portals top-level PageHeader tabs into #dashboard-page-tabs and falls back inline when nested', () => {
     const host = document.createElement('div');
     host.id = 'dashboard-page-tabs';

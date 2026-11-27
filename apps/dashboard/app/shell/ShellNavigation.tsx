@@ -1,6 +1,7 @@
 import {
   IconArrowLeft,
   IconBook,
+  IconChartLine,
   IconLayoutSidebarLeftCollapse as PanelLeftClose,
   IconLayoutSidebarLeftExpand as PanelLeftOpen,
   IconShieldLock,
@@ -214,6 +215,13 @@ export function ShellAccount() {
       : [];
   return <SidebarFooter className="gap-2 p-3 group-data-[collapsible=icon]:px-0">
     <SidebarMenu>
+      {workspaceAreas && value.context.token && !adminScope && <SidebarMenuItem>
+        <SidebarMenuButton asChild tooltip={t('Account activity', '账户活动')} isActive={pathname === '/activity' || pathname.startsWith('/activity/')}>
+          <ProductRailLink to="/activity" aria-label={t('Account activity', '账户活动')}>
+            <IconChartLine aria-hidden="true" /><span className="truncate group-data-[collapsible=icon]:hidden">{t('Account activity', '账户活动')}</span>
+          </ProductRailLink>
+        </SidebarMenuButton>
+      </SidebarMenuItem>}
       {workspaceAreas && !adminScope && <SidebarMenuItem><AgentConnection sidebar /></SidebarMenuItem>}
       <SidebarMenuItem>
         <SidebarMenuButton asChild tooltip={docsLinkLabel}>

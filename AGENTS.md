@@ -147,6 +147,8 @@ Before delivery, compare the rendered result directly against both the reference
 
 ## Navigation hierarchy
 
+Account-wide Activity belongs in the account section of the workspace sidebar. Keep that destination selected on both the overview and logs tabs. Workspace Logs stays scoped to the selected workspace.
+
 The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
 
 Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
