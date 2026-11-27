@@ -357,7 +357,7 @@ function EventSubscriptionsView({
           <ReviewEmptyState
             icon={<IconBell aria-hidden="true" />}
             title={uiF('No {0} yet', [title.toLowerCase()])}
-            description={uiT('Connect an authorized receiver to start recording deliveries. You can use your coding agent or follow the API reference.', '连接已授权的接收端后即可记录投递。你可以通过编码 Agent 或 API 参考完成配置。')}
+            description={uiT('Connect an authorized receiver to start recording deliveries.', '连接已授权的接收端后即可记录投递。')}
             actions={<Button asChild variant="outline"><a href="/docs/api/rest/seteventsubscription/">{uiT('View API reference')}</a></Button>}
             prompt={agentHandoffPrompt(
               routeWorkspace,

@@ -164,6 +164,11 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(css).toContain('[data-slot="breadcrumb-item"]:only-child { max-width: 100%; }');
   });
 
+  it('keeps event setup methods in their action labels', () => {
+    const events = readFileSync(join(appDir, 'features/event-subscriptions/page.tsx'), 'utf8');
+    expect(events).not.toContain('You can use your coding agent or follow the API reference.');
+  });
+
   it('keeps the customer creation label visible on phones', () => {
     const customers = readFileSync(join(appDir, 'features/customers/customer-directory.tsx'), 'utf8');
     expect(customers).not.toMatch(/className="hidden sm:inline">\{uiT\("New customer"\)/);
