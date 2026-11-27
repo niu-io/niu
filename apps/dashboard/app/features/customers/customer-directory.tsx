@@ -74,6 +74,7 @@ export function Customers({
   const initialPage = token ? peekCachedGet<AccountPage>(token, CUSTOMER_ACCOUNTS_PATH) : undefined;
   const initialValid = initialPage && Array.isArray(initialPage.data) ? initialPage : undefined;
   const [companies, setCompanies] = useState<Company[]>(() => initialValid?.data ?? []);
+  const [hasUnfilteredCustomers, setHasUnfilteredCustomers] = useState(Boolean(initialValid?.data.length));
   const [cursor, setCursor] = useState<string | null>(() => initialValid?.next_after ?? null);
   const [loading, setLoading] = useState(() => Boolean(token && !initialValid));
   const [error, setError] = useState('');
@@ -119,6 +120,7 @@ export function Customers({
       if (!Array.isArray(page.data) || page.next_after === after) {
         throw new Error('Account page did not advance. Refresh accounts.');
       }
+      if (!after && !hasFilter) setHasUnfilteredCustomers(page.data.length > 0);
       setCompanies(current =>
         after
           ? [...current, ...page.data.filter(row => !current.some(saved => saved.organization_id === row.organization_id))]
@@ -378,7 +380,7 @@ export function Customers({
           action={
             activeTab === 'customers' ? (
               <>
-                {(companies.length > 0 || query.trim().length > 0 || kindFilter !== 'all') && (
+                {(hasUnfilteredCustomers || companies.length > 0 || query.trim().length > 0 || kindFilter !== 'all') && (
                   <>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
