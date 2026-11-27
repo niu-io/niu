@@ -497,7 +497,7 @@ function UnitTextTariffDialog({
             <Label htmlFor="unit-tariff-model">{uiT("Model")}</Label>
             {initial ? <p className="break-words">{modelAlias}</p> : <DialogModelPicker id="unit-tariff-model" modelAlias={modelAlias} onSelect={choice => { setModelAlias(choice.model_alias); setError(''); }} choices={models} loading={modelsLoading} ariaLabel={uiT("Credits text tariff model")} />}
           </div>
-          <h3 className="font-medium">{uiT("Base rates", "基础单价")}{tiers.length > 0 && ' · ' + tokenBand('0', tiers[0].minimum_input_tokens) + ' ' + uiT('Tokens')}</h3>
+          <h3 className="font-medium">{uiT("Base rates", "基础单价")}{tiers.length > 0 && ` · ${tokenBand('0', tiers[0].minimum_input_tokens)} ${uiT('Tokens')}`}</h3>
           <TextRateBand id="unit-tariff" rates={rates} previous={initial ? ratesFrom(initial.price) : undefined}
             disabled={saving} onChange={(key, value) => setRates(current => ({ ...current, [key]: value }))} />
           <ContextTierFields tiers={tiers} setTiers={setTiers} previous={initial?.price.context_tiers} locked={saving} />
