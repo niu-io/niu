@@ -56,6 +56,8 @@ Registration policy and the registration review queue link directly to each othe
 
 Follow [the UI consistency standard](docs/ux/ui-consistency-standard.md) for all dashboard pages, dialogs, choice controls, composers, loading states, and visual tokens. Keep management and detail pages as scannable reading and inspection surfaces (tables or concise single-panel key-value summaries) without multi-card sprawl or walls of explanatory prose. Every page-level create, edit, rename, publish, limit-setting, and destructive confirmation action must open an installed shadcn `Dialog` (`DialogHeader`, bounded scrollable body such as `max-h-[90dvh] overflow-y-auto`, and `DialogFooter` with cancellation and primary submit actions, restoring focus to its trigger via `onCloseAutoFocus`). Never replace a read view in place with an inline edit form, embed permanent mutation forms inside a summary page, or expand inline confirmation strips on pages. Conversely, never open a nested `Dialog` inside an already-open modal (such as the global `Settings` dialog); keep secondary flows inside an active modal inline or in-dialog views. Never collapse an open dialog's form or detail frame into a full-body skeleton or raw loading paragraph while fetching choice options or secondary metadata; keep the frame stably mounted and show loading inside the affected control or data region.
 
+A filtered registration queue with zero results shows the relevant empty title. Omit raw submission URLs and generic audit explanations.
+
 A tab that groups multiple entity types must not show an unlabeled count for just one type. Keep counts with the entity they describe.
 
 ## Icons
