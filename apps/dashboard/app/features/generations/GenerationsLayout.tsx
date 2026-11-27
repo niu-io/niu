@@ -137,10 +137,16 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
     setContextOpen(nextOpen);
   }, [closeHistory]);
 
+  const assetsTrigger = useRef<HTMLButtonElement>(null);
+  const actionsTrigger = useRef<HTMLButtonElement>(null);
   const handleAssetsOpenChange = useCallback((nextOpen: boolean) => {
     if (nextOpen) {
       closeHistory();
       setContextOpen(false);
+    }
+    if (!nextOpen) {
+      const trigger = assetsTrigger.current?.getClientRects().length ? assetsTrigger.current : actionsTrigger.current;
+      trigger?.focus();
     }
     setAssetsOpen(nextOpen);
   }, [closeHistory]);
@@ -191,6 +197,7 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
       {workspace && token && (
         <Button
           type="button"
+          ref={assetsTrigger}
           variant={assetsOpen ? 'secondary' : 'ghost'}
           size="sm"
           className="generations-context-trigger generations-secondary-action"
@@ -205,7 +212,7 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
       )}
       {content?.contextPanel && hasContextRuns && <span className="generations-secondary-action"><GenerationsContextTrigger panel={content.contextPanel} open={contextOpen} onToggle={() => handleContextOpenChange(!contextOpen)} /></span>}
       <DropdownMenu>
-        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="generations-more-actions" aria-label={uiT("Generation actions", "生成操作")}><IconDotsVertical /></Button></DropdownMenuTrigger>
+        <DropdownMenuTrigger asChild><Button ref={actionsTrigger} variant="ghost" size="icon" className="generations-more-actions" aria-label={uiT("Generation actions", "生成操作")}><IconDotsVertical /></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="end" collisionPadding={12}>
           {workspace && token && <DropdownMenuItem onSelect={() => handleAssetsOpenChange(!assetsOpen)}><IconPhoto />{uiT("Assets", "素材库")}</DropdownMenuItem>}
           {content?.contextPanel && <DropdownMenuItem onSelect={() => handleContextOpenChange(!contextOpen)}><IconLayoutSidebarRight />{uiT("Context", "上下文")}</DropdownMenuItem>}
@@ -221,9 +228,6 @@ function GenerationsCanvas({ children, navigation }: { children: ReactNode; navi
         <div className="generations-context-header">
           <div className="min-w-0">
             <h2 className="generations-context-title">{uiT("Assets", "素材库")}</h2>
-            <p className="generations-context-subtitle">
-              {uiT("Saved workspace media and reference files", "已保存的工作空间媒体与参考文件")}
-            </p>
             <Link
               to={`/workspaces/${encodeURIComponent(workspaceSlug)}/assets`}
               className="mt-1 inline-flex items-center text-xs font-medium text-primary hover:underline"
