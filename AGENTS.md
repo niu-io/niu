@@ -222,3 +222,5 @@ Workspace activity summaries keep the workspace, request count and charge visibl
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
 
 Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
+
+When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
