@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ProviderRequestError, request, writeMayHaveCommitted } from '@/features/providers/api';
-import { mediaAmount, mediaAmountUnits, mediaQuantity, mediaQuantityInput, mediaPriceExample } from '@/lib/media-price';
+import { compactMediaAmount, mediaAmountUnits, mediaQuantity, mediaQuantityInput, mediaPriceExample } from '@/lib/media-price';
 import { registeredRetailModelChoices, type RetailModelChoice } from './api';
 import { money } from '@/lib/money';
 import { Link } from 'react-router';
@@ -29,7 +29,7 @@ export function MediaStandardEditor({ token, previous, initialModel = '', open =
   const [models, setModels] = useState<RetailModelChoice[]>([]), [modelsError, setModelsError] = useState(''), [query, setQuery] = useState('');
   const [channel, setChannel] = useState(original?.dimensions.channel ?? ''), [resolution, setResolution] = useState(original?.dimensions.resolution ?? ''), [reference, setReference] = useState(original?.dimensions.reference_video ?? false);
   const [meter, setMeter] = useState(original?.meter ?? '');
-  const [price, setPrice] = useState(original ? mediaAmount(original.amount_units, original.decimal_places) : ''), [per, setPer] = useState(original ? mediaQuantityInput(original.per_quantity) : '1'), [minimum, setMinimum] = useState(original ? mediaQuantityInput(original.minimum_quantity) : '0');
+  const [price, setPrice] = useState(original ? compactMediaAmount(original.amount_units, original.decimal_places) : ''), [per, setPer] = useState(original ? mediaQuantityInput(original.per_quantity) : '1'), [minimum, setMinimum] = useState(original ? mediaQuantityInput(original.minimum_quantity) : '0');
   const rounding: MediaSchedule['rounding'] = original?.rounding ?? 'HalfEven';
   const fraction = /^\d+(?:\.(\d+))?$/.exec(price.trim())?.[1]?.replace(/0+$/, '') ?? '';
   const places = Math.min(9, Math.max(original?.decimal_places ?? 9, fraction.length));
