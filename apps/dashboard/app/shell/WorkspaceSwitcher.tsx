@@ -155,7 +155,7 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange, withinSetti
 
   const owner = organization ?? organizations.find(item => item.id === session?.operator?.organization_id);
   const description = owner
-    ? t('Organization', '组织') + ' · ' + organizationDisplayName(owner.name)
+    ? `${t('Organization', '组织')} · ${organizationDisplayName(owner.name)}`
     : session?.kind === 'installation'
       ? t('A personal organization will be created.', '将自动创建个人组织。')
       : t('Current organization', '当前组织');
