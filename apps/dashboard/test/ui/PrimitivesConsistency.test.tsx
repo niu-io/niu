@@ -642,6 +642,7 @@ it('opens the archive after mobile history releases its focus scope', () => {
   const layout = readFileSync(resolve('app/features/generations/GenerationsLayout.tsx'), 'utf8');
   expect(layout).toMatch(/onCloseAutoFocus: event => \{\s*if \(pendingArchive.current\)/);
   expect(layout).toMatch(/pendingArchive.current = openArchive;\s*setOpenMobile\(false\)/);
+});
 
 it('requires complete empty usage and ledger lists for the shared provider placeholder', () => {
   const source = readFileSync(resolve('app/features/provider-business/admin.tsx'), 'utf8');
