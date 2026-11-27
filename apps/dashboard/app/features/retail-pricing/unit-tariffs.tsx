@@ -404,6 +404,12 @@ export function BrandedUnitTariffsSection({ token, filter, searchControl }: { to
   );
 }
 
+function focusConflictAlert(alert: HTMLDivElement | null) {
+  if (!alert) return;
+  alert.focus({ preventScroll: true });
+  alert.scrollIntoView({ block: 'center', behavior: 'instant' });
+}
+
 function UnitTextTariffDialog({
   token,
   config: openingConfig,
@@ -523,7 +529,7 @@ function UnitTextTariffDialog({
               <Input id="unit-tariff-min" inputMode="decimal" value={minimumCharge} disabled={saving} onChange={event => setMinimumCharge(event.target.value)} />
             </div>
           </div>
-          {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
+          {error && <Alert variant="destructive" className={conflict ? "sticky bottom-0 z-10 bg-[var(--background)]!" : undefined} tabIndex={-1} ref={conflict ? focusConflictAlert : undefined}><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
           <div className="flex flex-wrap justify-end gap-2">
             <Button type="button" variant="outline" disabled={saving} onClick={dismiss}>{uiT("Cancel")}</Button>
             <Button type="submit" disabled={saving || conflict || !modelAlias.trim() || !rates.prompt_rate.trim() || !rates.completion_rate.trim()}>{saving ? uiT("Publishing…") : initial ? uiF("Revise {0} tariff", [unitName]) : uiF("Publish {0} tariff", [unitName])}</Button>
@@ -708,7 +714,7 @@ function UnitMediaTariffDialog({
           </div>
 
           {error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className={conflict ? "sticky bottom-0 z-10 bg-[var(--background)]!" : undefined} tabIndex={-1} ref={conflict ? focusConflictAlert : undefined}>
               <AlertDescription>{uiT(error)}</AlertDescription>
             </Alert>
           )}
