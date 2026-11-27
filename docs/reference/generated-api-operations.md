@@ -5642,6 +5642,27 @@ Opaque source-qualified next_cursor from the previous page; do not parse or disp
 }
 ```
 
+`search` (query, optional)
+
+Case-insensitive literal search over displayed event metadata, applied before pagination.
+
+```json
+{
+  "type": "string",
+  "maxLength": 256
+}
+```
+
+`labels` (query, optional)
+
+Comma-separated localized matches for action, actor, source or category identifiers, e.g. action:session_created. Combined with search using OR.
+
+```json
+{
+  "type": "string"
+}
+```
+
 `category` (query, optional)
 
 ```json

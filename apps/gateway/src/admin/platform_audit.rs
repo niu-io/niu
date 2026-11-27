@@ -17,6 +17,8 @@ pub struct PlatformAuditQuery {
     cursor: Option<String>,
     /// authentication, configuration, access, or supplier.
     category: Option<String>,
+    search: Option<String>,
+    labels: Option<String>,
 }
 
 /// List platform operation history.
@@ -54,6 +56,18 @@ pub struct PlatformAuditQuery {
 ///           "maxLength": 100
 ///         },
 ///         "description": "Opaque source-qualified next_cursor from the previous page; do not parse or display."
+///       },
+///       {
+///         "name": "search",
+///         "in": "query",
+///         "description": "Case-insensitive literal search over displayed event metadata, applied before pagination.",
+///         "schema": { "type": "string", "maxLength": 256 }
+///       },
+///       {
+///         "name": "labels",
+///         "in": "query",
+///         "description": "Comma-separated localized matches for action, actor, source or category identifiers, e.g. action:session_created. Combined with search using OR.",
+///         "schema": { "type": "string" }
 ///       },
 ///       {
 ///         "name": "category",
@@ -238,12 +252,22 @@ pub async fn events(
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     state.authorize_platform_headers(&headers).await?;
+    let labels: Vec<String> = query
+        .labels
+        .as_deref()
+        .unwrap_or_default()
+        .split(',')
+        .filter(|label| !label.is_empty())
+        .map(str::to_owned)
+        .collect();
     let page = state
         .store
-        .platform_audit_events(
+        .search_platform_audit_events(
             query.category.as_deref(),
             query.cursor.as_deref(),
             query.limit.unwrap_or(50),
+            query.search.as_deref(),
+            &labels,
         )
         .await
         .map_err(ApiError::from_store)?;
