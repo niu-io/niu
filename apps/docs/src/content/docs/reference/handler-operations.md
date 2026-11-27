@@ -10597,6 +10597,10 @@ Content type: `application/json`.
                 "charge_missing": {
                   "type": "boolean"
                 },
+                "revenue_source_missing": {
+                  "type": "boolean",
+                  "description": "The recorded charge or its refund lacks verified revenue allocation."
+                },
                 "payable_missing": {
                   "type": "boolean"
                 }

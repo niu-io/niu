@@ -99,6 +99,7 @@ function PendingAttempts({ row, from, until, token }: {
             attempt.execution !== 'confirmed_completed' && uiT("Execution unconfirmed", "执行结果未确认"),
             attempt.usage_confidence !== 'provider_reported' && uiT("Usage unconfirmed", "用量未确认"),
             attempt.charge_missing && uiT("Customer charge missing", "缺少客户扣费"),
+            attempt.revenue_source_missing && uiT("Revenue source unverified", "收入来源未核定"),
             attempt.payable_missing && uiT("Supplier payable missing", "缺少采购应付"),
           ].filter(Boolean).join(' · ')}</p>
         </li>)}</ul>

@@ -15,6 +15,7 @@ export type CommercialPositionRow = {
         execution: string;
         usage_confidence: string;
         charge_missing: boolean;
+        revenue_source_missing?: boolean;
         payable_missing: boolean;
     }>;
     supplier_id: string;
