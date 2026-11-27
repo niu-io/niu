@@ -14478,7 +14478,7 @@ HTTP 422: Malformed JSON or unsupported schedule shape
 
 `GET /api/v1/admin/pricing/standard-prices`
 
-Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current selling revisions use one database snapshot, UUID keyset order. Advisory pricing_health compares those schedules with a subsequent current Provider quote snapshot; refresh after edits. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or numeric Provider costs; confidential relative cost diagnostics are platform-only. Internal references are API identifiers, never display names. Cache-Control: no-store.
+Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current selling revisions use one database snapshot, UUID keyset order. Advisory pricing_health compares those schedules with a subsequent current Provider quote snapshot; refresh after edits. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. For comparable text rates, pricing_health includes the exact selling and purchase amounts by token dimension and input band. Purchase rates are confidential platform-admin data. Internal references are API identifiers, never display names. Cache-Control: no-store.
 
 Implementation: `implemented`. Operation: `listRetailStandards`.
 
