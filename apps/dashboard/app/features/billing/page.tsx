@@ -23,7 +23,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatExactUnitAtoms, formatUnitAtoms, money } from '@/lib/money';
+import { formatBalanceMoney, formatExactUnitAtoms, formatUnitAtoms, money } from '@/lib/money';
 import { cachedGet, markCachedStale, peekCachedGet, request } from '@/features/providers/api';
 import { TableSkeleton, WorkspaceShellSkeleton } from '@/components/PageSkeletons';
 
@@ -176,8 +176,8 @@ function OrgBalanceStrip({ token, organizationId, organizationName, canFund, wor
           </p>
           {unlimited && <Badge variant="secondary">{t('Unlimited credit', '无限授信')}</Badge>}
         </div>
-        <p className="text-2xl font-semibold tabular-nums tracking-tight">
-          {primary ? money(unlimited ? (primary.balance_nanos ?? primary.available_nanos) : primary.available_nanos, primary.currency) : '—'}
+        <p className="text-2xl font-semibold tabular-nums tracking-tight" title={primary ? money(unlimited ? (primary.balance_nanos ?? primary.available_nanos) : primary.available_nanos, primary.currency) : undefined}>
+          {primary ? formatBalanceMoney(unlimited ? (primary.balance_nanos ?? primary.available_nanos) : primary.available_nanos, primary.currency) : '—'}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">

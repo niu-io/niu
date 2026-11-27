@@ -561,7 +561,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
             <dl className="key-row-facts">
               <div className="key-fact key-fact-models"><dt>{uiT("Model access")}</dt><dd>{modelAccess ?? <Popover><PopoverTrigger asChild><Button type="button" variant="link" size="sm" className="key-access-trigger">{modelAliases.length} {uiT("models")}<ChevronDown size={13} aria-hidden="true" /></Button></PopoverTrigger><PopoverContent align="start" className="w-72 max-w-[calc(100vw-2rem)]"><p className="mb-2 text-xs font-medium text-muted-foreground">{uiT("Model access")}</p><ul className="key-access-list">{modelAliases.map(alias => <li key={alias}>{alias}</li>)}</ul></PopoverContent></Popover>}</dd></div>
               <div className="key-fact"><dt>{uiT("Limits")}</dt><dd>{keyLimitsSummary(key)}</dd></div>
-              <div className="key-fact"><dt>{uiT("Expires")}</dt><dd>{key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))}</dd></div>
+              <div className="key-fact"><dt>{uiT("Expires")}</dt><dd>{key.revoked ? '—' : key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))}</dd></div>
               <div className="key-fact"><dt>{uiT("Last used")}</dt><dd>{keyLastUsed(key)}</dd></div>
             </dl>
           </li>;
