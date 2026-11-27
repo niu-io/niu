@@ -4934,6 +4934,8 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Showing {0} of {1} models": "已显示 {0} / {1} 个模型",
   "No purchase conversion rule is published for {0}.": "尚未为 {0} 发布充值换算规则。",
   "1 request awaiting settlement": "1 个请求待结算",
+  "1 settled request": "1 个请求已结算",
+  "{0} settled requests": "{0} 个请求已结算",
   "{0} requests awaiting settlement": "{0} 个请求待结算",
   "1 request without a customer rate": "1 个请求未配置客户费率",
   "{0} requests without a customer rate": "{0} 个请求未配置客户费率",
