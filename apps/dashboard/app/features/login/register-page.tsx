@@ -51,6 +51,7 @@ export default function RegisterRoute() {
   const [showPassword, setShowPassword] = useState(false);
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [invalidField, setInvalidField] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [submittedEmail, setSubmittedEmail] = useState('');
   const activeRequest = useRef<AbortController | null>(null);
@@ -107,6 +108,18 @@ export default function RegisterRoute() {
 
   useEffect(() => () => activeRequest.current?.abort(), []);
 
+  function fieldError(id: string) {
+    return invalidField === id && errorMessage
+      ? <p className="dashboard-login-error" id="register-error" role="alert">{errorMessage}</p>
+      : null;
+  }
+
+  function clearFieldError(id: string) {
+    if (invalidField && invalidField !== id) return;
+    setInvalidField('');
+    setErrorMessage('');
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting || checking || !registrationEnabled) return;
@@ -114,8 +127,14 @@ export default function RegisterRoute() {
     const normalizedEmail = email.trim();
     const trimmedOrg = organizationName.trim();
     const trimmedNote = note.trim();
+    const form = event.currentTarget;
+    function rejectField(id: string, message: string) {
+      setInvalidField(id);
+      setErrorMessage(message);
+      form.querySelector<HTMLElement>(`#${id}`)?.focus();
+    }
     if (!trimmedName || [...trimmedName].length > 120) {
-      setErrorMessage(
+      rejectField('register-name',
         t('Enter your full name (up to 120 characters).', '请输入您的姓名（最多 120 个字符）。'),
       );
       return;
@@ -125,11 +144,11 @@ export default function RegisterRoute() {
       UTF8.encode(normalizedEmail).length > 254 ||
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
     ) {
-      setErrorMessage(t('Enter a valid email address.', '请输入有效的邮箱地址。'));
+      rejectField('register-email', t('Enter a valid email address.', '请输入有效的邮箱地址。'));
       return;
     }
     if ([...password].length < 8 || UTF8.encode(password).length > 1024) {
-      setErrorMessage(
+      rejectField('register-password',
         t(
           'Choose a password with at least 8 characters and at most 1024 bytes.',
           '密码需至少包含 8 个字符，且不超过 1024 字节。',
@@ -138,7 +157,7 @@ export default function RegisterRoute() {
       return;
     }
     if ([...trimmedOrg].length > 120) {
-      setErrorMessage(
+      rejectField('register-organization',
         t(
           'Organization or team name must be 120 characters or fewer.',
           '组织或团队名称最多 120 个字符。',
@@ -147,12 +166,13 @@ export default function RegisterRoute() {
       return;
     }
     if ([...trimmedNote].length > 500) {
-      setErrorMessage(
+      rejectField('register-note',
         t('Use case note must be 500 characters or fewer.', '用途说明最多 500 个字符。'),
       );
       return;
     }
 
+    setInvalidField('');
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
@@ -345,6 +365,8 @@ export default function RegisterRoute() {
                 <Label htmlFor="register-name">{t('Full name', '姓名')}</Label>
                 <Input
                   id="register-name"
+                  aria-invalid={invalidField === 'register-name' || undefined}
+                  aria-describedby={invalidField === 'register-name' ? 'register-error' : undefined}
                   type="text"
                   autoComplete="name"
                   autoFocus
@@ -355,15 +377,18 @@ export default function RegisterRoute() {
                   value={name}
                   onChange={event => {
                     setName(event.target.value);
-                    setErrorMessage('');
+                    clearFieldError(event.currentTarget.id);
                   }}
                 />
+                {fieldError('register-name')}
               </div>
 
               <div className="dashboard-login-field">
                 <Label htmlFor="register-email">{t('Work email', '工作邮箱')}</Label>
                 <Input
                   id="register-email"
+                  aria-invalid={invalidField === 'register-email' || undefined}
+                  aria-describedby={invalidField === 'register-email' ? 'register-error' : undefined}
                   type="email"
                   autoComplete="email"
                   maxLength={254}
@@ -373,15 +398,18 @@ export default function RegisterRoute() {
                   value={email}
                   onChange={event => {
                     setEmail(event.target.value);
-                    setErrorMessage('');
+                    clearFieldError(event.currentTarget.id);
                   }}
                 />
+                {fieldError('register-email')}
               </div>
 
               <div className="dashboard-login-field">
                 <Label htmlFor="register-organization">{t('Organization or team', '组织或团队名称')}</Label>
                 <Input
                   id="register-organization"
+                  aria-invalid={invalidField === 'register-organization' || undefined}
+                  aria-describedby={invalidField === 'register-organization' ? 'register-error' : undefined}
                   type="text"
                   autoComplete="organization"
                   maxLength={120}
@@ -390,9 +418,10 @@ export default function RegisterRoute() {
                   value={organizationName}
                   onChange={event => {
                     setOrganizationName(event.target.value);
-                    setErrorMessage('');
+                    clearFieldError(event.currentTarget.id);
                   }}
                 />
+                {fieldError('register-organization')}
               </div>
 
               <div className="dashboard-login-field">
@@ -400,17 +429,18 @@ export default function RegisterRoute() {
                 <div className="relative">
                   <Input
                     id="register-password"
+                    aria-invalid={invalidField === 'register-password' || undefined}
+                    aria-describedby={invalidField === 'register-password' ? 'register-error' : undefined}
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     required
                     maxLength={1024}
                     disabled={submitting}
                     className="pr-10"
-                    placeholder={t('At least 8 characters', '至少 8 个字符')}
                     value={password}
                     onChange={event => {
                       setPassword(event.target.value);
-                      setErrorMessage('');
+                      clearFieldError(event.currentTarget.id);
                     }}
                   />
                   <Button
@@ -424,18 +454,21 @@ export default function RegisterRoute() {
                     {showPassword ? <IconEyeOff size={16} aria-hidden="true" /> : <IconEye size={16} aria-hidden="true" />}
                   </Button>
                 </div>
-                <p className="dashboard-login-hint">
+                {invalidField !== 'register-password' && <p className="dashboard-login-hint">
                   {t(
                     'At least 8 characters. You will use this exact password to sign in once approved.',
                     '至少 8 个字符。审批通过后将直接使用此密码登录。',
                   )}
-                </p>
+                </p>}
+                {fieldError('register-password')}
               </div>
 
               <div className="dashboard-login-field">
                 <Label htmlFor="register-note">{t('Intended use (optional)', '用途说明（选填）')}</Label>
                 <Textarea
                   id="register-note"
+                  aria-invalid={invalidField === 'register-note' || undefined}
+                  aria-describedby={invalidField === 'register-note' ? 'register-error' : undefined}
                   rows={3}
                   maxLength={500}
                   disabled={submitting}
@@ -447,13 +480,14 @@ export default function RegisterRoute() {
                   value={note}
                   onChange={event => {
                     setNote(event.target.value);
-                    setErrorMessage('');
+                    clearFieldError(event.currentTarget.id);
                   }}
                 />
+                {fieldError('register-note')}
               </div>
 
-              {errorMessage && (
-                <p className="dashboard-login-error" role="alert">
+              {!invalidField && errorMessage && (
+                <p className="dashboard-login-error" id="register-error" role="alert">
                   {errorMessage}
                 </p>
               )}
