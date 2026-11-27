@@ -77,6 +77,10 @@ Returning from request details restores the inspected row, focus and loaded page
 - **Sibling first-run parity**: Sibling creation surfaces in Generations (`Chat` and `Video`) share the same centered mode switcher (`Chat` / `Video`), heading scale (`.playground-first-run-heading`), and `.playground-starters` / `.playground-starter` card grid (`<strong>` title, `<span>` summary, trailing arrow icon).
 - **Never leak internal IDs**: Never render UUIDs/GUIDs in UI labels, tooltips, badges, dialogs, or error notices.
 
+Customer access lists retain workspace links, member roles and workspace scope on narrow screens. Show labeled values within each row without horizontal scrolling.
+
+A filtered registration queue with zero results shows the relevant empty title. Omit raw submission URLs and generic audit explanations.
+
 ## 6. Primitive & Stylesheet Hygiene
 
 - Use installed shadcn primitives (`Button`, `Input`, `Textarea`, `Checkbox`, `Label`, `Dialog`, `DropdownMenu`, `Popover`, `Sidebar`, `Tabs`, `Card`, `Badge`, `Alert`, `Table`, `Tooltip`) directly without parallel wrappers.
@@ -136,6 +140,8 @@ The base text rate starts at zero. Both monetary and credit editors show the inc
 
 Use a right-side sheet for a current price comparison. Show both comparable rates with the currency, unit, route and threshold used by the platform. Distinguish unit spread from realized gross profit and label missing evidence. Place historical revision differences behind the current comparison. Price editors show complete input-token bands and preserve dirty input through accidental dismissal. Workspace model trials present applicable customer rates separately from upstream plan descriptions.
 
+Audit history distinguishes an empty filtered result from an empty journal. Clearing filters resets the category and query together and returns focus to search.
+
 A tab that groups multiple entity types must not show an unlabeled count for just one type. Keep counts with the entity they describe.
 
 ## Decision-focused interface copy
@@ -158,6 +164,10 @@ Workspace activity summaries keep the workspace, request count and charge visibl
 
 Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action.
 
+Direct video-mode links open the Video composer and its existing availability or setup state. A saved session retains its own workflow.
+
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
 
 Standard price directories show the comparable unit spread and billing unit alongside selling rates. Identify partial quote coverage, reserve publication timestamps for price details, and keep realized profit in financial reports.
+
+Registration validation focuses the first invalid field and associates the inline error with that control. Editing an unrelated field preserves the error.

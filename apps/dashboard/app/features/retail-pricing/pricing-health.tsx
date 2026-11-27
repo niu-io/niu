@@ -38,7 +38,7 @@ function formatSpread({ nanos, quantity }: UnitSpread, currency: string) {
   while (remainder) [divisor, remainder] = [remainder, divisor % remainder];
   const amount = money((nanos / divisor).toString(), currency);
   const units = quantity / divisor;
-  return units === 1n ? amount : amount + ' / ' + units.toString();
+  return units === 1n ? amount : `${amount} / ${units}`;
 }
 
 export function DirectorySpread({ health, currency }: { health?: PricingHealth; currency: string }) {
@@ -69,7 +69,7 @@ export function DirectorySpread({ health, currency }: { health?: PricingHealth; 
   });
   const low = formatSpread(spreads[0], currency);
   const high = formatSpread(spreads[spreads.length - 1], currency);
-  return <><span>{low}{low !== high && ' – ' + high}</span>
+  return <><span>{low}{low !== high && ` – ${high}`}</span>
     <div className="text-xs text-muted-foreground">/ {unit}</div>
     {incomplete && <div className="text-xs text-muted-foreground">{t('Partial quotes', '部分报价')}</div>}</>;
 }
