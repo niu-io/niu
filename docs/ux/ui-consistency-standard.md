@@ -14,7 +14,7 @@ In narrow headers, truncate the parent breadcrumb before clipping a short curren
 
 The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
 
-The API key directory shows one labeled creation action at every width, including when an active filter hides historical keys.
+Customer and API key directories keep their primary creation action visibly labeled at every width. The key directory shows one creation action even when an active filter hides historical keys.
 
 ## 2. Stable Dialog Frames & In-Control Loading
 
@@ -165,6 +165,8 @@ When an explicit pricing tab is open, keep both tab destinations available acros
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
 
 Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action.
+
+On workspace Overview, expose a prerequisite action once. Keep the primary action visibly labeled on phones and use status counts to inspect the underlying resources.
 
 Direct video-mode links open the Video composer and its existing availability or setup state. A saved session retains its own workflow.
 
