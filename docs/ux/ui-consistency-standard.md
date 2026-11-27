@@ -72,6 +72,8 @@ After a registration queue refresh or review decision, the queue, customer tab a
 
 ## 5. Structured Loading, Empty, and Error Surfaces
 
+Pending settlement counts in Spending and Activity open request logs filtered by settlement, preserving the workspace and the counted period. All-time totals open without a date limit.
+
 Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
 
 Closing an unchanged pricing editor restores focus to its opening control. Refresh prices after a confirmed publication or revision conflict, and keep the price list mounted on ordinary cancellation.

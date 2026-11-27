@@ -151,6 +151,8 @@ Account-wide Activity belongs in the account section of the workspace sidebar. K
 
 The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
 
+Pending settlement counts in Spending and Activity open request logs filtered by settlement, preserving the workspace and the counted period. All-time totals open without a date limit.
+
 Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
 
 Closing an unchanged pricing editor restores focus to its opening control. Refresh prices after a confirmed publication or revision conflict, and keep the price list mounted on ordinary cancellation.
