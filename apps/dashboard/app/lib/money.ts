@@ -107,6 +107,14 @@ export function formatCompactRateMoney(nanos: bigint | string, currency: string,
 }
 
 /**
+ * Headline balance formatter: rounds to at most 4 decimals (min 2) so micro-charge residue such as
+ * `$3.95999767` reads `$3.96`. Pair with `title={money(...)}` to keep the exact value inspectable.
+ */
+export function formatBalanceMoney(nanos: bigint | string, currency: string): string {
+  return formatRoundedCommaMoney(nanos, currency, 4, 2, true);
+}
+
+/**
  * Formats model unit prices / offer quotes with at least 2 decimal places (.00)
  * while preserving full significant nanounit precision (up to 9 decimal places).
  */
