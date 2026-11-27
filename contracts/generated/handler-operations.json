@@ -5433,6 +5433,23 @@
             "description": "Opaque source-qualified next_cursor from the previous page; do not parse or display."
           },
           {
+            "name": "search",
+            "in": "query",
+            "description": "Case-insensitive literal search over displayed event metadata, applied before pagination.",
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "labels",
+            "in": "query",
+            "description": "Comma-separated localized matches for action, actor, source or category identifiers, e.g. action:session_created. Combined with search using OR.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "category",
             "in": "query",
             "schema": {

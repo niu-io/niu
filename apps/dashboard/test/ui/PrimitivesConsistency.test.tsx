@@ -25,6 +25,16 @@ describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
 
+  it('keeps per-workspace charge headers and values visible on phones', () => {
+    const source = readFileSync(join(appDir, 'features/activity/global-page.tsx'), 'utf8');
+    const section = source.split('<section aria-label={uiT("Activity by workspace")}')[1].split('</section>')[0];
+    for (const tag of ['TableHead', 'TableCell']) {
+      const cells = [...section.matchAll(new RegExp(`<${tag}\\b([^>]*)>`, 'g'))];
+      expect(cells.at(-1)?.[1]).toContain('whitespace-normal');
+      expect(cells.at(-1)?.[1]).not.toContain('hidden');
+    }
+  });
+
   it('keeps Empty placeholders card-free, spacious, and auto-centered on full-page routes', () => {
     const { container } = render(
       <Empty>

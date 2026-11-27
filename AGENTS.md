@@ -141,6 +141,8 @@ Use Manus as the reference for the shared visual treatment of agent-product surf
 
 ## Status and list information
 
+Search paginated audit history on the server before applying page limits. Match localized display labels, load further results only on request, and restore the first page when search is cleared.
+
 Design management lists around the decision users need to make. Every column and status must distinguish meaningful outcomes or support a concrete action. Do not expose a backend field merely because it exists, or display universal labels such as “Configuration saved” on lists containing only saved records.
 
 Keep API credential presence, configuration, current Provider and offer qualification, supply readiness, live upstream verification, and workspace selling eligibility distinct. An API key or enabled route does not establish sellable inventory. Derive supply readiness from current approved, active model/rate offers and their matching enabled routes and credentials. Customer selling prices and authorization remain workspace-specific. Show missing requirements and link to the relevant remedy; never infer a positive state when evidence is unavailable.
@@ -162,6 +164,8 @@ Use durable, human-readable slugs for named product resources in browser paths a
 The backend is the source of truth for saved product data, including Chat sessions, messages, responses, settings, and attachments. Browser storage may only be a disposable cache. Clearing it or using another browser must not lose saved data. Never replace backend persistence with browser-only storage as a shortcut.
 
 ## Commercial data boundaries
+
+Group grant history with customer inspection actions and place balance-changing actions after a menu separator. Apply this order in the directory and customer detail.
 
 Provider purchase prices, upstream expenses, procurement budgets, and platform margins are confidential platform information. Never show them in customer workspace pages, Chat, Observability, usage reports, exports, or customer API responses. Customer billing and request costs mean customer-facing charges only; never substitute supplier cost when a customer charge is unavailable. Keep procurement controls in platform administration, and restrict providers to their own agreed rates and settlements. Enforce these boundaries in backend authorization and response serialization, not merely by hiding UI elements. Installation administrator access does not justify mixing procurement information into customer-facing workspace screens.
 
@@ -188,3 +192,5 @@ New text price and credit tariff menus use the registered route’s text eligibi
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
+
+Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.

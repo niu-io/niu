@@ -74,7 +74,24 @@ impl Store {
         cursor: Option<&str>,
         limit: i64,
     ) -> Result<PlatformAuditPage, StoreError> {
-        if !(1..=100).contains(&limit)
+        self.search_platform_audit_events(category, cursor, limit, None, &[])
+            .await
+    }
+
+    /// Match public event metadata and caller-resolved localized field identifiers before pagination.
+    pub async fn search_platform_audit_events(
+        &self,
+        category: Option<&str>,
+        cursor: Option<&str>,
+        limit: i64,
+        search: Option<&str>,
+        labels: &[String],
+    ) -> Result<PlatformAuditPage, StoreError> {
+        let search = search.map(str::trim).filter(|s| !s.is_empty());
+        if search.is_some_and(|s| s.chars().count() > 256)
+            || labels.len() > 64
+            || labels.iter().any(|s| s.len() > 100)
+            || !(1..=100).contains(&limit)
             || category.is_some_and(|v| {
                 !matches!(
                     v,
@@ -181,6 +198,8 @@ impl Store {
             .bind(cursor_source)
             .bind(cursor_id)
             .bind(limit + 1)
+            .bind(search)
+            .bind(labels)
             .fetch_all(&self.pool)
             .await?;
         let has_more = data.len() > limit as usize;
