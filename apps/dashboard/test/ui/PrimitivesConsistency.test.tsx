@@ -25,6 +25,12 @@ describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
 
+  it('keeps account activity reachable on both global activity tabs', () => {
+    const rail = readFileSync(join(appDir, 'shell/ShellNavigation.tsx'), 'utf8');
+    expect(rail).toContain('<ProductRailLink to="/activity"');
+    expect(rail).toContain("isActive={pathname === '/activity' || pathname.startsWith('/activity/')}");
+  });
+
   it('keeps per-workspace charge headers and values visible on phones', () => {
     const source = readFileSync(join(appDir, 'features/activity/global-page.tsx'), 'utf8');
     const section = source.split('<section aria-label={uiT("Activity by workspace")}')[1].split('</section>')[0];
