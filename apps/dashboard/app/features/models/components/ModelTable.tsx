@@ -334,7 +334,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
         matchesCapabilities(model, capabilities) &&
         (!providersSelected.length || providersSelected.includes(modelProviderName(model) ?? '')) &&
         (!value ||
-          `${model.id} ${model.catalog?.name ?? ''} ${model.catalog?.description ?? ''} ${model.provider ?? ''} ${model.upstream_model ?? ''}`
+          `${model.id} ${model.catalog?.name ?? ''} ${model.catalog?.description ?? ''} ${modelProviderName(model) ?? ''} ${model.upstream_model ?? ''}`
             .toLowerCase()
             .includes(value)),
     );

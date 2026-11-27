@@ -3182,6 +3182,20 @@ async fn admin_models(
         return Err(ApiError::not_found());
     }
     let catalog = crate::vendors::generation_catalog_with_pools(&state, organization_id).await?;
+    let provider_names = if authorization.can_manage_platform() {
+        let ids: std::collections::BTreeSet<_> = catalog
+            .routes
+            .values()
+            .filter_map(|route| route.provider_id)
+            .collect();
+        state
+            .store
+            .catalog_provider_names(&ids.into_iter().collect::<Vec<_>>())
+            .await
+            .map_err(ApiError::from_store)?
+    } else {
+        Default::default()
+    };
     let (billing_mode, mut unit_prices) = state
         .store
         .customer_unit_model_prices()
@@ -3333,6 +3347,7 @@ async fn admin_models(
                 Some(json!({
                     "id": name,
                     "provider": model.provider,
+                    "provider_name": catalog.routes.get(name).and_then(|route| route.provider_id).and_then(|id| provider_names.get(&id)),
                     "upstream_model": model.upstream_model,
                     "public_catalog": model.public_catalog,
                     "callable": callable,
@@ -3358,7 +3373,7 @@ async fn admin_models(
                     "supports_responses": model.supports_responses
                 }))
             } else {
-                Some(json!({
+                let mut entry = json!({
                     "id": name,
                     "public_catalog": model.public_catalog,
                     "callable": callable,
@@ -3370,7 +3385,11 @@ async fn admin_models(
                     "billing_source": billing_source,
                     "generation_capabilities": generation_capabilities,
                     "capabilities": capabilities
-                }))
+                });
+                if let Some(name) = catalog.routes.get(name).and_then(|route| route.provider_id).and_then(|id| provider_names.get(&id)) {
+                    entry["provider_name"] = json!(name);
+                }
+                Some(entry)
             }
         })
         .collect();

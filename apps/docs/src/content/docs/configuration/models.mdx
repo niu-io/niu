@@ -11,7 +11,7 @@ The current development configuration is TOML. The example file is [`config/niu.
 
 Authenticated workspace keys and dashboard sessions discover callable model aliases, declared capabilities, and customer prices through `GET /v1/models` and the workspace **Models** view (`/models`). Shared routes and platform-shared custom models marked `public_catalog = true` are also discoverable unauthenticated via `GET /catalog/v1/models` and `/models/` (omitting credentials, endpoints, personal routes, and Provider purchase prices); catalog visibility does not authorize workspace inference.
 
-The workspace model directory filters callable aliases by alias, display name, Provider, input/output modality, and declared API capability. Entries show available descriptions, context and output limits, and links to the supported protocol references. The Provider filter uses the recorded source of model access. Missing metadata is omitted rather than estimated. `GET /v1/models` reports `owned_by: "niu"` as the route owner, not the upstream model developer.
+The workspace model directory filters callable aliases by alias, display name, Provider, input/output modality, and declared API capability. Entries show available descriptions, context and output limits, and links to the supported protocol references. Platform administrators can filter direct routes by their recorded Provider business name. Custom model pools can span Providers. Workspace-only sessions omit upstream ownership. Missing metadata is omitted rather than estimated. `GET /v1/models` reports `owned_by: "niu"` as the route owner, not the upstream model developer.
 
 ```toml
 [models.fast]
@@ -24,7 +24,7 @@ api_key_env = "OPENROUTER_API_KEY"
 
 ## Managed providers
 
-Platform administrators manage shared Providers and their model routes in the dashboard or through the compatibility endpoint `/api/v1/vendors`. A Provider is the business supplying model access; a Provider identifies the upstream API adapter. OpenRouter can be a Provider using the `openrouter` Provider adapter. Model developers offered through that Provider do not require separate Niu credentials. Provider records, enabled state, model mappings, and revisions persist in PostgreSQL. Updates apply to new requests. Organization and workspace operators cannot manage platform-wide Providers.
+Platform administrators manage shared Providers and their model routes in the dashboard or through the compatibility endpoint `/api/v1/vendors`. A Provider is the business supplying model access; the adapter identifies the integration protocol. OpenRouter can be a Provider using the `openrouter` Provider adapter. Model developers offered through that Provider do not require separate Niu credentials. Provider records, enabled state, model mappings, and revisions persist in PostgreSQL. Updates apply to new requests. Organization and workspace operators cannot manage platform-wide Providers.
 
 Managed configurations accept `openai`, `openrouter` and `anthropic` adapters.
 For native Anthropic Messages, set `api_base` to `https://api.anthropic.com/v1`
@@ -193,7 +193,7 @@ api_key_env = "OPENROUTER_API_KEY"
 
 ## 托管模型供应商
 
-平台管理员可以在控制台或通过兼容性端点 `/api/v1/vendors` 管理共享的模型供应商（Provider）及其模型路由。模型供应商是提供模型访问服务的商业实体，并用于标识上游 API 适配器。OpenRouter 可以作为使用 `openrouter` 供应商适配器的模型供应商；通过该供应商提供的底层模型开发商无需单独配置 Niu 凭证。供应商记录、启用状态、模型映射和修订版本均持久化存储在 PostgreSQL 中。更新会对新请求生效。组织和工作空间操作员无法管理平台级的模型供应商。
+平台管理员可以在控制台或通过兼容性端点 `/api/v1/vendors` 管理共享的模型供应商（Provider）及其模型路由。模型供应商是提供模型访问服务的商业实体；适配器标识对接协议。OpenRouter 可以作为使用 `openrouter` 供应商适配器的模型供应商；通过该供应商提供的底层模型开发商无需单独配置 Niu 凭证。供应商记录、启用状态、模型映射和修订版本均持久化存储在 PostgreSQL 中。更新会对新请求生效。组织和工作空间操作员无法管理平台级的模型供应商。
 
 托管配置支持 `openai`、`openrouter` 和 `anthropic` 适配器。对于原生 Anthropic Messages 接口，请将 `api_base` 设置为 `https://api.anthropic.com/v1`，并为该映射启用 `supports_messages`。连接检查使用原生 Anthropic 认证/版本请求头以及上限为 1,000 个模型的分页读取。不完整的目录不会被当作完整清单展示；在不完整检查中未出现的模型会保持为未知状态。配置持久化以及对无效凭证的实际拒绝均已验证；直接调用 Anthropic 生成以及完整目录发现仍处于待验证状态。请参阅[原生协议边界](https://github.com/niu-io/niu/blob/main/docs/architecture/native-inference-protocols.md#managed-anthropic-configuration--2026-10-11)。
 
