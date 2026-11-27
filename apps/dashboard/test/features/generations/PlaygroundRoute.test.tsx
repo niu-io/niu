@@ -18,6 +18,8 @@ it.each([
   ['/generations?intent=saved-input', 'Video session'],
   ['/generations?job=saved-result', 'Video session'],
   ['/generations?new=video', 'Video session'],
+  ['/generations?mode=video', 'Video session'],
+  ['/generations/chat-1001?mode=video', 'Chat session'],
   ['/generations?intent=saved-input&session=composer-session&turn=composer-turn', 'Video session'],
   ['/generations?mode=video&session=chat', 'Chat session'],
 ])('resolves %s by the session reference or new session type', async (url, heading) => {
