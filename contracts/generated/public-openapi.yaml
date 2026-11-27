@@ -8195,6 +8195,13 @@ paths:
             type: string
             minLength: 1
             maxLength: 200
+        - name: pending_settlement
+          in: query
+          description: Restrict requests and summary to pending customer settlement before
+            pagination.
+          schema:
+            type: boolean
+            default: false
         - name: operation_id
           in: query
           description: Restrict attempts and summaries to one operation within the
@@ -23596,6 +23603,11 @@ paths:
       security:
         - adminBearerAuth: []
       parameters:
+        - name: pending_settlement
+          in: query
+          schema:
+            type: boolean
+            default: false
         - name: q
           in: query
           description: Case-insensitive search of model identifiers, request reference,

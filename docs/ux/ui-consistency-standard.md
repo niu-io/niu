@@ -62,6 +62,10 @@ After a registration queue refresh or review decision, the queue, customer tab a
 
 ## 5. Structured Loading, Empty, and Error Surfaces
 
+Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
+
+Returning from request details restores the inspected row, focus and loaded page depth for that log history entry. Restore only from workspaces that are still authorized.
+
 - **No raw unstyled loading paragraphs or visible skeleton captions**: Never render bare `<p role="status">Loading…</p>` in pages or dialogs, and never render visible `"Loading…"` / `"正在加载…"` captions above skeleton shimmer bars. Use `TableSkeleton`, `FormSectionSkeleton`, `ListRowsSkeleton`, `CardGridSkeleton`, or `WorkspaceShellSkeleton` (from [`PageSkeletons.tsx`](../../apps/dashboard/app/components/PageSkeletons.tsx)) with `<span className="sr-only">{label}</span>` so screen readers receive `role="status"` announcements while sighted users see clean shimmer geometry. Overview and checklist surfaces (`/admin`, `/workspaces/:workspace`) must gate zero-resource `"Action needed"` / `"Admin setup"` warnings until their snapshot or catalog load settles, and `<Navigate>` call sites must never pass inline object literals (`state={{ ... }}` or `to={{ ... }}`), which restart React Router transitions in an infinite loop.
 - **Quiet, card-free, vertically centered empty placeholders**: Never wrap empty list/table/sidebar placeholders in bulky rounded `bg-card` or `bg-muted` card slabs or decorative shadows. `<Empty>` stays transparent (`bg-transparent`, `border-0`, `w-full`) across full-width management pages, dialogs, embedded cards, and sidebars so it sits naturally on its host surface while spanning `100%` of the available width. Full-page empty states center vertically in the remaining canvas height through the shared `.empty-region` / route-level `[data-slot="empty"]` flex rules in `apps/dashboard/app/styles/surfaces.css` (never pinned to the upper half with a hardcoded `min-h` cap) and maintain relaxed proportions (`gap-5`, `text-base font-semibold leading-snug` title, `max-w-[36rem]` `text-balance` relaxed 14px description, `max-w-xl` action bar with uniform button heights and clear primary/secondary/tertiary hierarchy so desktop actions sit comfortably on a single row). Narrow sidebars and rails (such as Generations `Sessions`) override with compact padding and an unboxed muted icon (`EmptyMedia` default variant) rather than a boxed icon tile. Keep sibling configuration sections consistent with their surrounding `bg-card` peers.
 - **Sibling first-run parity**: Sibling creation surfaces in Generations (`Chat` and `Video`) share the same centered mode switcher (`Chat` / `Video`), heading scale (`.playground-first-run-heading`), and `.playground-starters` / `.playground-starter` card grid (`<strong>` title, `<span>` summary, trailing arrow icon).
@@ -126,6 +130,8 @@ The base text rate starts at zero. Both monetary and credit editors show the inc
 
 Use a right-side sheet for a current price comparison. Show both comparable rates with the currency, unit, route and threshold used by the platform. Distinguish unit spread from realized gross profit and label missing evidence. Place historical revision differences behind the current comparison. Price editors show complete input-token bands and preserve dirty input through accidental dismissal. Workspace model trials present applicable customer rates separately from upstream plan descriptions.
 
+A tab that groups multiple entity types must not show an unlabeled count for just one type. Keep counts with the entity they describe.
+
 ## Decision-focused interface copy
 
 Registration policy and the registration review queue link directly to each other within their owning Settings and Customers tabs. Display the pending count on the review action when positive.
@@ -143,5 +149,7 @@ On pricing tabs, identify the mode used for billing independently of the selecte
 When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
 
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
+
+Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action.
 
 Direct video-mode links open the Video composer and its existing availability or setup state. A saved session retains its own workflow.

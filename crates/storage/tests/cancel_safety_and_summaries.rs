@@ -936,6 +936,25 @@ async fn gateway_activity_summary_and_export_preserve_exact_aggregates_and_empty
         .sum();
     assert_eq!(hist_total, 3);
 
+    let pending = GatewayActivityFilter {
+        pending_settlement: true,
+        ..Default::default()
+    };
+    let pending_summary = store
+        .gateway_activity_summary(scope, &pending)
+        .await
+        .unwrap();
+    let pending_rows = store
+        .gateway_activity_export(scope, &pending)
+        .await
+        .unwrap();
+    assert_eq!(
+        pending_summary.request_count,
+        summary.unresolved_customer_charge_count
+    );
+    assert_eq!(pending_rows.len(), 1);
+    assert_eq!(pending_rows[0].customer_charge_status, "pending");
+
     // Filtered summary (HTTP 502 only) matches export length & breakdown
     let filter_502 = GatewayActivityFilter {
         delivery_status: Some(GatewayDeliveryFilter::HttpStatus(502)),
