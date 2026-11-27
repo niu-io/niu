@@ -111,6 +111,7 @@ pub enum GatewayDeliveryFilter {
 
 #[derive(Debug, Clone, Default)]
 pub struct GatewayActivityFilter {
+    pub pending_settlement: bool,
     pub search: Option<String>,
     pub operation_id: Option<Uuid>,
     pub from_ms: Option<i64>,
@@ -288,6 +289,19 @@ fn push_activity_scope_and_filters<'a>(
         .push_bind(scope.organization_id)
         .push(" AND a.project_id = ")
         .push_bind(scope.project_id);
+    if filter.pending_settlement {
+        query.push(
+            " AND a.dispatched_at IS NOT NULL AND a.execution <> 'confirmed_not_executed'
+              AND NOT niu_attempt_failed_zero_cost(a.id)
+              AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes p WHERE p.attempt_id=a.id)
+              AND NOT EXISTS (SELECT 1 FROM customer_activity_charges c WHERE c.attempt_id=a.id)
+              AND NOT EXISTS (SELECT 1 FROM customer_activity_unit_charges u WHERE u.attempt_id=a.id)
+              AND (EXISTS (SELECT 1 FROM customer_attempt_tariffs t WHERE t.attempt_id=a.id)
+                OR EXISTS (SELECT 1 FROM customer_media_attempt_pricing t WHERE t.attempt_id=a.id)
+                OR EXISTS (SELECT 1 FROM customer_unit_attempt_tariffs t WHERE t.attempt_id=a.id)
+                OR EXISTS (SELECT 1 FROM customer_unit_media_attempt_tariffs t WHERE t.attempt_id=a.id))",
+        );
+    }
     if let Some(search) = filter.search.as_deref() {
         // Literal substring search over customer-visible request metadata.
         query.push(" AND (strpos(lower(concat_ws(' ', o.model_alias, a.provider_model, a.public_reference)), lower(")
@@ -711,7 +725,7 @@ impl Store {
                     COALESCE(SUM(e.completion_tokens::numeric) FILTER (WHERE e.usage_confidence='provider_reported'), 0)::text AS completion_tokens, \
                     COUNT(*) FILTER (WHERE e.timing_complete)::bigint AS timing_count, \
                     ROUND(AVG(e.timing_total_ms::numeric) FILTER (WHERE e.timing_complete))::bigint AS average_duration_ms, \
-                    COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.has_tariff AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND NOT e.is_failed_zero_cost)::bigint AS unresolved_customer_charge_count, \
+                    COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.has_tariff AND NOT e.is_owner_funded AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND NOT e.is_failed_zero_cost)::bigint AS unresolved_customer_charge_count, \
                     COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND e.is_owner_funded)::bigint AS owner_funded_request_count, \
                     COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND NOT e.has_tariff AND NOT e.is_owner_funded)::bigint AS unpriced_request_count, \
                     jsonb_build_object( \
@@ -780,7 +794,7 @@ impl Store {
                                'request_count', COUNT(*), \
                                'charged_requests', COUNT(e.charge_attempt_id), \
                                'unit_charged_requests', COUNT(e.unit_attempt_id), \
-                               'unresolved_requests', COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.has_tariff AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND NOT e.is_failed_zero_cost), \
+                               'unresolved_requests', COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.has_tariff AND NOT e.is_owner_funded AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND NOT e.is_failed_zero_cost), \
                                'owner_funded_requests', COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND e.is_owner_funded), \
                                'unpriced_requests', COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND NOT e.has_tariff AND NOT e.is_owner_funded AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL), \
                                'not_charged_requests', COUNT(*) FILTER (WHERE e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND (e.dispatched_at IS NULL OR e.execution='confirmed_not_executed' OR e.is_failed_zero_cost)) \
@@ -804,7 +818,7 @@ impl Store {
                                'request_count', COUNT(*), \
                                'charged_requests', COUNT(e.charge_attempt_id), \
                                'unit_charged_requests', COUNT(e.unit_attempt_id), \
-                               'unresolved_requests', COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.has_tariff AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND NOT e.is_failed_zero_cost), \
+                               'unresolved_requests', COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.has_tariff AND NOT e.is_owner_funded AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND NOT e.is_failed_zero_cost), \
                                'owner_funded_requests', COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND e.is_owner_funded), \
                                'unpriced_requests', COUNT(*) FILTER (WHERE e.dispatched_at IS NOT NULL AND e.execution <> 'confirmed_not_executed' AND NOT e.has_tariff AND NOT e.is_owner_funded AND e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL), \
                                'not_charged_requests', COUNT(*) FILTER (WHERE e.charge_attempt_id IS NULL AND e.unit_attempt_id IS NULL AND (e.dispatched_at IS NULL OR e.execution='confirmed_not_executed' OR e.is_failed_zero_cost)) \

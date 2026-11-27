@@ -56,6 +56,8 @@ Registration policy and the registration review queue link directly to each othe
 
 Follow [the UI consistency standard](docs/ux/ui-consistency-standard.md) for all dashboard pages, dialogs, choice controls, composers, loading states, and visual tokens. Keep management and detail pages as scannable reading and inspection surfaces (tables or concise single-panel key-value summaries) without multi-card sprawl or walls of explanatory prose. Every page-level create, edit, rename, publish, limit-setting, and destructive confirmation action must open an installed shadcn `Dialog` (`DialogHeader`, bounded scrollable body such as `max-h-[90dvh] overflow-y-auto`, and `DialogFooter` with cancellation and primary submit actions, restoring focus to its trigger via `onCloseAutoFocus`). Never replace a read view in place with an inline edit form, embed permanent mutation forms inside a summary page, or expand inline confirmation strips on pages. Conversely, never open a nested `Dialog` inside an already-open modal (such as the global `Settings` dialog); keep secondary flows inside an active modal inline or in-dialog views. Never collapse an open dialog's form or detail frame into a full-body skeleton or raw loading paragraph while fetching choice options or secondary metadata; keep the frame stably mounted and show loading inside the affected control or data region.
 
+A tab that groups multiple entity types must not show an unlabeled count for just one type. Keep counts with the entity they describe.
+
 ## Icons
 
 Use only Lucide React and Tabler Icons for product controls and navigation. Choose icons for their meaning; both libraries are allowed. Keep navigation size, stroke weight and alignment consistent, and use the same icon for the same feature across the sidebar and account menu.
@@ -136,6 +138,10 @@ Follow established patterns from mature products rather than inventing layouts b
 Before delivery, compare the rendered result directly against both the reference and equivalent Niu pages at desktop and narrow widths. Fix visible deviations and inconsistencies within the authorized scope; do not merely describe them or wait for the user to point them out. If a departure is required by a concrete product or technical constraint, explain that constraint rather than silently substituting a new design. When no reference is supplied, inspect a relevant established product pattern before choosing a new layout.
 
 ## Navigation hierarchy
+
+Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
+
+Returning from request details restores the inspected row, focus and loaded page depth for that log history entry. Restore only from workspaces that are still authorized.
 
 Use a single left sidebar for primary navigation; do not add a separate outer product rail alongside the sidebar. Keep the brand mark and workspace switcher in the sidebar header, primary destinations in the main sidebar list, and Docs, Admin access (when authorized), and the account menu in the sidebar footer. For a feature that needs two navigation levels, use sidebar items for the first-level sections and tabs within the selected section for the second level. Tuck secondary, low-frequency, or scenario-specific capabilities into their parent feature's tabs or advanced sections rather than promoting them to top-level sidebar items. Use the installed shadcn Sidebar and Tabs primitives directly, preserve clear active states, and verify the hierarchy and access to both levels at narrow widths.
 

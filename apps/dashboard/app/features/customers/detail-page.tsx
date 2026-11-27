@@ -186,7 +186,6 @@ export function CustomerDetail({
   const members: CompanyMemberSummary[] = currentCompany.members ?? [];
   const transactions = currentCompany.recent_transactions ?? [];
   const customPriceCount = currentCompany.custom_price_count ?? 0;
-  const workspaceCount = currentCompany.workspace_count ?? workspaces.length;
   const memberCount = currentCompany.member_count ?? members.length;
   const workspaceNameById = new Map(workspaces.map(ws => [ws.id, ws.name]));
   const outstandingNanos =
@@ -313,14 +312,7 @@ export function CustomerDetail({
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="access" className="gap-1.5">
-              <span>{uiT('Workspaces & members', '工作空间与成员')}</span>
-              {workspaceCount > 0 && (
-                <Badge variant="secondary" className="px-1.5 py-0 text-[11px] font-normal">
-                  {workspaceCount}
-                </Badge>
-              )}
-            </TabsTrigger>
+            <TabsTrigger value="access">{uiT('Workspaces & members', '工作空间与成员')}</TabsTrigger>
           </TabsList>
         </div>
 
