@@ -1260,7 +1260,7 @@ function RoutePoolEditorDialog({
                               >
                                 <span className="min-w-0">
                                   <span className="block truncate font-medium">{route.alias}</span>
-                                  <span className="block truncate text-xs text-muted-foreground">{!route.ownerFunded && route.priced === false ? t('Purchase price not configured', '采购价未配置') : route.providerName + ' · ' + route.upstreamModel}</span>
+                                  <span className="block truncate text-xs text-muted-foreground">{!route.ownerFunded && route.priced === false ? t('Purchase price not configured', '采购价未配置') : `${route.providerName} · ${route.upstreamModel}`}</span>
                                 </span>
                               </DropdownMenuRadioItem>
                             ))}
