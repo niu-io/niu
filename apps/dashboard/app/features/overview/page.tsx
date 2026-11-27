@@ -67,20 +67,12 @@ export default function OverviewRoute() {
     navigate(`/generations?${nextSearch}`);
   }
 
-  const emptyState = <OverviewQuickStart
-    workspaceRoot={workspaceRoot}
-    modelsHref={modelsHref}
-    canWrite={canWrite}
-    canManagePlatform={canManagePlatform}
-    hasModels={catalogPending || models.length > 0}
-    needsApiKey={needsApiKey}
-    onCreateKey={needsApiKey && canWrite ? () => { quickKey.setError(''); setQuickKeyOpen(true); } : undefined}
-  />;
+  const emptyState = <OverviewQuickStart />;
   return <>
     <PageHeader title={t('Overview', '概览')} action={token && !catalogPending && <div className="overview-primary-actions">{models.length
       ? needsApiKey
         ? canWrite
-          ? <Button ref={quickKeyTriggerRef} type="button" className="header-icon-action" onClick={() => { quickKey.setError(''); setQuickKeyOpen(true); }}><IconKey aria-hidden="true" /><span>{t('Create API key', '创建 API 密钥')}</span></Button>
+          ? <Button ref={quickKeyTriggerRef} type="button" aria-label={t('Create API key', '创建 API 密钥')} title={t('Create API key', '创建 API 密钥')} onClick={() => { quickKey.setError(''); setQuickKeyOpen(true); }}><IconKey aria-hidden="true" /><span>{t('Create key', '创建密钥')}</span></Button>
           : <Button asChild variant="outline"><Link to={`${workspaceRoot}/keys`} className="header-icon-action"><IconKey aria-hidden="true" /><span>{t('Keys', '密钥')}</span></Link></Button>
         : <Button asChild><Link to={generationsTarget} className="header-icon-action" aria-label={t('Open Generations', '开始生成')} title={t('Open Generations', '开始生成')}><IconSparkles aria-hidden="true" /><span>{t('Open Generations', '开始生成')}</span></Link></Button>
       : canManagePlatform
@@ -96,28 +88,13 @@ export default function OverviewRoute() {
           </div>
           <span className="text-xs text-muted-foreground">{t('Browse', '查看')} →</span>
         </Link>
-        {needsApiKey && canWrite ? (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => { quickKey.setError(''); setQuickKeyOpen(true); }}
-            className="h-auto w-full items-center justify-between gap-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5 text-left font-normal hover:bg-accent/50"
-          >
-            <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">{t('Active API keys', '有效 API 密钥')}</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">{workspace.active_key_count ?? 0}</p>
-            </div>
-            <span className="text-xs font-medium text-primary">{t('Create key', '创建密钥')} →</span>
-          </Button>
-        ) : (
-          <Link to={`${workspaceRoot}/keys`} className="flex items-center justify-between gap-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5 transition-colors hover:bg-accent/50">
-            <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">{t('Active API keys', '有效 API 密钥')}</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums">{workspace.active_key_count ?? 0}</p>
-            </div>
-            <span className="text-xs text-muted-foreground">{t('Manage', '管理')} →</span>
-          </Link>
-        )}
+        <Link to={`${workspaceRoot}/keys`} className="flex items-center justify-between gap-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5 transition-colors hover:bg-accent/50">
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">{t('Active API keys', '有效 API 密钥')}</p>
+            <p className="mt-1 text-lg font-semibold tabular-nums">{workspace.active_key_count ?? 0}</p>
+          </div>
+          <span className="text-xs text-muted-foreground">{t('Manage', '管理')} →</span>
+        </Link>
         <Link to={`${workspaceRoot}/billing`} className="flex items-center justify-between gap-3 rounded-[var(--radius-panel)] bg-card px-4 py-3.5 transition-colors hover:bg-accent/50">
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">{t('Credits & billing', '额度与账单')}</p>

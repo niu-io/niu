@@ -12,6 +12,8 @@ description: "Generated TypeScript declaration for CommercialPositionRow"
 export type CommercialPositionRow = {
     pending_attempts?: Array<{
         attempt: string;
+        workspace_id?: string;
+        reference?: string | null;
         execution: string;
         usage_confidence: string;
         charge_missing: boolean;

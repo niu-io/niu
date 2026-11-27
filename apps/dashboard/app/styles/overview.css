@@ -89,19 +89,10 @@
 .gateway-task-empty>p { max-width: 590px; margin: 8px 0 0; color: var(--muted-foreground); font-size: 14px; line-height: 1.55; }
 .gateway-task-empty pre { width: min(100%, 570px); margin: 17px 0 3px; padding: 14px 17px; overflow: auto; border: 0; border-radius: 12px; background: var(--muted); text-align: left; }
 .gateway-task-empty pre code { font-size: 14px; line-height: 1.65; }
-.gateway-first-use-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; width: 100%; margin: 23px 0 6px; text-align: left; }
-.gateway-first-use-steps>a, .gateway-first-use-steps>div, .gateway-first-use-steps>button { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); align-content: start; align-items: center; column-gap: 10px; row-gap: 6px; min-height: 114px; padding: 14px; border: 1px solid transparent; border-radius: 12px; color: var(--foreground); text-decoration: none; text-align: left; font: inherit; background: color-mix(in srgb, var(--muted) 65%, transparent); cursor: pointer; transition: background .15s ease, border-color .15s ease; }
-.gateway-first-use-steps>a:hover, .gateway-first-use-steps>button:hover { border-color: color-mix(in srgb, var(--primary) 35%, transparent); background: var(--muted); }
-.gateway-first-use-steps>*>span { display: grid; width: 27px; height: 27px; place-items: center; border-radius: 9px; color: var(--primary-ink); background: color-mix(in srgb, var(--primary) 11%, var(--card)); font-size: 14px; font-weight: 700; }
-.gateway-first-use-steps>*>strong { font-size: 14px; font-weight: 600; }
-.gateway-first-use-steps>*>small { grid-column: 2; color: var(--muted-foreground); font-size: 14px; line-height: 1.4; }
-.gateway-first-use-steps>a>svg, .gateway-first-use-steps>button>svg { position: absolute; top: 17px; right: 13px; color: var(--muted-foreground); }
 @media (max-width: 1050px) {
   .gateway-activity-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }}
 @media (max-width: 700px) {
   .gateway-task-feed-heading { flex-direction: column; align-items: flex-start; }
-  .gateway-first-use-steps { grid-template-columns: 1fr; }
-  .gateway-first-use-steps>a, .gateway-first-use-steps>div { min-height: 0; }
   .gateway-attempt-details { grid-column: 2 / -1; }}
 @keyframes benchmark-spin { to { transform: rotate(360deg); } }
 .operator-page-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }

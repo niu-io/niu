@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ProviderRequestError, request, writeMayHaveCommitted } from '@/features/providers/api';
 import { amountFromNanos, amountToNanos } from '@/lib/money';
@@ -18,7 +18,7 @@ import { ContextTierFields, TextRateBand } from './text-rate-band';
 import { tokenBand, ratesFrom, checkedRates, checkedTiers, type Rates, type Tier } from './text-terms';
 
 /** Full text selling terms; optional categories stay distinct from explicit zero. */
-export function TextStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean) => void; onSaved: () => void }) {
+export function TextStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean, conflict?: boolean) => void; onSaved: () => void }) {
   const { t: uiT } = useUILocale();
   const original = previous?.schedule.kind === 'text' ? previous.schedule : undefined;
   const [model, setModel] = useState(previous?.model_alias ?? initialModel);
@@ -71,11 +71,11 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
   function requestClose() {
     if (busy) return;
     if (dirty && !attempt && !conflict) setConfirmDiscard(true);
-    else onClose(!!attempt && !conflict);
+    else onClose(!!attempt && !conflict, conflict);
   }
   const locked = busy || !!attempt || conflict;
   async function publish(event: FormEvent) {
-    event.preventDefault(); if (busy || conflict) return;
+    event.preventDefault(); if (busy || conflict || confirmDiscard) return;
     let input = attempt;
     if (!input) {
       try {
@@ -129,11 +129,9 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
       </Alert>
     )}
     {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
-    {confirmDiscard && <Alert><AlertDescription className="flex flex-wrap items-center gap-2">
-      {uiT("Discard unpublished changes?", "放弃未发布的修改？")}
-      <Button type="button" onClick={() => setConfirmDiscard(false)}>{uiT("Keep editing", "继续编辑")}</Button>
+    {confirmDiscard ? <DialogFooter key="discard">
       <Button type="button" variant="outline" onClick={() => onClose(false)}>{uiT("Discard changes", "放弃修改")}</Button>
-    </AlertDescription></Alert>}
-    <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" onClick={requestClose}>{uiT("Close")}</Button><Button type="submit" disabled={busy || conflict || !model || (hasZeroBaseRate && !zeroConfirmed)}>{busy ? uiT("Publishing…") : attempt ? uiT("Retry exact publication") : uiT("Publish standard price")}</Button></div>
+      <Button type="button" autoFocus onClick={() => setConfirmDiscard(false)}>{uiT("Keep editing", "继续编辑")}</Button>
+    </DialogFooter> : <DialogFooter key="publish"><Button type="button" variant="outline" onClick={requestClose}>{uiT("Close")}</Button><Button type="submit" disabled={busy || conflict || !model || (hasZeroBaseRate && !zeroConfirmed)}>{busy ? uiT("Publishing…") : attempt ? uiT("Retry exact publication") : uiT("Publish standard price")}</Button></DialogFooter>}
   </form></DialogContent></Dialog>;
 }

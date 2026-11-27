@@ -18,45 +18,13 @@ vi.mock('../../../app/features/executions/components/GatewayActivity', () => ({
   },
 }));
 
-function quickStart(overrides: Partial<Parameters<typeof OverviewQuickStart>[0]> = {}) {
-  return <MemoryRouter><OverviewQuickStart
-    workspaceRoot="/workspaces/demo"
-    modelsHref="/workspaces/demo/models"
-    canWrite
-    canManagePlatform={false}
-    hasModels
-    {...overrides}
-  /></MemoryRouter>;
-}
-
-describe('workspace overview quick start', () => {
-  it('prioritizes Niu MCP setup while retaining manual setup and request evidence', () => {
-    render(quickStart());
-    expect(screen.getByRole('heading', {name: 'Get started'})).toBeTruthy();
-    expect(screen.getByRole('button', {name: 'Install MCP'})).toBeTruthy();
-    expect(screen.getByRole('link', {name: 'Create an API key'}).getAttribute('href')).toBe('/workspaces/demo/keys');
-    expect(screen.getByRole('link', {name: 'Read the API quickstart'}).getAttribute('href')).toBe('/docs/guides/api-quickstart/');
-    expect(screen.getByRole('link', {name: 'View requests'}).getAttribute('href')).toBe('/workspaces/demo/executions');
-  });
-
-  it('keeps API key creation out of the guidance for a read-only member', () => {
-    render(quickStart({canWrite: false}));
-    expect(screen.queryByRole('link', {name: 'Create an API key'})).toBeNull();
-    expect(screen.getByRole('link', {name: 'Keys'}).getAttribute('href')).toBe('/workspaces/demo/keys');
-    expect(screen.getByText('Ask a workspace administrator to create or share a key.')).toBeTruthy();
-  });
-
-  it('points administrators without models at Admin setup', () => {
-    render(quickStart({hasModels: false, canManagePlatform: true}));
-    expect(screen.getByRole('heading', {name: 'Get started'})).toBeTruthy();
-    expect(screen.getByRole('link', {name: 'Open Admin setup'}).getAttribute('href')).toBe('/admin');
-  });
-
-  it('points other members without models at the workspace model catalog', () => {
-    render(quickStart({hasModels: false}));
-    expect(screen.getByRole('link', {name: 'Browse models'}).getAttribute('href')).toBe('/workspaces/demo/models');
-    expect(screen.getByText('A platform administrator must connect a Provider and publish models before this workspace can send requests.')).toBeTruthy();
-  });
+it('offers agent and manual setup without repeating the page actions', () => {
+  render(<MemoryRouter><OverviewQuickStart /></MemoryRouter>);
+  expect(screen.getByText('No requests yet')).toBeTruthy();
+  expect(screen.getByRole('button', {name: 'Install MCP'})).toBeTruthy();
+  expect(screen.getByRole('link', {name: 'API quickstart'}).getAttribute('href')).toBe('/docs/guides/api-quickstart/');
+  expect(screen.queryByRole('button', {name: /Create.*key/i})).toBeNull();
+  expect(screen.queryByRole('link', {name: /View requests/i})).toBeNull();
 });
 
 describe('workspace overview route', () => {
