@@ -1,5 +1,5 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback, type CSSProperties, type ReactNode, type ComponentProps, type RefObject, type MouseEvent } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback, type CSSProperties, type ReactNode, type ComponentProps, type RefObject } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -19,7 +19,7 @@ export function openGenerationsAssetsPanel() {
   window.dispatchEvent(new CustomEvent(OPEN_ASSETS_EVENT));
 }
 
-type Content = { title?: string; actions?: ReactNode; onNewSession?: () => void; onArchive?: (event: MouseEvent<HTMLButtonElement>) => void; notice?: ReactNode; history: ComponentProps<typeof SessionHistory>; extra?: ReactNode; trigger: RefObject<HTMLButtonElement | null>; contextPanel?: GenerationsContextPanelData; sessionKey?: string };
+type Content = { title?: string; actions?: ReactNode; onNewSession?: () => void; onArchive?: (trigger: HTMLButtonElement) => void; notice?: ReactNode; history: ComponentProps<typeof SessionHistory>; extra?: ReactNode; trigger: RefObject<HTMLButtonElement | null>; contextPanel?: GenerationsContextPanelData; sessionKey?: string };
 const Host = createContext<((content: Content) => void) | null>(null);
 
 function GenerationsSidebar({ content, toggle }: { content: Content | null; toggle: RefObject<HTMLButtonElement | null> }) {
@@ -34,6 +34,7 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
   const scrollNode = useRef<HTMLDivElement | null>(null);
   const scrollTop = useRef(0);
   const archiveButton = useRef<HTMLButtonElement>(null);
+  const pendingArchive = useRef<(() => void) | null>(null);
   const returnToArchive = useRef(false);
   const attachList = useCallback((node: HTMLDivElement | null) => {
     if (scrollNode.current) scrollTop.current = scrollNode.current.scrollTop;
@@ -49,7 +50,15 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
         returnToArchive.current = false;
         archiveButton.current.focus({preventScroll: true});
       }
-    }, onCloseAutoFocus: event => { const trigger = toggle.current; if (trigger?.isConnected) { event.preventDefault(); trigger.focus(); } }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"], [data-slot="dropdown-menu-content"], [data-slot="dialog-content"]')) event.preventDefault(); } }} aria-label={uiT("Generation history")}>
+    }, onCloseAutoFocus: event => {
+      if (pendingArchive.current) {
+        event.preventDefault();
+        const openArchive = pendingArchive.current;
+        pendingArchive.current = null;
+        openArchive();
+        return;
+      }
+      const trigger = toggle.current; if (trigger?.isConnected) { event.preventDefault(); trigger.focus(); } }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"], [data-slot="dropdown-menu-content"], [data-slot="dialog-content"]')) event.preventDefault(); } }} aria-label={uiT("Generation history")}>
     <SidebarHeader className="sidebar-heading generations-history-heading">
       <h2 className="sidebar-heading-row">{uiT("Generations")}</h2>
       {!isMobile && (
@@ -66,7 +75,13 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
       <div ref={attachList} style={{ display: 'contents' }} />
       {content?.extra}
     </SidebarContent>
-    <SidebarFooter><Button ref={archiveButton} variant="ghost" className="justify-start" onClick={event => { returnToArchive.current = isMobile; if(content?.onArchive)content.onArchive(event); else navigate(`/generations?archived=1${workspaceQuery}`); if(isMobile)setOpenMobile(false); }}><IconArchive size={15} />{uiT("Archived sessions")}</Button></SidebarFooter>
+    <SidebarFooter><Button ref={archiveButton} variant="ghost" className="justify-start" onClick={event => { const trigger = event.currentTarget;
+      const openArchive = () => content?.onArchive ? content.onArchive(trigger) : navigate(`/generations?archived=1${workspaceQuery}`);
+      if (isMobile) {
+        returnToArchive.current = true;
+        pendingArchive.current = openArchive;
+        setOpenMobile(false);
+      } else openArchive(); }}><IconArchive size={15} />{uiT("Archived sessions")}</Button></SidebarFooter>
   </Sidebar>
     {content && <SessionHistory {...content.history} focusFallback={toggle} listTarget={listTarget} key={content.history.context.token} />}
   </>;
