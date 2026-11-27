@@ -44,6 +44,8 @@ Legacy links to tabbed platform settings must open the matching canonical tab wi
 
 Never use a native HTML `<select>` / `<option>` control, the shadcn Select component, or a hand-built Select/Dropdown abstraction anywhere in the product UI. This is a hard design rule, not a preference. Compose the installed shadcn `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, and the appropriate menu item primitives directly at each call site for choice menus, including single-choice form fields, workspace/model selectors, and filters. Use the shared menu primitives' icon gutter and spacing; do not override their internal layout with local CSS. Single-choice and multiple-choice items show the selected state as a check on the right, with text and optional icons aligned to ordinary action items. Keep Radix radio/checkbox semantics; do not add a left radio dot or an extra selection column. See `docs/ux/menu-review-2026-11-01.md` for the agreed convention and audit evidence. Verify each changed menu in the browser, including open state and alignment, before reporting completion.
 
+Customer access lists expose one setup action in the tab content. Keep balance policy with billing and describe an empty member list in terms of members.
+
 Customer access lists retain workspace links, member roles and workspace scope on narrow screens. Show labeled values within each row without horizontal scrolling.
 
 Customer and API key directories keep their primary creation action visibly labeled at every width. The key directory shows one creation action even when an active filter hides historical keys.
