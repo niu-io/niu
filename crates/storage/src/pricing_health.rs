@@ -149,9 +149,7 @@ fn compare(sell: &Value, currency: &str, cost: &Value) -> Value {
                 "dimension": label, "minimum_input_tokens": input.to_string(),
                 "selling": s.to_string(), "purchase": c.to_string()
             }));
-            // Ignore a single-nanounit sentinel rate (1 nanounit / 1M, i.e. $0.000000001 / 1M)
-            // often used as a minimal positive placeholder on zero-priced routes.
-            if s < c && c > 1 {
+            if s < c {
                 dimensions
                     .push(json!({"dimension":label,"minimum_input_tokens":input.to_string()}));
             }
@@ -370,7 +368,7 @@ mod tests {
     }
 
     #[test]
-    fn ignores_single_nanounit_placeholder_provider_quote_on_free_model() {
+    fn compares_the_smallest_recorded_positive_provider_quote() {
         let sell = json!({
             "kind": "text",
             "prompt_rate": "0",
@@ -380,7 +378,7 @@ mod tests {
             "reasoning_completion_rate": null,
             "context_tiers": []
         });
-        let placeholder_cost = json!({
+        let quoted_cost = json!({
             "route": "qiniu/conatus-free",
             "provider": "Qiniu",
             "configured": true,
@@ -395,14 +393,15 @@ mod tests {
                 "context_tiers": []
             }
         });
+        assert_eq!(compare(&sell, "USD", &quoted_cost)["status"], "below_cost");
+
+        let mut free_cost = quoted_cost;
+        free_cost["schedule"]["prompt_rate"] = json!("0");
+        free_cost["schedule"]["completion_rate"] = json!("0");
         assert_eq!(
-            compare(&sell, "USD", &placeholder_cost)["status"],
+            compare(&sell, "USD", &free_cost)["status"],
             "no_lower_unit_rates"
         );
-
-        let mut real_cost = placeholder_cost;
-        real_cost["schedule"]["prompt_rate"] = json!("1000");
-        assert_eq!(compare(&sell, "USD", &real_cost)["status"], "below_cost");
     }
 
     #[test]
