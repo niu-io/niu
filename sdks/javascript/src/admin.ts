@@ -3097,7 +3097,7 @@ export class NiuAdminClient {
   }
 
   /** Registered shared aliases, including disabled configuration; not supply readiness. */
-  listRegisteredRetailModels(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { model_alias: string }[]; next_after: string | null }> {
+  listRegisteredRetailModels(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { model_alias: string; text: boolean; media: { channel: string; resolutions: string[]; reference_video: boolean; meter: string } | null }[]; next_after: string | null }> {
     const query = new URLSearchParams();
     if (page.after !== undefined) {
       if (!page.after || new TextEncoder().encode(page.after).length > 200) throw new TypeError('A model cursor of at most 200 bytes is required');

@@ -3101,40 +3101,6 @@ struct AdminModelScope {
     include_uncallable: Option<bool>,
 }
 
-fn has_non_chat_modality_token(identifier: &str) -> bool {
-    identifier
-        .split(|c: char| !c.is_ascii_alphanumeric())
-        .filter(|segment| !segment.is_empty())
-        .any(|token| {
-            matches!(
-                token.to_ascii_lowercase().as_str(),
-                "video"
-                    | "seedance"
-                    | "wan2"
-                    | "kling"
-                    | "veo"
-                    | "sora"
-                    | "vidu"
-                    | "hailuo"
-                    | "luma"
-                    | "runway"
-                    | "seedream"
-                    | "flux"
-                    | "imagen"
-                    | "kolors"
-                    | "embedding"
-                    | "embeddings"
-                    | "embed"
-                    | "rerank"
-                    | "reranker"
-                    | "whisper"
-                    | "tts"
-                    | "asr"
-                    | "moderation"
-            )
-        })
-}
-
 /// Catalog descriptions cannot override the actual Video-only route boundary.
 /// OpenAI-compatible Chat Completions routes whose `/v1/models` response omits
 /// OpenRouter-style `output_modalities` are Chat-capable unless the identifier
@@ -3154,8 +3120,8 @@ fn configured_generation_capabilities(
                 .iter()
                 .any(|output| output == "text"),
         )
-    } else if has_non_chat_modality_token(alias)
-        || has_non_chat_modality_token(&model.upstream_model)
+    } else if niu_media::has_non_chat_modality_token(alias)
+        || niu_media::has_non_chat_modality_token(&model.upstream_model)
     {
         None
     } else {

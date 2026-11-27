@@ -783,6 +783,41 @@ impl ValidatedVideoRequest {
     }
 }
 
+/// Recognize identifiers with an explicit non-chat modality when catalog metadata is absent.
+pub fn has_non_chat_modality_token(identifier: &str) -> bool {
+    identifier
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|segment| !segment.is_empty())
+        .any(|token| {
+            matches!(
+                token.to_ascii_lowercase().as_str(),
+                "video"
+                    | "seedance"
+                    | "wan2"
+                    | "kling"
+                    | "veo"
+                    | "sora"
+                    | "vidu"
+                    | "hailuo"
+                    | "luma"
+                    | "runway"
+                    | "seedream"
+                    | "flux"
+                    | "imagen"
+                    | "kolors"
+                    | "embedding"
+                    | "embeddings"
+                    | "embed"
+                    | "rerank"
+                    | "reranker"
+                    | "whisper"
+                    | "tts"
+                    | "asr"
+                    | "moderation"
+            )
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

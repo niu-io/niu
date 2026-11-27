@@ -183,7 +183,15 @@ impl Store {
                         json!({"channel":schema.channel,"resolutions":resolutions,"reference_video":schema.inputs.contains_key("video_url"),"meter":output.estimator.meter()})
                     }));
                 // Return decision-relevant choices, never raw schemas or upstream identities.
-                json!({"model_alias":row["model_alias"],"media":media})
+                let text = row["text_candidates"].as_array().is_some_and(|candidates| candidates.iter().any(|candidate| {
+                    if candidate["video"] == true { return false; }
+                    if let Some(outputs) = candidate["outputs"].as_array().filter(|outputs| !outputs.is_empty()) {
+                        return outputs.iter().any(|output| output == "text");
+                    }
+                    ![&row["model_alias"], &candidate["alias"], &candidate["upstream"]].into_iter()
+                        .filter_map(Value::as_str).any(niu_media::has_non_chat_modality_token)
+                }));
+                json!({"model_alias":row["model_alias"],"media":media,"text":text})
             }).collect();
         Ok(json!({"data":data, "next_after":value["next_after"]}))
     }

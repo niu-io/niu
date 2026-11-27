@@ -2011,6 +2011,13 @@ listRegisteredRetailModels(page?: {
 }, options?: RequestOptions): Promise<{
     data: {
         model_alias: string;
+        text: boolean;
+        media: {
+            channel: string;
+            resolutions: string[];
+            reference_video: boolean;
+            meter: string;
+        } | null;
     }[];
     next_after: string | null;
 }>;

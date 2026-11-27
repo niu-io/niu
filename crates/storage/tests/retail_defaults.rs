@@ -352,7 +352,7 @@ async fn retail_media_choices_validate_schema_and_hide_internal_configuration(po
     let page = store.registered_retail_models(None, 100).await.unwrap();
     assert_eq!(
         page["data"],
-        json!([{ "model_alias":"default-price", "media":{
+        json!([{ "model_alias":"default-price", "text":false, "media":{
             "channel":"ark-direct-v1", "resolutions":["720p"], "reference_video":true, "meter":"video_tokens"
         }}])
     );
@@ -371,6 +371,13 @@ async fn retail_media_choices_validate_schema_and_hide_internal_configuration(po
         .await
         .unwrap();
     assert!(store.registered_retail_models(None, 100).await.unwrap()["data"][0]["media"].is_null());
+    sqlx::query("UPDATE vendor_models SET capabilities='{}', upstream_model='doubao-seedance-2-0' WHERE alias='default-price'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let choice = &store.registered_retail_models(None, 100).await.unwrap()["data"][0];
+    assert!(choice["media"].is_null());
+    assert_eq!(choice["text"], false);
     assert!(
         store
             .registered_retail_models(Some("missing-cursor"), 100)
