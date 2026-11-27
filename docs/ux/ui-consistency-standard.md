@@ -110,6 +110,8 @@ Multi-mode creation and configuration dialogs MUST follow top-down causal order:
 
 ### Pricing and commercial inspection
 
+Group grant history with customer inspection actions and place balance-changing actions after a menu separator. Apply this order in the directory and customer detail.
+
 The base text rate starts at zero. Both monetary and credit editors show the inclusive range for each band, accept positive increasing token thresholds, and stop offering additional bands at 32.
 
 Use a right-side sheet for a current price comparison. Show both comparable rates with the currency, unit, route and threshold used by the platform. Distinguish unit spread from realized gross profit and label missing evidence. Place historical revision differences behind the current comparison. Price editors show complete input-token bands and preserve dirty input through accidental dismissal. Workspace model trials present applicable customer rates separately from upstream plan descriptions.
