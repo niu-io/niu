@@ -918,7 +918,7 @@ function CommercialStatement({ token }: { token: string }) {
                     focusEconomics.current = true;
                     showSection('unit-economics');
                   }
-                }}>{uiF("{0} unresolved", [currentCohort.unresolvedAttempts.toString()])}</Button> · </>}{currentCohort.matchedAttempts.toString()}{" "}{uiT("settled requests ·")}{' '}
+                }}>{uiF("{0} unresolved", [currentCohort.unresolvedAttempts.toString()])}</Button> · </>}{uiF("Matched charges and payables ({0})", [currentCohort.matchedAttempts.toString()])} ·{' '}
                 {uiF('{0} active models', [currentCohort.activeModelCount])}
               </p>
             </article>
