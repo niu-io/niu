@@ -26,7 +26,7 @@ import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { IconActivity, IconChevronDown, IconRefresh, IconRoute } from '@tabler/icons-react';
 
 type UnitCharge = { definition_revision?: string; unit_name?: string; name?: string; display_precision: number; net_atoms: string };
-type Summary = { request_count: number; usage_count: number; prompt_tokens: string; completion_tokens: string; customer_charges: Array<{currency: string; amount_nanos: string}>; customer_unit_charges?: UnitCharge[]; unresolved_customer_charge_count: number; unpriced_request_count: number; owner_funded_request_count?: number };
+type Summary = { charges_by_model?: Array<{charged_requests: number; unit_charged_requests?: number; not_charged_requests: number}>; request_count: number; usage_count: number; prompt_tokens: string; completion_tokens: string; customer_charges: Array<{currency: string; amount_nanos: string}>; customer_unit_charges?: UnitCharge[]; unresolved_customer_charge_count: number; unpriced_request_count: number; owner_funded_request_count?: number };
 function unitCharges(summary: Summary) {
   const totals = new Map<string, {name: string; precision: number; amount: bigint}>();
   for (const item of summary.customer_unit_charges ?? []) {
@@ -44,6 +44,7 @@ type WorkspacePage = {workspace: Workspace; page: Page; cursors?: string[]};
 
 export function activityTotals(pages: Array<{page: {summary: Summary}}>) {
   let requests = 0, reported = 0, tokens = 0n, unresolved = 0, pending = 0, unpriced = 0, ownerFunded = 0;
+  let settled = 0, notCharged = 0;
   const charges = new Map<string, bigint>();
   const units = new Map<string, {name: string; precision: number; amount: bigint}>();
   for (const {page: {summary}} of pages) {
@@ -52,6 +53,10 @@ export function activityTotals(pages: Array<{page: {summary: Summary}}>) {
     pending += summary.unresolved_customer_charge_count ?? 0;
     unpriced += summary.unpriced_request_count ?? 0;
     ownerFunded += summary.owner_funded_request_count ?? 0;
+    for (const row of summary.charges_by_model ?? []) {
+      settled += row.charged_requests + (row.unit_charged_requests ?? 0);
+      notCharged += row.not_charged_requests;
+    }
     unresolved += (summary.unresolved_customer_charge_count ?? 0) + (summary.unpriced_request_count ?? 0);
     for (const charge of summary.customer_charges ?? []) {
       const amount = BigInt(charge.amount_nanos);
@@ -59,7 +64,7 @@ export function activityTotals(pages: Array<{page: {summary: Summary}}>) {
     }
     for (const [key, charge] of unitCharges(summary)) { const current = units.get(key) ?? charge; current.amount = (units.get(key)?.amount ?? 0n) + charge.amount; units.set(key, current); }
   }
-  return {requests, reported, tokens, unresolved, pending, unpriced, ownerFunded, charges, units};
+  return {requests, reported, tokens, unresolved, pending, unpriced, ownerFunded, settled, notCharged, charges, units};
 }
 
 async function read<T>(url: string, token: string, signal: AbortSignal): Promise<T> {
@@ -222,6 +227,8 @@ function GlobalActivity({token, models}: {token: string; models: string[]}) {
               customer_charges: [...totals.charges].map(([currency, amount]) => ({ currency, amount_nanos: amount.toString() })),
               customer_unit_charges: [...totals.units.values()].map(unit => ({ name: unit.name, display_precision: unit.precision, net_atoms: unit.amount.toString() })),
             })}
+            settledCount={totals.settled}
+            notChargedCount={totals.notCharged}
             unresolvedCount={totals.pending}
             unpricedCount={totals.unpriced}
             ownerFundedCount={totals.ownerFunded}

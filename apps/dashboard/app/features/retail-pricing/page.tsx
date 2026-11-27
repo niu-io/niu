@@ -52,7 +52,7 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
   const mode: BillingMode = tabParam === 'credits' || tabParam === 'currency'
     ? tabParam
     : viewMode ?? activeMode;
-  const modeLabel = mode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency");
+  const billingBadge = <Badge variant="secondary">{uiT("Used for billing", "计费中")}</Badge>;
   const scope = token || 'public';
   const firstPagePath = base + '?limit=50';
   const initialPage = peekQuery<{ data: (RetailPriceRecord & { pricing_health?: PricingHealth })[]; next_after: string | null }>(scope, firstPagePath);
@@ -203,25 +203,16 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
         title={uiT("Standard pricing", "标准售价")}
         tabs={showModeTabs ? (
           <TabsList variant="line" aria-label={uiT("Pricing mode")}>
-            <TabsTrigger value="currency">{uiT("Settlement Currency")}</TabsTrigger>
-            <TabsTrigger value="credits">{uiT("Branded Credits")}</TabsTrigger>
+            <TabsTrigger value="currency">{uiT("Currency", "结算币种")}{billingMode === 'currency' && billingBadge}</TabsTrigger>
+            <TabsTrigger value="credits">{uiT("Credits", "额度")}{billingMode === 'credits' && billingBadge}</TabsTrigger>
           </TabsList>
         ) : undefined}
         action={currencyHeaderActions}
       />
       {editor && !editorOpen && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("A price publication is awaiting confirmation. Reopen it to check or retry before leaving this page.")}</span><Button type="button" variant="outline" onClick={event => { dialogOpener.current = event.currentTarget; setEditorOpen(true); }}>{uiT("Return to publication")}</Button></AlertDescription></Alert>}
-      {showModeTabs && (
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={mode === activeMode ? 'secondary' : 'outline'}>{mode === activeMode ? uiF("Active billing mode: {0}", [modeLabel]) : uiF("Preparing prices for {0}", [modeLabel])}</Badge>
-            {mode === 'currency' && supplyFilterControl}
-          </div>
-          {mode === 'currency' && rows.length > 0 && modelSearch}
-        </div>
-      )}
       <TabsContent value="currency" className="space-y-4">
         {!currency && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("Configure the platform currency in Admin Settings before publishing currency prices. If it is already configured, refresh this page.")}</span><Button asChild variant="link" className="h-auto p-0"><Link to="/admin/settings">{uiT("Open Settings")}</Link></Button></AlertDescription></Alert>}
-        {!showModeTabs && rows.length > 0 && (
+        {rows.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3">
             {modelSearch}
             {supplyFilterControl}

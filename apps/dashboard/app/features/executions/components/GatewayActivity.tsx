@@ -777,6 +777,8 @@ export default function GatewayActivity({ token, models, initialScope, compact =
           loadingCaption={loadingCaption}
           hasData={hasCustomerChargeData}
           settledTotals={customerTotals}
+          settledCount={groupedCharges.reduce((sum, group) => sum + group.charged, 0)}
+          notChargedCount={groupedCharges.reduce((sum, group) => sum + group.notCharged, 0)}
           unresolvedCount={aggregate.unresolved_customer_charge_count}
           unpricedCount={aggregate.unpriced_request_count}
           ownerFundedCount={aggregate.owner_funded_request_count ?? 0}

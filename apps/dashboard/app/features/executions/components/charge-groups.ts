@@ -102,6 +102,7 @@ export function chargeGroups(rows: ChargeBreakdown[], unitRows: UnitChargeBreakd
       ownerFunded: 0,
       notCharged: 0,
     };
+    group.charged += unitRow.charged_requests;
     const uName = unitLabel(unitRow);
     const key = `${unitRow.definition_revision}:${uName}`;
     const existing = group.unitAmounts.get(key);
