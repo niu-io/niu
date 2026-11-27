@@ -138,6 +138,8 @@ The base text rate starts at zero. Both monetary and credit editors show the inc
 
 Use a right-side sheet for a current price comparison. Show both comparable rates with the currency, unit, route and threshold used by the platform. Distinguish unit spread from realized gross profit and label missing evidence. Place historical revision differences behind the current comparison. Price editors show complete input-token bands and preserve dirty input through accidental dismissal. Workspace model trials present applicable customer rates separately from upstream plan descriptions.
 
+Audit history distinguishes an empty filtered result from an empty journal. Clearing filters resets the category and query together and returns focus to search.
+
 A tab that groups multiple entity types must not show an unlabeled count for just one type. Keep counts with the entity they describe.
 
 ## Decision-focused interface copy
@@ -165,3 +167,5 @@ Organization creation derives the address from the name. Preview the organizatio
 Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
 
 When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
+
+Registration validation focuses the first invalid field and associates the inline error with that control. Editing an unrelated field preserves the error.

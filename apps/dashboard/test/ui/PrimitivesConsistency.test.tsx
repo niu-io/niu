@@ -152,6 +152,13 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(css).toContain('[data-slot="breadcrumb-item"]:only-child { max-width: 100%; }');
   });
 
+  it('offers recovery when an audit category or search yields no matches', () => {
+    const source = readFileSync(join(appDir, 'features/audit-logs/page.tsx'), 'utf8');
+    expect(source).toContain("const filtered = category !== 'all' || Boolean(query.trim())");
+    expect(source).toContain('filtered && <EmptyContent>');
+    expect(source).toContain('searchInput.current?.focus()');
+  });
+
   it('keeps the key directory as a responsive list instead of a fixed-width table', () => {
     const css = readFileSync(resolve(process.cwd(), 'app/styles/operations.css'), 'utf8');
     const keys = readFileSync(join(appDir, 'features/keys/components/KeysView.tsx'), 'utf8');
