@@ -250,3 +250,5 @@ Price editors show the billing unit and quantity basis in titles or field labels
 Pricing editors show a single decision footer. When confirming draft dismissal, focus Keep editing, offer Discard changes, and prevent publication until editing resumes.
 
 When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
+
+Upstream incident notices and their polling belong on the administration overview and supply management routes. Keep customer, registration, pricing and other unrelated tasks free of this alert.
