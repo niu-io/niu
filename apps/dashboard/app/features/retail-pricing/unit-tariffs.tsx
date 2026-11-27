@@ -1,5 +1,5 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Link } from 'react-router';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -97,8 +97,6 @@ function DialogModelPicker({
   onSelect,
   choices,
   loading,
-  error,
-  emptyCopy,
   ariaLabel,
 }: {
   id: string;
@@ -106,18 +104,15 @@ function DialogModelPicker({
   onSelect: (choice: RetailModelChoice) => void;
   choices: RetailModelChoice[];
   loading: boolean;
-  error: string;
-  emptyCopy: ReactNode;
   ariaLabel: string;
 }) {
   const { t: uiT } = useUILocale();
   const [query, setQuery] = useState('');
   const visible = choices.filter(choice => choice.model_alias.toLowerCase().includes(query.trim().toLowerCase()));
   return (
-    <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button id={id} type="button" variant="outline" className="w-full justify-between" disabled={loading || !!error} aria-label={ariaLabel}>
+          <Button id={id} type="button" variant="outline" className="w-full justify-between" disabled={loading || !choices.length} aria-label={ariaLabel}>
             <span className="flex min-w-0 items-center gap-2">{modelAlias && <ProviderLogo provider={modelIdentity({ id: modelAlias })} size="small" />}<span className="min-w-0 truncate">{modelAlias || (loading ? uiT("Loading registered models…") : uiT("Choose registered model"))}</span></span>
             <ChevronDown className="size-4 shrink-0" />
           </Button>
@@ -130,10 +125,19 @@ function DialogModelPicker({
           {!loading && !visible.length && <p className="p-2 text-sm text-muted-foreground">{uiT("No registered models match this filter.")}</p>}
         </DropdownMenuContent>
       </DropdownMenu>
-      {!loading && !error && !choices.length && <Alert><AlertDescription className="flex min-w-0 flex-wrap items-center gap-2"><span className="min-w-0">{emptyCopy}</span><Link className="font-medium text-primary underline underline-offset-4" to="/admin/providers" target="_blank" rel="noopener noreferrer">{uiT("Configure a Provider model (opens in a new tab)")}</Link></AlertDescription></Alert>}
-      {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
-    </>
   );
+}
+
+function MissingTariffModel({ message, failed, loading, onRefresh, onClose }: { message: string; failed: boolean; loading: boolean; onRefresh: () => void; onClose: () => void }) {
+  const { t } = useUILocale();
+  return <>
+    <p role="status" className="text-sm">{message}</p>
+    <DialogFooter>
+      <Button variant="outline" onClick={onClose}>{t("Cancel")}</Button>
+      <Button variant={failed ? "default" : "outline"} disabled={loading} onClick={onRefresh}>{t("Refresh model choices")}</Button>
+      {!failed && <Button asChild><Link to="/admin/providers" target="_blank" rel="noopener noreferrer" aria-label={t("Configure a Provider model (opens in a new tab)")}>{t("Configure model", "配置模型")}</Link></Button>}
+    </DialogFooter>
+  </>;
 }
 
 export function BrandedUnitTariffsSection({ token, filter }: { token: string; filter: string }) {
@@ -146,6 +150,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
   const [loading, setLoading] = useState(() => !initialCfg);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const tariffTrigger = useRef<HTMLElement | null>(null);
   const [textEditor, setTextEditor] = useState<UnitTextTariffRecord | 'new' | null>(null);
   const [mediaEditor, setMediaEditor] = useState<UnitMediaTariffRecord | 'new' | null>(null);
 
@@ -199,7 +204,8 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
           <Button
             size="sm"
             disabled={loading || !config?.definition}
-            onClick={() => {
+            onClick={event => {
+              tariffTrigger.current = event.currentTarget;
               setNotice('');
               setTextEditor('new');
             }}
@@ -209,7 +215,8 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
             variant="outline"
             size="sm"
             disabled={loading || !config?.definition}
-            onClick={() => {
+            onClick={event => {
+              tariffTrigger.current = event.currentTarget;
               setNotice('');
               setMediaEditor('new');
             }}
@@ -271,7 +278,8 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
                       variant="outline"
                       size="sm"
                       aria-label={uiF("Edit Credits text tariff for {0}", [row.model_alias])}
-                      onClick={() => {
+                      onClick={event => {
+                        tariffTrigger.current = event.currentTarget;
                         setNotice('');
                         setTextEditor(row);
                       }}
@@ -321,7 +329,8 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
                       variant="outline"
                       size="sm"
                       aria-label={uiF("Edit Credits media tariff for {0}", [row.model_alias])}
-                      onClick={() => {
+                      onClick={event => {
+                        tariffTrigger.current = event.currentTarget;
                         setNotice('');
                         setMediaEditor(row);
                       }}
@@ -343,6 +352,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
         <UnitTextTariffDialog
           token={token}
           config={config}
+          restoreFocus={() => tariffTrigger.current?.focus()}
           initial={textEditor === 'new' ? null : textEditor}
           onClose={() => setTextEditor(null)}
           onSaved={modelAlias => {
@@ -357,6 +367,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
         <UnitMediaTariffDialog
           token={token}
           config={config}
+          restoreFocus={() => tariffTrigger.current?.focus()}
           initial={mediaEditor === 'new' ? null : mediaEditor}
           onClose={() => setMediaEditor(null)}
           onSaved={modelAlias => {
@@ -376,10 +387,12 @@ function UnitTextTariffDialog({
   initial,
   onClose,
   onSaved,
+  restoreFocus,
 }: {
   token: string;
   config: UnitPlatformConfig;
   initial: UnitTextTariffRecord | null;
+  restoreFocus: () => void;
   onClose: () => void;
   onSaved: (modelAlias: string) => void;
 }) {
@@ -388,6 +401,7 @@ function UnitTextTariffDialog({
   const [modelAlias, setModelAlias] = useState(initial?.model_alias ?? '');
   const [models, setModels] = useState<RetailModelChoice[]>([]);
   const [modelsLoading, setModelsLoading] = useState(() => !initial);
+  const [modelsRevision, refreshModels] = useState(0);
   const [modelsError, setModelsError] = useState('');
   const [promptRate, setPromptRate] = useState(initial ? unitAmountFromAtoms(initial.price.prompt_rate) : '');
   const [completionRate, setCompletionRate] = useState(initial ? unitAmountFromAtoms(initial.price.completion_rate) : '');
@@ -407,7 +421,7 @@ function UnitTextTariffDialog({
       .catch(failure => { if (!controller.signal.aborted) setModelsError(failure instanceof Error ? failure.message : uiT('Registered models unavailable.')); })
       .finally(() => { if (!controller.signal.aborted) setModelsLoading(false); });
     return () => controller.abort();
-  }, [token, initial]);
+  }, [token, initial, modelsRevision]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -454,15 +468,15 @@ function UnitTextTariffDialog({
 
   return (
     <Dialog open onOpenChange={open => { if (!open && !saving) onClose(); }}>
-      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl">
+      <DialogContent onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(); }} className="w-[calc(100vw-2rem)] sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{initial ? uiF("Revise {0} text tariff", [unitName]) : uiF("Publish {0} text tariff", [unitName])}</DialogTitle>
           <DialogDescription>{uiF("Rates are in {0} per 1,000,000 tokens. Up to 9 decimal places are stored exactly.", [unitName])}</DialogDescription>
         </DialogHeader>
-        <form className="space-y-4" onSubmit={event => void submit(event)}>
+        {!initial && (!modelsLoading || modelsRevision > 0) && (modelsError || !models.length) ? <MissingTariffModel message={modelsError ? uiT(modelsError) : uiT("No registered models are available for pricing.")} failed={Boolean(modelsError)} loading={modelsLoading} onRefresh={() => refreshModels(value => value + 1)} onClose={onClose} /> : <form className="space-y-4" onSubmit={event => void submit(event)}>
           <div className="space-y-1.5">
             <Label htmlFor="unit-tariff-model">{uiT("Model")}</Label>
-            {initial ? <p className="break-words">{modelAlias}</p> : <DialogModelPicker id="unit-tariff-model" modelAlias={modelAlias} onSelect={choice => { setModelAlias(choice.model_alias); setError(''); }} choices={models} loading={modelsLoading} error={modelsError} emptyCopy={uiT("No registered models are available for pricing.")} ariaLabel={uiT("Credits text tariff model")} />}
+            {initial ? <p className="break-words">{modelAlias}</p> : <DialogModelPicker id="unit-tariff-model" modelAlias={modelAlias} onSelect={choice => { setModelAlias(choice.model_alias); setError(''); }} choices={models} loading={modelsLoading} ariaLabel={uiT("Credits text tariff model")} />}
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -495,7 +509,7 @@ function UnitTextTariffDialog({
             <Button type="button" variant="outline" disabled={saving} onClick={onClose}>{uiT("Cancel")}</Button>
             <Button type="submit" disabled={saving || !modelAlias.trim() || !promptRate.trim() || !completionRate.trim()}>{saving ? uiT("Publishing…") : initial ? uiF("Revise {0} tariff", [unitName]) : uiF("Publish {0} tariff", [unitName])}</Button>
           </div>
-        </form>
+        </form>}
       </DialogContent>
     </Dialog>
   );
@@ -507,10 +521,12 @@ function UnitMediaTariffDialog({
   initial,
   onClose,
   onSaved,
+  restoreFocus,
 }: {
   token: string;
   config: UnitPlatformConfig;
   initial: UnitMediaTariffRecord | null;
+  restoreFocus: () => void;
   onClose: () => void;
   onSaved: (modelAlias: string) => void;
 }) {
@@ -519,6 +535,7 @@ function UnitMediaTariffDialog({
   const [modelAlias, setModelAlias] = useState(initial?.model_alias ?? '');
   const [models, setModels] = useState<RetailModelChoice[]>([]);
   const [modelsLoading, setModelsLoading] = useState(() => !initial);
+  const [modelsRevision, refreshModels] = useState(0);
   const [modelsError, setModelsError] = useState('');
   const [channel, setChannel] = useState(initial?.channel ?? '');
   const [resolution, setResolution] = useState(initial?.resolution ?? '');
@@ -539,7 +556,7 @@ function UnitMediaTariffDialog({
       .catch(failure => { if (!controller.signal.aborted) setModelsError(failure instanceof Error ? failure.message : uiT('Registered models unavailable.')); })
       .finally(() => { if (!controller.signal.aborted) setModelsLoading(false); });
     return () => controller.abort();
-  }, [token, initial]);
+  }, [token, initial, modelsRevision]);
 
   const chosenMedia = initial ? null : models.find(choice => choice.model_alias === modelAlias)?.media ?? null;
   const resolutions = initial ? [resolution] : chosenMedia?.resolutions ?? [];
@@ -602,16 +619,15 @@ function UnitMediaTariffDialog({
 
   return (
     <Dialog open onOpenChange={open => { if (!open && !saving) onClose(); }}>
-      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl">
+      <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(); }} className="w-[calc(100vw-2rem)] sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{initial ? uiF("Revise {0} media tariff", [unitName]) : uiF("Publish {0} media tariff", [unitName])}</DialogTitle>
-          <DialogDescription>{uiF("Set {0} consumption rates for video generation. The selected registered model fixes its channel and supported resolutions.", [unitName])}</DialogDescription>
         </DialogHeader>
-        <form className="space-y-4" onSubmit={event => void submit(event)}>
+        {!initial && (!modelsLoading || modelsRevision > 0) && (modelsError || !models.length) ? <MissingTariffModel message={modelsError ? uiT(modelsError) : uiT("No registered models use video-token media pricing.")} failed={Boolean(modelsError)} loading={modelsLoading} onRefresh={() => refreshModels(value => value + 1)} onClose={onClose} /> : <form className="space-y-4" onSubmit={event => void submit(event)}>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="unit-media-model">{uiT("Model")}</Label>
-              {initial ? <p className="break-words">{modelAlias}</p> : <DialogModelPicker id="unit-media-model" modelAlias={modelAlias} onSelect={choice => { const media = choice.media; if (!media) return; setModelAlias(choice.model_alias); setChannel(media.channel); setResolution(media.resolutions.length === 1 ? media.resolutions[0] : ''); setReferenceVideo(false); setError(''); }} choices={models} loading={modelsLoading} error={modelsError} emptyCopy={uiT("No registered models use video-token media pricing.")} ariaLabel={uiT("Credits media tariff model")} />}
+              {initial ? <p className="break-words">{modelAlias}</p> : <DialogModelPicker id="unit-media-model" modelAlias={modelAlias} onSelect={choice => { const media = choice.media; if (!media) return; setModelAlias(choice.model_alias); setChannel(media.channel); setResolution(media.resolutions.length === 1 ? media.resolutions[0] : ''); setReferenceVideo(false); setError(''); }} choices={models} loading={modelsLoading} ariaLabel={uiT("Credits media tariff model")} />}
             </div>
             <div className="space-y-1.5">
               <Label>{uiT("Channel")}</Label>
@@ -669,7 +685,7 @@ function UnitMediaTariffDialog({
             <Button type="button" variant="outline" disabled={saving} onClick={onClose}>{uiT("Cancel")}</Button>
             <Button type="submit" disabled={saving || !modelAlias.trim() || !resolution.trim() || !amount.trim()}>{saving ? uiT("Publishing…") : initial ? uiF("Revise {0} tariff", [unitName]) : uiF("Publish {0} tariff", [unitName])}</Button>
           </div>
-        </form>
+        </form>}
       </DialogContent>
     </Dialog>
   );
