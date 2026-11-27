@@ -84,7 +84,7 @@ type ActivitySummary = {
   usage_by_key?: KeyUsage[];
   request_histogram?: Array<{start_ms: number; end_ms: number; request_count: number}>;
 };
-type ActivityFilters = { from: string; to: string; model: string; keyId: string; status: string; httpStatus?: string; operationId?: string };
+type ActivityFilters = { pendingSettlement?: boolean; from: string; to: string; model: string; keyId: string; status: string; httpStatus?: string; operationId?: string };
 const requestSorts = [
   ['time_desc', 'Newest first'], ['time_asc', 'Oldest first'],
   ['latency_desc', 'Longest duration'], ['input_desc', 'Most input tokens'], ['output_desc', 'Most output tokens'],
@@ -155,6 +155,7 @@ function filterQuery(filters: ActivityFilters) {
     end.setDate(end.getDate() + 1);
     query.set('to_ms', String(end.getTime()));
   }
+  if (filters.pendingSettlement) query.set('pending_settlement', 'true');
   if (filters.model) query.set('model_alias', filters.model);
   if (filters.keyId) query.set('key_id', filters.keyId);
   if (filters.status) query.set('status', filters.status);
@@ -167,6 +168,7 @@ function buildRequestEvidenceHref(workspaceRoot: string, filters: ActivityFilter
   const query = new URLSearchParams();
   if (filters.from) query.set('from', filters.from);
   if (filters.to) query.set('to', filters.to);
+  if (filters.pendingSettlement) query.set('settlement', 'pending');
   if (filters.model) query.set('modelAlias', filters.model);
   const keyId = apiKeyId ?? filters.keyId;
   if (keyId) query.set(slug ? 'key' : 'keyId', slug || keyId);
@@ -226,6 +228,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   const organization = initialScope?.organizationId ?? '';
   const project = initialScope?.projectId ?? '';
   const initialQuery = new URLSearchParams(filterQuery({
+    pendingSettlement: searchParams.get('settlement') === 'pending',
     from: searchParams.get('from') ?? '',
     to: searchParams.get('to') ?? '',
     model: searchParams.get('modelAlias') ?? '',
@@ -324,7 +327,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   const [error, setError] = useState('');
   const [histogramOpen, setHistogramOpen] = useState(true);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const [mobileFilterField, setMobileFilterField] = useState<keyof ActivityFilters | null>(null);
+  const [mobileFilterField, setMobileFilterField] = useState<Exclude<keyof ActivityFilters, 'pendingSettlement'> | null>(null);
   const [revision, setRevision] = useState(0);
   const [summary, setSummary] = useState<ActivitySummary | null>(() => initialCachedActivity?.summary ?? null);
   const groupedCharges = chargeGroups(
@@ -356,6 +359,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     navigate({pathname:location.pathname,search:query.toString(),hash:location.hash}, { replace: true });
   }, [resolvedKey?.slug, searchParams, navigate, location.pathname, location.hash]);
   const filters = useMemo<ActivityFilters>(() => ({
+    pendingSettlement: searchParams.get('settlement') === 'pending',
     from: searchParams.get('from') ?? '',
     to: searchParams.get('to') ?? '',
     model: searchParams.get('modelAlias') ?? '',
@@ -367,6 +371,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   function setFilters(update: ActivityFilters | ((current: ActivityFilters) => ActivityFilters)) {
     const next = typeof update === 'function' ? update(filters) : update;
     const query = new URLSearchParams(searchParams);
+    if (!next.pendingSettlement) query.delete('settlement');
     for (const [field, name] of [['from', 'from'], ['to', 'to'], ['model', 'modelAlias'], ['keyId', 'key'], ['status', 'status'], ['httpStatus', 'httpStatus'], ['operationId', 'operationId']] as const) {
       if (field === 'keyId') query.delete('keyId');
       if (next[field]) query.set(name, field === 'keyId' ? keys.find(key => key.id === next[field])?.slug || next[field] : next[field]);
@@ -465,7 +470,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     setFilters(current => ({ ...current, model: alias }));
   }, [preferredModelAlias, models]);
 
-  function updateFilter(name: keyof ActivityFilters, value: string) {
+  function updateFilter(name: Exclude<keyof ActivityFilters, 'pendingSettlement'>, value: string) {
     setFilters(current => ({ ...current, [name]: value }));
   }
 
@@ -728,7 +733,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
                 ['keyId', uiT('API key'), keys.map(key => ({ value: key.id, label: keyLabels.get(key.id)?.option ?? key.name }))],
                 ['status', uiT('Status'), ['confirmed_completed', 'output_withheld', 'delivery_failed', 'recorded_failure', 'may_have_executed', 'confirmed_not_executed', 'not_sent'].map(value => ({ value, label: filterStatusLabel(value) }))],
                 ['httpStatus', uiT('HTTP status'), [...new Set(['unknown', ...(summary?.delivery_statuses ?? []).map(item => item.http_status === null ? 'unknown' : String(item.http_status)), ...(filters.httpStatus ? [filters.httpStatus] : [])])].map(value => ({value, label: value === 'unknown' ? uiT('Unknown') : value}))],
-              ] as Array<[keyof ActivityFilters, string, Array<{value: string; label: string}>]>).map(([field, label, options]) => isMobile ? mobileFilterField === null ? <DropdownMenuItem key={field} onSelect={event => { event.preventDefault(); setMobileFilterField(field); }}>{label}</DropdownMenuItem> : mobileFilterField === field ? <div key={field}>
+              ] as Array<[Exclude<keyof ActivityFilters, 'pendingSettlement'>, string, Array<{value: string; label: string}>]>).map(([field, label, options]) => isMobile ? mobileFilterField === null ? <DropdownMenuItem key={field} onSelect={event => { event.preventDefault(); setMobileFilterField(field); }}>{label}</DropdownMenuItem> : mobileFilterField === field ? <div key={field}>
                 <DropdownMenuItem onSelect={event => { event.preventDefault(); setMobileFilterField(null); }}>{uiT("← Filters")}</DropdownMenuItem>
                 <DropdownMenuSeparator /><DropdownMenuLabel>{label}</DropdownMenuLabel>
                 <DropdownMenuRadioGroup value={filters[field] || '__all__'} onValueChange={value => { updateFilter(field, value === '__all__' ? '' : value); setFilterMenuOpen(false); setMobileFilterField(null); }}>
@@ -768,6 +773,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
         <EmptyTitle>{uiT("No requests in this period", "所选时段内没有请求")}</EmptyTitle>
         <EmptyDescription>{uiT("Choose another period to inspect workspace usage.", "请选择其他时段查看工作空间用量。")}</EmptyDescription>
       </EmptyHeader></Empty> : <>
+      {filters.pendingSettlement && <div className="flex items-center gap-2"><Badge variant="secondary">{uiT("Pending settlement")}</Badge><Button variant="ghost" size="sm" onClick={() => setFilters({...filters, pendingSettlement: false})}>{uiT("Clear filter", "清除筛选")}</Button></div>}
       {!showFirstUse && !emptyKeyActivity && (statisticsOnly || compact) && !error && <section className="gateway-activity-summary" aria-label={compact && !activityFilterQuery ? uiT("Workspace request totals") : uiT("Filtered request totals")} aria-busy={loading}>
         <article className="panel"><span><Activity size={16} />{compact ? uiT("Requests") : uiT("Matching requests")}</span><strong>{summary ? aggregate.request_count.toLocaleString(readUILocale()) : '—'}</strong><small>{summary ? statisticsOnly ? uiT("Across matching requests") : (filters.from || filters.to ? uiF("{0} – {1}", [filters.from || uiT("Start"), filters.to || uiT("Now")]) : uiT("All time")) : loadingCaption}</small></article>
         <article className="panel"><span><Workflow size={16} /><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-auto min-w-0 shrink gap-1 whitespace-normal p-0 text-left text-xs font-normal" aria-label={uiT("Token metric")}>{uiT(tokenMetrics.find(([value]) => value === tokenMetric)?.[1] ?? "Token usage")}<ChevronDown size={12} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" collisionPadding={16}><DropdownMenuRadioGroup value={tokenMetric} onValueChange={setTokenMetric}>{tokenMetrics.map(([value, label]) => <DropdownMenuRadioItem key={value} value={value}>{uiT(label)}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></span><strong>{tokenDisplay}</strong><small>{tokenCoverage}</small></article>
@@ -782,7 +788,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
           unresolvedCount={aggregate.unresolved_customer_charge_count}
           unpricedCount={aggregate.unpriced_request_count}
           ownerFundedCount={aggregate.owner_funded_request_count ?? 0}
-          unresolvedHref={aggregate.unresolved_customer_charge_count > 0 ? requestEvidenceHref(workspaceRoot, { ...filters, status: 'may_have_executed' }) : undefined}
+          unresolvedHref={aggregate.unresolved_customer_charge_count > 0 ? requestEvidenceHref(workspaceRoot, { ...filters, pendingSettlement: true }) : undefined}
           breakdownHref={compact && !statisticsOnly ? `${requestEvidenceHref(workspaceRoot, filters).replace(`${workspaceRoot}/executions`, `${workspaceRoot}/usage`)}#charge-breakdown-title` : undefined}
           ratesHref={!hideBillingLink ? `${workspaceRoot}/billing?tab=rates` : undefined}
           billingHref={!hideBillingLink ? `${workspaceRoot}/billing` : undefined}

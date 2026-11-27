@@ -16,7 +16,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge'; import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { CommercialPosition, CommercialPositionRow, CustomerFinancialSummary } from '@niu-io/sdk/admin';
@@ -236,17 +236,19 @@ function formatDeltaBadge(
     );
   }
   const isPositive = diff > 0n;
+  const exactChange = (isPositive ? '+' : '-') + formatRateMoney(absDiff, currency);
   if (absDiff < 100_000n) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span tabIndex={0} className="inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs text-muted-foreground tabular-nums">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button type="button" variant="link" className="h-auto gap-1 p-0 text-xs text-muted-foreground tabular-nums underline decoration-dotted underline-offset-2">
             {isPositive ? <IconArrowUpRight size={14} /> : <IconArrowDownRight size={14} />}
-            {isPositive ? '+' : '-'}{formatStatementMoney(absDiff, currency)}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>{uiT("Exact change:")}{" "} {isPositive ? '+' : '-'}{formatRateMoney(absDiff, currency)}</TooltipContent>
-      </Tooltip>
+            <span className="print:hidden">{isPositive ? '+' : '-'}{formatStatementMoney(absDiff, currency)}</span>
+            <span className="hidden print:inline">{exactChange}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact change:")}{" "} {exactChange}</PopoverContent>
+      </Popover>
     );
   }
   const pct =
@@ -260,22 +262,22 @@ function formatDeltaBadge(
   const good = invertSentiment ? !isPositive : isPositive;
   const badge = (
     <span
-      tabIndex={absDiff % 100_000n !== 0n ? 0 : undefined}
       className={`inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs font-medium tabular-nums ${
         good ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
       }`}
     >
       {isPositive ? <IconArrowUpRight size={14} /> : <IconArrowDownRight size={14} />}
-      <span>{signedMoney}</span>
+      <span className="print:hidden">{signedMoney}</span>
+      <span className="hidden print:inline">{exactChange}</span>
       <span className="text-muted-foreground font-normal">({pct})</span>
     </span>
   );
   if (absDiff % 100_000n !== 0n) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>{badge}</TooltipTrigger>
-        <TooltipContent>{uiT("Exact change:")}{" "} {isPositive ? '+' : '-'}{formatRateMoney(absDiff, currency)}</TooltipContent>
-      </Tooltip>
+      <Popover>
+        <PopoverTrigger asChild><Button type="button" variant="link" className="h-auto p-0 underline decoration-dotted underline-offset-2">{badge}</Button></PopoverTrigger>
+        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact change:")}{" "} {exactChange}</PopoverContent>
+      </Popover>
     );
   }
   return badge;
@@ -286,16 +288,18 @@ function StatementMoney({ amount, currency }: { amount: bigint; currency: string
   const abs = amount < 0n ? -amount : amount;
   const display = formatStatementMoney(amount, currency);
   if (abs === 0n || abs % 100_000n === 0n) return <>{display}</>;
+  const exact = formatFinancialMoney(amount, currency);
   return (
-    <Tooltip>
-      <TooltipTrigger
+    <Popover>
+      <PopoverTrigger asChild><Button variant="link"
         type="button"
-        className="inline border-0 bg-transparent p-0 font-inherit text-inherit cursor-help underline decoration-dotted underline-offset-2"
+        className="inline h-auto border-0 bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-2"
       >
-        {display}
-      </TooltipTrigger>
-      <TooltipContent>{uiT("Exact amount:")}{" "}{formatFinancialMoney(amount, currency)}</TooltipContent>
-    </Tooltip>
+        <span className="print:hidden">{display}</span>
+        <span className="hidden print:inline">{exact}</span>
+      </Button></PopoverTrigger>
+      <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact amount:")}{" "}{exact}</PopoverContent>
+    </Popover>
   );
 }
 
@@ -303,9 +307,7 @@ function StatementMoney({ amount, currency }: { amount: bigint; currency: string
 export default function CommercialPositionPage() {
   const { token } = useDashboardContext();
   return (
-    <TooltipProvider>
       <CommercialStatement key={token} token={token} />
-    </TooltipProvider>
   );
 }
 
@@ -1487,31 +1489,16 @@ function StatementRow({
   invertSentiment?: boolean;
 }) {
   const { t: uiT } = useUILocale();
-  const formatVal = (val: bigint | null) => {
-    if (val === null) return uiT('Unavailable');
-    if (negateDisplay && val > 0n) return `-${formatStatementMoney(val, currency)}`;
-    return formatStatementMoney(val, currency);
-  };
   return (
     <TableRow className={strong ? 'bg-muted/30 font-semibold' : muted ? 'text-muted-foreground text-xs' : undefined}>
       <TableCell className={`whitespace-normal ${indented ? 'pl-6 text-muted-foreground' : ''}`}>
         {label}
       </TableCell>
       <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
-        {current === null ? formatVal(current) : (
-          <Tooltip>
-            <TooltipTrigger asChild><span tabIndex={0}>{formatVal(current)}</span></TooltipTrigger>
-            <TooltipContent>{uiT("Exact amount:")}{" "}{formatRateMoney(negateDisplay ? -current : current, currency)}</TooltipContent>
-          </Tooltip>
-        )}
+        {current === null ? uiT('Unavailable') : <StatementMoney amount={negateDisplay && current > 0n ? -current : current} currency={currency} />}
       </TableCell>
       <TableCell className="text-right align-top whitespace-nowrap tabular-nums hidden sm:table-cell text-muted-foreground">
-        {prior === null ? formatVal(prior) : (
-          <Tooltip>
-            <TooltipTrigger asChild><span tabIndex={0}>{formatVal(prior)}</span></TooltipTrigger>
-            <TooltipContent>{uiT("Exact amount:")}{" "}{formatRateMoney(negateDisplay ? -prior : prior, currency)}</TooltipContent>
-          </Tooltip>
-        )}
+        {prior === null ? uiT('Unavailable') : <StatementMoney amount={negateDisplay && prior > 0n ? -prior : prior} currency={currency} />}
       </TableCell>
       <TableCell className="text-right align-top whitespace-nowrap">
         {formatDeltaBadge(uiT, current, prior, currency, invertSentiment)}
