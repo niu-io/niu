@@ -100,6 +100,13 @@ fn compare(sell: &Value, currency: &str, cost: &Value) -> Value {
             json!("No managed Provider price is available for this route comparison.");
         return result;
     }
+    if sell["kind"] == "media" && cost["rate_kind"] == "media" {
+        return compare_media(sell, currency, cost, result);
+    }
+    if sell["kind"] == "media" || cost["rate_kind"] == "media" {
+        result["message"] = json!("The selling and purchase prices use different billing meters.");
+        return result;
+    }
     if cost["schedule"].is_null() {
         result["status"] = json!("missing_provider_price");
         result["message"] = json!("Configure a Provider price before dispatch.");
@@ -108,9 +115,6 @@ fn compare(sell: &Value, currency: &str, cost: &Value) -> Value {
     if cost["currency"].as_str() != Some(currency) {
         result["message"] = json!("Currencies differ; no exchange rate is assumed.");
         return result;
-    }
-    if sell["kind"] == "media" || cost["rate_kind"] == "media" {
-        return compare_media(sell, currency, cost, result);
     }
     let buy = &cost["schedule"];
     let mut boundaries = BTreeSet::from([0]);
@@ -335,7 +339,7 @@ mod tests {
             "route": "sora-v1",
             "provider": "Video Provider",
             "configured": true,
-            "currency": "USD",
+            "currency": null,
             "rate_kind": "media",
             "schedule": {},
             "media_cards": [{
