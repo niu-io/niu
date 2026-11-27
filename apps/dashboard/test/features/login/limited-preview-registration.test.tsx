@@ -61,7 +61,11 @@ describe('Limited Preview registration flow', () => {
     );
 
     expect(await screen.findByText('Limited Preview')).toBeTruthy();
-    await user.type(screen.getByLabelText('Full name'), 'Ada Lovelace');
+    await user.click(screen.getByRole('button', { name: 'Submit registration request' }));
+    const fullName = screen.getByLabelText('Full name');
+    expect(document.activeElement).toBe(fullName);
+    expect(fullName.getAttribute('aria-describedby')).toBe(screen.getByRole('alert').id);
+    await user.type(fullName, 'Ada Lovelace');
     await user.type(screen.getByLabelText('Work email'), 'ada@example.test');
     await user.type(screen.getByLabelText('Organization or team'), 'Analytical Engine');
     await user.type(screen.getByLabelText('Password'), 'synthetic preview passphrase');
