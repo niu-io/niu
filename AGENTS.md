@@ -137,6 +137,10 @@ Before delivery, compare the rendered result directly against both the reference
 
 The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
 
+Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
+
+Returning from request details restores the inspected row, focus and loaded page depth for that log history entry. Restore only from workspaces that are still authorized.
+
 Use a single left sidebar for primary navigation; do not add a separate outer product rail alongside the sidebar. Keep the brand mark and workspace switcher in the sidebar header, primary destinations in the main sidebar list, and Docs, Admin access (when authorized), and the account menu in the sidebar footer. For a feature that needs two navigation levels, use sidebar items for the first-level sections and tabs within the selected section for the second level. Tuck secondary, low-frequency, or scenario-specific capabilities into their parent feature's tabs or advanced sections rather than promoting them to top-level sidebar items. Use the installed shadcn Sidebar and Tabs primitives directly, preserve clear active states, and verify the hierarchy and access to both levels at narrow widths.
 
 ## Surface styling

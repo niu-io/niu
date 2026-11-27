@@ -1840,6 +1840,8 @@ pub struct KeyListQuery {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GatewayActivityQuery {
+    #[serde(default)]
+    pending_settlement: bool,
     q: Option<String>,
     operation_id: Option<Uuid>,
     http_status: Option<String>,
@@ -1938,6 +1940,7 @@ pub(super) fn gateway_activity_filter(
         ));
     }
     Ok(niu_storage::GatewayActivityFilter {
+        pending_settlement: query.pending_settlement,
         search: search.map(str::to_owned),
         operation_id: query.operation_id,
         sort,
@@ -2572,6 +2575,12 @@ pub async fn gateway_request(
 ///           "minLength": 1,
 ///           "maxLength": 200
 ///         }
+///       },
+///       {
+///         "name": "pending_settlement",
+///         "in": "query",
+///         "description": "Restrict requests and summary to pending customer settlement before pagination.",
+///         "schema": { "type": "boolean", "default": false }
 ///       },
 ///       {
 ///         "name": "operation_id",
