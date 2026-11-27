@@ -147,6 +147,7 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
       : supplyFilter === 'inactive'
         ? uiF("No active supply ({0})", [cursor ? inactiveSupplyCount + "+" : inactiveSupplyCount])
         : uiF("All models ({0})", [cursor ? rows.length + "+" : rows.length]);
+  const modelSearch = <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={priceSearch} type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>;
   const supplyFilterControl = hasSupplyData ? (
     <div className="flex flex-wrap items-center gap-2">
       <DropdownMenu>
@@ -215,14 +216,14 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
             <Badge variant={mode === activeMode ? 'secondary' : 'outline'}>{mode === activeMode ? uiF("Active billing mode: {0}", [modeLabel]) : uiF("Preparing prices for {0}", [modeLabel])}</Badge>
             {mode === 'currency' && supplyFilterControl}
           </div>
-          <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={priceSearch} type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
+          {mode === 'currency' && rows.length > 0 && modelSearch}
         </div>
       )}
       <TabsContent value="currency" className="space-y-4">
         {!currency && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("Configure the platform currency in Admin Settings before publishing currency prices. If it is already configured, refresh this page.")}</span><Button asChild variant="link" className="h-auto p-0"><Link to="/admin/settings">{uiT("Open Settings")}</Link></Button></AlertDescription></Alert>}
-        {!showModeTabs && (
+        {!showModeTabs && rows.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={priceSearch} type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
+            {modelSearch}
             {supplyFilterControl}
           </div>
         )}
@@ -251,7 +252,7 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
         </Empty>}
         {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{uiT("More prices")}</Button>}
       </TabsContent>
-      <TabsContent value="credits" className="space-y-4"><BrandedUnitTariffsSection token={token} filter={filter} /></TabsContent>
+      <TabsContent value="credits" className="space-y-4"><BrandedUnitTariffsSection token={token} filter={filter} searchControl={modelSearch} /></TabsContent>
     </Tabs>
     {legacyOpen && <LegacyMediaContracts token={token} returnFocus={legacyOpener} onClose={() => setLegacyOpen(false)}/>}
     {editor?.kind === 'text' && <TextStandardEditor token={token} previous={editor.previous} initialModel={editor.initialModel} open={editorOpen} onCloseAutoFocus={restorePricingFocus} onClose={pending => { setEditorOpen(false); if (!pending) { setEditor(null); reloadFresh(); } }} onSaved={() => { setEditor(null); setNotice(uiT("Text standard price published.")); reloadFresh(); }} />}

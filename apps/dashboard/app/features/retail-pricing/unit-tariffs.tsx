@@ -1,5 +1,5 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Link } from 'react-router';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
@@ -140,7 +140,7 @@ function MissingTariffModel({ message, failed, loading, onRefresh, onClose }: { 
   </>;
 }
 
-export function BrandedUnitTariffsSection({ token, filter }: { token: string; filter: string }) {
+export function BrandedUnitTariffsSection({ token, filter, searchControl }: { token: string; filter: string; searchControl?: ReactNode }) {
   const { t: uiT, format: uiF } = useUILocale();
   const scope = token || 'public';
   const initialCfg = peekQuery<{ data: UnitPlatformConfig }>(scope, '/api/v1/admin/units')?.data ?? null;
@@ -197,6 +197,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
   return (
     <section className="space-y-4" aria-label={uiF("{0} consumption tariffs", [unitName])}>
       {config?.definition && <div className="flex flex-wrap items-center justify-end gap-2">
+          {hasTariffs && searchControl}
           <Button variant="outline" size="sm" disabled={loading} onClick={() => void load(true)}>
             {uiT("Refresh Credits tariffs")}</Button>
           <Button
