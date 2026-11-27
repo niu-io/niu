@@ -9097,6 +9097,15 @@
             }
           },
           {
+            "name": "pending_settlement",
+            "in": "query",
+            "description": "Restrict requests and summary to pending customer settlement before pagination.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
             "name": "operation_id",
             "in": "query",
             "description": "Restrict attempts and summaries to one operation within the authorized workspace. Unknown or foreign operations yield an empty result; this does not authorize cross-workspace reads.",
