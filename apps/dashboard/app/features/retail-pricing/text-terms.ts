@@ -31,9 +31,9 @@ export function tokenBand(start: string, next?: string): string {
 }
 
 export function checkedTiers(tiers: Tier[]) {
-  let last = -1n;
+  let last = 0n;
   return tiers.map(tier => {
-    if (!/^\d+$/.test(tier.minimum_input_tokens) || BigInt(tier.minimum_input_tokens) <= last || BigInt(tier.minimum_input_tokens) > 9_223_372_036_854_775_807n) throw new Error('Context thresholds must be increasing nonnegative integer token counts.');
+    if (!/^\d+$/.test(tier.minimum_input_tokens) || BigInt(tier.minimum_input_tokens) <= last || BigInt(tier.minimum_input_tokens) > 9_223_372_036_854_775_807n) throw new Error('Use increasing whole-token thresholds starting at 1 or higher.');
     last = BigInt(tier.minimum_input_tokens);
     return { minimum_input_tokens: last.toString(), ...checkedRates(tier.rates) };
   });

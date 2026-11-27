@@ -62,7 +62,7 @@ export function ContextTierFields({ tiers, setTiers, previous, locked, onDirty }
             onChange={(field, value) => setTiers(current => current.map((item, i) => i === index ? { ...item, rates: { ...item.rates, [field]: value } } : item))} />
         </section>;
       })}
-      <Button type="button" variant="outline" disabled={locked || tiers.length >= 128} onClick={() => {
+      <Button type="button" variant="outline" disabled={locked || tiers.length >= 32} onClick={() => {
         onDirty?.();
         setTiers(current => [...current, { minimum_input_tokens: '', rates: ratesFrom() }]);
       }}>{uiT("Add tier")}</Button>

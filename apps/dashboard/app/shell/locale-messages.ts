@@ -4745,7 +4745,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Choose a valid cutoff no later than the original published end.": "请选择不晚于原始发布结束时间的有效截止时间。",
   "Cutoff response could not be confirmed.": "无法确认截止时间响应。",
   "Choose a model, uppercase three-letter currency and an optional single-line note of up to 500 characters.": "请选择模型、三位大写币种，以及最多 500 字符的可选单行备注。",
-  "Context thresholds must be increasing nonnegative integer token counts.": "上下文阈值必须是递增的非负整数 Token 数。",
+  "Use increasing whole-token thresholds starting at 1 or higher.": "阶梯起点须为大于零的整数，并逐档递增。",
   "Enter a rate.": "请输入费率。",
   "Invalid Provider list": "模型供应商列表无效",
   "Invalid saved state": "已保存状态无效",
