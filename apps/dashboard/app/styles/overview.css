@@ -300,3 +300,31 @@ button:focus-visible:not([data-slot]), a:focus-visible:not([data-slot]), input:f
 .operator-invitations-heading h3 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.015em; }
 
 .gateway-request-table :is(.request-column-latency, .request-column-input, .request-column-output, .request-column-charge) { text-align: right; font-variant-numeric: tabular-nums; }
+
+@media screen and (max-width: 639px) {
+  .commercial-statement-table,
+  .commercial-statement-table :is(thead, tbody) { display: block; }
+  .commercial-statement-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 4px 12px;
+    padding: 10px 8px;
+  }
+  .commercial-statement-table :is(th, td) {
+    width: auto;
+    height: auto;
+    padding: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .commercial-statement-table th:first-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .commercial-statement-table td:first-child { grid-column: 1 / -1; }
+  .commercial-statement-table :is(th,td):nth-child(2) { text-align: left; }
+  .commercial-statement-table td:last-child [data-slot="badge"] { max-width: 100%; white-space: normal; }
+}
