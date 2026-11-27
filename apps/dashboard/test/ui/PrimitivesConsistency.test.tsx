@@ -1,3 +1,4 @@
+import { tokenBand } from '@/features/retail-pricing/text-terms';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -127,6 +128,21 @@ describe('Shared UI primitives layout safeguards', () => {
       }
     }
     expect(violations).toEqual([]);
+  });
+
+  it('withholds both adjacent previews for unsupported token counts', () => {
+    const overflow = '9223372036854775808';
+    expect(tokenBand('33', overflow)).toBe('—');
+    expect(tokenBand(overflow)).toBe('—');
+    expect(tokenBand('33', '43')).toBe('33–42');
+  });
+
+  it('uses the same tier boundary validation for the editor field and submitted schedule', () => {
+    const field = readFileSync(join(appDir, 'features/retail-pricing/text-rate-band.tsx'), 'utf8');
+    const schedule = readFileSync(join(appDir, 'features/retail-pricing/text-terms.ts'), 'utf8');
+    expect(field).toContain('input?.setCustomValidity(validStart ?');
+    expect(field).toContain('const range = validStart ? tokenBand(');
+    expect(schedule).toContain('if (!validTierThreshold(tier.minimum_input_tokens');
   });
 
   it('retains the global zero-specificity field-spacing safeguard in foundation.css', () => {
@@ -620,4 +636,10 @@ it('keeps tbody row headers on cell metrics and fills 404 empty states', () => {
   expect(table).toContain('[&[scope=row]]:py-3.5');
   const surfaces = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
   expect(surfaces).toMatch(/\.not-found-empty \{[^}]*flex: 1 1 auto;[^}]*justify-content: center/);
+});
+
+it('opens the archive after mobile history releases its focus scope', () => {
+  const layout = readFileSync(resolve('app/features/generations/GenerationsLayout.tsx'), 'utf8');
+  expect(layout).toMatch(/onCloseAutoFocus: event => \{\s*if \(pendingArchive.current\)/);
+  expect(layout).toMatch(/pendingArchive.current = openArchive;\s*setOpenMobile\(false\)/);
 });

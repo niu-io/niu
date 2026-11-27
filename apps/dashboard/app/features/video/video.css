@@ -30,6 +30,8 @@
 .video-main.playground-chat-main .video-conversation { flex: 1; min-height: 0; overflow-y: auto; }
 .video-main.playground-chat-main .video-conversation.playground-transcript { padding:24px clamp(14px, 3vw, 36px) 24px; }
 .video-main.playground-chat-main .playground-composer { flex-shrink: 0; width: 100%; }
+.video-main .video-content[data-setup] { justify-content: safe center; overflow-y: auto; }
+.video-main .video-content[data-setup] .video-conversation { flex: 0 0 auto; }
 .video-history { padding:8px; }
 .video-job-link { height:auto; min-height:52px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:4px; }
 .video-job-link span { max-width:100%; overflow:hidden; text-overflow:ellipsis; }

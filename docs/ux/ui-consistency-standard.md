@@ -132,6 +132,8 @@ Switching between named workspaces in Activity preserves the reporting dates. Wo
 
 Tab navigation must preserve already available data within the same authorization and resource scope. A presentation-only tab change must not revalidate unrelated route loaders. Keep slow first reads and errors local to the affected panel. Verify both cold activation and return visits with browser frames.
 
+Show video prompt examples only when the composer can accept them. Keep prerequisite actions next to the new-video heading.
+
 Workspace users discover models in one catalog. Platform administrators manage upstream Provider credentials. Never present internal funding classifications as model sources or imply that workspace users supply upstream keys. Workspace API keys authorize access to Niu.
 
 Verify the customer catalog after staging supply qualification. Temporary upstream connections must be inactive after the review, and their test aliases must be absent when the customer reloads the model list. Retain historical request attribution.
@@ -196,6 +198,8 @@ Organization and workspace creation derive the address from the name. Preview th
 
 Registration queue links retain the selected review status on reopen and browser Back. Preserve unrelated query parameters when switching status.
 
+Tiered price forms focus the first invalid token threshold on submit and recompute the next threshold when its preceding boundary changes. Range previews show an em dash for an unsupported endpoint or a lower bound that repeats or precedes the previous tier.
+
 Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
 
 Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
@@ -207,6 +211,8 @@ When a pending model lookup can replace a pricing form with prerequisite actions
 Registration validation focuses the first invalid field and associates the inline error with that control. Editing an unrelated field preserves the error.
 
 Workspace spending-limit feedback uses the parsed amount. Show the consequences of a valid limit only. On invalid submission, focus the amount field, associate its inline error, and clear the error when the amount becomes valid.
+
+When a mobile sheet opens a separate dialog, hand off focus after the sheet closes. Immediate dismissal of the dialog must return focus to its original action in the reopened sheet.
 
 Upstream incident notices and their polling belong on the administration overview and supply management routes. Keep customer, registration, pricing and other unrelated tasks free of this alert.
 
