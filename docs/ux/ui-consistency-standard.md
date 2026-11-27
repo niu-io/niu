@@ -158,9 +158,13 @@ Use a right-side sheet for a current price comparison. Show both comparable rate
 
 Audit history distinguishes an empty filtered result from an empty journal. Clearing filters resets the category and query together and returns focus to search.
 
+Localize billing request counts as complete phrases so each language controls the order of the count, noun and settlement status.
+
 A tab that groups multiple entity types must not show an unlabeled count for just one type. Keep counts with the entity they describe.
 
 ## Decision-focused interface copy
+
+Customer access handoff presents a copyable sign-in address for the current installation. Keep first-request instructions in the linked guide.
 
 Registration policy and the registration review queue link directly to each other within their owning Settings and Customers tabs. Display the pending count on the review action when positive.
 
@@ -190,6 +194,8 @@ Direct video-mode links open the Video composer and its existing availability or
 
 Organization and workspace creation derive the address from the name. Preview the organization settings or workspace destination and expose identifier constraints when editing the address.
 
+Registration queue links retain the selected review status on reopen and browser Back. Preserve unrelated query parameters when switching status.
+
 Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
 
 Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
@@ -203,3 +209,5 @@ Registration validation focuses the first invalid field and associates the inlin
 Workspace spending-limit feedback uses the parsed amount. Show the consequences of a valid limit only. On invalid submission, focus the amount field, associate its inline error, and clear the error when the amount becomes valid.
 
 Upstream incident notices and their polling belong on the administration overview and supply management routes. Keep customer, registration, pricing and other unrelated tasks free of this alert.
+
+Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.

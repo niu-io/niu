@@ -203,11 +203,13 @@ describe('Limited Preview registration flow', () => {
     const user = userEvent.setup();
     const onCountsChange = vi.fn();
     const { container } = render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/admin/customers?tab=registrations&status=approved']}>
         <RegistrationRequestsQueue onCountsChange={onCountsChange} token="platform-token" onApproved={onApproved} />
       </MemoryRouter>,
     );
 
+    expect(screen.getByRole('button', { name: /Approved/i }).getAttribute('aria-pressed')).toBe('true');
+    await user.click(screen.getByRole('button', { name: /Pending/i }));
     expect(await screen.findByText('Ada Lovelace')).toBeTruthy();
     const applicant = screen.getByText('ada@example.test').closest('li');
     expect(applicant?.textContent).toContain('Ada Lovelace');

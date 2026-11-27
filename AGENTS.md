@@ -56,11 +56,15 @@ Use the shadcn CLI as the source for standard UI primitives. Use its installed `
 
 ## Dialogs and page simplicity
 
+Customer access handoff presents a copyable sign-in address for the current installation. Keep first-request instructions in the linked guide.
+
 Registration policy and the registration review queue link directly to each other within their owning Settings and Customers tabs. Display the pending count on the review action when positive.
 
 Follow [the UI consistency standard](docs/ux/ui-consistency-standard.md) for all dashboard pages, dialogs, choice controls, composers, loading states, and visual tokens. Keep management and detail pages as scannable reading and inspection surfaces (tables or concise single-panel key-value summaries) without multi-card sprawl or walls of explanatory prose. Every page-level create, edit, rename, publish, limit-setting, and destructive confirmation action must open an installed shadcn `Dialog` (`DialogHeader`, bounded scrollable body such as `max-h-[90dvh] overflow-y-auto`, and `DialogFooter` with cancellation and primary submit actions, restoring focus to its trigger via `onCloseAutoFocus`). Never replace a read view in place with an inline edit form, embed permanent mutation forms inside a summary page, or expand inline confirmation strips on pages. Conversely, never open a nested `Dialog` inside an already-open modal (such as the global `Settings` dialog); keep secondary flows inside an active modal inline or in-dialog views. Never collapse an open dialog's form or detail frame into a full-body skeleton or raw loading paragraph while fetching choice options or secondary metadata; keep the frame stably mounted and show loading inside the affected control or data region.
 
 A filtered registration queue with zero results shows the relevant empty title. Omit raw submission URLs and generic audit explanations.
+
+Localize billing request counts as complete phrases so each language controls the order of the count, noun and settlement status.
 
 A tab that groups multiple entity types must not show an unlabeled count for just one type. Keep counts with the entity they describe.
 
@@ -243,6 +247,8 @@ Workspace activity summaries keep the workspace, request count and charge visibl
 
 Organization and workspace creation derive the address from the name. Preview the organization settings or workspace destination and expose identifier constraints when editing the address.
 
+Registration queue links retain the selected review status on reopen and browser Back. Preserve unrelated query parameters when switching status.
+
 Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
 
 Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
@@ -252,3 +258,5 @@ Pricing editors show a single decision footer. When confirming draft dismissal, 
 When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
 
 Upstream incident notices and their polling belong on the administration overview and supply management routes. Keep customer, registration, pricing and other unrelated tasks free of this alert.
+
+Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.

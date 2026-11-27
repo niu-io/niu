@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import {
   IconChevronDown,
   IconRefresh,
@@ -323,7 +323,9 @@ export function RegistrationRequestsQueue({
   onCountsChange?: (counts: RegistrationCounts) => void;
 }) {
   const { t, reviewerLabel } = useLocalizedMessages();
-  const [statusFilter, setStatusFilter] = useState<RegistrationStatus>('pending');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedStatus = searchParams.get('status');
+  const statusFilter: RegistrationStatus = requestedStatus === 'approved' || requestedStatus === 'rejected' ? requestedStatus : 'pending';
   const [records, setRecords] = useState<RegistrationRequestRecord[]>([]);
   const [counts, setCounts] = useState<RegistrationCounts>({ pending: 0, approved: 0, rejected: 0 });
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -424,7 +426,11 @@ export function RegistrationRequestsQueue({
                 className="gap-1.5"
                 onClick={() => {
                   setNoticeKind('');
-                  setStatusFilter(status);
+                  if (status === statusFilter) return;
+                  const next = new URLSearchParams(searchParams);
+                  if (status === 'pending') next.delete('status');
+                  else next.set('status', status);
+                  setSearchParams(next, { preventScrollReset: true });
                 }}
               >
                 <span>{t(labelEn, labelZh)}</span>
