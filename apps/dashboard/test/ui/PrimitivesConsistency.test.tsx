@@ -25,6 +25,14 @@ describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
 
+  it('guards submission while price editors ask whether to discard a draft', () => {
+    for (const kind of ['text', 'media']) {
+      const source = readFileSync(join(appDir, 'features/retail-pricing', kind + '-editor.tsx'), 'utf8');
+      expect(source).toContain('if (busy || conflict || confirmDiscard) return;');
+      expect(source).toContain('{confirmDiscard ? <DialogFooter');
+    }
+  });
+
   it('keeps per-workspace charge headers and values visible on phones', () => {
     const source = readFileSync(join(appDir, 'features/activity/global-page.tsx'), 'utf8');
     const section = source.split('<section aria-label={uiT("Activity by workspace")}')[1].split('</section>')[0];

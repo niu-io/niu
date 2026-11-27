@@ -220,3 +220,5 @@ When an explicit pricing tab is open, keep both tab destinations available acros
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
 
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
+
+Pricing editors show a single decision footer. When confirming draft dismissal, focus Keep editing, offer Discard changes, and prevent publication until editing resumes.
