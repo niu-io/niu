@@ -2,8 +2,16 @@ import { useOutletContext } from 'react-router';
 import type { FormEvent } from 'react';
 
 export type CatalogMetadata = { name?: string | null; description?: string | null; context_length?: number | null; max_completion_tokens?: number | null; input_modalities?: string[]; output_modalities?: string[]; supported_parameters?: string[] };
-export type CustomerPricing = {currency:string; unit:'nanounits_per_million_tokens'; prompt_rate:string; cached_prompt_rate?:string|null; completion_rate:string};
-export type CustomerUnitPricing = {definition_revision:string; unit_name:string; display_precision:number; atoms_per_unit:string; unit:'atoms_per_million_tokens'; prompt_rate:string; cached_prompt_rate?:string|null; completion_rate:string; rounding_mode?:string};
+export type CustomerTokenRates = {
+  prompt_rate: string;
+  completion_rate: string;
+  cached_prompt_rate?: string | null;
+  cache_write_prompt_rate?: string | null;
+  reasoning_completion_rate?: string | null;
+};
+type CustomerTariff = CustomerTokenRates & { context_tiers?: (CustomerTokenRates & { minimum_input_tokens: string })[] };
+export type CustomerPricing = CustomerTariff & {currency:string; unit:'nanounits_per_million_tokens'; request_fee_nanos?:string; minimum_charge_nanos?:string};
+export type CustomerUnitPricing = CustomerTariff & {definition_revision:string; unit_name:string; display_precision:number; atoms_per_unit:string; unit?:'atoms_per_million_tokens'; request_fee_atoms?:string; minimum_charge_atoms?:string; rounding_mode?:string};
 export type Model = { generation_capabilities?: {chat:boolean|null;video:boolean|null}|null; billing_source?: 'own_api_key' | 'niu_credits' | null; callable?: boolean; readiness_issues?: string[]; customer_pricing?: CustomerPricing | null; customer_unit_pricing?: CustomerUnitPricing | null; catalog?: CatalogMetadata; id: string; provider?: string; provider_name?: string | null; upstream_model?: string; public_catalog: boolean };
 export type Health = { status: string; model_count?: number };
 export type GatewayStatus = 'online' | 'offline' | 'checking';

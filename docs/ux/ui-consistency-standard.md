@@ -117,3 +117,5 @@ Use a right-side sheet for a current price comparison. Show both comparable rate
 Use field labels, units, comparable values and action names to make workflows clear. Remove introductions that repeat a title, describe visible controls or explain unrelated product behavior. Keep concrete errors, prerequisites and irreversible consequences at the affected action.
 
 New text price and credit tariff menus use the registered route’s text eligibility. Missing media price specifications alone never establish eligibility. Inspect route pool candidates and upstream modality metadata even when a public alias hides the underlying model name.
+
+A catalog model can be labeled free only when the complete applicable tariff establishes zero charges, including all token categories, context tiers, the request fee and the minimum charge. Show positive per-request charges alongside token rates.
