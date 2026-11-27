@@ -8,7 +8,7 @@ import { ListRowsSkeleton } from '@/components/PageSkeletons';
 import ProviderLogo from '@/components/ProviderLogo';
 import { modelIdentity } from '@/lib/providers';
 import { fetchQuery, invalidateQueries, peekQuery } from '@/lib/query-cache';
-import { formatExactUnitAtoms, formatUnitAtoms, unitAmountFromAtoms, unitAmountToAtoms } from '@/lib/money';
+import { formatExactUnitAtoms, unitAmountFromAtoms, unitAmountToAtoms } from '@/lib/money';
 import { mediaQuantity, mediaQuantityInput, mediaRoundingLabels } from '@/lib/media-price';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,12 +79,6 @@ type UnitPlatformConfig = {
   } | null;
   text_tariffs?: UnitTextTariffRecord[];
 };
-
-function UnitRate({ atoms, unitName, precision }: { atoms: string; unitName: string; precision: number }) {
-  const summary = formatUnitAtoms(atoms, unitName, precision);
-  const exact = formatExactUnitAtoms(atoms, unitName, precision);
-  return <>{summary}{exact !== summary && <span className="block text-xs text-muted-foreground">{exact}</span>}</>;
-}
 
 function quantityText(value: { numerator: string; denominator: string }) {
   if (value.denominator !== '1') return mediaQuantityInput(value);
@@ -246,7 +240,7 @@ export function BrandedUnitTariffsSection({ token, filter, searchControl }: { to
       {visibleText.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium">{uiT("Text model tariffs (per 1M tokens)")}</h3>
-          <Table className="w-full [&_th]:whitespace-normal [&_td]:whitespace-normal" aria-label={uiT("Branded Credits text tariffs")}>
+          <Table className="standard-price-directory w-full [&_th]:whitespace-normal [&_td]:whitespace-normal max-[600px]:[&_td]:text-left" aria-label={uiT("Branded Credits text tariffs")}>
             <TableHeader>
               <TableRow>
                 <TableHead>{uiT("Model")}</TableHead>
@@ -261,15 +255,15 @@ export function BrandedUnitTariffsSection({ token, filter, searchControl }: { to
               {visibleText.map(row => (
                 <TableRow key={row.model_alias}>
                   <TableCell className="max-w-40 whitespace-normal font-medium"><p className="inline-flex items-center gap-2 break-words"><ProviderLogo provider={modelIdentity({ id: row.model_alias })} size="small" /><span>{row.model_alias}</span></p></TableCell>
-                  <TableCell className="text-right tabular-nums"><UnitRate atoms={row.price.prompt_rate} unitName={unitName} precision={precision} /></TableCell>
-                  <TableCell className="text-right tabular-nums"><UnitRate atoms={row.price.completion_rate} unitName={unitName} precision={precision} /></TableCell>
+                  <TableCell data-label={uiT("Input / 1M")} className="text-right tabular-nums">{formatExactUnitAtoms(row.price.prompt_rate, unitName, precision)}</TableCell>
+                  <TableCell data-label={uiT("Output / 1M")} className="text-right tabular-nums">{formatExactUnitAtoms(row.price.completion_rate, unitName, precision)}</TableCell>
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
-                    <p>{uiT("Cached:")}{' '}{row.price.cached_prompt_rate != null ? formatUnitAtoms(row.price.cached_prompt_rate, unitName, precision) : uiT("Ordinary")}</p>
-                    <p>{uiT("Reasoning:")}{' '}{row.price.reasoning_completion_rate != null ? formatUnitAtoms(row.price.reasoning_completion_rate, unitName, precision) : uiT("Ordinary")}</p>
+                    <p>{uiT("Cached:")}{' '}{row.price.cached_prompt_rate != null ? formatExactUnitAtoms(row.price.cached_prompt_rate, unitName, precision) : uiT("Ordinary")}</p>
+                    <p>{uiT("Reasoning:")}{' '}{row.price.reasoning_completion_rate != null ? formatExactUnitAtoms(row.price.reasoning_completion_rate, unitName, precision) : uiT("Ordinary")}</p>
                   </TableCell>
                   <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
-                    <p>{uiT("Fee:")}{' '}{formatUnitAtoms(row.price.request_fee_atoms, unitName, precision)}</p>
-                    <p>{uiT("Min:")}{' '}{formatUnitAtoms(row.price.minimum_charge_atoms, unitName, precision)}</p>
+                    <p>{uiT("Fee:")}{' '}{formatExactUnitAtoms(row.price.request_fee_atoms, unitName, precision)}</p>
+                    <p>{uiT("Min:")}{' '}{formatExactUnitAtoms(row.price.minimum_charge_atoms, unitName, precision)}</p>
                   </TableCell>
                   <TableCell>
                     <Button
@@ -294,7 +288,7 @@ export function BrandedUnitTariffsSection({ token, filter, searchControl }: { to
       {visibleMedia.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium">{uiT("Video tariffs")}</h3>
-          <Table className="w-full [&_th]:whitespace-normal [&_td]:whitespace-normal" aria-label={uiT("Branded Credits media tariffs")}>
+          <Table className="standard-price-directory w-full [&_th]:whitespace-normal [&_td]:whitespace-normal max-[600px]:[&_td]:text-left" aria-label={uiT("Branded Credits media tariffs")}>
             <TableHeader>
               <TableRow>
                 <TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Media specification")}</TableHead>
@@ -308,18 +302,17 @@ export function BrandedUnitTariffsSection({ token, filter, searchControl }: { to
                 <TableRow key={`${row.model_alias}:${row.channel}:${row.resolution}:${row.reference_video}`}>
                   <TableCell className="max-w-56 whitespace-normal font-medium">
                     <p className="inline-flex items-center gap-2 break-words"><ProviderLogo provider={modelIdentity({ id: row.model_alias })} size="small" /><span>{row.model_alias}</span></p>
-                  </TableCell><TableCell className="whitespace-normal text-sm text-muted-foreground">
+                  </TableCell><TableCell data-label={uiT("Media specification")} className="whitespace-normal text-sm text-muted-foreground">
                     <p>
                       {row.channel} · {row.resolution} · {row.reference_video ? uiT("With reference video") : uiT("Standard")}
                     </p>
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    <p>{formatUnitAtoms(row.price.amount_atoms, unitName, precision)}{' '}{uiT("per")}{' '}{quantityText(row.price.per_quantity)} {uiT("video tokens")}</p>
-                    {formatExactUnitAtoms(row.price.amount_atoms, unitName, precision) !== formatUnitAtoms(row.price.amount_atoms, unitName, precision) && <p className="text-xs text-muted-foreground">{formatExactUnitAtoms(row.price.amount_atoms, unitName, precision)}</p>}
+                  <TableCell data-label={uiT("Rate")} className="text-right tabular-nums">
+                    <p>{formatExactUnitAtoms(row.price.amount_atoms, unitName, precision)}{' '}{uiT("per")}{' '}{quantityText(row.price.per_quantity)} {uiT("video tokens")}</p>
                   </TableCell>
-                  <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+                  <TableCell data-label={uiT("Minimum quantity")} className="text-right text-xs tabular-nums text-muted-foreground">
                     {quantityText(row.price.minimum_quantity)} {uiT("video tokens")}
-                  </TableCell><TableCell className="text-sm">
+                  </TableCell><TableCell data-label={uiT("Rounding")} className="text-sm">
                     {uiT(mediaRoundingLabels[row.price.rounding])}
                   </TableCell>
                   <TableCell>
