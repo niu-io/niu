@@ -637,3 +637,9 @@ it('keeps tbody row headers on cell metrics and fills 404 empty states', () => {
   const surfaces = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
   expect(surfaces).toMatch(/\.not-found-empty \{[^}]*flex: 1 1 auto;[^}]*justify-content: center/);
 });
+
+it('opens the archive after mobile history releases its focus scope', () => {
+  const layout = readFileSync(resolve('app/features/generations/GenerationsLayout.tsx'), 'utf8');
+  expect(layout).toMatch(/onCloseAutoFocus: event => \{\s*if \(pendingArchive.current\)/);
+  expect(layout).toMatch(/pendingArchive.current = openArchive;\s*setOpenMobile\(false\)/);
+});
