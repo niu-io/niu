@@ -77,6 +77,8 @@ Returning from request details restores the inspected row, focus and loaded page
 - **Sibling first-run parity**: Sibling creation surfaces in Generations (`Chat` and `Video`) share the same centered mode switcher (`Chat` / `Video`), heading scale (`.playground-first-run-heading`), and `.playground-starters` / `.playground-starter` card grid (`<strong>` title, `<span>` summary, trailing arrow icon).
 - **Never leak internal IDs**: Never render UUIDs/GUIDs in UI labels, tooltips, badges, dialogs, or error notices.
 
+Customer access lists retain workspace links, member roles and workspace scope on narrow screens. Show labeled values within each row without horizontal scrolling.
+
 A filtered registration queue with zero results shows the relevant empty title. Omit raw submission URLs and generic audit explanations.
 
 ## 6. Primitive & Stylesheet Hygiene
@@ -146,6 +148,8 @@ A tab that groups multiple entity types must not show an unlabeled count for jus
 
 Registration policy and the registration review queue link directly to each other within their owning Settings and Customers tabs. Display the pending count on the review action when positive.
 
+Empty-state descriptions may identify a prerequisite. Omit instructions that simply restate the adjacent action labels.
+
 Use field labels, units, comparable values and action names to make workflows clear. Remove introductions that repeat a title, describe visible controls or explain unrelated product behavior. Keep concrete errors, prerequisites and irreversible consequences at the affected action.
 
 New text price and credit tariff menus use the registered route’s text eligibility. Missing media price specifications alone never establish eligibility. Inspect route pool candidates and upstream modality metadata even when a public alias hides the underlying model name.
@@ -162,8 +166,12 @@ Workspace activity summaries keep the workspace, request count and charge visibl
 
 Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action.
 
+Direct video-mode links open the Video composer and its existing availability or setup state. A saved session retains its own workflow.
+
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
 
-Empty-state descriptions may identify a prerequisite. Omit instructions that simply restate the adjacent action labels.
+Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
+
+When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
 
 Registration validation focuses the first invalid field and associates the inline error with that control. Editing an unrelated field preserves the error.
