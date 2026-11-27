@@ -10,7 +10,7 @@ export default function IncidentNotice({ token }: { token: string }) {
   const path = useLocation().pathname.replace(/\/+$/, '') || '/';
   const connectionSections = ['providers', 'suppliers', 'routing', 'pools', 'model-pools', 'route-pools'];
   const visible = path === '/' || path === '/admin' ||
-    connectionSections.some(section => path === '/admin/' + section || path.startsWith('/admin/' + section + '/'));
+    connectionSections.some(section => path === `/admin/${section}` || path.startsWith(`/admin/${section}/`));
   return visible ? <ConnectionNotice token={token} /> : null;
 }
 
