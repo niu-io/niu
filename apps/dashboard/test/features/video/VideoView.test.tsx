@@ -919,6 +919,7 @@ it('auto-creates a Playground API key in place from the zero-key Video cover and
   mount(true, '/generations?new=video');
   const user = userEvent.setup();
   const autoBtn = await screen.findByRole('button', { name: 'Auto-create key' });
+  expect(screen.queryByRole('button', { name: /Aerial sunrise/ })).toBeNull();
   await user.click(autoBtn);
   expect(await screen.findByRole('button', { name: 'Video model' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Video API key' }).textContent).toContain('Playground');
