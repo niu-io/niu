@@ -105,7 +105,7 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange, withinSetti
 }) {
   const { t: uiT } = useUILocale();
   const { t } = useLocale();
-  const { organization, createWorkspace, session } = context;
+  const { organization, organizations, createWorkspace, session } = context;
   const canSetLimit = session?.kind === 'installation' || session?.operator?.role === 'owner';
   const [amount, setAmount] = useState('');
   const {currency,error:currencyError} = usePlatformCurrency();
@@ -153,9 +153,12 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange, withinSetti
     }
   }
 
-  const description = organization
-    ? t('Organization', '组织') + ' · ' + organizationDisplayName(organization.name)
-    : t('A personal organization will be created.', '将自动创建个人组织。');
+  const owner = organization ?? organizations.find(item => item.id === session?.operator?.organization_id);
+  const description = owner
+    ? t('Organization', '组织') + ' · ' + organizationDisplayName(owner.name)
+    : session?.kind === 'installation'
+      ? t('A personal organization will be created.', '将自动创建个人组织。')
+      : t('Current organization', '当前组织');
   const form = <form onSubmit={submitCreate} className="niu-modal-form">
         <div className="grid gap-2"><Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label><Input ref={nameInput} id="workspace-name" required maxLength={200} autoFocus disabled={saving} value={name} onChange={event => { setName(event.target.value); if (!slugEdited) setSlug(workspaceSlugFromName(event.target.value)); }} placeholder={t('e.g. Product experiments', '例如：产品研发实验')} /></div>
         {slugOpen ? <div className="grid gap-2">
