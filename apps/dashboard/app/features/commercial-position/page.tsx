@@ -553,6 +553,26 @@ function CommercialStatement({ token }: { token: string }) {
   );
 
   const inspectedModel = search.get('model');
+  const section = search.get('tab');
+  const selectedSection = section === 'cash' || section === 'operations' || section === 'unit-economics'
+    ? section : inspectedModel ? 'unit-economics' : 'operations';
+  const economicsHeading = useRef<HTMLHeadingElement>(null);
+  const focusEconomics = useRef(false);
+  useEffect(() => {
+    if (focusEconomics.current && selectedSection === 'unit-economics' && economicsHeading.current) {
+      focusEconomics.current = false;
+      economicsHeading.current.focus();
+      economicsHeading.current.scrollIntoView({ block: 'start' });
+    }
+  }, [selectedSection, loading]);
+  function showSection(value: string) {
+    setSearch(params => {
+      const next = new URLSearchParams(params);
+      next.set('tab', value);
+      return next;
+    });
+  }
+
   const displayedRows = inspectedModel ? sortedRows.filter(row => row.model_alias === inspectedModel)
     : modelFilter === 'active' ? activeRows : sortedRows;
 
@@ -827,7 +847,7 @@ function CommercialStatement({ token }: { token: string }) {
 
       {position && (
         <>
-          <Tabs defaultValue={inspectedModel || search.get('tab') === 'unit-economics' ? 'unit-economics' : 'operations'} className="min-w-0 space-y-4">
+          <Tabs value={selectedSection} onValueChange={showSection} className="min-w-0 space-y-4">
             <div className="max-w-full overflow-x-auto overflow-y-hidden commercial-print-hide">
               <TabsList variant="line" aria-label={uiT("Financial statement sections")}>
                 <TabsTrigger value="operations">{uiT("Statement of operations")}</TabsTrigger>
@@ -893,7 +913,15 @@ function CommercialStatement({ token }: { token: string }) {
                 <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1 tabular-nums">
-                {currentCohort.unresolvedAttempts > 0n && <span>{currentCohort.unresolvedAttempts.toString()} {uiT('unresolved', '项未核定')} · </span>}{currentCohort.matchedAttempts.toString()}{" "}{uiT("settled requests ·")}{' '}
+                {currentCohort.unresolvedAttempts > 0n && <><Button variant="link" size="sm" className="h-auto p-0 text-xs underline" onClick={() => {
+                  if (selectedSection === 'unit-economics') {
+                    economicsHeading.current?.focus();
+                    economicsHeading.current?.scrollIntoView({ block: 'start' });
+                  } else {
+                    focusEconomics.current = true;
+                    showSection('unit-economics');
+                  }
+                }}>{uiF("{0} unresolved", [currentCohort.unresolvedAttempts.toString()])}</Button> · </>}{currentCohort.matchedAttempts.toString()}{" "}{uiT("settled requests ·")}{' '}
                 {uiF('{0} active models', [currentCohort.activeModelCount])}
               </p>
             </article>
@@ -1160,7 +1188,7 @@ function CommercialStatement({ token }: { token: string }) {
           <div className="min-w-0 rounded-xl bg-card p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-[15px] font-semibold">{uiT("Unit economics by Provider & model")}</h2>
+                <h2 ref={economicsHeading} tabIndex={-1} className="scroll-mt-20 text-[15px] font-semibold">{uiT("Unit economics by Provider & model")}</h2>
                 <p className="text-xs text-muted-foreground">
                   {uiF("Models with traffic: {0} · Configured routes: {1}", [activeRows.length, sortedRows.length])}</p>
               </div>
