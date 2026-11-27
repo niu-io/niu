@@ -11,6 +11,7 @@ import { PlatformCurrencySetting } from './platform-currency';
 import { PlatformUnitsSetting } from './platform-units';
 import { RegistrationPolicySection } from './registration-review';
 
+import RegistrationReviewLink from './RegistrationReviewLink';
 import BrandingTab from '@/features/branding/page';
 import PaymentsTab from '@/features/platform/page';
 
@@ -44,6 +45,7 @@ export default function PlatformSettingsRoute() {
       <Tabs value={currentTab} onValueChange={value => selectTab(value as SettingsTab)}>
         <PageHeader
           title={uiT('Settings', '平台设置')}
+          action={currentTab === 'registration' ? <RegistrationReviewLink /> : undefined}
           tabs={
             <TabsList variant="line" aria-label={uiT('Platform settings')}>
               <TabsTrigger value="general">{uiT('General & currency', '基础与币种')}</TabsTrigger>
