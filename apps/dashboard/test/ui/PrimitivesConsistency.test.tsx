@@ -25,6 +25,13 @@ describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
 
+  it('shows unit spread in standard price rows and keeps publication time in the detail sheet', () => {
+    const page = readFileSync(join(appDir, 'features/retail-pricing/page.tsx'), 'utf8');
+    expect(page).toContain('<DirectorySpread health={row.pricing_health} currency={row.currency}');
+    expect(page).toContain('{date(price.published_at)}</SheetDescription>');
+    expect(page).not.toContain('{date(row.published_at)}</TableCell>');
+  });
+
   it('keeps per-workspace charge headers and values visible on phones', () => {
     const source = readFileSync(join(appDir, 'features/activity/global-page.tsx'), 'utf8');
     const section = source.split('<section aria-label={uiT("Activity by workspace")}')[1].split('</section>')[0];

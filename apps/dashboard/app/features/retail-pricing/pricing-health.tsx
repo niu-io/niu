@@ -23,6 +23,57 @@ function mediaPrice(value: MediaAmount, currency: string, meter: string) {
   return `${currencySymbol(currency)}${mediaAmount(value.amount_units, value.decimal_places)} / ${quantity} ${meter}`;
 }
 
+type UnitSpread = { nanos: bigint; quantity: bigint };
+
+function mediaUnitRate(rate: MediaAmount): UnitSpread {
+  return {
+    nanos: BigInt(rate.amount_units) * 10n ** BigInt(9 - rate.decimal_places) * BigInt(rate.per_quantity.denominator),
+    quantity: BigInt(rate.per_quantity.numerator),
+  };
+}
+
+function formatSpread({ nanos, quantity }: UnitSpread, currency: string) {
+  let divisor = nanos < 0n ? -nanos : nanos;
+  let remainder = quantity;
+  while (remainder) [divisor, remainder] = [remainder, divisor % remainder];
+  const amount = money((nanos / divisor).toString(), currency);
+  const units = quantity / divisor;
+  return units === 1n ? amount : amount + ' / ' + units.toString();
+}
+
+export function DirectorySpread({ health, currency }: { health?: PricingHealth; currency: string }) {
+  const { t } = useLocale();
+  const supply = supplyStateOf(health);
+  if (supply === 'inactive' || supply === 'unconfigured') return t('No active purchase quote', '暂无生效采购报价');
+  const checks = health?.checks ?? [];
+  const incomplete = checks.some(check => check.status === 'missing_provider_price' || check.status === 'comparison_unavailable');
+  const spreads: UnitSpread[] = [];
+  let unit = t('million tokens', '百万 Token');
+  for (const check of checks) {
+    if (check.media_rates) {
+      const { meter, selling, purchase } = check.media_rates;
+      const sell = mediaUnitRate(selling);
+      const buy = mediaUnitRate(purchase);
+      spreads.push({ nanos: sell.nanos * buy.quantity - buy.nanos * sell.quantity, quantity: sell.quantity * buy.quantity });
+      unit = t(meter);
+    } else {
+      for (const rate of check.rates ?? []) {
+        spreads.push({ nanos: BigInt(rate.selling) - BigInt(rate.purchase), quantity: 1n });
+      }
+    }
+  }
+  if (!spreads.length) return t('Purchase price unavailable', '采购价暂不可用');
+  spreads.sort((a, b) => {
+    const difference = a.nanos * b.quantity - b.nanos * a.quantity;
+    return difference < 0n ? -1 : difference > 0n ? 1 : 0;
+  });
+  const low = formatSpread(spreads[0], currency);
+  const high = formatSpread(spreads[spreads.length - 1], currency);
+  return <><span>{low}{low !== high && ' – ' + high}</span>
+    <div className="text-xs text-muted-foreground">/ {unit}</div>
+    {incomplete && <div className="text-xs text-muted-foreground">{t('Partial quotes', '部分报价')}</div>}</>;
+}
+
 function TextComparison({ rates, currency }: { rates: NonNullable<Check['rates']>; currency: string }) {
   const { t } = useLocale();
   const grouped = new Map<string, typeof rates>();
