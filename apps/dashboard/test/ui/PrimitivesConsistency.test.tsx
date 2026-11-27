@@ -637,3 +637,9 @@ it('keeps tbody row headers on cell metrics and fills 404 empty states', () => {
   const surfaces = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
   expect(surfaces).toMatch(/\.not-found-empty \{[^}]*flex: 1 1 auto;[^}]*justify-content: center/);
 });
+
+it('requires complete empty usage and ledger lists for the shared provider placeholder', () => {
+  const source = readFileSync(resolve('app/features/provider-business/admin.tsx'), 'utf8');
+  expect(source).toContain('data?.balances?.length === 0 && data?.settlements?.length === 0');
+  expect(source).toMatch(/data\?\.consumption\?\.length === 0 &&\s*data\?\.media_consumption\?\.length === 0 && \(internal \|\| emptyLedger\)/);
+});

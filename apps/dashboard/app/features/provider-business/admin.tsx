@@ -511,6 +511,10 @@ function Administration({ token }: { token: string }) {
       setBusy(false);
     }
   }
+  const emptyLedger = data?.balances?.length === 0 && data?.settlements?.length === 0;
+  const emptyAnalytics = section === "usage" && data?.consumption?.length === 0 &&
+    data?.media_consumption?.length === 0 && (internal || emptyLedger);
+  const emptySettlements = section === "settlements" && !internal && emptyLedger;
   const sectionDescription = {
     overview: internal ? 'Choose which imported models are enabled.' : 'Choose which models are available on this platform and optionally set a discount off upstream standard prices (default: no discount).',
     models: internal ? 'Choose which imported models are enabled.' : 'Choose which models are available on this platform and optionally set a discount off upstream standard prices (default: no discount).',
@@ -535,7 +539,7 @@ function Administration({ token }: { token: string }) {
     settlementPreview.entry_count > 0;
   return (
     <>
-      {sectionDescription && <div className="supplier-section-heading"><p>{uiT(sectionDescription)}</p></div>}
+      {sectionDescription && !emptyAnalytics && !emptySettlements && <div className="supplier-section-heading"><p>{uiT(sectionDescription)}</p></div>}
       <PageHeader
         title={sectionTitle}
         action={businesses.length > 0 && <div className="provider-header-actions">
@@ -615,6 +619,12 @@ function Administration({ token }: { token: string }) {
             {!internal && data?.offers_has_more && <div className="py-4 space-y-2"><p className="text-sm text-muted-foreground">{data.offers.length}{" "}{uiT("offers loaded. Counts and filters cover loaded offers only.")}</p>{moreOffersError && <div role="alert"><p>{moreOffersError}</p><Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Refresh offers")}</Button></div>}<Button variant="outline" disabled={loadingMoreOffers} onClick={() => void loadMoreOffers()}>{loadingMoreOffers ? uiT("Loading offers…") : moreOffersError ? uiT("Retry loading offers") : uiT("Load more offers")}</Button></div>}
           </div>}
           </>}
+          {emptyAnalytics || emptySettlements ? (
+            <Empty className="supplier-ledger-empty"><EmptyHeader>
+              <EmptyMedia variant="icon"><IconReceipt aria-hidden="true" /></EmptyMedia>
+              <EmptyTitle>{emptySettlements ? uiT("No charges or payments yet", "暂无应付或付款记录") : uiT("No provider activity yet", "暂无供应商活动")}</EmptyTitle>
+            </EmptyHeader></Empty>
+          ) : <>
           {section === "usage" && <>
             {(Boolean(data?.consumption?.length) || (Array.isArray(data?.media_consumption) && data.media_consumption.length === 0)) && <div className="provider-admin-section-heading"><h2>{uiT("Consumption by model")}</h2><span>{uiT("Last 90 days")}</span></div>}
             {data?.consumption?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Model")}</TableHead><TableHead className="text-right">{uiT("Requests")}</TableHead><TableHead className="text-right">{uiT("Input / output tokens")}</TableHead>{!internal && <><TableHead className="text-right">{uiT("Accrued charges")}</TableHead><TableHead className="text-right">{uiT("Unpaid")}</TableHead></>}</TableRow></TableHeader><TableBody>
@@ -637,6 +647,7 @@ function Administration({ token }: { token: string }) {
             {data?.settlements?.length ? <div className="table-wrap"><ShadcnTable className="provider-ledger"><TableHeader><TableRow><TableHead>{uiT("Date")}</TableHead><TableHead>{uiT("Payment reference")}</TableHead><TableHead className="text-right">{uiT("Amount")}</TableHead></TableRow></TableHeader><TableBody>
               {data.settlements.map(row => <TableRow key={row.id}><TableCell>{new Date(row.created_at).toLocaleDateString(readUILocale())}</TableCell><TableCell>{row.payment_reference}</TableCell><TableCell className="text-right tabular-nums">{money(row.amount_nanos,row.currency)}</TableCell></TableRow>)}
             </TableBody></ShadcnTable></div> : <Empty className="supplier-ledger-empty"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt size={18} aria-hidden="true" /></EmptyMedia><EmptyTitle>{uiT("No payments recorded")}</EmptyTitle></EmptyHeader></Empty>}
+          </>}
           </>}
         </section>
       )}
