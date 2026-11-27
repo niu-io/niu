@@ -52,6 +52,8 @@ This document defines the mandatory, product-wide UI and interaction standards f
   - When a workspace has no active key or no selected key, render a single compact `.composer-key-banner` inside the composer header with a direct CTA (`Create API key` or `Choose API key`).
   - When an explicitly referenced key is invalid, revoked, expired, or IP-restricted, render a single-surface `<GenerationComposerCover>` with recovery actions — never stack competing double banners above and inside the composer.
 
+After a registration queue refresh or review decision, the queue, customer tab and navigation badges reflect the same pending count, including zero.
+
 ## 5. Structured Loading, Empty, and Error Surfaces
 
 - **No raw unstyled loading paragraphs or visible skeleton captions**: Never render bare `<p role="status">Loading…</p>` in pages or dialogs, and never render visible `"Loading…"` / `"正在加载…"` captions above skeleton shimmer bars. Use `TableSkeleton`, `FormSectionSkeleton`, `ListRowsSkeleton`, `CardGridSkeleton`, or `WorkspaceShellSkeleton` (from [`PageSkeletons.tsx`](../../apps/dashboard/app/components/PageSkeletons.tsx)) with `<span className="sr-only">{label}</span>` so screen readers receive `role="status"` announcements while sighted users see clean shimmer geometry. Overview and checklist surfaces (`/admin`, `/workspaces/:workspace`) must gate zero-resource `"Action needed"` / `"Admin setup"` warnings until their snapshot or catalog load settles, and `<Navigate>` call sites must never pass inline object literals (`state={{ ... }}` or `to={{ ... }}`), which restart React Router transitions in an infinite loop.

@@ -54,6 +54,8 @@ Use only Lucide React and Tabler Icons for product controls and navigation. Choo
 
 Consider Tabler alongside Lucide when choosing icons. Generations uses Tabler `sparkles`; Chat sessions use Tabler `message-chatbot`; `sparkle-highlight` is another suitable candidate for generative AI actions. Do not limit icon selection to Lucide or add Phosphor or IconPark.
 
+After a registration queue refresh or review decision, the queue, customer tab and navigation badges reflect the same pending count, including zero.
+
 ## Workspace terminology
 
 Use **workspace** consistently for Niu's customer-facing scope. Do not call the same Niu entity a **project** in product UI, guidance, or generated setup commands. Keep legacy `project` / `project_id` names only where required by existing API, database, or compatibility contracts; translate them to workspace terminology at the product boundary.

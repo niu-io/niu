@@ -194,9 +194,10 @@ describe('Limited Preview registration flow', () => {
     );
 
     const user = userEvent.setup();
+    const onCountsChange = vi.fn();
     const { container } = render(
       <MemoryRouter>
-        <RegistrationRequestsQueue token="platform-token" onApproved={onApproved} />
+        <RegistrationRequestsQueue onCountsChange={onCountsChange} token="platform-token" onApproved={onApproved} />
       </MemoryRouter>,
     );
 
@@ -210,6 +211,7 @@ describe('Limited Preview registration flow', () => {
     await user.click(screen.getByRole('button', { name: 'Approve & provision' }));
 
     await waitFor(() => expect(onApproved).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onCountsChange).toHaveBeenLastCalledWith({ pending: 0, approved: 1, rejected: 0 }));
     expect(await screen.findByText(/Registration approved and account provisioned/)).toBeTruthy();
   });
 });
