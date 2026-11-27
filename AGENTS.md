@@ -195,6 +195,8 @@ The backend is the source of truth for saved product data, including Chat sessio
 
 ## Commercial data boundaries
 
+Workspace spending-limit feedback uses the parsed amount. Show the consequences of a valid limit only. On invalid submission, focus the amount field, associate its inline error, and clear the error when the amount becomes valid.
+
 Rounded financial amounts and changes must expose their exact values to touch and keyboard users. Use a focusable amount button and a popover when precision is omitted.
 
 Workspace spending labels identify the shared balance and the all-time workspace charge at their amounts. Show one funding action linked to account billing and keep workspace limits separately accessible.

@@ -4540,6 +4540,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Enter a nonnegative decimal quantity.": "请输入非负十进制数量。",
   "Quantity is outside the supported range.": "数量超出支持范围。",
   "Enter a discount from 0 to 100 percent.": "请输入 0 到 100 之间的折扣百分比。",
+  "Enter digits after the decimal point.": "请在小数点后输入数字。",
   "Enter an amount with no more than 9 decimal places.": "请输入不超过 9 位小数的金额。",
   "Enter a budget greater than zero.": "请输入大于零的预算。",
   "Amount exceeds the supported range.": "金额超出支持范围。",
