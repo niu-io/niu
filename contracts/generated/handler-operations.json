@@ -9830,6 +9830,43 @@
         ],
         "parameters": [
           {
+            "name": "pending_limit",
+            "in": "query",
+            "description": "Maximum unresolved attempts per report row.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
+          },
+          {
+            "name": "supplier",
+            "in": "query",
+            "description": "Provide supplier, model and pending_before together to page unresolved attempts for one report row.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "description": "Provide supplier, model and pending_before together to page unresolved attempts for one report row.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pending_before",
+            "in": "query",
+            "description": "Provide supplier, model and pending_before together to page unresolved attempts for one report row.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
             "name": "currency",
             "in": "query",
             "required": true,
@@ -10024,7 +10061,7 @@
                           "pending_attempts": {
                             "type": "array",
                             "maxItems": 50,
-                            "description": "First 50 unresolved attempt references with the available execution, usage and ledger evidence for this Provider, model and period.",
+                            "description": "Up to 50 unresolved attempt references in descending attempt ID order with the available execution, usage and ledger evidence for this Provider, model and period.",
                             "items": {
                               "type": "object",
                               "properties": {
