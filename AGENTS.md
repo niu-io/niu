@@ -141,6 +141,8 @@ Before delivery, compare the rendered result directly against both the reference
 
 ## Navigation hierarchy
 
+The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
+
 Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
 
 Returning from request details restores the inspected row, focus and loaded page depth for that log history entry. Restore only from workspaces that are still authorized.
@@ -214,5 +216,7 @@ On pricing tabs, identify the mode used for billing independently of the selecte
 When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
 
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
+
+Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
 
 Request toolbar date controls show both selected bounds at phone widths. Let the controls wrap below the request count when the row is too narrow.
