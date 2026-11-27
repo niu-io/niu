@@ -143,6 +143,17 @@ Location: **query**. Optional. Exact public model alias filter.
 }
 ```
 
+### pending_settlement
+
+Location: **query**. Optional. Restrict requests and summary to pending customer settlement before pagination.
+
+```json
+{
+  "type": "boolean",
+  "default": false
+}
+```
+
 ### operation_id
 
 Location: **query**. Optional. Restrict attempts and summaries to one operation within the authorized workspace. Unknown or foreign operations yield an empty result; this does not authorize cross-workspace reads.
