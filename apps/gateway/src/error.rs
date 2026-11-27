@@ -26,9 +26,10 @@ impl ApiError {
         }
         match error {
             niu_storage::StoreError::RequestExportTooLarge => Self::export_too_large(),
-            niu_storage::StoreError::CandidatePriceMissing => {
-                Self::invalid_request("Candidate model pricing is not configured")
-            }
+            niu_storage::StoreError::CandidatePriceMissing => Self {
+                kind: "candidate_price_missing",
+                ..Self::invalid_request("Candidate model pricing is not configured")
+            },
             niu_storage::StoreError::InvalidVendor => {
                 Self::invalid_request("Invalid vendor or model configuration")
             }
