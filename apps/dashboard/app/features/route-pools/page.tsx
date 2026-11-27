@@ -330,7 +330,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                       <p className="mt-0.5 text-xs font-medium text-foreground/80">{pool.display_name}</p>
                     )}
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className="md:hidden"> · {scopeName}</span>
+                      <span className="md:hidden">{scopeName} · {billingLabel}</span>
                       {!pool.organization_id && pool.public_catalog && (
                         <Badge variant="secondary" className="text-[11px] font-normal">
                           {t('Public catalog', '公开目录')}
@@ -345,13 +345,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                         {billingLabel}
                       </Badge>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {pool.organization_id
-                        ? t('Private to organization', '仅限该企业内调用')
-                        : pool.billing_mode === 'candidate_tariff'
-                          ? t('Charges each request by the selected candidate tariff', '按实际命中的候选模型售价计费')
-                          : t('Charges requests using this custom model tariff', '作为独立自定义模型统一计费')}
-                    </p>
+
                   </TableCell>
                   <TableCell className="align-top whitespace-normal max-sm:block max-sm:border-b-0 max-sm:p-0">
                     <div className="flex flex-wrap gap-1.5">
