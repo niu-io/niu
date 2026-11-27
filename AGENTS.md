@@ -161,6 +161,8 @@ The backend is the source of truth for saved product data, including Chat sessio
 
 ## Commercial data boundaries
 
+Group grant history with customer inspection actions and place balance-changing actions after a menu separator. Apply this order in the directory and customer detail.
+
 Provider purchase prices, upstream expenses, procurement budgets, and platform margins are confidential platform information. Never show them in customer workspace pages, Chat, Observability, usage reports, exports, or customer API responses. Customer billing and request costs mean customer-facing charges only; never substitute supplier cost when a customer charge is unavailable. Keep procurement controls in platform administration, and restrict providers to their own agreed rates and settlements. Enforce these boundaries in backend authorization and response serialization, not merely by hiding UI elements. Installation administrator access does not justify mixing procurement information into customer-facing workspace screens.
 
 Zero-key generation sessions must disable the prompt, attachments, starter prompts and all submission paths. Keep prior drafts readable. Confirm key creation separately from sending a request. Aggregate duplicate empty notices for one collection and keep the recovery action beside the empty result. See the UI consistency standard.

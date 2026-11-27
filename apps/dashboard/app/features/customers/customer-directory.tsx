@@ -327,29 +327,29 @@ export function Customers({
             <DropdownMenuItem asChild className="sm:hidden">
               <Link to={detailHref}>{uiT("Manage", "管理")}</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'topup', company, account })}>
-              {uiT("Top up balance")}
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'credit', company, account })}>
-              {uiT("Set credit")}
-            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to={`${detailHref}?tab=pricing`}>{uiT("Customer pricing", "专属价格")}</Link>
-            </DropdownMenuItem>
-            {canSetup && (
-              <DropdownMenuItem onSelect={() => openSetup(company)}>
-                {uiT("Set up")}
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'grant', company, account })}>
-              {uiT("Grant noncash balance")}
             </DropdownMenuItem>
             {account && (
               <DropdownMenuItem onSelect={() => openEditor({ kind: 'history', company, account })}>
                 {uiT("Noncash grant history")}
               </DropdownMenuItem>
             )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'topup', company, account })}>
+              {uiT("Top up balance")}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'credit', company, account })}>
+              {uiT("Set credit")}
+            </DropdownMenuItem>
+            {canSetup && (
+              <DropdownMenuItem onSelect={() => openSetup(company)}>
+                {uiT("Set up")}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'grant', company, account })}>
+              {uiT("Grant noncash balance")}
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => openEditor({ kind: 'units', company, account })}>
               {uiT("Manage Branded Credits")}
             </DropdownMenuItem>
