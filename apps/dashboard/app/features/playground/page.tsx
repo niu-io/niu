@@ -42,7 +42,8 @@ export default function PlaygroundRoute() {
   const effectiveRun = pathRun ?? directRunFromSession;
   const pathSession = directRunFromSession ? null : rawPathSession;
   const effectiveJob = search.get('job') ?? effectiveRun ?? '';
-  const videoSession = Boolean(search.get('intent') || effectiveJob || search.get('new') === 'video');
+  const videoModeRequested = search.get('mode') === 'video' && !pathSession && !search.get('session');
+  const videoSession = Boolean(search.get('intent') || effectiveJob || search.get('new') === 'video' || videoModeRequested);
   const savedVideoSession =
     search.get('video-session') ??
     (pathSession && /^video-[1-9][0-9]{0,18}$/.test(pathSession) ? pathSession : null);
