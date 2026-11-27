@@ -95,6 +95,12 @@ it('renders a clean directory with owner, balance, custom pricing, workspaces, M
   const trigger = screen.getByRole('button', { name: 'Actions for Acme' });
   await userEvent.setup().click(trigger);
   expect(await screen.findByRole('menuitem', { name: 'Set up' })).toBeTruthy();
+  const menu = screen.getByRole('menu');
+  const divider = menu.querySelector('[role="separator"]')!;
+  const history = screen.getByRole('menuitem', { name: 'Noncash grant history' });
+  const grant = screen.getByRole('menuitem', { name: 'Grant noncash balance' });
+  expect(history.compareDocumentPosition(divider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(divider.compareDocumentPosition(grant) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   for (const name of [
     'Customer pricing',
     'Manage Branded Credits',
