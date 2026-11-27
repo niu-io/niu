@@ -2324,6 +2324,7 @@ paths:
       security:
         - adminBearerAuth: []
       parameters:
+        - { name: pending_settlement, in: query, schema: { type: boolean, default: false } }
         - name: q
           in: query
           description: Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.

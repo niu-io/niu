@@ -34,6 +34,17 @@ curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/workspaces/{workspace}/requests
 
 ## Parameters
 
+### pending_settlement
+
+Location: **query**. Optional.
+
+```json
+{
+  "type": "boolean",
+  "default": false
+}
+```
+
 ### q
 
 Location: **query**. Optional. Case-insensitive search of model identifiers, request reference, API key name, or delivery HTTP status across the filtered range. Spaces match hyphens and underscores in model identifiers.

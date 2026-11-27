@@ -1416,6 +1416,7 @@ export type GatewayChargeSummary = {
 };
 export type GatewayActivityPage = { data: GatewayActivityEntry[]; next_cursor: string | null; summary: GatewayActivitySummary };
 export type GatewayActivityQuery = {
+  pendingSettlement?: boolean;
   /** Case-insensitive search of customer-visible request metadata. */
   q?: string;
   limit?: number; after?: string; fromMs?: number; toMs?: number;
@@ -4619,6 +4620,7 @@ export class NiuAdminClient {
 
 function gatewayActivityParameters(query: GatewayActivityQuery): URLSearchParams {
   const parameters = new URLSearchParams();
+  if (query.pendingSettlement) parameters.set('pending_settlement', 'true');
   if (query.q?.trim()) parameters.set('q', query.q.trim());
   if (query.httpStatus !== undefined) {
     if (query.httpStatus !== 'unknown' && (!Number.isInteger(query.httpStatus) || query.httpStatus < 100 || query.httpStatus > 599)) throw new Error('httpStatus must be an integer from 100 to 599 or unknown');
