@@ -163,3 +163,5 @@ Present default and custom key setup together in the confirmation dialog. A comp
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
 
 Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
+
+Registration validation focuses the first invalid field and associates the inline error with that control. Editing an unrelated field preserves the error.
