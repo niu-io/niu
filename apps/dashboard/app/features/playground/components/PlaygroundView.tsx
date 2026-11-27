@@ -795,10 +795,17 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     if (model.billing_source === 'own_api_key') return uiT('No Niu charge');
     const units = model.customer_unit_pricing;
     const price = model.customer_pricing;
-    const useUnits = units && (billingMode === 'credits' || !price);
-    if (!useUnits && !price) return uiT("Rate unavailable", "费率暂不可用");
-    const input = useUnits ? formatUnitAtoms(units.prompt_rate, units.unit_name, units.display_precision) : money(price!.prompt_rate, price!.currency);
-    const output = useUnits ? formatUnitAtoms(units.completion_rate, units.unit_name, units.display_precision) : money(price!.completion_rate, price!.currency);
+    let input: string;
+    let output: string;
+    if (units && (billingMode === 'credits' || !price)) {
+      input = formatUnitAtoms(units.prompt_rate, units.unit_name, units.display_precision);
+      output = formatUnitAtoms(units.completion_rate, units.unit_name, units.display_precision);
+    } else if (price) {
+      input = money(price.prompt_rate, price.currency);
+      output = money(price.completion_rate, price.currency);
+    } else {
+      return uiT("Rate unavailable", "费率暂不可用");
+    }
     return input + uiT("/M input tokens") + ' · ' + output + uiT("/M output tokens");
   }
   const singleTrialRate = selectedModels.length === 1 ? trialRate(selectedModels[0]) : null;
