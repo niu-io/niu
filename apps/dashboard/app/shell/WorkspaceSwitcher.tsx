@@ -248,7 +248,6 @@ export function OrganizationCreateDialog({ context, open, onOpenChange, withinSe
   }
 
   const organizationAddress = createPath({ pathname: '/settings/organization', search: new URLSearchParams({ organization: slug }).toString() });
-  const description = <>{t('Create a separate organization with its own members, workspaces, and independent zero-balance billing account.', '创建一个拥有独立成员、工作空间与零余额计费账户的新组织。')}</>;
   const form = <form onSubmit={submitCreate} className="niu-modal-form">
         <div className="grid gap-2">
           <Label htmlFor="organization-name">{t('Organization name', '组织名称')}</Label>
@@ -287,11 +286,6 @@ export function OrganizationCreateDialog({ context, open, onOpenChange, withinSe
           {slug && <span className="min-w-0 break-all text-sm text-muted-foreground">{organizationAddress}</span>}
           <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => setEditingAddress(true)}>{t('Edit address', '编辑地址')}</Button>
         </div>}
-        <div className="grid gap-2">
-          <p id="organization-prereq-help" className="text-sm text-muted-foreground">
-            {t('New organizations start with 0 credits. Add credits in Credits settings or configure a payment method before running paid model requests.', '新组织初始余额为 0。在调用付费模型前，请在“额度”中充值或完成支付配置。')}
-          </p>
-        </div>
         {createError && <p className="error-text" role="alert">{uiT(createError)}</p>}
         <DialogFooter className="workspace-create-actions">
           <Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>{t('Cancel', '取消')}</Button>
@@ -300,7 +294,7 @@ export function OrganizationCreateDialog({ context, open, onOpenChange, withinSe
       </form>;
   if (withinSettings) return open ? <section className="space-y-5" aria-labelledby="organization-create-title">
     <Button type="button" variant="ghost" size="sm" data-settings-back disabled={saving} onClick={() => onOpenChange(false)}><IconArrowLeft size={16} />{t('Back to organization', '返回组织设置')}</Button>
-    <header className="space-y-2"><h3 id="organization-create-title" className="text-base font-semibold">{t('Create organization', '创建组织')}</h3><p className="text-sm text-muted-foreground">{description}</p></header>
+    <h3 id="organization-create-title" className="text-base font-semibold">{t('Create organization', '创建组织')}</h3>
     {form}
   </section> : null;
 
@@ -314,12 +308,9 @@ export function OrganizationCreateDialog({ context, open, onOpenChange, withinSe
             .flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector)))
             .find(element => element.isConnected && element.getClientRects().length && !element.closest('[role="dialog"]'));
       if (target) { event.preventDefault(); target.focus(); }
-    }} className="niu-modal workspace-create-dialog" overlayClassName="workspace-create-overlay" showCloseButton={false}>
+    }} aria-describedby={undefined} className="niu-modal workspace-create-dialog" overlayClassName="workspace-create-overlay" showCloseButton={false}>
       <DialogHeader className="niu-modal-heading flex-row text-left">
-        <div>
-          <DialogTitle>{t('Create organization', '创建组织')}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </div>
+        <DialogTitle>{t('Create organization', '创建组织')}</DialogTitle>
         <DialogClose className="niu-modal-close" aria-label={uiT("Close dialog")}><X size={18} /></DialogClose>
       </DialogHeader>
       {form}
