@@ -147,6 +147,13 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(css).toContain('[data-slot="breadcrumb-item"]:only-child { max-width: 100%; }');
   });
 
+  it('offers recovery when an audit category or search yields no matches', () => {
+    const source = readFileSync(join(appDir, 'features/audit-logs/page.tsx'), 'utf8');
+    expect(source).toContain("const filtered = category !== 'all' || Boolean(query.trim())");
+    expect(source).toContain('filtered && <EmptyContent>');
+    expect(source).toContain('searchInput.current?.focus()');
+  });
+
   it('keeps the key directory as a responsive list instead of a fixed-width table', () => {
     const css = readFileSync(resolve(process.cwd(), 'app/styles/operations.css'), 'utf8');
     const keys = readFileSync(join(appDir, 'features/keys/components/KeysView.tsx'), 'utf8');
@@ -355,6 +362,17 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(surfaces).toContain('.dashboard-page-header:has(.dashboard-page-tabs:not(:empty)) .dashboard-page-tabs { order: 10; flex: 1 0 100%;');
     expect(shell).toContain('.page-content { width: 100%; max-width: none; flex: 1 0 auto; margin: 0; padding-block: 24px 72px; }');
     expect(foundation).not.toMatch(/\.page-content\s*\{[^}]*padding:/);
+  });
+
+  it('reveals the selected header tab after portal selection and strip resize without moving focus', () => {
+    const shell = readFileSync(join(appDir, 'shell/ShellHeader.tsx'), 'utf8');
+    const start = shell.indexOf('function revealSelectedTab');
+    const effect = shell.slice(start, shell.indexOf('}, []);', start));
+    expect(effect).toContain('aria-selected="true"');
+    expect(effect).toContain('new MutationObserver(revealSelectedTab)');
+    expect(effect).toContain('new ResizeObserver(revealSelectedTab)');
+    expect(effect).toContain('host.scrollLeft');
+    expect(effect).not.toMatch(/scrollIntoView|\.focus\(/);
   });
 
   it('keeps dialog framing, bounded scroll, and close affordances in the shared primitive', () => {

@@ -12,6 +12,8 @@ In narrow headers, truncate the parent breadcrumb before clipping a short curren
 - **Sidebar hierarchy**: Active navigation items use a clear, unmistakable fill (`#E8E3DC` light / `#2F2A26` dark) with medium-semibold ink (`--sidebar-accent-foreground`).
 - **Concise Chinese labels**: Use the shortest unambiguous Chinese noun or verb for navigation, buttons, field labels, statuses, and headings. Do not retain qualifier phrases already established by the section, icon, or entity name (`在对话中试用` → `试用`; `外观与语言` → `外观`; `成员管理` → `成员`; `额度与充值` → `额度`; `保存更改` → `保存`; `版本发布说明` → `发布说明`). Keep entity, authorization, scope, and financial terms intact, and keep the English label coherent with the Chinese action. Explanatory and metric labels stay complete when the short form would be ambiguous (`可用余额`, `账面余额`, `请求预留`, `已关闭`).
 
+The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
+
 The API key directory shows one labeled creation action at every width, including when an active filter hides historical keys.
 
 ## 2. Stable Dialog Frames & In-Control Loading
@@ -75,6 +77,8 @@ Returning from request details restores the inspected row, focus and loaded page
 - **Sibling first-run parity**: Sibling creation surfaces in Generations (`Chat` and `Video`) share the same centered mode switcher (`Chat` / `Video`), heading scale (`.playground-first-run-heading`), and `.playground-starters` / `.playground-starter` card grid (`<strong>` title, `<span>` summary, trailing arrow icon).
 - **Never leak internal IDs**: Never render UUIDs/GUIDs in UI labels, tooltips, badges, dialogs, or error notices.
 
+A filtered registration queue with zero results shows the relevant empty title. Omit raw submission URLs and generic audit explanations.
+
 ## 6. Primitive & Stylesheet Hygiene
 
 - Use installed shadcn primitives (`Button`, `Input`, `Textarea`, `Checkbox`, `Label`, `Dialog`, `DropdownMenu`, `Popover`, `Sidebar`, `Tabs`, `Card`, `Badge`, `Alert`, `Table`, `Tooltip`) directly without parallel wrappers.
@@ -134,6 +138,8 @@ The base text rate starts at zero. Both monetary and credit editors show the inc
 
 Use a right-side sheet for a current price comparison. Show both comparable rates with the currency, unit, route and threshold used by the platform. Distinguish unit spread from realized gross profit and label missing evidence. Place historical revision differences behind the current comparison. Price editors show complete input-token bands and preserve dirty input through accidental dismissal. Workspace model trials present applicable customer rates separately from upstream plan descriptions.
 
+Audit history distinguishes an empty filtered result from an empty journal. Clearing filters resets the category and query together and returns focus to search.
+
 A tab that groups multiple entity types must not show an unlabeled count for just one type. Keep counts with the entity they describe.
 
 ## Decision-focused interface copy
@@ -158,4 +164,8 @@ Present default and custom key setup together in the confirmation dialog. A comp
 
 On workspace Overview, expose a prerequisite action once. Keep the primary action visibly labeled on phones and use status counts to inspect the underlying resources.
 
+Direct video-mode links open the Video composer and its existing availability or setup state. A saved session retains its own workflow.
+
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
+
+Registration validation focuses the first invalid field and associates the inline error with that control. Editing an unrelated field preserves the error.
