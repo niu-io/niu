@@ -375,6 +375,8 @@
   .dashboard-page-header .breadcrumbs [data-slot="breadcrumb-item"]:first-child:not(:last-child) { max-width: 56px; }}
 
 @media (max-width: 600px) {
+  .unit-price-comparison { table-layout: fixed; width: 100%; min-width: 0; }
+  .unit-price-comparison :is(th, td) { padding-inline: .3rem; white-space: normal; overflow-wrap: anywhere; }
   .standard-price-directory, .standard-price-directory tbody { display: block; width: 100%; }
   .standard-price-directory thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .standard-price-directory tbody tr { display: grid; gap: .4rem; padding-block: 1rem; border-bottom: 1px solid var(--border); }
