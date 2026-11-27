@@ -608,7 +608,7 @@ function ScopedModels({
   }
 
   return (
-    <div className="empty-region space-y-4 py-1">
+    <div className="empty-region min-w-0 space-y-4 py-1">
       {!withinDialog && !loading && !error && !hasEnabledKey && (
         <Alert>
           <AlertDescription className="flex flex-wrap items-center justify-between gap-3">

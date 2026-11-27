@@ -120,6 +120,7 @@ export function ProviderPolicyDialogs({
         }}
       >
         <DialogContent
+          aria-describedby={undefined}
           className="sm:max-w-5xl [&:has([data-dialog-back])>[data-slot=dialog-footer]]:hidden"
           onEscapeKeyDown={event => {
             const back = (event.currentTarget as HTMLElement).querySelector<HTMLButtonElement>('[data-dialog-back]');
@@ -137,12 +138,6 @@ export function ProviderPolicyDialogs({
         >
           <DialogHeader>
             <DialogTitle>{uiT('Browse Provider models', '浏览供应商模型')}</DialogTitle>
-            <DialogDescription>
-              {uiT(
-                'Inspect synced models, test upstream connectivity, add custom mappings, or configure per-model pricing overrides.',
-                '搜索查看已同步模型、检测上游连通性、手动添加映射，或单独覆盖某款模型的折扣与视频费率。',
-              )}
-            </DialogDescription>
           </DialogHeader>
           <ProviderModels
             withinDialog

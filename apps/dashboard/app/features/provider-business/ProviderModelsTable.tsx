@@ -84,7 +84,7 @@ export function ProviderModelsTable({
   const isZh = locale === 'zh-CN';
 
   return (
-    <div className="table-wrap">
+    <div className="table-wrap provider-model-directory">
       <Table>
         <TableHeader>
           <TableRow>
@@ -116,7 +116,7 @@ export function ProviderModelsTable({
             return (
               <TableRow key={alias}>
                 {commercialEnabled && (
-                  <TableCell className="align-middle">
+                  <TableCell data-field="select" className="align-middle">
                     <Checkbox
                       aria-label={uiF('Select {0}', [alias])}
                       checked={selectedAliases.has(alias)}
@@ -125,7 +125,7 @@ export function ProviderModelsTable({
                   </TableCell>
                 )}
 
-                <TableCell className="align-middle">
+                <TableCell data-field="model" className="align-middle">
                   <div className="flex items-center gap-2">
                     <ProviderLogo
                       provider={modelIdentity({
@@ -159,7 +159,7 @@ export function ProviderModelsTable({
                 </TableCell>
 
                 {commercialEnabled && (
-                  <TableCell className="align-middle whitespace-nowrap tabular-nums text-sm">
+                  <TableCell data-field="rate" data-label={uiT('Upstream standard price', '上游标准价 (输入/输出 1M)')} className="align-middle whitespace-nowrap tabular-nums text-sm">
                     {info.stdInputNanos && info.stdOutputNanos && platformCurrency ? (
                       <span>
                         {formatPer1MShort(info.stdInputNanos, platformCurrency)} / {formatPer1MShort(info.stdOutputNanos, platformCurrency)}
@@ -176,7 +176,7 @@ export function ProviderModelsTable({
                 )}
 
                 {commercialEnabled && (
-                  <TableCell className="align-middle whitespace-nowrap text-sm">
+                  <TableCell data-field="cost" data-label={uiT('Discount & cost', '折扣 / 采购成本')} className="align-middle whitespace-nowrap text-sm">
                     {info.offer && info.offer.rate_kind !== 'media' ? (
                       <div className="space-y-0.5">
                         <Badge variant={info.discountPercent != null && Math.abs(info.discountPercent - 100) >= 0.05 ? 'secondary' : 'outline'} className="font-normal">
@@ -192,7 +192,7 @@ export function ProviderModelsTable({
                   </TableCell>
                 )}
 
-                <TableCell className="align-middle whitespace-nowrap">
+                <TableCell data-field="status" className="align-middle whitespace-nowrap">
                   {info.isActive ? (
                     <Badge variant="secondary" className="gap-1 font-normal">
                       <IconCheck size={12} aria-hidden="true" />
@@ -205,7 +205,7 @@ export function ProviderModelsTable({
                   )}
                 </TableCell>
 
-                <TableCell className="sticky right-0 bg-background align-middle whitespace-nowrap text-right">
+                <TableCell data-field="actions" className="sticky right-0 bg-background align-middle whitespace-nowrap text-right">
                   <div className="inline-flex items-center justify-end gap-1.5">
                     {!info.isActive ? (
                       <Button
@@ -228,17 +228,6 @@ export function ProviderModelsTable({
                         {isRowBusy ? uiT('Disabling…', '停用中…') : uiT('Disable', '停用')}
                       </Button>
                     )}
-                    {commercialEnabled && !media && (
-                      <Button
-                        type="button"
-                        size="xs"
-                        variant="outline"
-                        disabled={!canManage || busy || isRowBusy || !hasEnabledKey}
-                        onClick={() => onOpenDiscount(alias, !info.isActive)}
-                      >
-                        {uiT('Discount', '设置折扣')}
-                      </Button>
-                    )}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button type="button" size="icon-xs" variant="ghost" aria-label={uiF('More actions for {0}', [alias])}>
@@ -246,6 +235,11 @@ export function ProviderModelsTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        {commercialEnabled && !media && (
+                          <DropdownMenuItem disabled={!canManage || busy || isRowBusy || !hasEnabledKey} onSelect={() => onOpenDiscount(alias, !info.isActive)}>
+                            {uiT('Discount', '设置折扣')}
+                          </DropdownMenuItem>
+                        )}
                         {primary && (
                           <DropdownMenuItem disabled={!canManage || currentCheck?.pending} onSelect={() => onCheck(primary.connection, primary.model)}>
                             {currentCheck?.pending ? uiT('Checking…') : uiT('Check connection', '测试连通')}

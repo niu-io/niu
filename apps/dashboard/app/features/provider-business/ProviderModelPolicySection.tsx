@@ -117,6 +117,7 @@ export default function ProviderModelPolicySection({
 
   const singleDiscountRow = singleDiscountAlias ? rowByAlias.get(singleDiscountAlias) ?? null : null;
 
+  const hasModelsToActivate = commercialEnabled && counts.unactivatedPricedCount > 0;
   return (
     <section
       className="space-y-4"
@@ -288,22 +289,15 @@ export default function ProviderModelPolicySection({
               )}
             </div>
 
-            {accessMode === 'all' && (
+            {accessMode === 'all' && (!hasEnabledKey || counts.total === 0 || hasModelsToActivate) && (
               <div className="border-t border-border/60 pt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-                <span>
-                  {!connections.some(connection => connection.has_credential)
-                    ? uiT('API key not configured. Configure an API key above to import and serve models.', 'API 密钥未配置。请先在上方配置 API 密钥，即可导入并启用模型。')
-                    : !hasEnabledKey
-                      ? uiT('All configured API keys are disabled. Enable an API key above to serve models.', '已配置的 API 密钥处于停用状态，请先在上方启用 API 密钥。')
-                      : counts.total === 0
-                      ? uiT('No models synced yet. Click "Import models" to discover available models from this Provider.', '尚未同步模型。点击「导入模型」即可拉取并自动启用可用模型。')
-                      : commercialEnabled && counts.unactivatedPricedCount > 0
-                        ? counts.unactivatedPricedCount === 1
-                          ? uiT('1 priced model is ready to activate under your default discount.', '有 1 个具备标准售价的模型可按默认折扣一键启用。')
-                          : uiF('{0} priced models are ready to activate under your default discount.', [counts.unactivatedPricedCount])
-                        : uiT('Individual models are hidden by default. Use "Browse models" to inspect the catalog, test connectivity, or configure per-model overrides.', '缺省不在此展开完整模型列表。点击「浏览模型」可搜索查看全量模型、测试连通性或单独设置某款模型的折扣与视频费率。')}
-                </span>
-                {commercialEnabled && hasEnabledKey && counts.unactivatedPricedCount > 0 && (
+                {!hasEnabledKey && <span>
+                  {connections.some(connection => connection.has_credential)
+                    ? uiT('All configured API keys are disabled.', '所有已配置的 API 密钥均已停用。')
+                    : uiT('API key not configured', 'API 密钥未配置')}
+                </span>}
+                {hasEnabledKey && counts.total === 0 && <span>{uiT('No models synced yet.', '尚未同步模型。')}</span>}
+                {hasEnabledKey && hasModelsToActivate && (
                   <Button
                     type="button"
                     size="sm"

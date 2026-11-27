@@ -353,3 +353,17 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
   .commercial-position-table th { white-space: normal; }
   .commercial-position-table td:first-child { overflow-wrap: anywhere; }
 }
+
+.provider-model-directory { container: provider-models / inline-size; min-width: 0; }
+@container provider-models (max-width: 46rem) {
+  .provider-model-directory table, .provider-model-directory tbody { display: block; width: 100%; min-width: 0; }
+  .provider-model-directory thead tr { display: block; }
+  .provider-model-directory thead th:not(:has([role="checkbox"])) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .provider-model-directory tbody tr { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: .5rem; align-items: center; padding: .75rem .25rem; }
+  .provider-model-directory tbody td { padding: 0; white-space: normal; }
+  .provider-model-directory [data-field="model"] { grid-column: 2 / -1; }
+  .provider-model-directory [data-field="rate"], .provider-model-directory [data-field="cost"] { grid-column: 2 / -1; }
+  .provider-model-directory [data-label]::before { content: attr(data-label); display: block; color: var(--muted-foreground); font-size: .75rem; }
+  .provider-model-directory [data-field="status"] { grid-column: 2; }
+  .provider-model-directory [data-field="actions"] { position: static; grid-column: 3; }
+}
