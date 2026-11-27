@@ -174,6 +174,8 @@ Direct video-mode links open the Video composer and its existing availability or
 
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
 
+Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
+
 Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
 
 When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
