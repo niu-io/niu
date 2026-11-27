@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { WorkspaceCreateDialog } from '../../app/shell/WorkspaceSwitcher';
+import { OrganizationCreateDialog, WorkspaceCreateDialog } from '../../app/shell/WorkspaceSwitcher';
 import type { DashboardContext } from '../../app/shell/dashboard-context';
 import { workspaceSlugFromName, workspacePathSegment, resolveWorkspacePathSegment } from '../../app/shell/workspace-route';
 
@@ -30,6 +30,20 @@ describe('workspace slugs', () => {
     expect(workspacePathSegment(second, list)).toBe('research-2');
     expect(resolveWorkspacePathSegment('research-2', list)).toBe(second);
     expect(resolveWorkspacePathSegment('research-22222222', list)).toBe(second);
+  });
+  it('previews the organization address and preserves a custom identifier', async () => {
+    const user = userEvent.setup();
+    render(<OrganizationCreateDialog context={{createOrganization: vi.fn()} as unknown as DashboardContext} open onOpenChange={vi.fn()}/>);
+    const name = screen.getByLabelText('Organization name');
+    await user.type(name, 'Studio');
+    expect(screen.getByText('/settings/organization?organization=studio')).toBeTruthy();
+    expect(screen.queryByLabelText('Address identifier')).toBeNull();
+    await user.click(screen.getByRole('button', {name: 'Edit address'}));
+    const identifier = screen.getByLabelText('Address identifier') as HTMLInputElement;
+    await user.clear(identifier);
+    await user.type(identifier, 'custom');
+    await user.type(name, ' team');
+    expect(identifier.value).toBe('custom');
   });
   it('suggests pinyin, preserves manual edits, and retains collision errors', async () => {
     const user = userEvent.setup();
