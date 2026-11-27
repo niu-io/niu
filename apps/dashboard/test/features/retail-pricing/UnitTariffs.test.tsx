@@ -108,8 +108,8 @@ describe('Branded Credits tariffs', () => {
 
     await user.click(modelButton);
     await user.click(await screen.findByRole('menuitemradio', { name: 'text-model' }));
-    const prompt = screen.getByLabelText('Input rate (Niu Credits / 1M tokens)');
-    const completion = screen.getByLabelText('Output rate (Niu Credits / 1M tokens)');
+    const prompt = screen.getByLabelText('Input / 1M tokens');
+    const completion = screen.getByLabelText('Output / 1M tokens');
     await user.type(prompt, '0.000000001');
     await user.type(completion, '15');
     await user.click(screen.getByRole('button', { name: 'Publish Niu Credits tariff' }));
