@@ -175,6 +175,26 @@ export default function ShellHeader({
       : `${title} · ${adminSupplierName} · ${brandingName}`;
   }, [adminSupplierId, adminSupplierName, brandingName, isProviderOverview, title]);
   const headerRef = useRef<HTMLElement>(null);
+  const tabsHost = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const host = tabsHost.current;
+    if (!host) return;
+    function revealSelectedTab() {
+      if (!host || host.scrollWidth <= host.clientWidth) return;
+      const tab = host.querySelector('[role="tab"][aria-selected="true"]');
+      if (!tab) return;
+      const bounds = host.getBoundingClientRect();
+      const selected = tab.getBoundingClientRect();
+      if (selected.right > bounds.right) host.scrollLeft += selected.right - bounds.right;
+      else if (selected.left < bounds.left) host.scrollLeft -= bounds.left - selected.left;
+    }
+    const selection = new MutationObserver(revealSelectedTab);
+    selection.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-selected'] });
+    const size = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(revealSelectedTab);
+    size?.observe(host);
+    revealSelectedTab();
+    return () => { selection.disconnect(); size?.disconnect(); };
+  }, []);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -426,6 +446,7 @@ export default function ShellHeader({
         </Breadcrumb>
       )}
       <div
+        ref={tabsHost}
         id="dashboard-page-tabs"
         className="dashboard-page-tabs"
       />
