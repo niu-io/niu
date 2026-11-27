@@ -424,7 +424,7 @@ function BillingView({ token, organization, project, headerAction }: { token: st
           {(data.unresolved !== '0' || data.unpriced !== '0') && <div className="space-y-1.5">
             <p className="text-muted-foreground">{[data.unresolved !== '0' && (data.unresolved === '1' ? uiT("1 request awaiting settlement") : uiF("{0} requests awaiting settlement", [data.unresolved])), data.unpriced !== '0' && (data.unpriced === '1' ? uiT("1 request without a customer rate") : uiF("{0} requests without a customer rate", [data.unpriced]))].filter(Boolean).join(' · ')}{uiT(".")}</p>
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              {data.unresolved !== '0' && <Link className="font-medium text-primary hover:underline" to="../executions?status=may_have_executed" relative="path">{uiT("Inspect pending requests", "查看待结算请求")}</Link>}
+              {data.unresolved !== '0' && <Link className="font-medium text-primary hover:underline" to="../executions?settlement=pending" relative="path">{uiT("Inspect pending requests", "查看待结算请求")}</Link>}
               {data.unpriced !== '0' && <Button type="button" variant="link" size="sm" className="h-auto p-0 font-medium" onClick={() => selectTab('rates')}>{uiT("Review rates", "查看费率")}</Button>}
             </div>
           </div>}
