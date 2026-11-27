@@ -2638,7 +2638,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Other enabled API keys on this endpoint ({0} remaining) will continue serving traffic automatically. The stored API key is kept and can be re-enabled anytime.": "此接口地址仍有其他已启用密钥（剩余 {0} 个），流量会自动继续切换过去。此密钥会保留并可随时重新启用。",
   "Other enabled API keys on this endpoint ({0} remaining) will continue serving traffic automatically. This key's stored credential will be erased while requests, billing, incidents, and audit history are retained.": "此接口地址仍有其他已启用密钥（剩余 {0} 个），流量会自动继续切换过去。此密钥的已保存凭据会被清除，请求、账单、事件与审计历史均会保留。",
   "Other enabled API keys on this endpoint ({0} remaining) will continue serving traffic automatically.": "此接口地址仍有其他已启用密钥（剩余 {0} 个），流量会自动继续切换过去。",
-  "Matches {0} active key(s) on this endpoint — joins their shared pool automatically for load-balancing and failover without re-importing models.": "与该接口地址现有的 {0} 个已启用密钥匹配——保存后会自动加入共享密钥池进行负载均衡与故障切换，无需重复导入模型。",
+  "Joins this endpoint’s key pool ({0} active).": "将加入此地址的密钥池（已启用 {0} 个）。",
   "Models mapped to this key will stop receiving new requests.": "映射到此密钥的模型将停止接收新请求。",
   "Keep enabled": "保持启用",
   "Platform administrator access required": "需要平台管理员权限",
