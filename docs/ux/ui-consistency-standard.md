@@ -130,4 +130,6 @@ Keep the financial reporting cutoff fixed while inspecting report tabs and model
 
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
 
+When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
+
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
