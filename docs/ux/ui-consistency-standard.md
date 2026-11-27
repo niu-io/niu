@@ -14,7 +14,7 @@ In narrow headers, truncate the parent breadcrumb before clipping a short curren
 
 The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
 
-The API key directory shows one labeled creation action at every width, including when an active filter hides historical keys.
+Customer and API key directories keep their primary creation action visibly labeled at every width. The key directory shows one creation action even when an active filter hides historical keys.
 
 ## 2. Stable Dialog Frames & In-Control Loading
 

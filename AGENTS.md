@@ -46,7 +46,7 @@ Never use a native HTML `<select>` / `<option>` control, the shadcn Select compo
 
 Customer access lists retain workspace links, member roles and workspace scope on narrow screens. Show labeled values within each row without horizontal scrolling.
 
-The API key directory shows one labeled creation action at every width, including when an active filter hides historical keys.
+Customer and API key directories keep their primary creation action visibly labeled at every width. The key directory shows one creation action even when an active filter hides historical keys.
 
 ## Shared UI components
 
