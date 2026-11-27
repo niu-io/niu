@@ -10,6 +10,8 @@ This document defines the mandatory, product-wide UI and interaction standards f
 - **Sidebar hierarchy**: Active navigation items use a clear, unmistakable fill (`#E8E3DC` light / `#2F2A26` dark) with medium-semibold ink (`--sidebar-accent-foreground`).
 - **Concise Chinese labels**: Use the shortest unambiguous Chinese noun or verb for navigation, buttons, field labels, statuses, and headings. Do not retain qualifier phrases already established by the section, icon, or entity name (`在对话中试用` → `试用`; `外观与语言` → `外观`; `成员管理` → `成员`; `额度与充值` → `额度`; `保存更改` → `保存`; `版本发布说明` → `发布说明`). Keep entity, authorization, scope, and financial terms intact, and keep the English label coherent with the Chinese action. Explanatory and metric labels stay complete when the short form would be ambiguous (`可用余额`, `账面余额`, `请求预留`, `已关闭`).
 
+The API key directory shows one labeled creation action at every width, including when an active filter hides historical keys.
+
 ## 2. Stable Dialog Frames & In-Control Loading
 
 - **Stable modal frame across sections**: A global Settings dialog must keep the same outer size across every section. Never measure the active section and resize the dialog (the frame will jump when users switch tabs); group sparse content with dividers and section headings inside the fixed frame, and scroll only the content region. Never render a visible global title bar or lead strip inside the modal; keep the dialog title screen-reader-only, reserve top space for the floating close control, and render section-specific actions only when present. About uses one centered identity/resource composition rather than stretching sparse content across the frame or pinning legal links to the bottom.
