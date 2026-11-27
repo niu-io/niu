@@ -1193,6 +1193,7 @@ function CommercialStatement({ token }: { token: string }) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{uiT("Provider / model")}</TableHead>
+                    <TableHead className="text-right">{uiT("Net contribution")}</TableHead>
                     <TableHead className="hidden md:table-cell">{uiT("Agreed offer quote")}</TableHead>
                     <TableHead className="text-right">{uiT("Gross charges")}</TableHead>
                     <TableHead className="text-right">{uiT("Net revenue")}</TableHead>
@@ -1200,7 +1201,6 @@ function CommercialStatement({ token }: { token: string }) {
                     <TableHead className="text-right">{uiT("Customer unpaid credit")}</TableHead>
                     <TableHead className="text-right">{uiT("Provider payable")}</TableHead>
                     <TableHead className="text-right">{uiT("Recorded upstream cost")}</TableHead>
-                    <TableHead className="text-right">{uiT("Net contribution")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1254,6 +1254,24 @@ function CommercialStatement({ token }: { token: string }) {
                               {row.supplier_name}
                             </Link>
                           </div>
+                        </TableCell>
+
+                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                          {rowContrib !== null ? (
+                            <div>
+                              <div className="font-medium">
+                                <StatementMoney amount={rowContrib} currency={row.currency} />
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatMarginPercent(rowContrib, rowNetRev)}
+                              </div>
+                            </div>
+                          ) : unresolved > 0n ? (
+                            row.pending_attempts?.length && position ? <PendingAttempts key={[position.from, position.until, row.currency, row.supplier_id, row.model_alias, token].join('|')}
+                              row={row} from={position.from} until={position.until} token={token} /> : <Badge variant="outline">{uiT("Pending (")}{unresolved.toString()} {uiT("unresolved)")}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
+                          )}
                         </TableCell>
 
                         <TableCell className="align-top whitespace-normal hidden md:table-cell text-xs max-w-[240px]">
@@ -1381,23 +1399,6 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
-                          {rowContrib !== null ? (
-                            <div>
-                              <div className="font-medium">
-                                <StatementMoney amount={rowContrib} currency={row.currency} />
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {formatMarginPercent(rowContrib, rowNetRev)}
-                              </div>
-                            </div>
-                          ) : unresolved > 0n ? (
-                            row.pending_attempts?.length && position ? <PendingAttempts key={[position.from, position.until, row.currency, row.supplier_id, row.model_alias, token].join('|')}
-                              row={row} from={position.from} until={position.until} token={token} /> : <Badge variant="outline">{uiT("Pending (")}{unresolved.toString()} {uiT("unresolved)")}</Badge>
-                          ) : (
-                            <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
-                          )}
-                        </TableCell>
                       </TableRow>
                     );
                   })}
