@@ -243,6 +243,12 @@ export function CustomerDetail({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {primaryAccount && (
+                  <DropdownMenuItem onSelect={() => openEditorFrom('history', primaryAccount, openerRef.current)}>
+                    {uiT('Noncash grant history')}
+                  </DropdownMenuItem>
+                )}
+                {primaryAccount && <DropdownMenuSeparator />}
                 <DropdownMenuItem
                   className="sm:hidden"
                   disabled={!canTransactPrimary}
@@ -258,18 +264,12 @@ export function CustomerDetail({
                 >
                   {uiT('Set up access', '配置工作空间与账号')}
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   disabled={!canTransactPrimary}
                   onSelect={() => openEditorFrom('grant', primaryAccount, openerRef.current)}
                 >
                   {uiT('Grant noncash balance')}
                 </DropdownMenuItem>
-                {primaryAccount && (
-                  <DropdownMenuItem onSelect={() => openEditorFrom('history', primaryAccount, openerRef.current)}>
-                    {uiT('Noncash grant history')}
-                  </DropdownMenuItem>
-                )}
                 <DropdownMenuItem onSelect={() => openEditorFrom('units', primaryAccount, openerRef.current)}>
                   {uiT('Manage Branded Credits')}
                 </DropdownMenuItem>

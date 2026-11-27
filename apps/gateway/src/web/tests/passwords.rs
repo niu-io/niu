@@ -2536,6 +2536,17 @@ async fn limited_preview_registration_requires_approval_and_provisions_workspace
     assert!(actions.contains(&"registration_approved"), "{actions:?}");
     assert!(actions.contains(&"registration_rejected"), "{actions:?}");
     assert!(actions.contains(&"registration_disabled"), "{actions:?}");
+    let filtered = request(
+        &app,
+        Method::GET,
+        "/api/v1/admin/audit?limit=1&search=approved&labels=action%3Aregistration_approved",
+        Some(ADMIN),
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(filtered.0, StatusCode::OK);
+    assert_eq!(filtered.2["data"][0]["action"], "registration_approved");
 }
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]

@@ -101,11 +101,8 @@ export const adminRoute: RouteObject = {
     {
       id: 'admin-settings-registration',
       path: 'settings/registration',
-      lazy: bindLazy(routeImporters.platformRegistrationPolicy, {
-        destination: 'Administration',
-        navTo: '/admin/settings/registration',
-        title: { en: 'Registration policy', zh: '注册策略' },
-      }),
+      loader: legacyRedirectLoader,
+      element: <LegacyRedirectRoute />,
     },
     {
       id: 'admin-settings',
@@ -119,11 +116,8 @@ export const adminRoute: RouteObject = {
     {
       id: 'admin-registrations',
       path: 'registrations',
-      lazy: bindLazy(routeImporters.adminRegistrations, {
-        destination: 'Administration',
-        navTo: '/admin/registrations',
-        title: { en: 'Registrations', zh: '注册审批' },
-      }),
+      loader: legacyRedirectLoader,
+      element: <LegacyRedirectRoute />,
     },
     {
       id: 'admin-customers',
