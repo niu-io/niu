@@ -26,8 +26,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { TableSkeleton } from '@/components/PageSkeletons';
+import { ListRowsSkeleton } from '@/components/PageSkeletons';
 import { formatDateTime } from '@/features/operators/api';
 import { ApiRequestError, cachedGet, peekCachedGet, request } from '@/lib/api-client';
 import { invalidateQueries, primeQuery } from '@/lib/query-cache';
@@ -370,6 +369,7 @@ export function RegistrationRequestsQueue({
         setNextCursor(page.next_cursor);
         setCounts(page.counts);
         onCountsRef.current?.(page.counts);
+        window.dispatchEvent(new CustomEvent('niu:registrations-updated', { detail: page.counts.pending }));
       } catch {
         if (!controller.signal.aborted) {
           setLoadFailed(true);
@@ -400,7 +400,6 @@ export function RegistrationRequestsQueue({
     } else {
       setNoticeKind('rejected');
     }
-    window.dispatchEvent(new Event('niu:registrations-updated'));
     void loadQueue(statusFilter);
   }
 
@@ -477,7 +476,7 @@ export function RegistrationRequestsQueue({
         )}
 
         {loadedFilter !== statusFilter && !loadFailed ? (
-          <TableSkeleton columns={6} rows={4} label={t('Loading registration requests…', '正在加载注册申请…')} />
+          <ListRowsSkeleton rows={4} label={t('Loading registration requests…', '正在加载注册申请…')} />
         ) : loadedFilter === statusFilter && !loadFailed && !records.length ? (
           <Empty>
             <EmptyHeader>
@@ -505,106 +504,55 @@ export function RegistrationRequestsQueue({
             </EmptyHeader>
           </Empty>
         ) : loadedFilter === statusFilter && records.length > 0 ? (
-          <Table className="min-w-[820px]" aria-label={t('Registration requests table', '注册申请列表')}>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[20%]">{t('Applicant', '申请人')}</TableHead>
-                <TableHead className="w-[20%]">{t('Organization & workspace', '组织与工作空间')}</TableHead>
-                <TableHead className="w-[18%]">{t('Use case & review note', '用途与审批备注')}</TableHead>
-                <TableHead className="w-[14%]">{t('Submitted / reviewed', '提交与审批时间')}</TableHead>
-                <TableHead className="w-[12%] whitespace-nowrap">{t('Status', '状态')}</TableHead>
-                <TableHead className="w-[16%] whitespace-nowrap text-right">{t('Actions', '操作')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {records.map(record => (
-                <TableRow key={record.id}>
-                  <TableCell className="whitespace-normal align-top">
-                    <p className="font-medium [overflow-wrap:anywhere]">{record.applicant_name}</p>
-                    <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{record.email}</p>
-                  </TableCell>
-                  <TableCell className="whitespace-normal align-top">
-                    <p className="[overflow-wrap:anywhere]">{record.organization_name}</p>
-                    <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{record.workspace_name}</p>
-                    {record.status === 'approved' && record.approved_workspace_slug && (
-                      <p className="mt-1 text-xs">
-                        <Link
-                          className="text-primary underline underline-offset-2"
-                          to={`/workspaces/${encodeURIComponent(record.approved_workspace_slug)}/`}
-                        >
-                          {record.approved_workspace_slug}
-                        </Link>
-                      </p>
+          <ul className="divide-y border-y" aria-label={t('Registration requests', '注册申请')}>
+            {records.map(record => (
+              <li key={record.id} className="grid min-w-0 gap-x-5 gap-y-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="min-w-0 space-y-1 [overflow-wrap:anywhere]">
+                  <p className="font-medium">{record.applicant_name}</p>
+                  <p className="text-sm">{record.email}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {record.organization_name} · {record.workspace_name}
+                    {record.approved_workspace_slug && (
+                      <> · <Link className="text-primary underline underline-offset-2" to={`/workspaces/${encodeURIComponent(record.approved_workspace_slug)}/`}>{record.approved_workspace_slug}</Link></>
                     )}
-                  </TableCell>
-                  <TableCell className="whitespace-normal align-top">
-                    <p className="text-sm [overflow-wrap:anywhere]">
-                      {record.note || <span className="text-muted-foreground">—</span>}
+                  </p>
+                  {record.note && <p className="whitespace-pre-wrap text-sm">{record.note}</p>}
+                  {record.decision_note && <p className="whitespace-pre-wrap text-sm">{t('Review note', '审批备注')} · {record.decision_note}</p>}
+                  <p className="text-xs text-muted-foreground">{t('Submitted', '提交')} · {formatDateTime(record.created_at)}</p>
+                  {record.reviewed_at && (
+                    <p className="text-xs text-muted-foreground">
+                      {record.status === 'approved' ? t('Approved', '已批准') : t('Rejected', '已拒绝')} · {formatDateTime(record.reviewed_at)} · {reviewerLabel(record)}
                     </p>
-                    {record.decision_note && (
-                      <p className="mt-1 text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                        {t('Note:', '备注：')} {record.decision_note}
-                      </p>
-                    )}
-                  </TableCell>
-                  <TableCell className="whitespace-normal align-top text-xs text-muted-foreground">
-                    <p>{formatDateTime(record.created_at)}</p>
-                    {record.reviewed_at && (
-                      <p className="mt-1">
-                        {formatDateTime(record.reviewed_at)} · {reviewerLabel(record)}
-                      </p>
-                    )}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap align-top">
-                    <Badge
-                      variant={
-                        record.status === 'approved'
-                          ? 'default'
-                          : record.status === 'pending'
-                            ? 'secondary'
-                            : 'outline'
-                      }
+                  )}
+                </div>
+                {record.status === 'pending' && (
+                  <div className="flex items-start gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={event => {
+                        openerRef.current = event.currentTarget;
+                        setDialog({ kind: 'approve', record });
+                      }}
                     >
-                      {record.status === 'pending'
-                        ? t('Pending review', '待审批')
-                        : record.status === 'approved'
-                          ? t('Approved', '已批准')
-                          : t('Rejected', '已拒绝')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-right align-top">
-                    {record.status === 'pending' ? (
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={event => {
-                            openerRef.current = event.currentTarget;
-                            setDialog({ kind: 'approve', record });
-                          }}
-                        >
-                          {t('Approve', '批准')}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={event => {
-                            openerRef.current = event.currentTarget;
-                            setDialog({ kind: 'reject', record });
-                          }}
-                        >
-                          {t('Reject', '拒绝')}
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                      {t('Approve', '批准')}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={event => {
+                        openerRef.current = event.currentTarget;
+                        setDialog({ kind: 'reject', record });
+                      }}
+                    >
+                      {t('Reject', '拒绝')}
+                    </Button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
         ) : null}
 
         {loadedFilter === statusFilter && nextCursor && (
