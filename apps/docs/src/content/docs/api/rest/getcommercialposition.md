@@ -300,6 +300,17 @@ Content type: `application/json`.
                 "attempt": {
                   "type": "string"
                 },
+                "workspace_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "reference": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Customer-visible request reference."
+                },
                 "execution": {
                   "type": "string"
                 },

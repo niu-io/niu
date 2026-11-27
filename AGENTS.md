@@ -219,6 +219,8 @@ Use field labels, units, comparable values and action names to make workflows cl
 
 New text price and credit tariff menus use the registered route’s text eligibility. Missing media price specifications alone never establish eligibility. Inspect route pool candidates and upstream modality metadata even when a public alias hides the underlying model name.
 
+Unresolved financial report entries link their public request reference to the owning workspace log when that workspace is accessible. Older responses without scope remain readable.
+
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
