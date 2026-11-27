@@ -811,7 +811,7 @@ function RoutePoolEditorDialog({
       }
       const route = discoveredRoutes.find(item => item.alias === candidateAlias);
       if (route && !route.ownerFunded && route.priced === false) {
-        setFormError(candidateAlias + ' · ' + t('Purchase price not configured', '采购价未配置'));
+        setFormError(`${candidateAlias} · ${t('Purchase price not configured', '采购价未配置')}`);
         return;
       }
       if (seenAliases.has(candidateAlias)) {
