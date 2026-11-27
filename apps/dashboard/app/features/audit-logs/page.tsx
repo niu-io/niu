@@ -45,6 +45,13 @@ export default function AuditLogsPage() {
 
 function AuditLogs({ token }: { token: string }) {
   const { t: uiT } = useUILocale();
+  function targetName(event: PlatformAuditEvent) {
+    if (event.source !== 'vendor') return event.target_label;
+    const [connection, ...model] = event.target_label.split(' / ');
+    const reference = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(connection)
+      ? `ID ${connection}` : connection;
+    return [uiT("Provider connection", "供应商连接"), reference, ...model].join(' · ');
+  }
   function eventAction(event: PlatformAuditEvent) {
     switch (event.action) {
       case 'registration_preview_enabled': return uiT('Limited Preview registration enabled', '已开启有限预览注册');
@@ -114,7 +121,7 @@ function AuditLogs({ token }: { token: string }) {
   }
 
   const needle = query.trim().toLowerCase();
-  const matchesSearch = (event: PlatformAuditEvent) => [eventAction(event), actorName(event), event.target_label, translateUI(categories[event.category])].join(' ').toLowerCase().includes(needle);
+  const matchesSearch = (event: PlatformAuditEvent) => [eventAction(event), actorName(event), targetName(event), translateUI(categories[event.category])].join(' ').toLowerCase().includes(needle);
   const visibleRows = rows?.filter(matchesSearch);
   useEffect(() => {
     if (!needle || !cursor || loading || error) return;
@@ -160,9 +167,9 @@ function AuditLogs({ token }: { token: string }) {
       <TableHeader><TableRow><TableHead className="w-48">{uiT("Time (UTC)")}</TableHead><TableHead>{uiT("Action")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Actor")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Target")}</TableHead></TableRow></TableHeader>
       <TableBody>{(visibleRows ?? []).map(event => <TableRow key={event.id}>
         <TableCell className="align-top whitespace-normal text-xs tabular-nums sm:whitespace-nowrap"><time dateTime={event.created_at}>{new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' }).format(new Date(event.created_at))}</time></TableCell>
-        <TableCell className="align-top whitespace-normal break-words"><span>{eventAction(event)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + roleName(event.before_role) + ' → ' + roleName(event.after_role) : ''}</span><small className="mt-1 block text-muted-foreground">{translateUI(categories[event.category])}</small><dl className="mt-2 space-y-1 md:hidden"><div><dt className="inline text-xs text-muted-foreground">{uiT("Actor:")}{" "}</dt><dd className="inline">{actorName(event)}</dd></div><div><dt className="inline text-xs text-muted-foreground">{uiT("Target:")}{" "}</dt><dd className="inline">{event.target_label}</dd></div></dl></TableCell>
+        <TableCell className="align-top whitespace-normal break-words"><span>{eventAction(event)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + roleName(event.before_role) + ' → ' + roleName(event.after_role) : ''}</span><small className="mt-1 block text-muted-foreground">{translateUI(categories[event.category])}</small><dl className="mt-2 space-y-1 md:hidden"><div><dt className="inline text-xs text-muted-foreground">{uiT("Actor:")}{" "}</dt><dd className="inline">{actorName(event)}</dd></div><div><dt className="inline text-xs text-muted-foreground">{uiT("Target:")}{" "}</dt><dd className="inline">{targetName(event)}</dd></div></dl></TableCell>
         <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{actorName(event)}</TableCell>
-        <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{event.target_label}</TableCell>
+        <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{targetName(event)}</TableCell>
       </TableRow>)}</TableBody>
     </Table>}
     {cursor && !needle && <div className="flex justify-center"><Button variant="outline" disabled={loading} onClick={() => void loadMore()}>{loading ? uiT("Loading…") : uiT("Load more")}</Button></div>}
