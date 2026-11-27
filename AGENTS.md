@@ -173,3 +173,7 @@ Keep the MCP installation dialog focused on installing the server in the current
 Display API key last use as localized relative time in the directory and detail view. A recorded null displays “Never used” (从未使用). An omitted timestamp displays “Unavailable”.
 
 - **Inspect the evidence behind a commercial decision.** Platform price comparisons show matching selling and purchase rates, units, input-token bands and supply source. Keep historical selling revisions secondary to current comparisons. Display realized margin only with sufficient coverage. Show customer trial terms separately from upstream plan descriptions and keep procurement rates within platform administration. Protect unpublished price edits when dismissing the editor.
+
+## Decision-focused interface copy
+
+Use field labels, units, comparable values and action names to make workflows clear. Remove introductions that repeat a title, describe visible controls or explain unrelated product behavior. Keep concrete errors, prerequisites and irreversible consequences at the affected action.
