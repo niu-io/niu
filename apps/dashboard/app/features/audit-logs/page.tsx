@@ -2,7 +2,7 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empt
 import { translateUI, readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
-import { IconChevronDown, IconHistory, IconRefresh } from '@tabler/icons-react';
+import { IconChevronDown, IconHistory, IconRefresh, IconSearch } from '@tabler/icons-react';
 import type { PlatformAuditCategory, PlatformAuditEvent, PlatformAuditPage } from '@niu-io/sdk/platform-audit';
 import { TableSkeleton } from '@/components/PageSkeletons';
 import PageHeader from '@/components/PageHeader';
@@ -145,14 +145,17 @@ function AuditLogs({ token }: { token: string }) {
         </DropdownMenuRadioGroup></DropdownMenuContent>
       </DropdownMenu>
       <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-        <Input
-              className="w-full sm:w-64"
-          type="search"
-              value={query}
-              onChange={event => setQuery(event.target.value)}
-              placeholder={uiT("Search events")}
-              aria-label={uiT("Search audit events")}
-            />
+        <div className="relative w-full sm:w-64">
+          <IconSearch size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="w-full pl-9"
+            type="search"
+            value={query}
+            onChange={event => setQuery(event.target.value)}
+            placeholder={uiT("Search events")}
+            aria-label={uiT("Search audit events")}
+          />
+        </div>
       </div>
     </div>
     {error && <p role="alert" className="text-sm text-destructive">{error} <Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
