@@ -4114,7 +4114,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Writing": "写作",
   "Cost estimate": "费用估算",
   "Estimate monthly API spend from daily traffic.": "根据日请求量与 Token 数估算月度调用成本。",
-  "{0} active models": "{0} 个活跃模型",
+  "Active models: {0}": "活跃模型：{0}",
   "Car wash": "洗车",
   "Context budget": "上下文预算",
   "Snake game": "贪吃蛇",

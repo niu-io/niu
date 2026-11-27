@@ -64,6 +64,8 @@ After a registration queue refresh or review decision, the queue, customer tab a
 
 Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
 
+Financial report model counts use distinct active model aliases across Providers. Provider-by-model rows retain their individual financial amounts.
+
 Returning from request details restores the inspected row, focus and loaded page depth for that log history entry. Restore only from workspaces that are still authorized.
 
 - **No raw unstyled loading paragraphs or visible skeleton captions**: Never render bare `<p role="status">Loading…</p>` in pages or dialogs, and never render visible `"Loading…"` / `"正在加载…"` captions above skeleton shimmer bars. Use `TableSkeleton`, `FormSectionSkeleton`, `ListRowsSkeleton`, `CardGridSkeleton`, or `WorkspaceShellSkeleton` (from [`PageSkeletons.tsx`](../../apps/dashboard/app/components/PageSkeletons.tsx)) with `<span className="sr-only">{label}</span>` so screen readers receive `role="status"` announcements while sighted users see clean shimmer geometry. Overview and checklist surfaces (`/admin`, `/workspaces/:workspace`) must gate zero-resource `"Action needed"` / `"Admin setup"` warnings until their snapshot or catalog load settles, and `<Navigate>` call sites must never pass inline object literals (`state={{ ... }}` or `to={{ ... }}`), which restart React Router transitions in an infinite loop.

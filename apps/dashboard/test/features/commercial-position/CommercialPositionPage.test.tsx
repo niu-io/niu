@@ -124,6 +124,15 @@ const sampleSummary = {
   },
 };
 
+it('counts a model used through two providers once in the statement summary', async () => {
+  const active = samplePosition.data[1];
+  const data = [...samplePosition.data, { ...active, supplier_id: 'another-provider', supplier_name: 'Another provider' }];
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) =>
+    Response.json(String(input).includes('/finance/position') ? { ...samplePosition, data } : sampleSummary)));
+  render(<MemoryRouter><CommercialPositionPage /></MemoryRouter>);
+  expect(await screen.findByText(/Active models: 1/)).toBeTruthy();
+});
+
 it('renders a structured financial statement with period comparisons, active model filtering, and PDF export', async () => {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
