@@ -657,6 +657,8 @@ pub enum StoreError {
     InvalidGenerationsInput,
     #[error("invalid vendor or model configuration")]
     InvalidVendor,
+    #[error("Candidate model pricing is not configured")]
+    CandidatePriceMissing,
     #[error("database pool size must be positive")]
     InvalidPoolSize,
     #[error("invalid gateway admission batch")]
