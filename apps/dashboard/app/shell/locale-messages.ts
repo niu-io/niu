@@ -778,8 +778,6 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Rates are charged in {0} when the installation bills in Branded Credits. Publishing a rate does not change the active billing mode.": "当安装按品牌额度计费时，费率以{0}计价。发布费率不会改变当前计费模式。",
   "Retry Credits tariffs": "重试额度费率",
   "Video tariffs": "视频费率",
-  "Publish {0} tariff": "发布{0}费率",
-  "Revise {0} tariff": "修订{0}费率",
   "Per quantity (video tokens)": "每数量（视频 Token）",
   "Minimum quantity (video tokens)": "最低数量（视频 Token）",
   "No Credits tariffs match this filter.": "没有符合筛选条件的额度费率。",

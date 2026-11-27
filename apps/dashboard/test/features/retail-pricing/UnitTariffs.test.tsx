@@ -112,7 +112,7 @@ describe('Branded Credits tariffs', () => {
     const completion = screen.getByLabelText('Output / 1M tokens');
     await user.type(prompt, '0.000000001');
     await user.type(completion, '15');
-    await user.click(screen.getByRole('button', { name: 'Publish Niu Credits tariff' }));
+    await user.click(screen.getByRole('button', { name: 'Publish', exact: true }));
     await waitFor(() => expect(writes).toHaveLength(1));
 
     expect(writes[0].path).toBe('/api/v1/admin/units/tariffs');
@@ -157,7 +157,7 @@ describe('Branded Credits tariffs', () => {
     await user.type(screen.getByLabelText('Rate (Niu Credits)'), '0.5');
     await user.clear(screen.getByLabelText('Per quantity (video tokens)'));
     await user.type(screen.getByLabelText('Per quantity (video tokens)'), '1000000');
-    await user.click(screen.getByRole('button', { name: 'Publish Niu Credits tariff' }));
+    await user.click(screen.getByRole('button', { name: 'Publish', exact: true }));
     await waitFor(() => expect(writes).toHaveLength(1));
 
     expect(writes[0].path).toBe('/api/v1/admin/units/media/tariffs');
