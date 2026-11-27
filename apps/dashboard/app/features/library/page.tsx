@@ -171,7 +171,7 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug,compact=fal
     }
   }
   const visible=assets.filter(asset=>asset.name.toLowerCase().includes(query.trim().toLowerCase()));
-  return <section className={compact ? 'empty-region space-y-3' : 'empty-region space-y-4'}>
+  return <section className={compact ? 'space-y-3' : 'empty-region space-y-4'}>
     <div className="flex flex-wrap items-center gap-2">
       <Input ref={uploadInput} type="file" className="hidden" aria-label={uiT("Upload workspace reference image", "上传工作空间参考图")} accept="image/png,image/jpeg,image/webp" multiple onChange={event=>void uploadFiles(event.target.files)} disabled={!canWrite||uploading||busy}/>
       <Popover><PopoverTrigger asChild><Button ref={searchButton} variant={query?'secondary':'outline'} size={compact?'icon-sm':'icon'} aria-label={query?uiF("Search library: {0}", [query]):uiT("Search library")}><IconSearch size={compact?15:18}/></Button></PopoverTrigger><PopoverContent align="start" className="grid gap-2"><Label htmlFor="library-search">{uiT("Search loaded files")}</Label><Input id="library-search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={uiT("File name…")}/></PopoverContent></Popover>
@@ -183,7 +183,7 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug,compact=fal
     {uploadError && <p role="alert" className="break-words text-sm text-destructive">{uploadError}</p>}
     {notice&&<p role="status" className="text-xs text-muted-foreground">{uiT(notice)}</p>}
     {loading&&!assets.length&&!error?(compact?<ListRowsSkeleton rows={4} label={uiT("Loading library…")}/>:<TableSkeleton columns={5} rows={5} label={uiT("Loading library…")}/>):error?<div role="alert" className="space-y-2 text-sm"><p>{uiT(error)}</p><Button variant="outline" size={compact?'sm':'default'} onClick={()=>setRevision(value=>value+1)}>{uiT("Retry library")}</Button></div>:<>
-      {!visible.length ? <Empty className={compact ? 'border-0 bg-transparent p-4' : 'min-h-64'}>
+      {!visible.length ? <Empty className={compact ? 'p-4' : undefined}>
         <EmptyHeader>
           <EmptyMedia variant="icon">{query || kind !== 'all' ? <IconSearchOff aria-hidden="true" /> : <IconPhoto aria-hidden="true" />}</EmptyMedia>
           <EmptyTitle>{query ? uiT("No matching loaded files") : kind !== 'all' ? uiT("No matching media", "没有匹配的素材") : uiT("No saved media yet")}</EmptyTitle>

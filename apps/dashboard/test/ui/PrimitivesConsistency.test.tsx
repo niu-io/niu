@@ -59,6 +59,10 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(surfaces).not.toContain('.guardrails-page:has(> .guardrails-empty) { display: flex; flex: 0 0 auto;');
     const guardrails = readFileSync(join(appDir, 'features/guardrails/page.tsx'), 'utf8');
     expect(guardrails).toContain('guardrails-page empty-region');
+    const assets = readFileSync(join(appDir, 'features/assets/page.tsx'), 'utf8');
+    expect(assets).not.toContain('<div className="space-y-5">');
+    const library = readFileSync(join(appDir, 'features/library/page.tsx'), 'utf8');
+    expect(library).not.toContain('min-h-64');
     expect(guardrails).not.toContain('min-h-[min(56dvh,28rem)]');
   });
 
