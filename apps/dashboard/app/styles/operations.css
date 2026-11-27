@@ -348,3 +348,8 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
   .commercial-position-table td:first-child { display: block; text-align: start; padding-bottom: .5rem; }
   .commercial-position-table td:first-child::before { content: none; }
 }
+
+@media screen and (min-width: 960px) {
+  .commercial-position-table th { white-space: normal; }
+  .commercial-position-table td:first-child { overflow-wrap: anywhere; }
+}
