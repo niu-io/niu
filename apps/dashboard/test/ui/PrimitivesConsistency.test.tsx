@@ -141,6 +141,12 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(fallback.className).not.toContain('bg-muted');
   });
 
+  it('reserves room for the current breadcrumb in narrow headers', () => {
+    const css = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
+    expect(css).toContain('[data-slot="breadcrumb-item"]:last-child { flex: 1 0 auto;');
+    expect(css).toContain('[data-slot="breadcrumb-item"]:only-child { max-width: 100%; }');
+  });
+
   it('offers recovery when an audit category or search yields no matches', () => {
     const source = readFileSync(join(appDir, 'features/audit-logs/page.tsx'), 'utf8');
     expect(source).toContain("const filtered = category !== 'all' || Boolean(query.trim())");
