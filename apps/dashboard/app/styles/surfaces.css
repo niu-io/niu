@@ -377,6 +377,14 @@
 @media (max-width: 600px) {
   .unit-price-comparison { table-layout: fixed; width: 100%; min-width: 0; }
   .unit-price-comparison :is(th, td) { padding-inline: .3rem; white-space: normal; overflow-wrap: anywhere; }
+  .text-unit-comparison { display: block; }
+  .text-unit-comparison caption, .text-unit-comparison tbody { display: block; }
+  .text-unit-comparison thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .text-unit-comparison tbody tr { display: grid; padding-block: .5rem; }
+  .text-unit-comparison td { padding-block: .15rem; }
+  .text-unit-comparison td:first-child { font-weight: 600; }
+  .text-unit-comparison td[data-label] { display: flex; justify-content: space-between; gap: .5rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .text-unit-comparison td[data-label]::before { content: attr(data-label); color: var(--muted-foreground); }
   .standard-price-directory, .standard-price-directory tbody { display: block; width: 100%; }
   .standard-price-directory thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .standard-price-directory tbody tr { display: grid; gap: .4rem; padding-block: 1rem; border-bottom: 1px solid var(--border); }
