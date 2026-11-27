@@ -165,6 +165,8 @@ Use Manus as the reference for the shared visual treatment of agent-product surf
 
 ## Status and list information
 
+Request toolbar date controls show both selected bounds at phone widths. Let the controls wrap below the request count when the row is too narrow.
+
 Search paginated audit history on the server before applying page limits. Match localized display labels, load further results only on request, and restore the first page when search is cleared.
 
 Design management lists around the decision users need to make. Every column and status must distinguish meaningful outcomes or support a concrete action. Do not expose a backend field merely because it exists, or display universal labels such as “Configuration saved” on lists containing only saved records.

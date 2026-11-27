@@ -146,6 +146,11 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(fallback.className).not.toContain('bg-muted');
   });
 
+  it('sizes the narrow log date control to its selected range', () => {
+    const css = readFileSync(join(appDir, 'styles/operations.css'), 'utf8');
+    expect(css).not.toMatch(/\.request-date-trigger\s*\{\s*width:\s*100px;/);
+  });
+
   it('reserves room for the current breadcrumb in narrow headers', () => {
     const css = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
     expect(css).toContain('[data-slot="breadcrumb-item"]:last-child { flex: 1 0 auto;');
