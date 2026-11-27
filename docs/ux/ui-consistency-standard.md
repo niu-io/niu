@@ -41,6 +41,8 @@ This document defines the mandatory, product-wide UI and interaction standards f
 
 - **List readability and action affordance**: Management lists must not hide a decision-critical field in a truncated fixed column. API key rows expose model access, limits, expiry, status, and last use in a responsive row/list with no horizontal scrolling; multi-model access may use a keyboard-accessible popover, and model trial actions must look like actions (button/link with affordance), not metadata text.
 
+Registration review rows keep the applicant identity and available decision actions readable without horizontal scrolling across desktop, tablet and phone widths.
+
 ## 4. Unified Input & Composer Controls
 
 - **Single shared composer across all Generations modes**: `Chat`, `New Video`, and `Video Session` MUST all render [`GenerationComposer`](../../apps/dashboard/app/features/generations/GenerationComposer.tsx) and [`GenerationComposerCover`](../../apps/dashboard/app/features/generations/GenerationComposer.tsx) with identical geometry (`max-width: var(--generation-reading-width)`, `20px` radius, `54px` minimum textarea height, `36px` bottom toolbar, and `36×36` circular submit button).

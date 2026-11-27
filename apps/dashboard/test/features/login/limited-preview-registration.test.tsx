@@ -69,7 +69,10 @@ describe('Limited Preview registration flow', () => {
     await user.click(screen.getByRole('button', { name: 'Submit registration request' }));
 
     expect(await screen.findByText('Request submitted for review')).toBeTruthy();
-    expect(screen.getByText('ada@example.test')).toBeTruthy();
+    const applicant = screen.getByText('ada@example.test').closest('li');
+    expect(applicant?.textContent).toContain('Ada Lovelace');
+    expect(applicant?.textContent).toContain('Approve');
+    expect(applicant?.textContent).toContain('Reject');
     const submitCall = fetchMock.mock.calls.find(call => String(call[0]) === '/api/v1/auth/registrations');
     expect(submitCall).toBeTruthy();
     expect(JSON.parse(String(submitCall?.[1]?.body))).toEqual({
@@ -201,7 +204,10 @@ describe('Limited Preview registration flow', () => {
     );
 
     expect(await screen.findByText('Ada Lovelace')).toBeTruthy();
-    expect(screen.getByText('ada@example.test')).toBeTruthy();
+    const applicant = screen.getByText('ada@example.test').closest('li');
+    expect(applicant?.textContent).toContain('Ada Lovelace');
+    expect(applicant?.textContent).toContain('Approve');
+    expect(applicant?.textContent).toContain('Reject');
     expect(container.querySelector('select')).toBeNull();
     expect(container.textContent).not.toContain(requestId);
 
