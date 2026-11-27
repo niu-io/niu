@@ -454,7 +454,11 @@ export function Customers({
                   </Button>
                 )}
               </>
-            ) : undefined
+            ) : (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/admin/settings?tab=registration">{uiT("Registration policy", "注册策略")}</Link>
+              </Button>
+            )
           }
         />
 
