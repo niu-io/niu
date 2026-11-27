@@ -5,6 +5,9 @@ export function mediaAmount(units: string, places: number): string {
   const digits = BigInt(units).toString().padStart(places + 1, '0');
   return places ? digits.slice(0, -places) + '.' + digits.slice(-places) : digits;
 }
+export function compactMediaAmount(units: string, places: number): string {
+  return mediaAmount(units, places).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
+}
 export function mediaAmountUnits(value: string, places: number): string {
   const match = /^(\d+)(?:\.(\d+))?$/.exec(value.trim());
   if (!Number.isInteger(places) || places < 0 || places > 9 || !match) throw new Error('Enter a nonnegative media price and a decimal scale from zero to nine.');
