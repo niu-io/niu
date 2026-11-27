@@ -68,16 +68,14 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
               <Button asChild variant="secondary"><Link replace state={location.state} to={settingsHref('members')}>{t('View all organization members', '查看全部成员')}</Link></Button>
             </div>
       ) : context.session ? (
-        <>
-          <OperatorsView
-            key={`${context.token}:${context.organization?.id}:${scopedWorkspace?.id ?? 'organization'}`}
-            initialOrganization={context.organization?.id ?? context.workspace?.organization_id}
-            initialWorkspace={scopedWorkspace?.id}
-            token={context.token}
-            session={context.session}
-            refreshWorkspace={context.refreshWorkspace}
-          />
-        </>
+        <OperatorsView
+          key={`${context.token}:${context.organization?.id}:${scopedWorkspace?.id ?? 'organization'}`}
+          initialOrganization={context.organization?.id ?? context.workspace?.organization_id}
+          initialWorkspace={scopedWorkspace?.id}
+          token={context.token}
+          session={context.session}
+          refreshWorkspace={context.refreshWorkspace}
+        />
       ) : (
         <MetricStripSkeleton count={2} label={t('Loading organization members…', '加载成员…')} />
       )}
