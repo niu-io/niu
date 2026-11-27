@@ -25,6 +25,13 @@ describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
 
+  it('pins both credit tariff writes to the revision shown on opening', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/unit-tariffs.tsx'), 'utf8');
+    expect(source.match(/const \[config\] = useState\(openingConfig\)/g)).toHaveLength(2);
+    expect(source.match(/expected_revision: config\.revision/g)).toHaveLength(2);
+    expect(source).not.toContain('expected_revision: latestCfg');
+  });
+
   it('keeps storage precision guidance out of the credit tariff heading', () => {
     const source = readFileSync(join(appDir, 'features/retail-pricing/unit-tariffs.tsx'), 'utf8');
     expect(source).not.toContain('decimal places are stored exactly');
@@ -146,10 +153,20 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(fallback.className).not.toContain('bg-muted');
   });
 
+  it('sizes the narrow log date control to its selected range', () => {
+    const css = readFileSync(join(appDir, 'styles/operations.css'), 'utf8');
+    expect(css).not.toMatch(/\.request-date-trigger\s*\{\s*width:\s*100px;/);
+  });
+
   it('reserves room for the current breadcrumb in narrow headers', () => {
     const css = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
     expect(css).toContain('[data-slot="breadcrumb-item"]:last-child { flex: 1 0 auto;');
     expect(css).toContain('[data-slot="breadcrumb-item"]:only-child { max-width: 100%; }');
+  });
+
+  it('keeps the customer creation label visible on phones', () => {
+    const customers = readFileSync(join(appDir, 'features/customers/customer-directory.tsx'), 'utf8');
+    expect(customers).not.toMatch(/className="hidden sm:inline">\{uiT\("New customer"\)/);
   });
 
   it('offers recovery when an audit category or search yields no matches', () => {

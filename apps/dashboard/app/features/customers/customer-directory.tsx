@@ -449,8 +449,8 @@ export function Customers({
                 </Button>
                 {canSetup && (
                   <Button aria-label={uiT("New customer")} onClick={event => { opener.current = event.currentTarget; setCreate(true); }}>
-                    <IconPlus size={16} />
-                    <span className="hidden sm:inline">{uiT("New customer")}</span>
+                    <IconPlus size={16} aria-hidden="true" />
+                    <span>{uiT("New customer")}</span>
                   </Button>
                 )}
               </>
