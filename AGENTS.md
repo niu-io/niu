@@ -36,6 +36,8 @@ Use a single word for each API route segment unless a compound is strictly neces
 
 Use SSH for authorized remote inspection and configuration transfers. Do not use Supen to inspect remote sessions or coordinate development unless the user explicitly requests it. Keep transferred credentials outside the public repository.
 
+Registration review rows keep the applicant identity and available decision actions readable without horizontal scrolling across desktop, tablet and phone widths.
+
 ## Dashboard choice controls
 
 Legacy links to tabbed platform settings must open the matching canonical tab with its sibling navigation visible, preserving other query parameters and the fragment. New entry points link directly to the canonical tab.
@@ -192,5 +194,7 @@ New text price and credit tariff menus use the registered route’s text eligibi
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
+
+When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
 
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.

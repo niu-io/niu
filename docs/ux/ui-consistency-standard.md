@@ -27,6 +27,8 @@ This document defines the mandatory, product-wide UI and interaction standards f
 - **Transparent top navigation bars at rest, frosted glass on scroll**: Sticky/fixed top navigation bars (`.public-header`, Starlight `header.header`, `.public-models-topbar`, and `.dashboard-page-header`) must render completely transparent when unscrolled (`background: transparent`, `backdrop-filter: none`, `box-shadow: none`, and transparent bottom border unless hosting active header section tabs) and switch to frosted glass only when scrolled (`scrollY > 8` / `scrollTop > 8`: `68%–72%` translucent `--background` + `saturate(180%) blur(20px)` + subtle bottom hairline).
 ## 3. Uniform Choice, Header & Toolbar Controls
 
+Legacy platform settings URLs open the matching tab in the shared settings header. Keep unrelated query parameters and fragments when redirecting.
+
 Search paginated audit history on the server before applying page limits. Match localized display labels, load further results only on request, and restore the first page when search is cleared.
 
 - **DropdownMenu only**: Never use native `<select>` / `<option>`, shadcn `Select`, or custom dropdown abstractions. Compose shadcn `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, and `DropdownMenuRadioGroup` / `DropdownMenuRadioItem` (or `DropdownMenuCheckboxItem`) directly, keeping the selection check on the right aligned with standard items.
@@ -43,7 +45,7 @@ Search paginated audit history on the server before applying page limits. Match 
 
 - **List readability and action affordance**: Management lists must not hide a decision-critical field in a truncated fixed column. API key rows expose model access, limits, expiry, status, and last use in a responsive row/list with no horizontal scrolling; multi-model access may use a keyboard-accessible popover, and model trial actions must look like actions (button/link with affordance), not metadata text.
 
-Legacy platform settings URLs open the matching tab in the shared settings header. Keep unrelated query parameters and fragments when redirecting.
+Registration review rows keep the applicant identity and available decision actions readable without horizontal scrolling across desktop, tablet and phone widths.
 
 ## 4. Unified Input & Composer Controls
 
@@ -131,5 +133,7 @@ A catalog model can be labeled free only when the complete applicable tariff est
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
+
+When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
 
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
