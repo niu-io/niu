@@ -2,6 +2,8 @@
 
 This document defines the mandatory, product-wide UI and interaction standards for the Niu dashboard. Every new or modified page, dialog, menu, composer, and status surface must conform to these rules so the product looks and behaves as one coherent system rather than a collection of ad-hoc overrides.
 
+In narrow headers, truncate the parent breadcrumb before clipping a short current page title. Keep the workspace picker and page actions reachable.
+
 ## 1. Visual System & Semantic Tokens
 
 - **Single token source**: Define brand, surface, text, border, and elevation tokens in [`branding/tokens.css`](../../branding/tokens.css) and map them in [`apps/dashboard/app/styles/theme.css`](../../apps/dashboard/app/styles/theme.css). Never hardcode one-off hex colors in feature stylesheets or JSX.
@@ -9,6 +11,8 @@ This document defines the mandatory, product-wide UI and interaction standards f
 - **Warm-stone surfaces & subtle separation**: Follow Manus-style surface restraint — separate navigation, canvas, and sections with subtle solid background tones and spacing (`#FAF9F7` / `#F3F1ED` light, `#191716` / `#221F1D` dark) rather than repeated bordered cards or decorative shadows. Reserve elevation (`--shadow-composer`, `--shadow-panel`) for floating composers, popovers, menus, and dialogs.
 - **Sidebar hierarchy**: Active navigation items use a clear, unmistakable fill (`#E8E3DC` light / `#2F2A26` dark) with medium-semibold ink (`--sidebar-accent-foreground`).
 - **Concise Chinese labels**: Use the shortest unambiguous Chinese noun or verb for navigation, buttons, field labels, statuses, and headings. Do not retain qualifier phrases already established by the section, icon, or entity name (`在对话中试用` → `试用`; `外观与语言` → `外观`; `成员管理` → `成员`; `额度与充值` → `额度`; `保存更改` → `保存`; `版本发布说明` → `发布说明`). Keep entity, authorization, scope, and financial terms intact, and keep the English label coherent with the Chinese action. Explanatory and metric labels stay complete when the short form would be ambiguous (`可用余额`, `账面余额`, `请求预留`, `已关闭`).
+
+The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
 
 The API key directory shows one labeled creation action at every width, including when an active filter hides historical keys.
 
@@ -28,6 +32,8 @@ The API key directory shows one labeled creation action at every width, includin
 - **No trailing arrow icons in button labels**: Action buttons and button-styled links never append a diagonal arrow or external-link glyph after their label. Use a leading meaningful icon, no icon, or a trailing `ChevronRight` for directional navigation; external links keep the external affordance in the leading icon or accessible name.
 - **Transparent top navigation bars at rest, frosted glass on scroll**: Sticky/fixed top navigation bars (`.public-header`, Starlight `header.header`, `.public-models-topbar`, and `.dashboard-page-header`) must render completely transparent when unscrolled (`background: transparent`, `backdrop-filter: none`, `box-shadow: none`, and transparent bottom border unless hosting active header section tabs) and switch to frosted glass only when scrolled (`scrollY > 8` / `scrollTop > 8`: `68%–72%` translucent `--background` + `saturate(180%) blur(20px)` + subtle bottom hairline).
 ## 3. Uniform Choice, Header & Toolbar Controls
+
+Legacy platform settings URLs open the matching tab in the shared settings header. Keep unrelated query parameters and fragments when redirecting.
 
 Search paginated audit history on the server before applying page limits. Match localized display labels, load further results only on request, and restore the first page when search is cleared.
 
@@ -72,6 +78,8 @@ Returning from request details restores the inspected row, focus and loaded page
 - **Never leak internal IDs**: Never render UUIDs/GUIDs in UI labels, tooltips, badges, dialogs, or error notices.
 
 Customer access lists retain workspace links, member roles and workspace scope on narrow screens. Show labeled values within each row without horizontal scrolling.
+
+A filtered registration queue with zero results shows the relevant empty title. Omit raw submission URLs and generic audit explanations.
 
 ## 6. Primitive & Stylesheet Hygiene
 
@@ -151,3 +159,7 @@ On pricing tabs, identify the mode used for billing independently of the selecte
 When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
 
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
+
+Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action.
+
+Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
