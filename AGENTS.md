@@ -245,6 +245,8 @@ Workspace activity summaries keep the workspace, request count and charge visibl
 
 Organization and workspace creation derive the address from the name. Preview the organization settings or workspace destination and expose identifier constraints when editing the address.
 
+Registration queue links retain the selected review status on reopen and browser Back. Preserve unrelated query parameters when switching status.
+
 Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
 
 Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
