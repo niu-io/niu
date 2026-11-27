@@ -76,7 +76,7 @@ function formatModalityList(values: string[], isZh: boolean): string {
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useModelPopularity } from '@/shell/useModelPopularity';
-import { formatUnitAtoms, money } from '@/lib/money';
+import { formatExactUnitAtoms, money } from '@/lib/money';
 import { workspacePathSegment } from '@/shell/workspace-route';
 
 
@@ -127,20 +127,20 @@ function zeroTokenRates(rates: CustomerTokenRates) {
 
 function isFreeTariff(price?: CustomerPricing | CustomerUnitPricing | null) {
   if (!price || !zeroTokenRates(price) || !price.context_tiers?.every(zeroTokenRates)) return false;
-  return price.unit === 'atoms_per_million_tokens'
+  return 'unit_name' in price
     ? price.request_fee_atoms === '0' && price.minimum_charge_atoms === '0'
     : price.request_fee_nanos === '0' && price.minimum_charge_nanos === '0';
 }
 
 function requestCharges(price?: CustomerPricing | CustomerUnitPricing | null) {
   if (!price) return [];
-  const credits = price.unit === 'atoms_per_million_tokens';
+  const credits = 'unit_name' in price;
   const entries = [
     ['Request fee', credits ? price.request_fee_atoms : price.request_fee_nanos],
     ['Minimum charge', credits ? price.minimum_charge_atoms : price.minimum_charge_nanos],
   ] as const;
   return entries.flatMap(([label, value]) => value && value !== '0' ? [{
-    label, amount: credits ? formatUnitAtoms(value, price.unit_name, price.display_precision) : money(value, price.currency),
+    label, amount: credits ? formatExactUnitAtoms(value, price.unit_name, price.display_precision) : money(value, price.currency),
   }] : []);
 }
 
@@ -154,8 +154,8 @@ function ContextTariff({ price }: { price: CustomerPricing | CustomerUnitPricing
       <dl className="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm">{categories.map(([key, label]) => {
         const value = band[key];
         if (value == null) return null;
-        const amount = price.unit === 'atoms_per_million_tokens'
-          ? formatUnitAtoms(value, price.unit_name, price.display_precision) : money(value, price.currency);
+        const amount = 'unit_name' in price
+          ? formatExactUnitAtoms(value, price.unit_name, price.display_precision) : money(value, price.currency);
         return <div key={key}><dt className="text-muted-foreground">{t(label)}</dt><dd>{amount}</dd></div>;
       })}</dl>
     </div>)}
@@ -566,7 +566,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
 
               <div className="models-card-footer">
                 <div className="models-card-rates">
-                  {uncallable ? <span className="text-muted-foreground">{readinessBadgeText(model, uiT)}</span> : model.billing_source === 'own_api_key' ? <span>{uiT("No Niu charge")}</span> : price?.context_tiers?.length && !free ? <Link className="underline underline-offset-2" to={detailHref}>{uiT('Context tiers')}</Link> : free ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}
+                  {uncallable ? <span className="text-muted-foreground">{readinessBadgeText(model, uiT)}</span> : model.billing_source === 'own_api_key' ? <span>{uiT("No Niu charge")}</span> : price?.context_tiers?.length && !free ? <Link className="underline underline-offset-2" to={detailHref}>{uiT('Context tiers')}</Link> : free ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatExactUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatExactUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}
                   {!uncallable && model.billing_source !== 'own_api_key' && requestCharges(price).map(charge => <span key={charge.label}>{uiT(charge.label)} · {charge.amount}</span>)}
                   {contextText && <span>{contextText}</span>}
                 </div>
@@ -635,9 +635,9 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
             : uiT("Billing information is unavailable. Refresh the catalog or ask your administrator to confirm how usage is billed before sending a request.")}</p>
       )}
       <dl className="model-route-facts">
-        {!tieredPrice && selected.billing_source !== 'own_api_key' && (!isVideoModel(selected) || hasChatOutput(selected)) && <><div><dt>{uiT("Input price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatUnitAtoms(selected.customer_unit_pricing!.prompt_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.prompt_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div>
-        {showUnitPricing(selected) && selected.customer_unit_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{formatUnitAtoms(selected.customer_unit_pricing.cached_prompt_rate, selected.customer_unit_pricing.unit_name, selected.customer_unit_pricing.display_precision)}{" "}{uiT("/M tokens")}</dd></div> : selected.customer_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{money(selected.customer_pricing.cached_prompt_rate, selected.customer_pricing.currency)}{" "}{uiT("/M tokens")}</dd></div> : null}
-        <div><dt>{uiT("Output price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatUnitAtoms(selected.customer_unit_pricing!.completion_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.completion_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div></>}
+        {!tieredPrice && selected.billing_source !== 'own_api_key' && (!isVideoModel(selected) || hasChatOutput(selected)) && <><div><dt>{uiT("Input price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatExactUnitAtoms(selected.customer_unit_pricing!.prompt_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.prompt_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div>
+        {showUnitPricing(selected) && selected.customer_unit_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{formatExactUnitAtoms(selected.customer_unit_pricing.cached_prompt_rate, selected.customer_unit_pricing.unit_name, selected.customer_unit_pricing.display_precision)}{" "}{uiT("/M tokens")}</dd></div> : selected.customer_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{money(selected.customer_pricing.cached_prompt_rate, selected.customer_pricing.currency)}{" "}{uiT("/M tokens")}</dd></div> : null}
+        <div><dt>{uiT("Output price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatExactUnitAtoms(selected.customer_unit_pricing!.completion_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.completion_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div></>}
         {selected.billing_source !== 'own_api_key' && requestCharges(showUnitPricing(selected) ? selected.customer_unit_pricing : selected.customer_pricing).map(charge =>
           <div key={charge.label}><dt>{uiT(charge.label)}</dt><dd>{charge.amount}</dd></div>)}
         {selected.catalog?.context_length != null && <div><dt>{uiT("Context length")}</dt><dd>{selected.catalog.context_length.toLocaleString(readUILocale())}{" "}{uiT("tokens")}</dd></div>}
