@@ -42,3 +42,9 @@ export function mediaPriceExample(price: string, places: number, perInput: strin
   if (rounding === 'Up' ? remainder !== 0n : rounding === 'HalfEven' && (remainder > denominator - remainder || (remainder === denominator - remainder && result % 2n === 1n))) result++;
   return mediaAmount(result.toString(), places);
 }
+
+export const mediaRoundingLabels = {
+  Up: 'Round up',
+  Down: 'Round down',
+  HalfEven: 'Nearest, ties to even',
+} as const;
