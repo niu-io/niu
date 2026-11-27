@@ -366,7 +366,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
   }, [popularModels, query, authorsSelected, providersSelected, capabilities, sort]);
   const visible = filtered.slice(0, limit);
   const selected = models.find(model => model.id === selectedId) ?? null;
-  const showOriginalDescription = Boolean(selected?.catalog?.description) && (isZh ? !/\p{Script=Han}/u.test(selected?.catalog?.description ?? '') : /\p{Script=Han}/u.test(selected?.catalog?.description ?? ''));
+  const showOriginalDescription = Boolean(selected?.catalog?.description) && (!publicMode || (isZh ? !/\p{Script=Han}/u.test(selected?.catalog?.description ?? '') : /\p{Script=Han}/u.test(selected?.catalog?.description ?? '')));
   const descriptionRef = useRef<HTMLDivElement>(null);
   const descriptionTriggerRef = useRef<HTMLButtonElement>(null);
   const previousDescription = useRef<{model:string|null; open:boolean}>({model:null,open:false});
@@ -455,7 +455,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
               </Label>)}</div>
             </CollapsibleContent>
           </Collapsible>)}
-          <Collapsible className="models-filter-group pt-2 mt-1" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Developer")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Inferred developer filters")}>
+          <Collapsible className="models-filter-group pt-2 mt-1" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Inferred developer", "推测的开发者")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Inferred developer filters")}>
           <p className="text-xs text-muted-foreground">{uiT("Inferred from model identifiers; not verified.")}</p><div className="models-filter-options">
             {(allAuthors ? authors : authors.slice(0, 10)).map(identity => <Label key={identity.id}><Checkbox aria-label={identity.name} checked={authorsSelected.includes(identity.id)} onCheckedChange={() => chooseAuthor(identity.id)} />{identity.name}<span>{models.filter(model => modelDeveloper(model)?.id === identity.id).length}</span></Label>)}
           </div>
@@ -505,7 +505,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
             const cardTitle = disambiguatedCatalogTitle(model, models);
             const rawDesc = model.catalog?.description;
             const hasHanDesc = /\p{Script=Han}/u.test(rawDesc ?? '');
-            const showDesc = Boolean(rawDesc && (isZh ? hasHanDesc : !hasHanDesc));
+            const showDesc = publicMode && Boolean(rawDesc && (isZh ? hasHanDesc : !hasHanDesc));
             const isFreeUnit = showUnitPricing(model) && model.customer_unit_pricing?.prompt_rate === '0' && model.customer_unit_pricing?.completion_rate === '0';
             const isFreeCurrency = !showUnitPricing(model) && model.customer_pricing != null && model.customer_pricing.prompt_rate === '0' && model.customer_pricing.completion_rate === '0';
             const contextText = model.catalog?.context_length != null
@@ -590,7 +590,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
       <div className="flex min-w-0 flex-wrap items-center gap-2"><code className="min-w-0 break-all text-sm text-muted-foreground">{selected.id}</code><Button type="button" variant="ghost" size="sm" aria-label={uiT("Copy model ID", "复制模型 ID")} onClick={() => void copyModelId()}><Clipboard size={14} aria-hidden="true" />{modelIdFeedback?.model === selected.id && modelIdFeedback.copied ? uiT("Copied") : uiT("Copy")}</Button></div>
       {modelIdFeedback?.model === selected.id && !modelIdFeedback.copied && <p role="alert" className="error-text">{uiT("Clipboard access is unavailable. Select and copy the model ID instead.", "无法访问剪贴板，请选择并复制模型 ID。")}</p>}
       {selected.catalog?.description && (showOriginalDescription ? <Collapsible open={descriptionOpen} onOpenChange={open => setExpandedDescription(open ? selectedId : null)} className="space-y-2">
-        <CollapsibleTrigger asChild aria-controls="model-description"><Button ref={descriptionTriggerRef} variant="ghost" size="sm" className="px-0 scroll-mt-24">{descriptionOpen ? uiT('Hide original description', '收起原始说明') : uiT('Show original description', '查看原始说明')}<ChevronDown className={descriptionOpen ? 'rotate-180' : ''} size={14} aria-hidden="true" /></Button></CollapsibleTrigger>
+        <CollapsibleTrigger asChild aria-controls="model-description"><Button ref={descriptionTriggerRef} variant="ghost" size="sm" className="px-0 scroll-mt-24">{descriptionOpen ? uiT('Hide original description', '收起原始说明') : uiT('Upstream model description', '上游模型说明')}<ChevronDown className={descriptionOpen ? 'rotate-180' : ''} size={14} aria-hidden="true" /></Button></CollapsibleTrigger>
         <CollapsibleContent id="model-description" className="break-words leading-6 [&_p+p]:mt-3 [&_a]:underline [&_a]:underline-offset-2"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({children,href}) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>}}>{selected.catalog.description}</ReactMarkdown></CollapsibleContent>
       </Collapsible> : <Collapsible open={descriptionOpen} onOpenChange={open => setExpandedDescription(open ? selectedId : null)} className="space-y-2">
         <div ref={descriptionRef} id="model-description" className={`break-words leading-6 [&_p+p]:mt-3 [&_a]:underline [&_a]:underline-offset-2${descriptionOpen ? '' : ' line-clamp-2'}`}><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({children,href}) => <a href={href} tabIndex={descriptionOpen ? undefined : -1} target="_blank" rel="noopener noreferrer">{children}</a>}}>{selected.catalog.description}</ReactMarkdown></div>
@@ -621,7 +621,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
         {!!selected.catalog?.input_modalities?.length && <div><dt>{uiT("Input modalities")}</dt><dd>{formatModalityList(selected.catalog.input_modalities, isZh)}</dd></div>}
         {!!capabilityValues(selected,'output').length && <div><dt>{uiT("Output modalities")}</dt><dd>{formatModalityList(capabilityValues(selected,'output'), isZh)}</dd></div>}
 
-        {modelDeveloper(selected) && <div><dt>{uiT("Developer")}</dt><dd>{modelDeveloper(selected)!.name}</dd></div>}
+        {modelDeveloper(selected) && <div><dt>{uiT("Inferred developer", "推测的开发者")}</dt><dd>{modelDeveloper(selected)!.name}</dd></div>}
         {modelProviderName(selected) && <div><dt>{uiT("Provider")}</dt><dd>{modelProviderName(selected)}</dd></div>}
         {selected.upstream_model && selected.upstream_model !== selected.id && <div><dt>{uiT("Upstream model")}</dt><dd>{selected.upstream_model}</dd></div>}
       </dl>

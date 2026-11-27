@@ -64,10 +64,6 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
         return !ownerId || ownerId === providerId || ownerId === targetSupplierId;
       })
     : [];
-  const inheritedConnection =
-    scopedConnections.find(candidate => candidate.enabled && candidate.has_credential) ??
-    scopedConnections[0] ??
-    null;
   const resolvedSlug = (
     providerSlug ||
     selectedProvider?.slug ||
@@ -75,6 +71,10 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
   )
     .trim()
     .toLowerCase();
+  const compatibleConnections = scopedConnections.filter(candidate =>
+    !isBuiltinBrandIntegration(resolvedSlug) || resolvedSlug === 'openrouter' || candidate.adapter !== 'openrouter');
+  const inheritedConnection = compatibleConnections.find(candidate => candidate.enabled && candidate.has_credential)
+    ?? compatibleConnections[0] ?? null;
   const cachedPresets =
     isScopedToProvider && !activeConnection && token
       ? peekCachedGet<{ data: ProviderServiceDescriptor[] }>(token, '/api/v1/admin/providers/presets')?.data ?? null

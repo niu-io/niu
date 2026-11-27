@@ -7,7 +7,7 @@ import {
   isRetailBelowPurchaseSchedule,
   shouldAutoSyncCustomerPrice,
 } from '@/features/provider-business/provider-model-actions';
-import { PricingHealthNotice } from '@/features/retail-pricing/pricing-health';
+import { PriceComparison } from '@/features/retail-pricing/pricing-health';
 import type { ProviderOffer, RetailPriceRecord } from '@niu-io/sdk/admin';
 
 describe('Provider standard pricing alignment & below_cost prevention', () => {
@@ -147,7 +147,7 @@ describe('Provider standard pricing alignment & below_cost prevention', () => {
 
   it('never renders Below Provider cost warning when rates match (no_lower_unit_rates) or when supply is inactive', () => {
     const equalRender = render(
-      <PricingHealthNotice
+      <PriceComparison currency="USD"
         health={{
           advisory: true,
           supply_status: 'active',
@@ -160,6 +160,7 @@ describe('Provider standard pricing alignment & below_cost prevention', () => {
               status: 'no_lower_unit_rates',
               dimensions: [],
               message: 'Unit-rate comparison only.',
+              rates: [{ dimension: 'Input', minimum_input_tokens: '0', selling: '1200000000', purchase: '1200000000' }],
             },
           ],
         }}
@@ -167,10 +168,11 @@ describe('Provider standard pricing alignment & below_cost prevention', () => {
     );
     expect(equalRender.container.textContent).not.toContain('Below Provider cost');
     expect(equalRender.container.textContent).not.toContain('低于 Provider 成本');
+    expect(equalRender.container.textContent).toContain('$1.2');
     equalRender.unmount();
 
     render(
-      <PricingHealthNotice
+      <PriceComparison currency="USD"
         health={{
           advisory: true,
           supply_status: 'inactive',
@@ -189,6 +191,6 @@ describe('Provider standard pricing alignment & below_cost prevention', () => {
       />,
     );
     expect(screen.queryByText(/Below Provider cost|低于 Provider 成本/)).toBeNull();
-    expect(screen.getByText(/Supply inactive|供应已停用/)).toBeTruthy();
+    expect(screen.getByText(/No active purchase quote|暂无生效采购报价/)).toBeTruthy();
   });
 });

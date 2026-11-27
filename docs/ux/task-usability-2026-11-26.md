@@ -45,3 +45,9 @@ Desktop 1280 × 850 and phone 390 × 850. Both sizes use staging's current Chine
 | Public entry and reference | 4 pairs for home, signed-in public catalog entry, docs index and API explorer | Catalog redirected. Individual generated REST and SDK entries, anonymous catalog, marketing children and all error states were not swept. |
 
 The 39 pairs include redirects and repeat visits. Major role-specific exclusions include a customer without owner rights, a newly approved applicant, a real external agent connection and a user recovering from a declined payment. The present evidence supports the named findings and leaves those outcomes open. Historical screenshots from earlier reviews were not treated as verification of current behavior.
+
+## Implementation walkthrough, 27 November 2026
+
+A production build of the candidate dashboard was served to a browser using the real staging API. An authenticated administrator opened a populated standard price at 1280 × 850 and 390 × 850, expanded its history, dismissed the sheet and returned to the directory. The viewport remained within its horizontal bounds. A new 128,000-token draft band displayed a base upper bound of 127,999. Escape followed by Keep editing retained the value. Discard changes closed the editor. No price was published. The actual-margin action opened the report for the selected model and showed one matching row in the reviewed period.
+
+The live finance report withheld the profit headline for the incomplete period. An unconfigured legacy connection in a branded Provider opened a new scoped editor without prefilling the rival Provider endpoint. No secret was entered. The populated workspace catalog displayed trial prices separately from upstream descriptions. These observations cover the candidate client with the deployed API. The new gateway projections for exact cost operands and pending attempt evidence require matching gateway and dashboard artifacts for hosted acceptance.

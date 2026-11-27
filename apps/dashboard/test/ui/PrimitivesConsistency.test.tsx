@@ -473,7 +473,9 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(discountDialog).toContain('aria-pressed={discountPercent === preset}');
 
     const pricingHealth = readFileSync(join(appDir, 'features/retail-pricing/pricing-health.tsx'), 'utf8');
-    expect(pricingHealth).toContain("const below = !unsupplied && checks?.some(check => check.status === 'below_cost')");
+    expect(pricingHealth).toContain("supply === 'inactive' || supply === 'unconfigured'");
+    expect(pricingHealth).toContain('money(rate.purchase, currency)');
+    expect(pricingHealth).toContain('money(rate.selling, currency)');
   });
 
   it('places customer Account type at the top of CreateCompany and keeps organizationName separate from personName', () => {

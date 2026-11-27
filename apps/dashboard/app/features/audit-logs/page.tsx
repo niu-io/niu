@@ -25,7 +25,7 @@ function actionName(action: string) {
     role_changed: 'Role changed', password_changed: 'Password changed', branding_updated: 'Branding updated',
     payment_gateway_updated: 'Payment gateway updated', platform_access_granted: 'Platform access granted',
     platform_access_revoked: 'Platform access revoked', vendor_created: 'Provider connection created',
-    vendor_updated: 'Provider connection updated', vendor_seeded: 'Provider connection imported',
+    vendor_retired: 'Provider connection retired', vendor_updated: 'Provider connection updated', vendor_seeded: 'Provider connection imported',
     vendor_model_created: 'Model route created', vendor_model_updated: 'Model route updated',
     vendor_model_seeded: 'Model route imported', provider_created: 'Provider created', supplier_associated: 'Provider associated', provider_associated: 'Provider associated',
   };
@@ -90,22 +90,31 @@ function AuditLogs({ token }: { token: string }) {
     if (!cursor || loading) return;
     const controller = new AbortController(); pending.current?.abort(); pending.current = controller;
     setLoading(true); setError('');
-    const query = new URLSearchParams({ limit: '50', cursor });
-    if (category !== 'all') query.set('category', category);
+    let next: string | null = cursor;
+    const visited = new Set<string>();
     try {
-      const page = await request<PlatformAuditPage>(token, '/api/v1/admin/audit?' + query, 'GET', undefined, controller.signal);
-      if (controller.signal.aborted) return;
-      setRows(previous => {
-        const ids = new Set(previous?.map(event => event.id));
-        return [...previous ?? [], ...page.data.filter(event => !ids.has(event.id))];
-      });
-      setCursor(page.next_cursor);
+      while (next && !controller.signal.aborted) {
+        if (visited.has(next)) throw new Error('Audit history did not advance.');
+        visited.add(next);
+        const params = new URLSearchParams({ limit: '50', cursor: next });
+        if (category !== 'all') params.set('category', category);
+        const page: PlatformAuditPage = await request(token, '/api/v1/admin/audit?' + params, 'GET', undefined, controller.signal);
+        if (controller.signal.aborted) return;
+        setRows(previous => {
+          const ids = new Set(previous?.map(event => event.id));
+          return [...previous ?? [], ...page.data.filter(event => !ids.has(event.id))];
+        });
+        next = page.next_cursor;
+        setCursor(next);
+        if (!needle || page.data.some(matchesSearch)) break;
+      }
     } catch (reason) { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'More audit events could not be loaded.'); }
     finally { if (!controller.signal.aborted) setLoading(false); }
   }
 
   const needle = query.trim().toLowerCase();
-  const visibleRows = rows?.filter(event => !needle || [actionName(event.action), actorName(event), event.target_label, translateUI(categories[event.category])].join(' ').toLowerCase().includes(needle));
+  const matchesSearch = (event: PlatformAuditEvent) => [actionName(event.action), actorName(event), event.target_label, translateUI(categories[event.category])].join(' ').toLowerCase().includes(needle);
+  const visibleRows = rows?.filter(matchesSearch);
   return <section className="empty-region space-y-5" aria-label={uiT("Platform audit logs")}>
     <PageHeader
       title={uiT("Audit logs")}
@@ -164,7 +173,7 @@ function AuditLogs({ token }: { token: string }) {
       </div>
     </div>
     {error && <p role="alert" className="text-sm text-destructive">{error} <Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
-    {rows === null ? loading && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : (visibleRows ?? []).length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconHistory size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{query.trim() ? uiT("No matching audit events") : uiT("No audit events yet")}</EmptyTitle><EmptyDescription>{query.trim() ? uiT("No audit events match this search.") : uiT("No audit events in this category.")}</EmptyDescription></EmptyHeader></Empty> : <Table>
+    {rows === null ? loading && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : (visibleRows ?? []).length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconHistory size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{query.trim() ? uiT("No matching audit events") : uiT("No audit events yet")}</EmptyTitle><EmptyDescription>{query.trim() ? cursor ? uiT("No matches in loaded events. Search earlier events below.", "已加载记录中无匹配项，可继续查找更早记录。") : uiT("No audit events match this search.") : uiT("No audit events in this category.")}</EmptyDescription></EmptyHeader></Empty> : <Table>
       <TableHeader><TableRow><TableHead className="w-48">{uiT("Time (UTC)")}</TableHead><TableHead>{uiT("Action")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Actor")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Target")}</TableHead></TableRow></TableHeader>
       <TableBody>{(visibleRows ?? []).map(event => <TableRow key={event.id}>
         <TableCell className="align-top whitespace-normal text-xs tabular-nums sm:whitespace-nowrap"><time dateTime={event.created_at}>{new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' }).format(new Date(event.created_at))}</time></TableCell>
@@ -173,6 +182,6 @@ function AuditLogs({ token }: { token: string }) {
         <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{event.target_label}</TableCell>
       </TableRow>)}</TableBody>
     </Table>}
-    {cursor && <div className="flex justify-center"><Button variant="outline" disabled={loading} onClick={() => void loadMore()}>{loading ? uiT("Loading…") : uiT("Load more")}</Button></div>}
+    {cursor && <div className="flex justify-center"><Button variant="outline" disabled={loading} onClick={() => void loadMore()}>{loading ? uiT("Loading…") : needle ? uiT("Search earlier events", "查找更早记录") : uiT("Load more")}</Button></div>}
   </section>;
 }

@@ -724,6 +724,108 @@ Content type: `application/json`.
                     "message": {
                       "type": "string"
                     },
+                    "rates": {
+                      "type": "array",
+                      "description": "Effective comparable token rates in currency nanounits per million tokens at each input threshold.",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "dimension",
+                          "minimum_input_tokens",
+                          "selling",
+                          "purchase"
+                        ],
+                        "properties": {
+                          "dimension": {
+                            "type": "string"
+                          },
+                          "minimum_input_tokens": {
+                            "type": "string"
+                          },
+                          "selling": {
+                            "type": "string"
+                          },
+                          "purchase": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "media_rates": {
+                      "type": "object",
+                      "required": [
+                        "meter",
+                        "selling",
+                        "purchase"
+                      ],
+                      "properties": {
+                        "meter": {
+                          "type": "string"
+                        },
+                        "selling": {
+                          "type": "object",
+                          "required": [
+                            "amount_units",
+                            "decimal_places",
+                            "per_quantity"
+                          ],
+                          "properties": {
+                            "amount_units": {
+                              "type": "string"
+                            },
+                            "decimal_places": {
+                              "type": "integer"
+                            },
+                            "per_quantity": {
+                              "type": "object",
+                              "required": [
+                                "numerator",
+                                "denominator"
+                              ],
+                              "properties": {
+                                "numerator": {
+                                  "type": "string"
+                                },
+                                "denominator": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "purchase": {
+                          "type": "object",
+                          "required": [
+                            "amount_units",
+                            "decimal_places",
+                            "per_quantity"
+                          ],
+                          "properties": {
+                            "amount_units": {
+                              "type": "string"
+                            },
+                            "decimal_places": {
+                              "type": "integer"
+                            },
+                            "per_quantity": {
+                              "type": "object",
+                              "required": [
+                                "numerator",
+                                "denominator"
+                              ],
+                              "properties": {
+                                "numerator": {
+                                  "type": "string"
+                                },
+                                "denominator": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
                     "dimensions": {
                       "type": "array",
                       "items": {
@@ -1060,6 +1162,108 @@ Content type: `application/json`.
                   },
                   "message": {
                     "type": "string"
+                  },
+                  "rates": {
+                    "type": "array",
+                    "description": "Effective comparable token rates in currency nanounits per million tokens at each input threshold.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "dimension",
+                        "minimum_input_tokens",
+                        "selling",
+                        "purchase"
+                      ],
+                      "properties": {
+                        "dimension": {
+                          "type": "string"
+                        },
+                        "minimum_input_tokens": {
+                          "type": "string"
+                        },
+                        "selling": {
+                          "type": "string"
+                        },
+                        "purchase": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "media_rates": {
+                    "type": "object",
+                    "required": [
+                      "meter",
+                      "selling",
+                      "purchase"
+                    ],
+                    "properties": {
+                      "meter": {
+                        "type": "string"
+                      },
+                      "selling": {
+                        "type": "object",
+                        "required": [
+                          "amount_units",
+                          "decimal_places",
+                          "per_quantity"
+                        ],
+                        "properties": {
+                          "amount_units": {
+                            "type": "string"
+                          },
+                          "decimal_places": {
+                            "type": "integer"
+                          },
+                          "per_quantity": {
+                            "type": "object",
+                            "required": [
+                              "numerator",
+                              "denominator"
+                            ],
+                            "properties": {
+                              "numerator": {
+                                "type": "string"
+                              },
+                              "denominator": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "purchase": {
+                        "type": "object",
+                        "required": [
+                          "amount_units",
+                          "decimal_places",
+                          "per_quantity"
+                        ],
+                        "properties": {
+                          "amount_units": {
+                            "type": "string"
+                          },
+                          "decimal_places": {
+                            "type": "integer"
+                          },
+                          "per_quantity": {
+                            "type": "object",
+                            "required": [
+                              "numerator",
+                              "denominator"
+                            ],
+                            "properties": {
+                              "numerator": {
+                                "type": "string"
+                              },
+                              "denominator": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
                   },
                   "dimensions": {
                     "type": "array",
