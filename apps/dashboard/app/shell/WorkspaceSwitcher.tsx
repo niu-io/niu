@@ -1,6 +1,6 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { currencySymbol } from '@/lib/money';
-import { Link } from 'react-router';
+import { createPath, Link } from 'react-router';
 import { IconArrowLeft, IconFolder, IconList } from '@tabler/icons-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { IconSelector as ChevronsUpDown } from "@tabler/icons-react";
@@ -202,6 +202,7 @@ export function OrganizationCreateDialog({ context, open, onOpenChange, withinSe
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [slugEdited, setSlugEdited] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(false);
   const [initialWorkspace, setInitialWorkspace] = useState('');
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState('');
@@ -219,6 +220,7 @@ export function OrganizationCreateDialog({ context, open, onOpenChange, withinSe
     setName('');
     setSlug('');
     setSlugEdited(false);
+    setEditingAddress(false);
     setInitialWorkspace(isZh ? '默认' : 'Default');
     setCreateError('');
     idempotencyKeyRef.current = crypto.randomUUID();
@@ -245,6 +247,7 @@ export function OrganizationCreateDialog({ context, open, onOpenChange, withinSe
     }
   }
 
+  const organizationAddress = createPath({ pathname: '/settings/organization', search: new URLSearchParams({ organization: slug }).toString() });
   const description = <>{t('Create a separate organization with its own members, workspaces, and independent zero-balance billing account.', '创建一个拥有独立成员、工作空间与零余额计费账户的新组织。')}</>;
   const form = <form onSubmit={submitCreate} className="niu-modal-form">
         <div className="grid gap-2">
@@ -266,30 +269,24 @@ export function OrganizationCreateDialog({ context, open, onOpenChange, withinSe
             placeholder={t('e.g. Acme Studio', '例如：星云工作室')}
           />
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="organization-slug">{t('Slug', '路径标识 (Slug)')}</Label>
-          <Input
-            id="organization-slug"
-            required
-            maxLength={48}
-            pattern="[a-z0-9]+(-[a-z0-9]+)*"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            disabled={saving}
-            value={slug}
+        {editingAddress ? <div className="grid gap-2">
+          <Label htmlFor="organization-slug">{t('Address identifier', '地址标识')}</Label>
+          <Input id="organization-slug" required autoFocus maxLength={48} pattern="[a-z0-9]+(-[a-z0-9]+)*"
+            autoCapitalize="none" autoCorrect="off" spellCheck={false} disabled={saving} value={slug}
+            aria-describedby="organization-slug-help"
             onChange={event => {
               setSlugEdited(true);
               setSlug(event.target.value);
               idempotencyKeyRef.current = crypto.randomUUID();
             }}
-            placeholder={t('acme-studio', 'acme-studio')}
-            aria-describedby="organization-slug-help"
           />
-          <p id="organization-slug-help" className="break-words text-sm text-muted-foreground">
-            {t(`Used in ?org=${slug || '<slug>'}. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.`, `用于 ?org=${slug || '<slug>'}。仅限小写字母、数字和连字符，中文名称自动转为拼音。`)}
+          <p id="organization-slug-help" className="text-sm text-muted-foreground">
+            {slug === 'default' ? t('“default” is reserved. Choose another identifier.', '“default” 为保留标识，请更换。') : t('Use lowercase letters, numbers, and hyphens.', '使用小写字母、数字和连字符。')}
           </p>
-        </div>
+        </div> : <div className="flex flex-wrap items-center gap-2">
+          {slug && <span className="min-w-0 break-all text-sm text-muted-foreground">{organizationAddress}</span>}
+          <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => setEditingAddress(true)}>{t('Edit address', '编辑地址')}</Button>
+        </div>}
         <div className="grid gap-2">
           <p id="organization-prereq-help" className="text-sm text-muted-foreground">
             {t('New organizations start with 0 credits. Add credits in Credits settings or configure a payment method before running paid model requests.', '新组织初始余额为 0。在调用付费模型前，请在“额度”中充值或完成支付配置。')}

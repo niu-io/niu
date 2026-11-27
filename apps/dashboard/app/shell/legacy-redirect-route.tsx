@@ -152,7 +152,11 @@ export function resolveLegacyRedirectTarget(
     if (sub === 'commercial' || sub === 'financial-reports') return `/admin/reports${suffix}`;
     if (sub === 'balances' || sub === 'customer-accounts' || sub === 'account-balances') return `/admin/customers${suffix}`;
     if (sub === 'route-pools' || sub === 'model-pools' || sub === 'pools') return `/admin/routing${suffix}`;
-    if (sub === 'payment-gateways') return `/admin/payments${suffix}`;
+    if (sub === 'branding' || sub === 'payments' || sub === 'payment-gateways') {
+      const query = new URLSearchParams(search);
+      query.set('tab', sub === 'branding' ? 'branding' : 'payments');
+      return `/admin/settings?${query.toString()}${hash}`;
+    }
     if (sub === 'audit-logs') return `/admin/audit${suffix}`;
     if (sub === 'authentication' || sub === 'oauth') return `/admin/settings${suffix}`;
 
