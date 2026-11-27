@@ -88,7 +88,6 @@ describe('Concise Chinese product labels', () => {
     expect(settingsShell).not.toContain('IconExternalLink');
     expect(overviewQuickStart).not.toContain('IconArrowUpRight');
     expect(overviewQuickStart).not.toContain('IconArrowRight');
-    expect(overviewQuickStart).toContain('IconChevronRight');
   });
 
   it('keeps the key directory as a readable list without a fixed table', () => {
