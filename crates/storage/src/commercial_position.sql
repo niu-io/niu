@@ -232,7 +232,9 @@ WITH raw_bounds AS MATERIALIZED (
     SELECT id,provider_id,model_alias,execution,usage_confidence,charge,earning,
            row_number() OVER (PARTITION BY provider_id,model_alias ORDER BY id DESC) AS ordinal
     FROM traffic
-    WHERE execution<>'confirmed_not_executed'
+    WHERE ($7::uuid IS NULL OR id < $7)
+      AND ($5::uuid IS NULL OR (provider_id = $5 AND model_alias = $6::text))
+      AND execution<>'confirmed_not_executed'
       AND (execution<>'confirmed_completed' OR usage_confidence<>'provider_reported'
            OR charge IS NULL OR earning IS NULL)
 ), pending_examples AS (
@@ -240,7 +242,7 @@ WITH raw_bounds AS MATERIALIZED (
         'attempt',id::text,'execution',execution,'usage_confidence',usage_confidence,
         'charge_missing',charge IS NULL,'payable_missing',earning IS NULL
     ) ORDER BY ordinal) AS attempts
-    FROM pending WHERE ordinal<=50 GROUP BY provider_id,model_alias
+    FROM pending WHERE ordinal<=$8::int GROUP BY provider_id,model_alias
 ), rows AS (
     SELECT inventory.provider_id,inventory.model_alias,
            jsonb_build_object('supplier_id',inventory.provider_id,'supplier_name',business.name,
@@ -269,6 +271,7 @@ WITH raw_bounds AS MATERIALIZED (
     LEFT JOIN quotes USING(provider_id,model_alias)
     LEFT JOIN totals USING(provider_id,model_alias)
     LEFT JOIN pending_examples USING(provider_id,model_alias)
+    WHERE $5::uuid IS NULL OR (inventory.provider_id = $5 AND inventory.model_alias = $6)
 )
 SELECT currency_known.known,
        jsonb_build_object('currency',$1,'days',COALESCE($2, GREATEST(1, ceil(extract(epoch FROM (bounds.until - bounds.since)) / 86400.0)::int)),'from',bounds.since,'until',bounds.until,

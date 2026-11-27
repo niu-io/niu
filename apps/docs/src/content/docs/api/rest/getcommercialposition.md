@@ -35,6 +35,51 @@ curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/finance/position" \
 
 ## Parameters
 
+### pending_limit
+
+Location: **query**. Optional. Maximum unresolved attempts per report row.
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 50,
+  "default": 50
+}
+```
+
+### supplier
+
+Location: **query**. Optional. Provide supplier, model and pending_before together to page unresolved attempts for one report row.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### model
+
+Location: **query**. Optional. Provide supplier, model and pending_before together to page unresolved attempts for one report row.
+
+```json
+{
+  "type": "string"
+}
+```
+
+### pending_before
+
+Location: **query**. Optional. Provide supplier, model and pending_before together to page unresolved attempts for one report row.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 ### currency
 
 Location: **query**. **Required.**
@@ -248,7 +293,7 @@ Content type: `application/json`.
           "pending_attempts": {
             "type": "array",
             "maxItems": 50,
-            "description": "First 50 unresolved attempt references with the available execution, usage and ledger evidence for this Provider, model and period.",
+            "description": "Up to 50 unresolved attempt references in descending attempt ID order with the available execution, usage and ledger evidence for this Provider, model and period.",
             "items": {
               "type": "object",
               "properties": {

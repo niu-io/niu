@@ -10312,6 +10312,51 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 ### Parameters
 
+`pending_limit` (query, optional)
+
+Maximum unresolved attempts per report row.
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 50,
+  "default": 50
+}
+```
+
+`supplier` (query, optional)
+
+Provide supplier, model and pending_before together to page unresolved attempts for one report row.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, optional)
+
+Provide supplier, model and pending_before together to page unresolved attempts for one report row.
+
+```json
+{
+  "type": "string"
+}
+```
+
+`pending_before` (query, optional)
+
+Provide supplier, model and pending_before together to page unresolved attempts for one report row.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 `currency` (query, required)
 
 ```json
@@ -10511,7 +10556,7 @@ Content type: `application/json`.
           "pending_attempts": {
             "type": "array",
             "maxItems": 50,
-            "description": "First 50 unresolved attempt references with the available execution, usage and ledger evidence for this Provider, model and period.",
+            "description": "Up to 50 unresolved attempt references in descending attempt ID order with the available execution, usage and ledger evidence for this Provider, model and period.",
             "items": {
               "type": "object",
               "properties": {

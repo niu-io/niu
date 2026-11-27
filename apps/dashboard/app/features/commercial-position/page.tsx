@@ -5,13 +5,14 @@ import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useLocale } from '@/shell/ui-locale';
 import { providerPathSegment } from '@/shell/provider-route';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { IconCoin, IconArrowDownRight, IconArrowUpRight, IconCalendarStats, IconChevronDown, IconFileTypePdf, IconMinus, IconRefresh } from '@tabler/icons-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useBranding } from '@/shell/branding';
 import { request, VendorRequestError } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge'; import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -45,10 +46,68 @@ async function fetchPeriodBundle(
 ): Promise<{ position: CommercialPosition; summary: CustomerFinancialSummary }> {
   const query = new URLSearchParams({ currency, from: opts.from, until: opts.until });
   const [position, summary] = await Promise.all([
-    request<CommercialPosition>(token, '/api/v1/admin/finance/position?' + query, 'GET', undefined, signal),
+    request<CommercialPosition>(token, '/api/v1/admin/finance/position?pending_limit=5&' + query, 'GET', undefined, signal),
     request<CustomerFinancialSummary>(token, '/api/v1/admin/finance/summary?' + query, 'GET', undefined, signal),
   ]);
   return { position, summary };
+}
+
+function PendingAttempts({ row, from, until, token }: {
+  row: CommercialPositionRow; from: string; until: string; token: string;
+}) {
+  const { t: uiT } = useLocale();
+  const first = row.pending_attempts ?? [];
+  const [rest, setRest] = useState<typeof first>([]);
+  const [finished, setFinished] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const pending = useRef<AbortController | null>(null);
+  useEffect(() => {
+    setRest([]); setFinished(false); setLoading(false); setError('');
+    return () => pending.current?.abort();
+  }, [row]);
+  const attempts = [...first, ...rest];
+  async function more() {
+    if (loading || !attempts.length) return;
+    pending.current?.abort();
+    const controller = new AbortController();
+    pending.current = controller;
+    setLoading(true); setError('');
+    try {
+      const params = new URLSearchParams({ currency: row.currency, from, until, supplier: row.supplier_id,
+        model: row.model_alias, pending_before: attempts[attempts.length - 1].attempt });
+      const page = await request<CommercialPosition>(token, '/api/v1/admin/finance/position?' + params, 'GET', undefined, controller.signal);
+      if (controller.signal.aborted) return;
+      const next = page.data[0]?.pending_attempts ?? [];
+      setRest(previous => [...previous, ...next]);
+      setFinished(next.length < 50);
+    } catch (cause) {
+      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : uiT("Could not load requests", "无法加载请求"));
+    } finally { if (!controller.signal.aborted) setLoading(false); }
+  }
+  return <Sheet>
+    <SheetTrigger asChild><Button variant="link" size="sm">{uiT("Pending (")}{row.unresolved_attempts} {uiT("unresolved)")}</Button></SheetTrigger>
+    <SheetContent className="overflow-y-auto">
+      <SheetHeader>
+        <SheetTitle>{uiT("Unresolved attempts", "待核对请求")}</SheetTitle>
+        <SheetDescription>{row.model_alias} · {row.supplier_name} · {row.currency}</SheetDescription>
+      </SheetHeader>
+      <div className="space-y-4 px-4 pb-4">
+        <ul className="divide-y">{attempts.map(attempt => <li className="space-y-1 py-3" key={attempt.attempt}>
+          <code className="break-all text-xs">{attempt.attempt}</code>
+          <p className="text-sm">{[
+            attempt.execution !== 'confirmed_completed' && uiT("Execution unconfirmed", "执行结果未确认"),
+            attempt.usage_confidence !== 'provider_reported' && uiT("Usage unconfirmed", "用量未确认"),
+            attempt.charge_missing && uiT("Customer charge missing", "缺少客户扣费"),
+            attempt.payable_missing && uiT("Supplier payable missing", "缺少采购应付"),
+          ].filter(Boolean).join(' · ')}</p>
+        </li>)}</ul>
+        {error && <p role="alert">{error}</p>}
+        {!finished && BigInt(attempts.length) < BigInt(row.unresolved_attempts) &&
+          <Button variant="outline" size="sm" disabled={loading} onClick={() => void more()}>{uiT("Load more")}</Button>}
+      </div>
+    </SheetContent>
+  </Sheet>;
 }
 
 type CohortAggregates = {
@@ -1333,19 +1392,8 @@ function CommercialStatement({ token }: { token: string }) {
                               </div>
                             </div>
                           ) : unresolved > 0n ? (
-                            row.pending_attempts?.length ? <details className="text-left text-xs">
-                              <summary className="cursor-pointer">{uiT("Pending (")}{unresolved.toString()} {uiT("unresolved)")}</summary>
-                              <ul className="mt-2 space-y-2">{row.pending_attempts.map(attempt => <li key={attempt.attempt}>
-                                <code className="break-all">{attempt.attempt}</code>
-                                <p>{[
-                                  attempt.execution !== 'confirmed_completed' && uiT("Execution unconfirmed", "执行结果未确认"),
-                                  attempt.usage_confidence !== 'provider_reported' && uiT("Usage unconfirmed", "用量未确认"),
-                                  attempt.charge_missing && uiT("Customer charge missing", "缺少客户扣费"),
-                                  attempt.payable_missing && uiT("Supplier payable missing", "缺少采购应付"),
-                                ].filter(Boolean).join(' · ')}</p>
-                              </li>)}</ul>
-                              {BigInt(row.pending_attempts.length) < unresolved && <p>{uiT("Showing the first 50 requests", "显示前 50 条请求")}</p>}
-                            </details> : <Badge variant="outline">{uiT("Pending (")}{unresolved.toString()} {uiT("unresolved)")}</Badge>
+                            row.pending_attempts?.length && position ? <PendingAttempts key={[position.from, position.until, row.currency, row.supplier_id, row.model_alias, token].join('|')}
+                              row={row} from={position.from} until={position.until} token={token} /> : <Badge variant="outline">{uiT("Pending (")}{unresolved.toString()} {uiT("unresolved)")}</Badge>
                           ) : (
                             <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
                           )}

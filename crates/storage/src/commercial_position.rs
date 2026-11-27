@@ -116,7 +116,23 @@ impl Store {
         from: Option<&str>,
         until: Option<&str>,
     ) -> Result<Value, StoreError> {
-        if currency.len() != 3 || !currency.bytes().all(|b| b.is_ascii_uppercase()) {
+        self.commercial_position_page(currency, days, from, until, None, 50)
+            .await
+    }
+
+    pub async fn commercial_position_page(
+        &self,
+        currency: &str,
+        days: Option<i32>,
+        from: Option<&str>,
+        until: Option<&str>,
+        pending: Option<(uuid::Uuid, &str, uuid::Uuid)>,
+        pending_limit: i32,
+    ) -> Result<Value, StoreError> {
+        if !(1..=50).contains(&pending_limit)
+            || currency.len() != 3
+            || !currency.bytes().all(|b| b.is_ascii_uppercase())
+        {
             return Err(StoreError::InvalidPrice);
         }
         let (days_param, from_ms, until_ms) = match (days, from, until) {
@@ -145,6 +161,10 @@ impl Store {
                 .bind(days_param)
                 .bind(from_ms)
                 .bind(until_ms)
+                .bind(pending.map(|p| p.0))
+                .bind(pending.map(|p| p.1))
+                .bind(pending.map(|p| p.2))
+                .bind(pending_limit)
                 .fetch_one(&mut *tx)
                 .await?;
         if !known_currency {
