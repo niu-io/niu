@@ -328,12 +328,12 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
   .request-toolbar > p { order: 2; flex-basis: 100%; }}
 
 @media screen and (max-width: 959px) {
-  .commercial-position-table,
-  .commercial-position-table tbody,
-  .commercial-position-table tbody tr { display: block; }
-  .commercial-position-table thead { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
-  .commercial-position-table tbody tr { padding-block: .75rem; }
-  .commercial-position-table td {
+  :is(.commercial-position-table, .customer-access-table),
+  :is(.commercial-position-table, .customer-access-table) tbody,
+  :is(.commercial-position-table, .customer-access-table) tbody tr { display: block; }
+  :is(.commercial-position-table, .customer-access-table) thead { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
+  :is(.commercial-position-table, .customer-access-table) tbody tr { padding-block: .75rem; }
+  :is(.commercial-position-table, .customer-access-table) td {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
     gap: .125rem .75rem;
@@ -343,10 +343,10 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
     overflow-wrap: anywhere;
     text-align: end;
   }
-  .commercial-position-table td::before { content: attr(data-label); grid-column: 1; grid-row: 1; color: var(--muted-foreground); text-align: start; }
-  .commercial-position-table td > * { grid-column: 2; }
-  .commercial-position-table td:first-child { display: block; text-align: start; padding-bottom: .5rem; }
-  .commercial-position-table td:first-child::before { content: none; }
+  :is(.commercial-position-table, .customer-access-table) td::before { content: attr(data-label); grid-column: 1; grid-row: 1; color: var(--muted-foreground); text-align: start; }
+  :is(.commercial-position-table, .customer-access-table) td > * { grid-column: 2; }
+  :is(.commercial-position-table, .customer-access-table) td:first-child { display: block; text-align: start; padding-bottom: .5rem; }
+  :is(.commercial-position-table, .customer-access-table) td:first-child::before { content: none; }
 }
 
 @media screen and (min-width: 960px) {
