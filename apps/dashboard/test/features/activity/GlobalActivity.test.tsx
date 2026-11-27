@@ -18,6 +18,11 @@ function mockData(fail=false){vi.stubGlobal('fetch',vi.fn(async (input:unknown,i
 }));}
 function open(path='/activity'){render(<MemoryRouter initialEntries={[path]}><Routes><Route path="/activity/:section?" element={<GlobalActivityRoute/>}/><Route path="/workspaces/a/executions" element={<p>Application request details</p>}/></Routes></MemoryRouter>);}
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
+function RequestDetail() {
+  const navigate = useNavigate();
+  return <button type="button" onClick={() => navigate(-1)}>Back</button>;
+}
+
 describe('Global Activity',()=>{
  it('adds exact usage and charges without combining currencies',()=>{
   const totals=activityTotals([{page:{summary:summary()}},{page:{summary:summary('5','CNY')}}]);
@@ -116,10 +121,6 @@ describe('Global Activity',()=>{
   expect(screen.queryByRole('button',{name:'Load older requests'})).toBeNull();
  });
  it('restores a later page and the opened link when navigating back', async () => {
-  function Detail() {
-    const navigate = useNavigate();
-    return <button onClick={() => navigate(-1)}>Back</button>;
-  }
   vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
     const path = String(input);
     if (path === '/api/v1/workspaces') return Response.json({data: [workspaces[0]]});
@@ -128,7 +129,7 @@ describe('Global Activity',()=>{
   }));
   render(<MemoryRouter initialEntries={['/activity/logs']}><Routes>
     <Route path="/activity/logs" element={<GlobalActivityRoute/>}/>
-    <Route path="/workspaces/a/executions" element={<Detail/>}/>
+    <Route path="/workspaces/a/executions" element={<RequestDetail/>}/>
   </Routes></MemoryRouter>);
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', {name: 'Load older requests'}));
