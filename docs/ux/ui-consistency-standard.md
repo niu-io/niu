@@ -212,6 +212,8 @@ Registration validation focuses the first invalid field and associates the inlin
 
 Workspace spending-limit feedback uses the parsed amount. Show the consequences of a valid limit only. On invalid submission, focus the amount field, associate its inline error, and clear the error when the amount becomes valid.
 
+When a mobile sheet opens a separate dialog, hand off focus after the sheet closes. Immediate dismissal of the dialog must return focus to its original action in the reopened sheet.
+
 A full-page empty state fills the available route height whether mounted directly in the route body or inside a list wrapper.
 
 Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.
