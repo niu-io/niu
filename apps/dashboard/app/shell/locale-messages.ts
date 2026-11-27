@@ -1294,6 +1294,8 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "No models are configured for this currency.": "此币种尚未配置模型。",
   "with traffic in this period ·": "个在本期有流量 ·",
   "total configured routes": "条已配置路由",
+  "Active in period ({0})": "本期活跃（{0}）",
+  "All configured ({0})": "全部（{0}）",
   "Active in period (": "本期活跃（",
   "All configured (": "全部（",
   "No commercial model configurations or activity in": "没有商业模型配置或活动，币种为",

@@ -1191,9 +1191,7 @@ function CommercialStatement({ token }: { token: string }) {
           <div className="min-w-0 rounded-xl bg-card p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 ref={economicsHeading} tabIndex={-1} className="scroll-mt-20 text-[15px] font-semibold">{uiT("Unit economics by Provider & model")}</h2>
-                <p className="text-xs text-muted-foreground">
-                  {uiF("Models with traffic: {0} · Configured routes: {1}", [activeRows.length, sortedRows.length])}</p>
+                <h2 ref={economicsHeading} tabIndex={-1} className="sr-only print:not-sr-only">{uiT("Unit economics by Provider & model")}</h2>
               </div>
               <div className="commercial-print-hide flex flex-wrap items-center gap-1.5">
                 {inspectedModel && <span className="break-all text-sm">{inspectedModel}</span>}
@@ -1203,7 +1201,7 @@ function CommercialStatement({ token }: { token: string }) {
                   aria-pressed={!inspectedModel && modelFilter === 'active'}
                   onClick={() => { setModelFilter('active'); if (inspectedModel) setSearch(params => { params.delete('model'); return params; }); }}
                 >
-                  {uiT("Active in period (")}{activeRows.length})
+                  {uiF("Active in period ({0})", [activeRows.length])}
                 </Button>
                 <Button
                   size="sm"
@@ -1211,7 +1209,7 @@ function CommercialStatement({ token }: { token: string }) {
                   aria-pressed={!inspectedModel && modelFilter === 'all'}
                   onClick={() => { setModelFilter('all'); if (inspectedModel) setSearch(params => { params.delete('model'); return params; }); }}
                 >
-                  {uiT("All configured (")}{sortedRows.length})
+                  {uiF("All configured ({0})", [sortedRows.length])}
                 </Button>
               </div>
             </div>
@@ -1275,7 +1273,7 @@ function CommercialStatement({ token }: { token: string }) {
 
                     return (
                       <TableRow key={row.supplier_id + ':' + row.model_alias + ':' + row.currency}>
-                        <TableCell className="align-top whitespace-normal">
+                        <TableCell data-label={uiT("Provider / model")} className="align-top whitespace-normal">
                           <div className="font-medium text-foreground">{row.model_alias}</div>
                           <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                             <Link
@@ -1287,7 +1285,7 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Net contribution")} className="text-right align-top whitespace-nowrap tabular-nums">
                           {rowContrib !== null ? (
                             <div>
                               <div className="font-medium">
@@ -1305,7 +1303,7 @@ function CommercialStatement({ token }: { token: string }) {
                           )}
                         </TableCell>
 
-                        <TableCell className="align-top whitespace-normal hidden md:table-cell text-xs max-w-[240px]">
+                        <TableCell data-label={uiT("Agreed offer quote")} className="align-top whitespace-normal hidden md:table-cell text-xs max-w-[240px]">
                           {row.offers.length === 0 ? (
                             <span className="text-muted-foreground">{uiT("No quote in")}{" "}{row.currency}</span>
                           ) : (
@@ -1337,7 +1335,7 @@ function CommercialStatement({ token }: { token: string }) {
                           )}
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Gross charges")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowCharge === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
@@ -1355,7 +1353,7 @@ function CommercialStatement({ token }: { token: string }) {
                           )}
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Net revenue")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowNetRev === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
@@ -1372,7 +1370,7 @@ function CommercialStatement({ token }: { token: string }) {
                           )}
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Customer cash applied")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowCashApplied === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
@@ -1384,7 +1382,7 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Customer unpaid credit")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowUnpaidCredit === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
@@ -1396,7 +1394,7 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Provider payable")} className="text-right align-top whitespace-nowrap tabular-nums">
                           {rowPayable === null ? (
                             <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
                           ) : (
@@ -1420,7 +1418,7 @@ function CommercialStatement({ token }: { token: string }) {
                           )}
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Recorded upstream cost")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowUpstreamCost === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>

@@ -326,3 +326,25 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
   .request-date-trigger { width: 100px; min-width: 0; font-size: 12px; padding-inline: 8px; }
   .request-toolbar > .request-filter-chips,
   .request-toolbar > p { grid-column: 1 / -1; }}
+
+@media screen and (max-width: 959px) {
+  .commercial-position-table,
+  .commercial-position-table tbody,
+  .commercial-position-table tbody tr { display: block; }
+  .commercial-position-table thead { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
+  .commercial-position-table tbody tr { padding-block: .75rem; }
+  .commercial-position-table td {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    gap: .125rem .75rem;
+    max-width: none;
+    padding: .25rem 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: end;
+  }
+  .commercial-position-table td::before { content: attr(data-label); grid-column: 1; grid-row: 1; color: var(--muted-foreground); text-align: start; }
+  .commercial-position-table td > * { grid-column: 2; }
+  .commercial-position-table td:first-child { display: block; text-align: start; padding-bottom: .5rem; }
+  .commercial-position-table td:first-child::before { content: none; }
+}
