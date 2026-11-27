@@ -139,6 +139,8 @@ Use Manus as the reference for the shared visual treatment of agent-product surf
 
 ## Status and list information
 
+Search paginated audit history on the server before applying page limits. Match localized display labels, load further results only on request, and restore the first page when search is cleared.
+
 Design management lists around the decision users need to make. Every column and status must distinguish meaningful outcomes or support a concrete action. Do not expose a backend field merely because it exists, or display universal labels such as “Configuration saved” on lists containing only saved records.
 
 Keep API credential presence, configuration, current Provider and offer qualification, supply readiness, live upstream verification, and workspace selling eligibility distinct. An API key or enabled route does not establish sellable inventory. Derive supply readiness from current approved, active model/rate offers and their matching enabled routes and credentials. Customer selling prices and authorization remain workspace-specific. Show missing requirements and link to the relevant remedy; never infer a positive state when evidence is unavailable.
@@ -185,4 +187,4 @@ New text price and credit tariff menus use the registered route’s text eligibi
 
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
-Search paginated audit history on the server before applying page limits. Match localized display labels, load further results only on request, and restore the first page when search is cleared.
+On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
