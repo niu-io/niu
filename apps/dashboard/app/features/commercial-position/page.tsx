@@ -236,16 +236,18 @@ function formatDeltaBadge(
     );
   }
   const isPositive = diff > 0n;
+  const exactChange = (isPositive ? '+' : '-') + formatRateMoney(absDiff, currency);
   if (absDiff < 100_000n) {
     return (
       <Popover>
         <PopoverTrigger asChild>
           <Button type="button" variant="link" className="h-auto gap-1 p-0 text-xs text-muted-foreground tabular-nums underline decoration-dotted underline-offset-2">
             {isPositive ? <IconArrowUpRight size={14} /> : <IconArrowDownRight size={14} />}
-            {isPositive ? '+' : '-'}{formatStatementMoney(absDiff, currency)}
+            <span className="print:hidden">{isPositive ? '+' : '-'}{formatStatementMoney(absDiff, currency)}</span>
+            <span className="hidden print:inline">{exactChange}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact change:")}{" "} {isPositive ? '+' : '-'}{formatRateMoney(absDiff, currency)}</PopoverContent>
+        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact change:")}{" "} {exactChange}</PopoverContent>
       </Popover>
     );
   }
@@ -265,7 +267,8 @@ function formatDeltaBadge(
       }`}
     >
       {isPositive ? <IconArrowUpRight size={14} /> : <IconArrowDownRight size={14} />}
-      <span>{signedMoney}</span>
+      <span className="print:hidden">{signedMoney}</span>
+      <span className="hidden print:inline">{exactChange}</span>
       <span className="text-muted-foreground font-normal">({pct})</span>
     </span>
   );
@@ -273,7 +276,7 @@ function formatDeltaBadge(
     return (
       <Popover>
         <PopoverTrigger asChild><Button type="button" variant="link" className="h-auto p-0 underline decoration-dotted underline-offset-2">{badge}</Button></PopoverTrigger>
-        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact change:")}{" "} {isPositive ? '+' : '-'}{formatRateMoney(absDiff, currency)}</PopoverContent>
+        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact change:")}{" "} {exactChange}</PopoverContent>
       </Popover>
     );
   }
@@ -285,15 +288,17 @@ function StatementMoney({ amount, currency }: { amount: bigint; currency: string
   const abs = amount < 0n ? -amount : amount;
   const display = formatStatementMoney(amount, currency);
   if (abs === 0n || abs % 100_000n === 0n) return <>{display}</>;
+  const exact = formatFinancialMoney(amount, currency);
   return (
     <Popover>
       <PopoverTrigger asChild><Button variant="link"
         type="button"
         className="inline h-auto border-0 bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-2"
       >
-        {display}
+        <span className="print:hidden">{display}</span>
+        <span className="hidden print:inline">{exact}</span>
       </Button></PopoverTrigger>
-      <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact amount:")}{" "}{formatFinancialMoney(amount, currency)}</PopoverContent>
+      <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact amount:")}{" "}{exact}</PopoverContent>
     </Popover>
   );
 }
