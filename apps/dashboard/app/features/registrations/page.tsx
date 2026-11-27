@@ -23,12 +23,6 @@ export default function AdminRegistrationsPage() {
           </Button>
         }
       />
-      <p className="text-sm text-muted-foreground">
-        {t(
-          'Review Limited Preview account applications submitted through /register. Approved accounts receive a customer company and workspace.',
-          '审批访客通过 /register 提交的有限预览账号申请。批准后将自动创建对应的客户公司与工作空间。',
-        )}
-      </p>
       <RegistrationRequestsQueue
         token={token}
         showPolicySection={false}

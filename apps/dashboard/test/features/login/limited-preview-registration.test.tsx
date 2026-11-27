@@ -211,5 +211,7 @@ describe('Limited Preview registration flow', () => {
 
     await waitFor(() => expect(onApproved).toHaveBeenCalledTimes(1));
     expect(await screen.findByText(/Registration approved and account provisioned/)).toBeTruthy();
+    const emptyTitle = await screen.findByText('No pending registration requests');
+    expect(emptyTitle.closest('[data-slot="empty"]')?.textContent).toBe(emptyTitle.textContent);
   });
 });
