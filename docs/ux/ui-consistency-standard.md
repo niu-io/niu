@@ -2,6 +2,8 @@
 
 This document defines the mandatory, product-wide UI and interaction standards for the Niu dashboard. Every new or modified page, dialog, menu, composer, and status surface must conform to these rules so the product looks and behaves as one coherent system rather than a collection of ad-hoc overrides.
 
+In narrow headers, truncate the parent breadcrumb before clipping a short current page title. Keep the workspace picker and page actions reachable.
+
 ## 1. Visual System & Semantic Tokens
 
 - **Single token source**: Define brand, surface, text, border, and elevation tokens in [`branding/tokens.css`](../../branding/tokens.css) and map them in [`apps/dashboard/app/styles/theme.css`](../../apps/dashboard/app/styles/theme.css). Never hardcode one-off hex colors in feature stylesheets or JSX.
