@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -484,10 +484,9 @@ function UnitTextTariffDialog({
 
   return (
     <Dialog open onOpenChange={open => { if (!open) dismiss(); }}>
-      <DialogContent onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(); }} className="w-[calc(100vw-2rem)] sm:max-w-xl">
+      <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(); }} className="w-[calc(100vw-2rem)] sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{initial ? uiF("Revise {0} text tariff", [unitName]) : uiF("Publish {0} text tariff", [unitName])}</DialogTitle>
-          <DialogDescription>{uiF("Rates are in {0} per 1,000,000 tokens. Up to 9 decimal places are stored exactly.", [unitName])}</DialogDescription>
         </DialogHeader>
         {confirmDiscard ? <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>{uiT("Discard changes", "放弃修改")}</Button>

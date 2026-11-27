@@ -791,7 +791,6 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "No registered models are available for pricing.": "没有可用于定价的已注册模型。",
   "No registered models use video-token media pricing.": "没有使用视频 Token 计价的已注册模型。",
   "Choose a model to set its channel.": "选择模型以确定其渠道。",
-  "Rates are in {0} per 1,000,000 tokens. Up to 9 decimal places are stored exactly.": "费率以{0}计价，每百万 Token。最多 9 位小数将被精确存储。",
   "Choose a registered model.": "请选择已注册模型。",
   "Enter input and output rates.": "请输入输入与输出费率。",
   "Choose a supported resolution.": "请选择支持的输出分辨率。",
