@@ -164,6 +164,8 @@ A tab that groups multiple entity types must not show an unlabeled count for jus
 
 ## Decision-focused interface copy
 
+Customer access handoff presents a copyable sign-in address for the current installation. Keep first-request instructions in the linked guide.
+
 Registration policy and the registration review queue link directly to each other within their owning Settings and Customers tabs. Display the pending count on the review action when positive.
 
 Empty-state descriptions may identify a prerequisite. Omit instructions that simply restate the adjacent action labels.

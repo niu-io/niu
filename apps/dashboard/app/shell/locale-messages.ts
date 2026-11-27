@@ -1518,7 +1518,6 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "Uses the platform currency": "使用平台币种",
   ". New companies start with no funds or approved credit.": "。新公司初始没有资金或已批准授信。",
   "Open Settings": "打开设置",
-  "Saved steps remain available when you return. Creating access does not add funds or make models available.": "返回时可继续已保存的步骤。创建访问权限不会增加资金或使模型可用。",
   "Reload setup": "重新加载设置",
   "1. Workspace": "1. 工作空间",
   "2. Company owner": "2. 公司所有者",

@@ -8,7 +8,7 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Alert,AlertDescription} from '@/components/ui/alert';
-import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
+import {Dialog,DialogContent,DialogHeader,DialogTitle} from '@/components/ui/dialog';
 import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuRadioGroup,DropdownMenuRadioItem} from '@/components/ui/dropdown-menu';
 import {workspaceSlugFromName,workspacePathSegment} from '@/shell/workspace-route';
 import {loadAuthConfig} from '@/lib/auth-config';
@@ -20,6 +20,19 @@ import {readPending,savePending,clearPending,type PendingCreation} from './pendi
 type Props={onRestoreFocus?:()=>void;company:CompanyMetadata;token:string;client:NiuAdminClient;onClose:()=>void;onWorkspaceCreated:()=>void};
 export default function CustomerSetup({company,token,client,onClose,onWorkspaceCreated,onRestoreFocus}:Props){
   const { t: uiT } = useUILocale();
+ const signInAddress = new URL('/login', location.origin).href;
+ const addressInput = useRef<HTMLInputElement>(null);
+ const [copyState, setCopyState] = useState<'idle' | 'copied' | 'manual'>('idle');
+ async function copyAddress() {
+   try {
+     await navigator.clipboard.writeText(signInAddress);
+     setCopyState('copied');
+   } catch {
+     addressInput.current?.focus();
+     addressInput.current?.select();
+     setCopyState('manual');
+   }
+ }
  const [workspaces,setWorkspaces]=useState<Workspace[]>([]);const [owners,setOwners]=useState<Operator[]>([]);const [owner,setOwner]=useState('');
  const [writing,setWriting]=useState(false);
  const [setupRemedy,setSetupRemedy]=useState<'currency'|'payment'|null>(null);
@@ -32,20 +45,33 @@ export default function CustomerSetup({company,token,client,onClose,onWorkspaceC
   return()=>controller.abort();
  },[client,token,company.id,revision]);
  const refresh=()=>setRevision(value=>value+1);
- return <Dialog open onOpenChange={open=>{if(!open&&!writing)onClose();}}><DialogContent onCloseAutoFocus={event=>{if(onRestoreFocus){event.preventDefault();onRestoreFocus();}}} className="sm:max-w-2xl"><DialogHeader><DialogTitle className="min-w-0">{uiT("Set up")}{" "}{company.name}</DialogTitle><DialogDescription>{uiT("Saved steps remain available when you return. Creating access does not add funds or make models available.")}</DialogDescription></DialogHeader>
+ return <Dialog open onOpenChange={open=>{if(!open&&!writing)onClose();}}><DialogContent aria-describedby={undefined} onCloseAutoFocus={event=>{if(onRestoreFocus){event.preventDefault();onRestoreFocus();}}} className="sm:max-w-2xl"><DialogHeader><DialogTitle className="min-w-0">{uiT("Set up")}{" "}{company.name}</DialogTitle></DialogHeader>
   {loading&&<FormSectionSkeleton fields={3} label={uiT("Reading saved setup…")}/>}
   {error&&<Alert variant="destructive"><AlertDescription>{error}{setupRemedy&&<Button asChild variant="outline"><Link to={setupRemedy==='currency'?'/admin/settings':'/admin/settings?tab=payments'} onClick={onClose}>{setupRemedy==='currency'?uiT("Configure platform currency"):uiT("Configure payment gateways")}</Link></Button>}<Button variant="outline" onClick={refresh}>{uiT("Reload setup")}</Button></AlertDescription></Alert>}
   {!loading&&!error&&<div className="space-y-3">
-   <section className="space-y-3 rounded-xl bg-muted/55 p-4" aria-labelledby="customer-workspace-title"><h3 id="customer-workspace-title" className="font-semibold">{uiT("1. Workspace")}</h3>
+   <section className="space-y-3 rounded-xl bg-muted/55 p-4" aria-labelledby="customer-workspace-title"><h3 id="customer-workspace-title" className="font-semibold">{uiT("Workspace")}</h3>
     {workspaces.length?<ul className="space-y-2">{workspaces.map(workspace=><li className="[overflow-wrap:anywhere]" key={workspace.id}><Link className="underline underline-offset-4" to={`/workspaces/${workspacePathSegment(workspace,workspaces)}`} onClick={onClose}>{workspace.name}</Link></li>)}</ul>:<WorkspaceForm onBusy={setWriting} client={client} company={company} onCreated={saved=>{setWorkspaces([saved]);onWorkspaceCreated();}}/>}
    </section>
-   <section className="space-y-3 rounded-xl bg-muted/55 p-4" aria-labelledby="customer-owner-title"><h3 id="customer-owner-title" className="font-semibold">{uiT("2. Company owner")}</h3><p className="text-sm text-muted-foreground">{uiT("The owner can manage users and every workspace in this company, including shared funds.")}</p>
+   <section className="space-y-3 rounded-xl bg-muted/55 p-4" aria-labelledby="customer-owner-title"><h3 id="customer-owner-title" className="font-semibold">{uiT("Account owner", "账户负责人")}</h3><p className="text-sm text-muted-foreground">{uiT("The owner can manage users and every workspace in this company, including shared funds.")}</p>
     {!owners.length?<OwnerForm onBusy={setWriting} client={client} company={company} onCreated={saved=>{setOwners([saved]);setOwner(saved.id);}} onRefresh={refresh}/>:<>
      {owners.length===1?<p className="[overflow-wrap:anywhere]">{owners[0].name}</p>:<DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline">{owners.find(user=>user.id===owner)?.name??uiT("Choose an owner")}</Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={owner} onValueChange={setOwner}>{owners.map(user=><DropdownMenuRadioItem key={user.id} value={user.id}>{user.name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
      {auth===false?<Alert><AlertDescription>{uiT("Password sign-in is disabled for this installation. Configure browser authentication before handing off access.")}{" "}<a className="underline" href={`${import.meta.env.BASE_URL}docs/deployment/single-container/#enable-member-sign-in`}>{uiT("Authentication setup")}</a></AlertDescription></Alert>:owner&&<PasswordSetup onBusy={setWriting} key={owner} client={client} owner={owner}/>}
     </>}
    </section>
-   <section className="space-y-3 rounded-xl bg-muted/55 p-4" aria-labelledby="customer-handoff-title"><h3 id="customer-handoff-title" className="font-semibold">{uiT("3. Verify the customer handoff")}</h3><p className="text-sm text-muted-foreground">{uiT("Give the owner this sign-in address and their configured credentials through your normal secure handoff. No invitation email is sent.")}</p><p className="break-all font-mono text-sm">{new URL('/login',location.origin).href}</p><p className="text-sm">{uiT("Have the owner sign in and confirm their company and workspace. Before their first API request, check:")}</p><ul className="list-disc space-y-2 pl-5 text-sm"><li><Link className="underline" to="/admin/settings?tab=payments" onClick={onClose}>{uiT("A working payment gateway")}</Link>{" "}{uiT("and customer funds in")}{" "}<Link className="underline" to="/admin/customers" onClick={onClose}>{uiT("Customers")}</Link>.</li><li><Link className="underline" to="/admin/providers" onClick={onClose}>{uiT("Available Provider models")}</Link>{" "}{uiT("and")}{" "}<Link className="underline" to="/admin/pricing" onClick={onClose}>{uiT("customer selling prices")}</Link>.</li><li>{uiT("The workspace API key grants the intended models. Use the")}{" "}<a className="underline" href={`${import.meta.env.BASE_URL}docs/guides/api-quickstart/`}>{uiT("first-request guide")}</a>{" "}{uiT("after sign-in.")}</li></ul><p className="text-sm text-muted-foreground">{uiT("These prerequisites are not automatically verified by this dialog. A successful request can incur upstream charges.")}</p></section>
+   <section className="space-y-3 rounded-xl bg-muted/55 p-4" aria-labelledby="customer-handoff-title">
+     <div className="grid gap-2">
+       <Label id="customer-handoff-title" htmlFor="customer-sign-in-address">{uiT("Sign-in address", "登录地址")}</Label>
+       <div className="flex flex-wrap items-center gap-2">
+         <Input ref={addressInput} id="customer-sign-in-address" className="w-full sm:w-auto sm:min-w-40 sm:flex-1" readOnly value={signInAddress}/>
+         <Button type="button" variant="outline" size="sm" onClick={() => void copyAddress()}>
+           {copyState === 'copied' ? uiT("Copied", "已复制") : uiT("Copy address", "复制地址")}
+         </Button>
+       </div>
+       {copyState === 'manual' && <p role="status" className="text-sm text-muted-foreground">{uiT("Select and copy the address manually.", "请手动复制登录地址。")}</p>}
+     </div>
+     <p className="text-sm text-muted-foreground">{uiT("Share this address with the owner. No invitation email is sent.", "请将登录地址发给负责人，系统不会发送邀请邮件。")}</p>
+     <a className="text-sm underline underline-offset-4" href={`${import.meta.env.BASE_URL}docs/guides/api-quickstart/`}>{uiT("First request guide", "首次请求指南")}</a>
+   </section>
   </div>}
   <div className="flex justify-end"><Button variant="outline" disabled={writing} onClick={onClose}>{uiT("Close")}</Button></div>
  </DialogContent></Dialog>;
