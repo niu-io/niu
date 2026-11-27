@@ -201,6 +201,8 @@ Zero-key generation sessions must disable the prompt, attachments, starter promp
 
 Model mapping dialogs show a single title, the editable mapping fields and visible Cancel and Save actions. Keep catalog metadata and optional capabilities under advanced settings. Show video configuration for declared video output, unknown output, or an existing saved video configuration.
 
+Switching between named workspaces in Activity preserves the reporting dates. Workspace-specific keys do not follow the switch, and the all-workspaces summary retains its all-time scope.
+
 Tab navigation must preserve already available data within the same authorization and resource scope. A presentation-only tab change must not revalidate unrelated route loaders. Keep slow first reads and errors local to the affected panel. Verify both cold activation and return visits with browser frames.
 
 Workspace users discover models in one catalog. Platform administrators manage upstream Provider credentials. Never present internal funding classifications as model sources or imply that workspace users supply upstream keys. Workspace API keys authorize access to Niu.
