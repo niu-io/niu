@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { workspacePathSegment } from '@/shell/workspace-route';
 import { IconSearch, IconSearchOff, IconChevronDown, IconDots, IconPhoto, IconVideo, IconMusic, IconUpload } from '@tabler/icons-react';
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import PageHeader from '@/components/PageHeader';
 import { FormSectionSkeleton, ListRowsSkeleton, TableSkeleton } from '@/components/PageSkeletons';
@@ -160,7 +160,6 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug,compact=fal
   }
   const visible=assets.filter(asset=>asset.name.toLowerCase().includes(query.trim().toLowerCase()));
   return <section className={compact ? 'empty-region space-y-3' : 'empty-region space-y-4'}>
-    {!compact && <p className="text-sm text-muted-foreground">{uiT("Media saved in this workspace, accessible to its members. Saved copies remain available independently of the Provider’s temporary download links, until deleted.")}</p>}
     <div className="flex flex-wrap items-center gap-2">
       <Input ref={uploadInput} type="file" className="hidden" aria-label={uiT("Upload workspace reference image", "上传工作空间参考图")} accept="image/png,image/jpeg,image/webp" multiple onChange={event=>void uploadFiles(event.target.files)} disabled={!canWrite||uploading||busy}/>
       <Popover><PopoverTrigger asChild><Button ref={searchButton} variant={query?'secondary':'outline'} size={compact?'icon-sm':'icon'} aria-label={query?uiF("Search library: {0}", [query]):uiT("Search library")}><IconSearch size={compact?15:18}/></Button></PopoverTrigger><PopoverContent align="start" className="grid gap-2"><Label htmlFor="library-search">{uiT("Search loaded files")}</Label><Input id="library-search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={uiT("File name…")}/></PopoverContent></Popover>
@@ -171,7 +170,17 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug,compact=fal
     </div>
     {notice&&<p role="status" className="text-xs text-muted-foreground">{uiT(notice)}</p>}
     {loading&&!assets.length&&!error?(compact?<ListRowsSkeleton rows={4} label={uiT("Loading library…")}/>:<TableSkeleton columns={5} rows={5} label={uiT("Loading library…")}/>):error?<div role="alert" className="space-y-2 text-sm"><p>{uiT(error)}</p><Button variant="outline" size={compact?'sm':'default'} onClick={()=>setRevision(value=>value+1)}>{uiT("Retry library")}</Button></div>:<>
-      {!visible.length?<Empty className={compact?'border-0 bg-transparent p-4':'min-h-64'}><EmptyHeader><EmptyMedia variant="icon">{query?<IconSearchOff aria-hidden="true" />:<IconPhoto aria-hidden="true" />}</EmptyMedia><EmptyTitle>{query?uiT("No matching loaded files"):uiT("No saved media yet")}</EmptyTitle><EmptyDescription>{query?uiT("Try another name or load more files."):canWrite ? uiT("Upload an image or save a generation result to this workspace.", "可上传图片，也可从生成结果中保存素材。") : uiT("No media has been saved to this workspace.", "此工作空间暂无已保存素材。")}</EmptyDescription></EmptyHeader>{(query||canWrite)&&<EmptyContent className="flex-row flex-wrap justify-center gap-2">{query?<Button variant="outline" size={compact?'sm':'default'} onClick={()=>{setQuery('');searchButton.current?.focus();}}>{uiT("Clear search")}</Button>:<Button variant="outline" size={compact?'sm':'default'} disabled={uploading||busy} onClick={()=>uploadInput.current?.click()}><IconUpload size={compact?15:16}/>{uploading?uiT("Saving image…"):uiT("Upload image", "上传图片")}</Button>}</EmptyContent>}</Empty>:compact?<div className="generations-deliverables-list">{visible.map(asset=>{
+      {!visible.length ? <Empty className={compact ? 'border-0 bg-transparent p-4' : 'min-h-64'}>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">{query || kind !== 'all' ? <IconSearchOff aria-hidden="true" /> : <IconPhoto aria-hidden="true" />}</EmptyMedia>
+          <EmptyTitle>{query ? uiT("No matching loaded files") : kind !== 'all' ? uiT("No matching media", "没有匹配的素材") : uiT("No saved media yet")}</EmptyTitle>
+        </EmptyHeader>
+        {(query || kind !== 'all' || canWrite) && <EmptyContent>
+          {query || kind !== 'all'
+            ? <Button variant="outline" size={compact ? 'sm' : 'default'} onClick={() => { setQuery(''); setKind('all'); searchButton.current?.focus(); }}>{uiT("Clear filters", "清除筛选")}</Button>
+            : <Button size={compact ? 'sm' : 'default'} disabled={uploading || busy} onClick={() => uploadInput.current?.click()}><IconUpload size={compact ? 15 : 16}/>{uploading ? uiT("Saving image…") : uiT("Upload image", "上传图片")}</Button>}
+        </EmptyContent>}
+      </Empty>:compact?<div className="generations-deliverables-list">{visible.map(asset=>{
         const Icon=asset.media_kind==='video'?IconVideo:asset.media_kind==='audio'?IconMusic:IconPhoto;
         const kindLabel=asset.media_kind==='video'?uiT("Video"):asset.media_kind==='audio'?uiT("Audio"):uiT("Image");
         const savedDate=new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium' }).format(new Date(asset.created_at_ms));
