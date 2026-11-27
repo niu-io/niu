@@ -1,8 +1,8 @@
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { translateUI, readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
-import { IconChevronDown, IconHistory, IconRefresh, IconSearch } from '@tabler/icons-react';
+import { IconChevronDown, IconHistory, IconRefresh } from '@tabler/icons-react';
 import type { PlatformAuditCategory, PlatformAuditEvent, PlatformAuditPage } from '@niu-io/sdk/platform-audit';
 import { TableSkeleton } from '@/components/PageSkeletons';
 import PageHeader from '@/components/PageHeader';
@@ -11,7 +11,6 @@ import { useDashboardContext } from '@/shell/dashboard-context';
 import { request } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
@@ -46,6 +45,15 @@ export default function AuditLogsPage() {
 
 function AuditLogs({ token }: { token: string }) {
   const { t: uiT } = useUILocale();
+  function eventAction(event: PlatformAuditEvent) {
+    switch (event.action) {
+      case 'registration_preview_enabled': return uiT('Limited Preview registration enabled', '已开启有限预览注册');
+      case 'registration_disabled': return uiT('Self-registration closed', '已关闭自助注册');
+      case 'registration_approved': return uiT('Registration approved', '已批准注册申请');
+      case 'registration_rejected': return uiT('Registration rejected', '已拒绝注册申请');
+      default: return actionName(event.action);
+    }
+  }
   const scope = token || 'public';
   const [category, setCategory] = useState<PlatformAuditCategory | 'all'>('all');
   const initialPage = peekQuery<PlatformAuditPage>(scope, '/api/v1/admin/audit?limit=50');
@@ -67,7 +75,7 @@ function AuditLogs({ token }: { token: string }) {
     if (cached) {
       setRows(cached.data);
       setCursor(cached.next_cursor);
-      setLoading(revision > 0);
+      setLoading(true);
     } else {
       setRows(null);
       setCursor(null);
@@ -90,31 +98,29 @@ function AuditLogs({ token }: { token: string }) {
     if (!cursor || loading) return;
     const controller = new AbortController(); pending.current?.abort(); pending.current = controller;
     setLoading(true); setError('');
-    let next: string | null = cursor;
-    const visited = new Set<string>();
     try {
-      while (next && !controller.signal.aborted) {
-        if (visited.has(next)) throw new Error('Audit history did not advance.');
-        visited.add(next);
-        const params = new URLSearchParams({ limit: '50', cursor: next });
-        if (category !== 'all') params.set('category', category);
-        const page: PlatformAuditPage = await request(token, '/api/v1/admin/audit?' + params, 'GET', undefined, controller.signal);
-        if (controller.signal.aborted) return;
-        setRows(previous => {
-          const ids = new Set(previous?.map(event => event.id));
-          return [...previous ?? [], ...page.data.filter(event => !ids.has(event.id))];
-        });
-        next = page.next_cursor;
-        setCursor(next);
-        if (!needle || page.data.some(matchesSearch)) break;
-      }
+      const params = new URLSearchParams({ limit: '50', cursor });
+      if (category !== 'all') params.set('category', category);
+      const page: PlatformAuditPage = await request(token, '/api/v1/admin/audit?' + params, 'GET', undefined, controller.signal);
+      if (controller.signal.aborted) return;
+      if (page.next_cursor === cursor) throw new Error('Audit history did not advance.');
+      setRows(previous => {
+        const ids = new Set(previous?.map(event => event.id));
+        return [...previous ?? [], ...page.data.filter(event => !ids.has(event.id))];
+      });
+      setCursor(page.next_cursor);
     } catch (reason) { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'More audit events could not be loaded.'); }
     finally { if (!controller.signal.aborted) setLoading(false); }
   }
 
   const needle = query.trim().toLowerCase();
-  const matchesSearch = (event: PlatformAuditEvent) => [actionName(event.action), actorName(event), event.target_label, translateUI(categories[event.category])].join(' ').toLowerCase().includes(needle);
+  const matchesSearch = (event: PlatformAuditEvent) => [eventAction(event), actorName(event), event.target_label, translateUI(categories[event.category])].join(' ').toLowerCase().includes(needle);
   const visibleRows = rows?.filter(matchesSearch);
+  useEffect(() => {
+    if (!needle || !cursor || loading || error) return;
+    const timer = window.setTimeout(() => void loadMore(), 300);
+    return () => window.clearTimeout(timer);
+  });
   return <section className="empty-region space-y-5" aria-label={uiT("Platform audit logs")}>
     <PageHeader
       title={uiT("Audit logs")}
@@ -131,7 +137,6 @@ function AuditLogs({ token }: { token: string }) {
         </Button>
       }
     />
-    <p className="text-sm text-muted-foreground">{uiT("Recorded account, access, Provider, and configuration changes.")}</p>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <DropdownMenu>
         <DropdownMenuTrigger asChild><Button variant="outline" aria-label={uiT("Audit category")}>{translateUI(categories[category])}<IconChevronDown size={16} /></Button></DropdownMenuTrigger>
@@ -140,48 +145,26 @@ function AuditLogs({ token }: { token: string }) {
         </DropdownMenuRadioGroup></DropdownMenuContent>
       </DropdownMenu>
       <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size={query.trim() ? "sm" : "icon"}
-              aria-label={uiT("Search audit events")}
-              title={uiT("Search audit events")}
-              className={query.trim() ? "text-primary bg-accent" : undefined}
-            >
-              <IconSearch size={16} />
-              {query.trim() && <span className="max-w-32 truncate">{query.trim()}</span>}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-2">
-            <Input
-              autoFocus
-              type="search"
+        <Input
+              className="w-full sm:w-64"
+          type="search"
               value={query}
               onChange={event => setQuery(event.target.value)}
               placeholder={uiT("Search events")}
               aria-label={uiT("Search audit events")}
             />
-            {query && (
-              <Button variant="ghost" size="sm" onClick={() => setQuery("")}>
-                {uiT("Clear search")}
-              </Button>
-            )}
-          </PopoverContent>
-        </Popover>
       </div>
     </div>
     {error && <p role="alert" className="text-sm text-destructive">{error} <Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
-    {rows === null ? loading && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : (visibleRows ?? []).length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconHistory size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{query.trim() ? uiT("No matching audit events") : uiT("No audit events yet")}</EmptyTitle><EmptyDescription>{query.trim() ? cursor ? uiT("No matches in loaded events. Search earlier events below.", "已加载记录中无匹配项，可继续查找更早记录。") : uiT("No audit events match this search.") : uiT("No audit events in this category.")}</EmptyDescription></EmptyHeader></Empty> : <Table>
+    {rows === null || (needle && cursor && !visibleRows?.length) ? !error && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : (visibleRows ?? []).length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconHistory size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{query.trim() ? uiT("No matching audit events") : uiT("No audit events yet")}</EmptyTitle></EmptyHeader></Empty> : <Table>
       <TableHeader><TableRow><TableHead className="w-48">{uiT("Time (UTC)")}</TableHead><TableHead>{uiT("Action")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Actor")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Target")}</TableHead></TableRow></TableHeader>
       <TableBody>{(visibleRows ?? []).map(event => <TableRow key={event.id}>
         <TableCell className="align-top whitespace-normal text-xs tabular-nums sm:whitespace-nowrap"><time dateTime={event.created_at}>{new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' }).format(new Date(event.created_at))}</time></TableCell>
-        <TableCell className="align-top whitespace-normal break-words"><span>{event.action === 'registration_preview_enabled' ? uiT('Limited Preview registration enabled', '已开启有限预览注册') : event.action === 'registration_disabled' ? uiT('Self-registration closed', '已关闭自助注册') : event.action === 'registration_approved' ? uiT('Registration approved', '已批准注册申请') : event.action === 'registration_rejected' ? uiT('Registration rejected', '已拒绝注册申请') : actionName(event.action)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + roleName(event.before_role) + ' → ' + roleName(event.after_role) : ''}</span><small className="mt-1 block text-muted-foreground">{translateUI(categories[event.category])}</small><dl className="mt-2 space-y-1 md:hidden"><div><dt className="inline text-xs text-muted-foreground">{uiT("Actor:")}{" "}</dt><dd className="inline">{actorName(event)}</dd></div><div><dt className="inline text-xs text-muted-foreground">{uiT("Target:")}{" "}</dt><dd className="inline">{event.target_label}</dd></div></dl></TableCell>
+        <TableCell className="align-top whitespace-normal break-words"><span>{eventAction(event)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + roleName(event.before_role) + ' → ' + roleName(event.after_role) : ''}</span><small className="mt-1 block text-muted-foreground">{translateUI(categories[event.category])}</small><dl className="mt-2 space-y-1 md:hidden"><div><dt className="inline text-xs text-muted-foreground">{uiT("Actor:")}{" "}</dt><dd className="inline">{actorName(event)}</dd></div><div><dt className="inline text-xs text-muted-foreground">{uiT("Target:")}{" "}</dt><dd className="inline">{event.target_label}</dd></div></dl></TableCell>
         <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{actorName(event)}</TableCell>
         <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{event.target_label}</TableCell>
       </TableRow>)}</TableBody>
     </Table>}
-    {cursor && <div className="flex justify-center"><Button variant="outline" disabled={loading} onClick={() => void loadMore()}>{loading ? uiT("Loading…") : needle ? uiT("Search earlier events", "查找更早记录") : uiT("Load more")}</Button></div>}
+    {cursor && !needle && <div className="flex justify-center"><Button variant="outline" disabled={loading} onClick={() => void loadMore()}>{loading ? uiT("Loading…") : uiT("Load more")}</Button></div>}
   </section>;
 }
