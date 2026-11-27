@@ -141,6 +141,12 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(fallback.className).not.toContain('bg-muted');
   });
 
+  it('reserves room for the current breadcrumb in narrow headers', () => {
+    const css = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
+    expect(css).toContain('[data-slot="breadcrumb-item"]:last-child { flex: 1 0 auto;');
+    expect(css).toContain('[data-slot="breadcrumb-item"]:only-child { max-width: 100%; }');
+  });
+
   it('keeps the customer creation label visible on phones', () => {
     const customers = readFileSync(join(appDir, 'features/customers/customer-directory.tsx'), 'utf8');
     expect(customers).not.toMatch(/className="hidden sm:inline">\{uiT\("New customer"\)/);

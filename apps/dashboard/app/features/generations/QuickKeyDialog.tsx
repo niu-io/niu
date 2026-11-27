@@ -140,12 +140,12 @@ export function QuickKeyDialog({
           <DialogDescription>
             {canWrite
               ? uiT(
-                  'This workspace has no active API keys yet. Model requests require a workspace API key for authorization and billing. Auto-create a default “Playground” key (90-day expiry, all workspace models, revocable anytime in Keys) or configure one manually.',
-                  '当前工作空间暂无可用 API 密钥，模型试用与调用需要通过工作空间密钥进行授权与计费。您可以一键自动创建默认的「Playground」密钥（90 天有效期、可用全部工作空间模型，随时可在「密钥」页管理或撤销），也可以前往自定义创建。',
+                  'The “Playground” key can use all workspace models for 90 days. You can revoke it anytime.',
+                  '「Playground」密钥可使用此工作空间的全部模型，90 天有效，可随时撤销。',
                 )
               : uiT(
-                  'This workspace has no active API keys yet, and your account has read-only access. Ask a workspace administrator to create an API key before trying models.',
-                  '当前工作空间暂无可用 API 密钥，您的账户当前为只读权限，无法创建密钥。请联系工作空间管理员创建密钥后再试用模型。',
+                  'Ask a workspace administrator to create a key.',
+                  '请联系工作空间管理员创建密钥。',
                 )}
           </DialogDescription>
         </DialogHeader>
