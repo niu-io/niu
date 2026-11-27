@@ -24,7 +24,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Label } from '@/components/ui/label';
 import { ListRowsSkeleton } from '@/components/PageSkeletons';
 import { formatDateTime } from '@/features/operators/api';
@@ -490,17 +490,6 @@ export function RegistrationRequestsQueue({
                     ? t('No approved registrations yet', '暂无已批准的注册记录')
                     : t('No rejected registrations', '暂无已拒绝的注册记录')}
               </EmptyTitle>
-              <EmptyDescription>
-                {statusFilter === 'pending'
-                  ? t(
-                      'New Limited Preview applicants from /register will appear here for administrator approval.',
-                      '来自 /register 的新有限预览申请将显示在此处等待审批。',
-                    )
-                  : t(
-                      'Reviewed requests remain recorded here for audit traceability.',
-                      '已审批或已拒绝的记录会保留在此处以便追溯。',
-                    )}
-              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : loadedFilter === statusFilter && records.length > 0 ? (
