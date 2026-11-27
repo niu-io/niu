@@ -202,7 +202,7 @@ function aggregateCohort(rows?: CommercialPositionRow[] | null): CohortAggregate
     settledPayable,
     unpaidPayable,
     recordedUpstreamCost: hasRecordedUpstreamCost ? recordedUpstreamCost : null,
-    netContribution: contributionKnown ? netContribution : null,
+    netContribution: contributionKnown && unresolvedAttempts === 0n ? netContribution : null,
     matchedAttempts,
     unresolvedAttempts,
     activeModelCount,
@@ -489,12 +489,8 @@ function CommercialStatement({ token }: { token: string }) {
         ? BigInt(priorSummary.known_gift_allowance_subtotal_nanos)
         : priorCohort?.giftAllowance ?? null;
 
-  const netContribution = recognizedRevenue !== null && currentCohort.unresolvedAttempts === 0n && currentCohort.netContribution !== null
-    ? recognizedRevenue - currentCohort.providerPayable
-    : null;
-  const priorNetContribution = priorRecognizedRevenue !== null && priorCohort?.unresolvedAttempts === 0n && priorCohort.netContribution !== null
-    ? priorRecognizedRevenue - priorCohort.providerPayable
-    : null;
+  const netContribution = currentCohort.netContribution;
+  const priorNetContribution = priorCohort?.netContribution ?? null;
 
   const verifiedCashReceipts =
     summary?.verified_cash_receipts_nanos != null ? BigInt(summary.verified_cash_receipts_nanos) : null;
@@ -901,9 +897,9 @@ function CommercialStatement({ token }: { token: string }) {
 
             <article className="min-w-0 rounded-xl bg-card p-5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-muted-foreground">{uiT("Platform net contribution")}</span>
+                <span className="text-xs font-medium text-muted-foreground">{uiT("Request contribution", "请求净贡献")}</span>
                 <Badge variant="secondary">
-                  {formatMarginPercent(netContribution, recognizedRevenue)}{" "}{uiT("margin")}</Badge>
+                  {formatMarginPercent(netContribution, currentCohort.netRevenue)}{" "}{uiT("margin")}</Badge>
               </div>
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
                 {netContribution === null ? uiT("Pending reconciliation", "待核定") : <StatementMoney amount={netContribution} currency={currency} />}
@@ -999,11 +995,17 @@ function CommercialStatement({ token }: { token: string }) {
                     negateDisplay
                   />
                   <StatementRow
-                    label={uiT("Net recognized customer revenue")}
+                    label={uiT("Net revenue posted in period", "本期入账净收入")}
                     current={recognizedRevenue}
                     prior={priorRecognizedRevenue}
                     currency={currency}
                     strong
+                  />
+                  <StatementRow
+                    label={uiT("Net revenue from requests in period", "本期请求净收入")}
+                    current={currentCohort.netRevenue}
+                    prior={priorCohort?.netRevenue ?? null}
+                    currency={currency}
                   />
                   <StatementRow
                     label={uiT("Less: Provider payable (Cost of model supply)")}
@@ -1023,7 +1025,7 @@ function CommercialStatement({ token }: { token: string }) {
                     muted
                   />
                   <StatementRow
-                    label={uiT("Platform net contribution (Gross profit)")}
+                    label={uiT("Request contribution", "请求净贡献")}
                     current={netContribution}
                     prior={priorNetContribution}
                     currency={currency}
@@ -1032,15 +1034,15 @@ function CommercialStatement({ token }: { token: string }) {
                   <TableRow className="bg-muted/30 font-medium">
                     <TableCell>{uiT("Effective gross margin (%)")}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatMarginPercent(netContribution, recognizedRevenue)}
+                      {formatMarginPercent(netContribution, currentCohort.netRevenue)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums hidden sm:table-cell text-muted-foreground">
-                      {formatMarginPercent(priorNetContribution, priorRecognizedRevenue)}
+                      {formatMarginPercent(priorNetContribution, priorCohort?.netRevenue ?? null)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
                       {currentCohort.unresolvedAttempts > 0n
                         ? uiF("{0} unresolved", [currentCohort.unresolvedAttempts.toString()])
-                        : uiT("Fully resolved")}
+                        : netContribution === null ? uiT("Pending reconciliation", "待核定") : uiT("Fully resolved")}
                     </TableCell>
                   </TableRow>
                 </TableBody>
