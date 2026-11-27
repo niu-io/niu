@@ -35,11 +35,9 @@ describe('Shared UI primitives layout safeguards', () => {
 
   const tsxFiles = collectTsxFiles(appDir);
 
-  it('shows unit spread in standard price rows and keeps publication time in the detail sheet', () => {
-    const page = readFileSync(join(appDir, 'features/retail-pricing/page.tsx'), 'utf8');
-    expect(page).toContain('<DirectorySpread health={row.pricing_health} currency={row.currency}');
-    expect(page).toContain('{date(price.published_at)}</SheetDescription>');
-    expect(page).not.toContain('{date(row.published_at)}</TableCell>');
+  it('keeps storage precision guidance out of the credit tariff heading', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/unit-tariffs.tsx'), 'utf8');
+    expect(source).not.toContain('decimal places are stored exactly');
   });
 
   it('keeps per-workspace charge headers and values visible on phones', () => {
@@ -323,6 +321,13 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(modelTable).toContain('uiT("Not published")');
     expect(modelTable).toContain('uiT("Try")');
   });
+  it('shows unit spread in standard price rows and keeps publication time in the detail sheet', () => {
+    const page = readFileSync(join(appDir, 'features/retail-pricing/page.tsx'), 'utf8');
+    expect(page).toContain('<DirectorySpread health={row.pricing_health} currency={row.currency}');
+    expect(page).toContain('{date(price.published_at)}</SheetDescription>');
+    expect(page).not.toContain('{date(row.published_at)}</TableCell>');
+  });
+
   it('prevents fixed-layout table cells from bleeding text over adjacent columns and keeps bare table rules inside @layer base', () => {
     const foundation = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
     expect(foundation).toContain(':where(table.table-fixed, .billing-transactions, .billing-invoices, .gateway-request-table, .activity-charge-breakdown table, .operator-session-table table) :where(th, td)');

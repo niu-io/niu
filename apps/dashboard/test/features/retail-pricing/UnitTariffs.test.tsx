@@ -112,7 +112,7 @@ describe('Branded Credits tariffs', () => {
     const completion = screen.getByLabelText('Output / 1M tokens');
     await user.type(prompt, '0.000000001');
     await user.type(completion, '15');
-    await user.click(screen.getByRole('button', { name: 'Publish Niu Credits tariff' }));
+    await user.click(screen.getByRole('button', { name: 'Publish', exact: true }));
     await waitFor(() => expect(writes).toHaveLength(1));
 
     expect(writes[0].path).toBe('/api/v1/admin/units/tariffs');
@@ -157,7 +157,7 @@ describe('Branded Credits tariffs', () => {
     await user.type(screen.getByLabelText('Rate (Niu Credits)'), '0.5');
     await user.clear(screen.getByLabelText('Per quantity (video tokens)'));
     await user.type(screen.getByLabelText('Per quantity (video tokens)'), '1000000');
-    await user.click(screen.getByRole('button', { name: 'Publish Niu Credits tariff' }));
+    await user.click(screen.getByRole('button', { name: 'Publish', exact: true }));
     await waitFor(() => expect(writes).toHaveLength(1));
 
     expect(writes[0].path).toBe('/api/v1/admin/units/media/tariffs');
@@ -176,11 +176,16 @@ describe('Branded Credits tariffs', () => {
   });
 
   it('explains the missing video-token configuration instead of offering an arbitrary alias', async () => {
+    let finishLookup!: () => void;
+    const lookup = new Promise<void>(resolve => { finishLookup = resolve; });
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
       if (path === '/api/v1/admin/units') return Response.json({ data: config });
       if (path === '/api/v1/admin/units/media/tariffs') return Response.json({ data: [] });
-      if (path.includes('/api/v1/admin/pricing/standard-prices/models?')) return Response.json({ data: [{ model_alias: 'seconds-model', media: modelChoices[2].media }], next_after: null });
+      if (path.includes('/api/v1/admin/pricing/standard-prices/models?')) {
+        await lookup;
+        return Response.json({ data: [{ model_alias: 'seconds-model', media: modelChoices[2].media }], next_after: null });
+      }
       return Response.json({ error: { message: 'Unexpected ' + path } }, { status: 404 });
     }));
     renderSection();
@@ -189,6 +194,9 @@ describe('Branded Credits tariffs', () => {
     const publish = await screen.findByRole('button', { name: 'Publish Credits media tariff' });
     await waitFor(() => expect((publish as HTMLButtonElement).disabled).toBe(false));
     await user.click(publish);
+    expect((document.querySelector('#unit-media-amount') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(false);
+    finishLookup();
     expect(await screen.findByText('No registered models use video-token media pricing.')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Configure a Provider model (opens in a new tab)' }).getAttribute('href')).toBe('/admin/providers');
     expect(screen.queryByLabelText('Model alias')).toBeNull();
