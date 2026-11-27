@@ -43,19 +43,22 @@ export function ScheduleRevision({ schedule, prior, currency }: { schedule: Reta
   function add(label: string, a: string | null, b: string | null) {
     if (a !== b) changes.push({label, before: a === null ? t('Ordinary pricing', '常规费率') : money(a, currency), after: b === null ? t('Ordinary pricing', '常规费率') : money(b, currency)});
   }
-  for (const [field, label] of categories) add(t(label), prior[field], schedule[field]);
-  add(t('Request fee'), prior.request_fee_nanos, schedule.request_fee_nanos);
-  add(t('Minimum charge'), prior.minimum_charge_nanos, schedule.minimum_charge_nanos);
-  for (const threshold of bands) {
-    const oldBand = prior.context_tiers.find(item => item.minimum_input_tokens === threshold);
-    const newBand = schedule.context_tiers.find(item => item.minimum_input_tokens === threshold);
-    const range = `≥ ${BigInt(threshold).toLocaleString()} ${t('Tokens')}`;
-    if (oldBand && newBand) {
-      for (const [field, label] of categories) add(range + ' · ' + t(label), oldBand[field] ?? null, newBand[field] ?? null);
-    } else {
-      changes.push({label: range, before: oldBand ? t('Configured') : '—', after: newBand ? t('Configured') : '—'});
+  const previousTiers = new Map(prior.context_tiers.map(tier => [tier.minimum_input_tokens, tier]));
+  const currentTiers = new Map(schedule.context_tiers.map(tier => [tier.minimum_input_tokens, tier]));
+  let previousRates: Omit<typeof prior.context_tiers[number], 'minimum_input_tokens'> = prior;
+  let currentRates: typeof previousRates = schedule;
+  const thresholds = ['0', ...bands.filter(value => value !== '0')];
+  for (const [index, threshold] of thresholds.entries()) {
+    previousRates = previousTiers.get(threshold) ?? previousRates;
+    currentRates = currentTiers.get(threshold) ?? currentRates;
+    const range = tokenBand(threshold, thresholds[index + 1]);
+    for (const [field, label] of categories) {
+      const heading = bands.length ? `${range} ${t('Tokens')} · ${t(label)}` : t(label);
+      add(heading, previousRates[field] ?? null, currentRates[field] ?? null);
     }
   }
+  add(t('Request fee'), prior.request_fee_nanos, schedule.request_fee_nanos);
+  add(t('Minimum charge'), prior.minimum_charge_nanos, schedule.minimum_charge_nanos);
   return <div className="space-y-2">
     {changes.length > 0 ? <ul>{changes.map(change => <li key={change.label}>{change.label} · {change.before} → {change.after}</li>)}</ul> : <p>{t('Rates unchanged', '单价未变')}</p>}
     <details><summary className="cursor-pointer text-sm">{t('Full price schedule', '完整价表')}</summary>
