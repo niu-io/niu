@@ -35,7 +35,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatUnitAtoms, money } from '@/lib/money';
+import { requestCharges } from '@/lib/customer-tariff';
+import { formatExactUnitAtoms, money } from '@/lib/money';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useWorkspaceVideo } from '@/features/provider-modules/useWorkspaceVideo';
 import { useDashboardContext } from '@/shell/dashboard-context';
@@ -795,18 +796,19 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     if (model.billing_source === 'own_api_key') return uiT('No Niu charge');
     const units = model.customer_unit_pricing;
     const price = model.customer_pricing;
-    let input: string;
-    let output: string;
-    if (units && (billingMode === 'credits' || !price)) {
-      input = formatUnitAtoms(units.prompt_rate, units.unit_name, units.display_precision);
-      output = formatUnitAtoms(units.completion_rate, units.unit_name, units.display_precision);
-    } else if (price) {
-      input = money(price.prompt_rate, price.currency);
-      output = money(price.completion_rate, price.currency);
-    } else {
+    const tariff = units && (billingMode === 'credits' || !price) ? units : price;
+    if (!tariff || tariff.prompt_rate == null || tariff.completion_rate == null) {
       return uiT("Rate unavailable", "费率暂不可用");
     }
-    return input + uiT("/M input tokens") + ' · ' + output + uiT("/M output tokens");
+    const amount = (rate: string) => 'unit_name' in tariff
+      ? formatExactUnitAtoms(rate, tariff.unit_name, tariff.display_precision)
+      : money(rate, tariff.currency);
+    const parts = tariff.context_tiers?.length ? [uiT("Context tiers")] : [
+      amount(tariff.prompt_rate) + uiT("/M input tokens"),
+      amount(tariff.completion_rate) + uiT("/M output tokens"),
+    ];
+    for (const charge of requestCharges(tariff)) parts.push(uiT(charge.label) + ' · ' + charge.amount);
+    return parts.join(' · ');
   }
   const singleTrialRate = selectedModels.length === 1 ? trialRate(selectedModels[0]) : null;
   const billingSources = selectedModels.map(alias => dashboard.models?.find(model => model.id === alias)?.billing_source);

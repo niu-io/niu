@@ -76,6 +76,7 @@ function formatModalityList(values: string[], isZh: boolean): string {
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useModelPopularity } from '@/shell/useModelPopularity';
+import { requestCharges } from '@/lib/customer-tariff';
 import { formatExactUnitAtoms, money } from '@/lib/money';
 import { workspacePathSegment } from '@/shell/workspace-route';
 
@@ -130,18 +131,6 @@ function isFreeTariff(price?: CustomerPricing | CustomerUnitPricing | null) {
   return 'unit_name' in price
     ? price.request_fee_atoms === '0' && price.minimum_charge_atoms === '0'
     : price.request_fee_nanos === '0' && price.minimum_charge_nanos === '0';
-}
-
-function requestCharges(price?: CustomerPricing | CustomerUnitPricing | null) {
-  if (!price) return [];
-  const credits = 'unit_name' in price;
-  const entries = [
-    ['Request fee', credits ? price.request_fee_atoms : price.request_fee_nanos],
-    ['Minimum charge', credits ? price.minimum_charge_atoms : price.minimum_charge_nanos],
-  ] as const;
-  return entries.flatMap(([label, value]) => value && value !== '0' ? [{
-    label, amount: credits ? formatExactUnitAtoms(value, price.unit_name, price.display_precision) : money(value, price.currency),
-  }] : []);
 }
 
 function ContextTariff({ price }: { price: CustomerPricing | CustomerUnitPricing }) {
