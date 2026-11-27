@@ -1605,7 +1605,7 @@ export interface RoutingRegistryStatus {
 
 /** Confidential platform comparison. Customer charge is not an external cash receipt. */
 export type CommercialPositionRow = {
-  pending_attempts?: Array<{ attempt: string; execution: string; usage_confidence: string; charge_missing: boolean; revenue_source_missing?: boolean; payable_missing: boolean }>;
+  pending_attempts?: Array<{ attempt: string; workspace_id?: string; reference?: string | null; execution: string; usage_confidence: string; charge_missing: boolean; revenue_source_missing?: boolean; payable_missing: boolean }>;
   supplier_id: string; supplier_name: string; model_alias: string; currency: string;
   offers: Array<{
     offer_id: string; route_alias: string; revision: string; rate_kind: 'text' | 'media';

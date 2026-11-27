@@ -861,7 +861,7 @@ describe('gateway activity', () => {
     render(<MemoryRouter><GatewayActivity compact token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
 
     expect(await screen.findByRole('heading', { name: 'No requests yet' })).toBeTruthy();
-    expect(screen.queryByRole('link', { name: /Open Chat/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Open Generations/i })).toBeNull();
   });
 
   it('keeps detailed breakdown tables on Activity and leaves request investigation separate', async () => {
@@ -1099,19 +1099,27 @@ it('opens a historical video request with its original workspace/key and omits t
  it.each(['usage', 'executions'])('keeps the workspace when starting Chat from empty %s', async section => {
   vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Response.json({data: [], next_cursor: null, summary: {...summary, request_count: 0, usage_by_model: []}})));
   render(<MemoryRouter initialEntries={[`/workspaces/other-workspace/${section}`]}><GatewayActivity token="test" models={[]} statisticsOnly={section === 'usage'} initialScope={{organizationId: 'org-1', projectId: 'project-1'}} /></MemoryRouter>);
-  const link = await screen.findByRole('link', {name: /Open Chat/});
+  const link = await screen.findByRole('link', {name: /Open Generations/});
   expect(link.getAttribute('href')).toBe('/generations?new=1&workspace=other-workspace');
+});
+
+it.each([true, false])('respects key creation permission in an empty workspace (write=%s)', async canCreateKey => {
+ vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Response.json({data: [], next_cursor: null, summary: {...summary, request_count: 0}})));
+ render(<MemoryRouter initialEntries={['/workspaces/demo/executions']}><GatewayActivity token="member" models={[]} activeKeyCount={0} canCreateKey={canCreateKey} /></MemoryRouter>);
+ await screen.findByText('No requests yet');
+ const link = screen.queryByRole('link', {name: 'Create API key'});
+ if (canCreateKey) expect(link?.getAttribute('href')).toBe('/workspaces/demo/keys/new');
+ else expect(link).toBeNull();
 });
 
 it('offers filter recovery instead of implying the workspace has never had activity', async () => {
  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Response.json({data: [], next_cursor: null, summary: {...summary, request_count: 0, usage_by_model: [], usage_by_key: []}})));
  render(<MemoryRouter initialEntries={['/workspaces/demo/usage?from=2030-01-01&modelAlias=fast&httpStatus=500&tokens=reasoning']}><RouteQuery /><GatewayActivity token="test" models={[]} statisticsOnly initialScope={{organizationId:'org-1',projectId:'project-1'}} /></MemoryRouter>);
- await screen.findByText('No matching model activity');
- expect(screen.getByText('No matching API key activity')).toBeTruthy();
- expect(screen.queryByRole('link', {name: /Open Chat/})).toBeNull();
+ await screen.findByText('No matching requests');
+ expect(screen.queryByRole('link', {name: /Open Generations/})).toBeNull();
  fireEvent.click(screen.getByRole('button', {name:'Clear filters'}));
  await waitFor(() => expect(screen.getByLabelText('Route query').textContent).toBe('?tokens=reasoning'));
- expect(await screen.findByRole('link', {name:/Open Chat/})).toBeTruthy();
+ expect(await screen.findByRole('link', {name:/Open Generations/})).toBeTruthy();
 });
 
 it('preserves operation scope through pagination and export and removes it without exposing the identifier', async () => {
