@@ -2760,7 +2760,12 @@ resolveIncidentConnection(reference: string, options?: RequestOptions): Promise<
 
 ```typescript
 /** Models with recorded active incidents in this authorized workspace only. */
-listWorkspaceIncidents(workspaceId: string, options?: RequestOptions): Promise<{
+listWorkspaceIncidents(workspaceId: string, options?: RequestOptions & {
+    after?: {
+        model: string;
+        owner_funded: boolean;
+    };
+}): Promise<{
     data: {
         model: string;
         owner_funded: boolean;

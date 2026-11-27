@@ -187,15 +187,26 @@ impl Store {
         &self,
         scope: TenantScope,
     ) -> Result<Value, StoreError> {
+        self.workspace_active_incidents_page(scope, None).await
+    }
+
+    pub async fn workspace_active_incidents_page(
+        &self,
+        scope: TenantScope,
+        after: Option<(&str, bool)>,
+    ) -> Result<Value, StoreError> {
         let models: Vec<(String, bool)> = sqlx::query_as(
-            "SELECT DISTINCT i.model_alias, EXISTS(SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=i.vendor_id AND p.organization_id=a.organization_id) AS owner_funded FROM connection_incidents i \
+            "SELECT model_alias,owner_funded FROM (SELECT DISTINCT i.model_alias, EXISTS(SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=i.vendor_id AND p.organization_id=a.organization_id) AS owner_funded FROM connection_incidents i \
              JOIN connection_incident_observations o ON o.incident_id=i.id \
              JOIN attempts a ON a.id=o.attempt_id \
-             WHERE i.resolved_at IS NULL AND a.organization_id=$1 AND a.project_id=$2 \
-             ORDER BY i.model_alias, owner_funded LIMIT 51",
+             WHERE i.resolved_at IS NULL AND a.organization_id=$1 AND a.project_id=$2) affected \
+             WHERE $3::text IS NULL OR (model_alias,owner_funded)>($3,$4::boolean) \
+             ORDER BY model_alias,owner_funded LIMIT 51",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
+        .bind(after.map(|key| key.0))
+        .bind(after.map(|key| key.1))
         .fetch_all(&self.pool)
         .await?;
         let more = models.len() > 50;
