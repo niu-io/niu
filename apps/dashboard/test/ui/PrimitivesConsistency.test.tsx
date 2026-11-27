@@ -32,6 +32,11 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(source).not.toContain('expected_revision: latestCfg');
   });
 
+  it('keeps storage precision guidance out of the credit tariff heading', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/unit-tariffs.tsx'), 'utf8');
+    expect(source).not.toContain('decimal places are stored exactly');
+  });
+
   it('keeps per-workspace charge headers and values visible on phones', () => {
     const source = readFileSync(join(appDir, 'features/activity/global-page.tsx'), 'utf8');
     const section = source.split('<section aria-label={uiT("Activity by workspace")}')[1].split('</section>')[0];
@@ -152,6 +157,13 @@ describe('Shared UI primitives layout safeguards', () => {
     const css = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
     expect(css).toContain('[data-slot="breadcrumb-item"]:last-child { flex: 1 0 auto;');
     expect(css).toContain('[data-slot="breadcrumb-item"]:only-child { max-width: 100%; }');
+  });
+
+  it('offers recovery when an audit category or search yields no matches', () => {
+    const source = readFileSync(join(appDir, 'features/audit-logs/page.tsx'), 'utf8');
+    expect(source).toContain("const filtered = category !== 'all' || Boolean(query.trim())");
+    expect(source).toContain('filtered && <EmptyContent>');
+    expect(source).toContain('searchInput.current?.focus()');
   });
 
   it('keeps the key directory as a responsive list instead of a fixed-width table', () => {

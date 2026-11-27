@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -443,6 +443,7 @@ function UnitTextTariffDialog({
   const [requestFee, setRequestFee] = useState(initial ? unitAmountFromAtoms(initial.price.request_fee_atoms) : '0');
   const [minimumCharge, setMinimumCharge] = useState(initial ? unitAmountFromAtoms(initial.price.minimum_charge_atoms) : '0');
   const [saving, setSaving] = useState(false);
+  const draftLocked = saving || modelsLoading;
   const [error, setError] = useState('');
   const { dismiss, confirmDiscard, keepEditing } = useTariffDismiss([modelAlias, rates, tiers, requestFee, minimumCharge], saving, onClose);
 
@@ -502,10 +503,9 @@ function UnitTextTariffDialog({
 
   return (
     <Dialog open onOpenChange={open => { if (!open) dismiss(); }}>
-      <DialogContent onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(); }} className="w-[calc(100vw-2rem)] sm:max-w-xl">
+      <DialogContent aria-describedby={undefined} onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(); }} className="w-[calc(100vw-2rem)] sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{initial ? uiF("Revise {0} text tariff", [unitName]) : uiF("Publish {0} text tariff", [unitName])}</DialogTitle>
-          <DialogDescription>{uiF("Rates are in {0} per 1,000,000 tokens. Up to 9 decimal places are stored exactly.", [unitName])}</DialogDescription>
         </DialogHeader>
         {confirmDiscard ? <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>{uiT("Discard changes", "放弃修改")}</Button>
@@ -517,22 +517,22 @@ function UnitTextTariffDialog({
           </div>
           <h3 className="font-medium">{uiT("Base rates", "基础单价")}{tiers.length > 0 && ` · ${tokenBand('0', tiers[0].minimum_input_tokens)} ${uiT('Tokens')}`}</h3>
           <TextRateBand id="unit-tariff" rates={rates} previous={initial ? ratesFrom(initial.price) : undefined}
-            disabled={saving} onChange={(key, value) => setRates(current => ({ ...current, [key]: value }))} />
-          <ContextTierFields tiers={tiers} setTiers={setTiers} previous={initial?.price.context_tiers} locked={saving} />
+            disabled={draftLocked} onChange={(key, value) => setRates(current => ({ ...current, [key]: value }))} />
+          <ContextTierFields tiers={tiers} setTiers={setTiers} previous={initial?.price.context_tiers} locked={draftLocked} />
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="unit-tariff-fee">{uiT("Fixed request fee (")}{unitName})</Label>
-              <Input id="unit-tariff-fee" inputMode="decimal" value={requestFee} disabled={saving} onChange={event => setRequestFee(event.target.value)} />
+              <Input id="unit-tariff-fee" inputMode="decimal" value={requestFee} disabled={draftLocked} onChange={event => setRequestFee(event.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unit-tariff-min">{uiT("Minimum request charge (")}{unitName})</Label>
-              <Input id="unit-tariff-min" inputMode="decimal" value={minimumCharge} disabled={saving} onChange={event => setMinimumCharge(event.target.value)} />
+              <Input id="unit-tariff-min" inputMode="decimal" value={minimumCharge} disabled={draftLocked} onChange={event => setMinimumCharge(event.target.value)} />
             </div>
           </div>
           {error && <Alert variant="destructive" className={conflict ? "sticky bottom-0 z-10 bg-[var(--background)]!" : undefined} tabIndex={-1} ref={conflict ? focusConflictAlert : undefined}><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
           <div className="flex flex-wrap justify-end gap-2">
             <Button type="button" variant="outline" disabled={saving} onClick={dismiss}>{uiT("Cancel")}</Button>
-            <Button type="submit" disabled={saving || conflict || !modelAlias.trim() || !rates.prompt_rate.trim() || !rates.completion_rate.trim()}>{saving ? uiT("Publishing…") : initial ? uiF("Revise {0} tariff", [unitName]) : uiF("Publish {0} tariff", [unitName])}</Button>
+            <Button type="submit" disabled={saving || conflict || !modelAlias.trim() || !rates.prompt_rate.trim() || !rates.completion_rate.trim()}>{saving ? uiT("Publishing…") : uiT("Publish", "发布")}</Button>
           </div>
         </form>}
       </DialogContent>
@@ -574,6 +574,7 @@ function UnitMediaTariffDialog({
   const [minimumQuantity, setMinimumQuantity] = useState(initial ? mediaQuantityInput(initial.price.minimum_quantity) : '1');
   const [rounding, setRounding] = useState<'Down' | 'Up' | 'HalfEven'>(initial?.price.rounding ?? 'Up');
   const [saving, setSaving] = useState(false);
+  const draftLocked = saving || modelsLoading;
   const [error, setError] = useState('');
   const { dismiss, confirmDiscard, keepEditing } = useTariffDismiss([modelAlias, channel, resolution, referenceVideo, amount, perQuantity, minimumQuantity, rounding], saving, onClose);
 
@@ -682,15 +683,15 @@ function UnitMediaTariffDialog({
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="unit-media-amount">{uiT("Rate (")}{unitName})</Label>
-              <Input id="unit-media-amount" inputMode="decimal" value={amount} disabled={saving} onChange={event => setAmount(event.target.value)} />
+              <Input id="unit-media-amount" inputMode="decimal" value={amount} disabled={draftLocked} onChange={event => setAmount(event.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unit-media-per">{uiT("Per quantity (video tokens)")}</Label>
-              <Input id="unit-media-per" value={perQuantity} disabled={saving} onChange={event => setPerQuantity(event.target.value)} />
+              <Input id="unit-media-per" value={perQuantity} disabled={draftLocked} onChange={event => setPerQuantity(event.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="unit-media-min">{uiT("Minimum quantity (video tokens)")}</Label>
-              <Input id="unit-media-min" value={minimumQuantity} disabled={saving} onChange={event => setMinimumQuantity(event.target.value)} />
+              <Input id="unit-media-min" value={minimumQuantity} disabled={draftLocked} onChange={event => setMinimumQuantity(event.target.value)} />
             </div>
           </div>
 
@@ -698,7 +699,7 @@ function UnitMediaTariffDialog({
             <Label htmlFor="unit-media-rounding">{uiT("Rounding")}</Label>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button id="unit-media-rounding" type="button" variant="outline" disabled={saving} className="w-full sm:w-56 justify-between">
+                <Button id="unit-media-rounding" type="button" variant="outline" disabled={draftLocked} className="w-full sm:w-56 justify-between">
                   <span>{uiT(mediaRoundingLabels[rounding])}</span>
                   <ChevronDown className="size-4 shrink-0" />
                 </Button>
@@ -720,7 +721,7 @@ function UnitMediaTariffDialog({
           )}
           <div className="flex flex-wrap justify-end gap-2">
             <Button type="button" variant="outline" disabled={saving} onClick={dismiss}>{uiT("Cancel")}</Button>
-            <Button type="submit" disabled={saving || conflict || !modelAlias.trim() || !resolution.trim() || !amount.trim()}>{saving ? uiT("Publishing…") : initial ? uiF("Revise {0} tariff", [unitName]) : uiF("Publish {0} tariff", [unitName])}</Button>
+            <Button type="submit" disabled={saving || conflict || !modelAlias.trim() || !resolution.trim() || !amount.trim()}>{saving ? uiT("Publishing…") : uiT("Publish", "发布")}</Button>
           </div>
         </form>}
       </DialogContent>
