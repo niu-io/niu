@@ -624,15 +624,13 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
             <p>{readinessDetailText(selected, isPlatformAdmin, uiT)}</p>
           </AlertDescription>
         </Alert>
-      ) : (
-        <p className="text-sm text-muted-foreground">{selected.billing_source === 'own_api_key'
-          ? uiT("No Niu charge")
-          : selected.billing_source === 'niu_credits'
-            ? isVideoModel(selected) && !hasChatOutput(selected)
-              ? uiT("Niu charges, when applicable, use workspace credits. Video cost depends on request settings. Open Video to estimate the cost before submitting; a valid estimate is required to generate.", "适用时，Niu 费用使用工作空间额度结算。视频费用取决于请求设置，请在提交前打开视频估算费用；生成需要有效估算。")
-              : uiT("Niu charges, when applicable, use workspace credits. Published prices do not guarantee model access or available supply; these are checked when you submit a request.", "适用时，Niu 费用使用工作空间额度结算。已发布价格不保证模型访问权限或供给可用，提交请求时会检查。")
-            : uiT("Billing information is unavailable. Refresh the catalog or ask your administrator to confirm how usage is billed before sending a request.")}</p>
-      )}
+      ) : selected.billing_source === 'own_api_key' ? (
+        <p className="text-sm text-muted-foreground">{uiT("No Niu charge")}</p>
+      ) : !selected.billing_source ? (
+        <p className="text-sm text-muted-foreground">{uiT("Billing information is unavailable. Refresh the catalog or ask your administrator to confirm how usage is billed before sending a request.")}</p>
+      ) : isVideoModel(selected) && !hasChatOutput(selected) && !selectedMedia?.length ? (
+        <p className="text-sm text-muted-foreground">{uiT("Video cost is estimated before generation.", "生成前可查看视频费用估算。")}</p>
+      ) : null}
       <dl className="model-route-facts">
         {!tieredPrice && (!selectedMedia?.length || selectedPrice?.prompt_rate != null) && selected.billing_source !== 'own_api_key' && (!isVideoModel(selected) || hasChatOutput(selected)) && <><div><dt>{uiT("Input price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatExactUnitAtoms(selected.customer_unit_pricing!.prompt_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.prompt_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div>
         {showUnitPricing(selected) && selected.customer_unit_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{formatExactUnitAtoms(selected.customer_unit_pricing.cached_prompt_rate, selected.customer_unit_pricing.unit_name, selected.customer_unit_pricing.display_precision)}{" "}{uiT("/M tokens")}</dd></div> : selected.customer_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{money(selected.customer_pricing.cached_prompt_rate, selected.customer_pricing.currency)}{" "}{uiT("/M tokens")}</dd></div> : null}
@@ -658,8 +656,8 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
           {(readinessIssues(selected).includes('selling_price_missing') || !readinessIssues(selected).includes('procurement_pricing_missing')) && <Button asChild><Link to={pricingSetupHref(selected)}>{uiT("Publish selling price")}</Link></Button>}
         </div> : null
       ) : <>
-        {canTryUnverifiedChat(selected) && Boolean(selected.catalog?.output_modalities?.length) && <p className="text-sm text-muted-foreground">{uiT("Support unverified")}</p>}
-        {!hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{selected.catalog?.output_modalities?.length ? uiT("This model is not configured for a supported generation preview.") : uiT("Upstream did not declare input or output modalities for this model.", "上游未提供此模型的输入/输出模态说明。")}</p>}
+        {canTryUnverifiedChat(selected) ? <p className="text-sm text-muted-foreground">{uiT("Support unverified")}</p>
+          : !hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{uiT("This model is not configured for a supported generation preview.")}</p>}
         {needsApiKey && (
           <p className="text-sm text-muted-foreground" role="status">
             {canWrite
