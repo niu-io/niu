@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { request } from '@/features/providers/api';
-import { registeredRetailModelChoices, type RetailModelChoice } from './api';
+import { registeredRetailModelChoices, registeredTextModelChoices, type RetailModelChoice } from './api';
 
 type UnitTextPrice = {
   prompt_rate: string;
@@ -402,7 +402,7 @@ function UnitTextTariffDialog({
     if (initial) return;
     const controller = new AbortController();
     setModelsLoading(true); setModelsError('');
-    void registeredRetailModelChoices(token, controller.signal)
+    void registeredTextModelChoices(token, controller.signal)
       .then(choices => { if (!controller.signal.aborted) setModels(choices); })
       .catch(failure => { if (!controller.signal.aborted) setModelsError(failure instanceof Error ? failure.message : uiT('Registered models unavailable.')); })
       .finally(() => { if (!controller.signal.aborted) setModelsLoading(false); });
