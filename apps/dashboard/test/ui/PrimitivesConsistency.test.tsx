@@ -141,6 +141,11 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(fallback.className).not.toContain('bg-muted');
   });
 
+  it('keeps the customer creation label visible on phones', () => {
+    const customers = readFileSync(join(appDir, 'features/customers/customer-directory.tsx'), 'utf8');
+    expect(customers).not.toMatch(/className="hidden sm:inline">\{uiT\("New customer"\)/);
+  });
+
   it('keeps the key directory as a responsive list instead of a fixed-width table', () => {
     const css = readFileSync(resolve(process.cwd(), 'app/styles/operations.css'), 'utf8');
     const keys = readFileSync(join(appDir, 'features/keys/components/KeysView.tsx'), 'utf8');
