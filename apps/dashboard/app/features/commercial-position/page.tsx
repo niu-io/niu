@@ -316,7 +316,8 @@ function CommercialStatement({ token }: { token: string }) {
   const { settings: branding, logo } = useBranding();
   const [search, setSearch] = useSearchParams();
   const [refresh, setRefresh] = useState(0);
-  const asOf = useMemo(() => new Date(), [search, refresh]);
+  // Tabs and model details inspect the same financial snapshot.
+  const asOf = useMemo(() => new Date(), [refresh]);
   const months = useMemo(() => buildRecentMonths(12, asOf, locale, uiF), [asOf, locale]);
   const normalizedSearch = useMemo(() => {
     const next = new URLSearchParams(search);
