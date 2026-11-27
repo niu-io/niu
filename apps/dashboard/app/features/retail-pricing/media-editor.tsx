@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ProviderRequestError, request, writeMayHaveCommitted } from '@/features/providers/api';
 import { compactMediaAmount, mediaAmountUnits, mediaQuantity, mediaQuantityInput, mediaPriceExample } from '@/lib/media-price';
@@ -62,7 +62,7 @@ export function MediaStandardEditor({ token, previous, initialModel = '', open =
   try { if (meter && price) example = mediaPriceExample(price, places, per, minimum, exampleQuantity, rounding); } catch { /* Invalid draft fields have no price example. */ }
   const locked = busy || !!attempt || conflict, identityLocked = locked || !!previous;
   async function publish(event: FormEvent) {
-    event.preventDefault(); if (busy || conflict) return;
+    event.preventDefault(); if (busy || conflict || confirmDiscard) return;
     let input = attempt;
     if (!input) {
       try {
@@ -109,11 +109,9 @@ export function MediaStandardEditor({ token, previous, initialModel = '', open =
     <div className="space-y-2"><Label htmlFor="media-reason">{uiT("Note (optional)")}</Label><Input id="media-reason" maxLength={500} value={reason} disabled={locked} onChange={event => { setReason(event.target.value); setError(''); }} /></div>
     </>}
     {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
-    {confirmDiscard && <Alert><AlertDescription className="flex flex-wrap items-center gap-2">
-      {uiT("Discard unpublished changes?", "放弃未发布的修改？")}
-      <Button type="button" onClick={() => setConfirmDiscard(false)}>{uiT("Keep editing", "继续编辑")}</Button>
+    {confirmDiscard ? <DialogFooter key="discard">
       <Button type="button" variant="outline" onClick={() => onClose(false)}>{uiT("Discard changes", "放弃修改")}</Button>
-    </AlertDescription></Alert>}
-    <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" onClick={requestClose}>{uiT("Close")}</Button>{showFields && <Button type="submit" disabled={busy || conflict || !model || (!previous && (!selected || !resolution))}>{busy ? uiT("Publishing…") : attempt ? uiT("Retry exact publication") : uiT("Publish media standard")}</Button>}</div>
+      <Button type="button" autoFocus onClick={() => setConfirmDiscard(false)}>{uiT("Keep editing", "继续编辑")}</Button>
+    </DialogFooter> : <DialogFooter key="publish"><Button type="button" variant="outline" onClick={requestClose}>{uiT("Close")}</Button>{showFields && <Button type="submit" disabled={busy || conflict || !model || (!previous && (!selected || !resolution))}>{busy ? uiT("Publishing…") : attempt ? uiT("Retry exact publication") : uiT("Publish media standard")}</Button>}</DialogFooter>}
   </form></DialogContent></Dialog>;
 }

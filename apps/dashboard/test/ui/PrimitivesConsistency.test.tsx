@@ -270,6 +270,14 @@ describe('Shared UI primitives layout safeguards', () => {
     }
   });
 
+  it('guards submission while price editors ask whether to discard a draft', () => {
+    for (const kind of ['text', 'media']) {
+      const source = readFileSync(join(appDir, 'features/retail-pricing', `${kind}-editor.tsx`), 'utf8');
+      expect(source).toContain('if (busy || conflict || confirmDiscard) return;');
+      expect(source).toContain('{confirmDiscard ? <DialogFooter');
+    }
+  });
+
   it('prevents direct-child dialog buttons from stretching full width and keeps pricing history notes labeled', () => {
     const foundation = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
     expect(foundation).toContain(':where([data-slot="dialog-content"]) > :where([data-slot="button"]:not([data-slot="dialog-close"]))');

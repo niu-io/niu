@@ -239,4 +239,6 @@ Tariff editors submit the revision observed when opened. On a revision conflict,
 
 Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
 
+Pricing editors show a single decision footer. When confirming draft dismissal, focus Keep editing, offer Discard changes, and prevent publication until editing resumes.
+
 When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
