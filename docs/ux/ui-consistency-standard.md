@@ -16,6 +16,8 @@ Account-wide Activity belongs in the account section of the workspace sidebar. K
 
 The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
 
+Empty workspace Logs and Usage link writers directly to key creation when no key is active. Readers see the missing prerequisite without a mutation action. Filtered empty results offer filter recovery.
+
 Customer and API key directories keep their primary creation action visibly labeled at every width. The key directory shows one creation action even when an active filter hides historical keys.
 
 ## 2. Stable Dialog Frames & In-Control Loading

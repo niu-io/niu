@@ -16,7 +16,7 @@ export const shouldRevalidate = routeShouldRevalidate;
 
 export default function ActivityRoute() {
   useOptionalRouteLoaderData();
-  const { workspace } = useDashboardContext();
+  const { workspace, session } = useDashboardContext();
   const scope = workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null;
   return <ConnectGate>
     {({ token, models }) => <GatewayActivity
@@ -24,6 +24,8 @@ export default function ActivityRoute() {
       token={token}
       models={models.map(model => model.id)}
       initialScope={scope}
+      canCreateKey={session?.permissions.write === true}
+      activeKeyCount={workspace?.active_key_count}
       statisticsOnly
       hideBillingLink={false}
     />}
