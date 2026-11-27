@@ -195,7 +195,7 @@
   .commercial-position-table th:first-child {
     width: 18%;
   }
-  .commercial-position-table th:nth-child(2) {
+  .commercial-position-table th:nth-child(3) {
     width: 14%;
   }
   .commercial-position-table td :where(div, span, a) {
@@ -208,7 +208,7 @@
     overflow-wrap: normal;
     font-size: 8px !important;
   }
-  .commercial-position-table th:last-child {
+  .commercial-position-table th:nth-child(2) {
     width: 12%;
   }
   .commercial-position-table tr {
