@@ -25,12 +25,9 @@ describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
 
-  it('guards submission while price editors ask whether to discard a draft', () => {
-    for (const kind of ['text', 'media']) {
-      const source = readFileSync(join(appDir, 'features/retail-pricing', `${kind}-editor.tsx`), 'utf8');
-      expect(source).toContain('if (busy || conflict || confirmDiscard) return;');
-      expect(source).toContain('{confirmDiscard ? <DialogFooter');
-    }
+  it('keeps storage precision guidance out of the credit tariff heading', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/unit-tariffs.tsx'), 'utf8');
+    expect(source).not.toContain('decimal places are stored exactly');
   });
 
   it('keeps per-workspace charge headers and values visible on phones', () => {
@@ -247,6 +244,14 @@ describe('Shared UI primitives layout safeguards', () => {
     ]) {
       const source = readFileSync(join(appDir, rel), 'utf8');
       expect(source, `${rel} should pass primary section tabs into PageHeader`).toMatch(/<PageHeader[\s\S]*?tabs=/);
+    }
+  });
+
+  it('guards submission while price editors ask whether to discard a draft', () => {
+    for (const kind of ['text', 'media']) {
+      const source = readFileSync(join(appDir, 'features/retail-pricing', `${kind}-editor.tsx`), 'utf8');
+      expect(source).toContain('if (busy || conflict || confirmDiscard) return;');
+      expect(source).toContain('{confirmDiscard ? <DialogFooter');
     }
   });
 
