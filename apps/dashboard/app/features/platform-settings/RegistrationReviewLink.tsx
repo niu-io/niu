@@ -1,16 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import type { PlatformRegistrationQueuePage } from '@niu-io/sdk';
-import { IconArrowRight } from '@tabler/icons-react';
-import PageHeader from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { request } from '@/lib/api-client';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useLocale } from '@/shell/ui-locale';
-import { RegistrationPolicySection } from './registration-review';
 
-export default function PlatformRegistrationPolicyPage() {
+export default function RegistrationReviewLink() {
   const { token } = useDashboardContext();
   const { t } = useLocale();
   const [pendingCount, setPendingCount] = useState<number | null>(null);
@@ -35,20 +32,11 @@ export default function PlatformRegistrationPolicyPage() {
   }, [token]);
 
   return (
-    <section className="w-full min-w-0 space-y-6" aria-label={t('Registration policy', '注册策略')}>
-      <PageHeader
-        title={t('Registration policy', '注册策略')}
-        action={
-          <Button asChild variant="outline" size="sm">
-            <Link to="/admin/registrations">
-              <span>{t('Review requests', '前往注册审批')}</span>
-              {pendingCount !== null && pendingCount > 0 && <Badge variant="default">{pendingCount}</Badge>}
-              <IconArrowRight size={15} aria-hidden="true" />
-            </Link>
-          </Button>
-        }
-      />
-      <RegistrationPolicySection token={token} />
-    </section>
+    <Button asChild variant="outline" size="sm">
+      <Link to="/admin/customers?tab=registrations">
+        {t('Review requests', '注册审批')}
+        {pendingCount !== null && pendingCount > 0 && <Badge>{pendingCount}</Badge>}
+      </Link>
+    </Button>
   );
 }

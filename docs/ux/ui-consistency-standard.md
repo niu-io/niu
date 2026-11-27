@@ -12,6 +12,8 @@ This document defines the mandatory, product-wide UI and interaction standards f
 
 The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
 
+The API key directory shows one labeled creation action at every width, including when an active filter hides historical keys.
+
 ## 2. Stable Dialog Frames & In-Control Loading
 
 - **Stable modal frame across sections**: A global Settings dialog must keep the same outer size across every section. Never measure the active section and resize the dialog (the frame will jump when users switch tabs); group sparse content with dividers and section headings inside the fixed frame, and scroll only the content region. Never render a visible global title bar or lead strip inside the modal; keep the dialog title screen-reader-only, reserve top space for the floating close control, and render section-specific actions only when present. About uses one centered identity/resource composition rather than stretching sparse content across the frame or pinning legal links to the bottom.
@@ -45,6 +47,8 @@ Search paginated audit history on the server before applying page limits. Match 
 
 - **List readability and action affordance**: Management lists must not hide a decision-critical field in a truncated fixed column. API key rows expose model access, limits, expiry, status, and last use in a responsive row/list with no horizontal scrolling; multi-model access may use a keyboard-accessible popover, and model trial actions must look like actions (button/link with affordance), not metadata text.
 
+Registration review rows keep the applicant identity and available decision actions readable without horizontal scrolling across desktop, tablet and phone widths.
+
 ## 4. Unified Input & Composer Controls
 
 - **Single shared composer across all Generations modes**: `Chat`, `New Video`, and `Video Session` MUST all render [`GenerationComposer`](../../apps/dashboard/app/features/generations/GenerationComposer.tsx) and [`GenerationComposerCover`](../../apps/dashboard/app/features/generations/GenerationComposer.tsx) with identical geometry (`max-width: var(--generation-reading-width)`, `20px` radius, `54px` minimum textarea height, `36px` bottom toolbar, and `36×36` circular submit button).
@@ -55,6 +59,8 @@ Search paginated audit history on the server before applying page limits. Match 
 - **Clear missing vs. invalid key states**:
   - When a workspace has no active key or no selected key, render a single compact `.composer-key-banner` inside the composer header with a direct CTA (`Create API key` or `Choose API key`).
   - When an explicitly referenced key is invalid, revoked, expired, or IP-restricted, render a single-surface `<GenerationComposerCover>` with recovery actions — never stack competing double banners above and inside the composer.
+
+After a registration queue refresh or review decision, the queue, customer tab and navigation badges reflect the same pending count, including zero.
 
 ## 5. Structured Loading, Empty, and Error Surfaces
 
@@ -114,6 +120,8 @@ Multi-mode creation and configuration dialogs MUST follow top-down causal order:
 
 ### Pricing and commercial inspection
 
+Rounded financial amounts and changes must expose their exact values to touch and keyboard users. Use a focusable amount button and a popover when precision is omitted.
+
 Group grant history with customer inspection actions and place balance-changing actions after a menu separator. Apply this order in the directory and customer detail.
 
 The base text rate starts at zero. Both monetary and credit editors show the inclusive range for each band, accept positive increasing token thresholds, and stop offering additional bands at 32.
@@ -121,6 +129,8 @@ The base text rate starts at zero. Both monetary and credit editors show the inc
 Use a right-side sheet for a current price comparison. Show both comparable rates with the currency, unit, route and threshold used by the platform. Distinguish unit spread from realized gross profit and label missing evidence. Place historical revision differences behind the current comparison. Price editors show complete input-token bands and preserve dirty input through accidental dismissal. Workspace model trials present applicable customer rates separately from upstream plan descriptions.
 
 ## Decision-focused interface copy
+
+Registration policy and the registration review queue link directly to each other within their owning Settings and Customers tabs. Display the pending count on the review action when positive.
 
 Use field labels, units, comparable values and action names to make workflows clear. Remove introductions that repeat a title, describe visible controls or explain unrelated product behavior. Keep concrete errors, prerequisites and irreversible consequences at the affected action.
 
@@ -131,5 +141,7 @@ A catalog model can be labeled free only when the complete applicable tariff est
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
+
+When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
 
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.

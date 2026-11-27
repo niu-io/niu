@@ -124,6 +124,9 @@
     color: #0f172a;
     font-variant-numeric: tabular-nums;
   }
+  .commercial-statement [data-slot="tabs"] {
+    display: block;
+  }
   .commercial-kpi-grid {
     display: grid !important;
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
@@ -184,7 +187,7 @@
     overflow: visible !important;
   }
   .commercial-position-table {
-    table-layout: fixed;
+    table-layout: auto;
     width: 100%;
   }
   .commercial-position-table th,
@@ -212,6 +215,13 @@
     overflow-wrap: anywhere;
     font: inherit;
     text-align: inherit;
+  }
+  .commercial-statement button:has(.print\:inline) {
+    text-decoration: none;
+    font: inherit;
+  }
+  .commercial-position-table button .print\:inline {
+    white-space: nowrap;
   }
   .commercial-position-table [data-slot="badge"] {
     max-width: 100%;
