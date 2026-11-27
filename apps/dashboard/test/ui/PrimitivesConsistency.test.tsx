@@ -141,6 +141,11 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(fallback.className).not.toContain('bg-muted');
   });
 
+  it('keeps event setup methods in their action labels', () => {
+    const events = readFileSync(join(appDir, 'features/event-subscriptions/page.tsx'), 'utf8');
+    expect(events).not.toContain('You can use your coding agent or follow the API reference.');
+  });
+
   it('keeps the key directory as a responsive list instead of a fixed-width table', () => {
     const css = readFileSync(resolve(process.cwd(), 'app/styles/operations.css'), 'utf8');
     const keys = readFileSync(join(appDir, 'features/keys/components/KeysView.tsx'), 'utf8');
