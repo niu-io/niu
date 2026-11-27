@@ -357,6 +357,17 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(foundation).not.toMatch(/\.page-content\s*\{[^}]*padding:/);
   });
 
+  it('reveals the selected header tab after portal selection and strip resize without moving focus', () => {
+    const shell = readFileSync(join(appDir, 'shell/ShellHeader.tsx'), 'utf8');
+    const start = shell.indexOf('function revealSelectedTab');
+    const effect = shell.slice(start, shell.indexOf('}, []);', start));
+    expect(effect).toContain('aria-selected="true"');
+    expect(effect).toContain('new MutationObserver(revealSelectedTab)');
+    expect(effect).toContain('new ResizeObserver(revealSelectedTab)');
+    expect(effect).toContain('host.scrollLeft');
+    expect(effect).not.toMatch(/scrollIntoView|\.focus\(/);
+  });
+
   it('keeps dialog framing, bounded scroll, and close affordances in the shared primitive', () => {
     const dialog = readFileSync(join(appDir, 'components/ui/dialog.tsx'), 'utf8');
     const foundation = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
