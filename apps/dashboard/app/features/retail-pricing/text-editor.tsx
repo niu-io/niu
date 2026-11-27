@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ProviderRequestError, request, writeMayHaveCommitted } from '@/features/providers/api';
 import { amountFromNanos, amountToNanos } from '@/lib/money';
-import { lookupProviderDefaultTextSchedule, registeredRetailModels } from './api';
+import { lookupProviderDefaultTextSchedule, registeredTextModelChoices } from './api';
 import type { RetailPriceRecord, RetailPublicationResult, RetailStandardPublication } from '@niu-io/sdk/admin';
 
 import { TextRateBand } from './text-rate-band';
@@ -42,8 +42,8 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
   useEffect(() => {
     if (previous) return;
     const controller = new AbortController();
-    void registeredRetailModels(token, controller.signal)
-      .then(names => { if (!controller.signal.aborted) setModels(names); })
+    void registeredTextModelChoices(token, controller.signal)
+      .then(choices => { if (!controller.signal.aborted) setModels(choices.map(choice => choice.model_alias)); })
       .catch(failure => { if (!controller.signal.aborted) setModelsError(failure instanceof Error ? failure.message : 'Registered models unavailable.'); });
     return () => controller.abort();
   }, [token, previous]);

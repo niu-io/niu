@@ -76,7 +76,7 @@ export default function InviteMemberForm({
     <section className="operator-create-panel" aria-label={uiT('Invite member', '邀请成员')}>
       <form className="operator-create-form" onSubmit={submit}>
         <Label htmlFor="new-member-email">
-          {uiT('Email', '邮箱')}
+          {uiT('Niu account email', '牛元账户邮箱')}
           <Input
             ref={emailInputRef}
             id="new-member-email"
@@ -216,12 +216,6 @@ export default function InviteMemberForm({
             </DropdownMenuContent>
           </DropdownMenu>
         </Label>
-        <p className="text-sm text-muted-foreground">
-          {uiT(
-            'The recipient must already have a Niu account with this email. After creating the invitation, copy and share the link; no email is sent. They sign in, review access, and accept once. No password or access token is shared.',
-            '收件人必须已有使用此邮箱的 Niu 账户。创建邀请后，请复制并分享链接；系统不会发送邮件。对方登录并确认后即可一次性接受，无需分享密码或访问令牌。',
-          )}
-        </p>
         <div className="operator-create-footer flex flex-wrap justify-end gap-2">
           {onCancel && <Button type="button" variant="outline" disabled={disabled} onClick={onCancel}>{uiT("Cancel", "取消")}</Button>}
           <Button type="submit" disabled={disabled || !validEmail}>
