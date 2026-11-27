@@ -168,4 +168,8 @@ Direct video-mode links open the Video composer and its existing availability or
 
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
 
+Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
+
+When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
+
 Registration validation focuses the first invalid field and associates the inline error with that control. Editing an unrelated field preserves the error.
