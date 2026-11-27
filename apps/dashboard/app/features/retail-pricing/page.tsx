@@ -284,6 +284,10 @@ function History({ token, price, onClose, onCloseAutoFocus }: { token: string; p
           <SheetDescription>{price.model_alias} · {price.currency}</SheetDescription>
         </SheetHeader>
         {price.schedule.kind === 'text' && price.schedule.prompt_rate === '0' && price.schedule.completion_rate === '0' && <p>{uiT("Base input and output are free", "基础输入与输出免费")}</p>}
+        {(!price.pricing_health?.checks.some(check => check.rates?.length || check.media_rates) || ['inactive', 'unconfigured'].includes(supplyStateOf(price.pricing_health))) && <section className="space-y-2">
+          <h3 className="font-medium">{uiT('Standard price', '标准售价')}</h3>
+          <SellingSchedule schedule={price.schedule} currency={price.currency} />
+        </section>}
         <PriceComparison health={price.pricing_health} currency={price.currency} />
         <Button asChild variant="outline" className="self-start"><Link to={`/admin/reports?tab=unit-economics&model=${encodeURIComponent(price.model_alias)}`}>
           {uiT("View realized margin", "查看实际毛利")}
