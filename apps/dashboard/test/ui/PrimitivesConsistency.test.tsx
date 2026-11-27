@@ -25,6 +25,11 @@ describe('Shared UI primitives layout safeguards', () => {
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
 
+  it('keeps storage precision guidance out of the credit tariff heading', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/unit-tariffs.tsx'), 'utf8');
+    expect(source).not.toContain('decimal places are stored exactly');
+  });
+
   it('keeps per-workspace charge headers and values visible on phones', () => {
     const source = readFileSync(join(appDir, 'features/activity/global-page.tsx'), 'utf8');
     const section = source.split('<section aria-label={uiT("Activity by workspace")}')[1].split('</section>')[0];

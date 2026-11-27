@@ -77,6 +77,8 @@ Returning from request details restores the inspected row, focus and loaded page
 - **Sibling first-run parity**: Sibling creation surfaces in Generations (`Chat` and `Video`) share the same centered mode switcher (`Chat` / `Video`), heading scale (`.playground-first-run-heading`), and `.playground-starters` / `.playground-starter` card grid (`<strong>` title, `<span>` summary, trailing arrow icon).
 - **Never leak internal IDs**: Never render UUIDs/GUIDs in UI labels, tooltips, badges, dialogs, or error notices.
 
+Customer access lists retain workspace links, member roles and workspace scope on narrow screens. Show labeled values within each row without horizontal scrolling.
+
 A filtered registration queue with zero results shows the relevant empty title. Omit raw submission URLs and generic audit explanations.
 
 ## 6. Primitive & Stylesheet Hygiene
@@ -115,6 +117,8 @@ Upstream Providers are platform-managed vendor connections rather than multi-use
 Model mapping dialogs show a single title, the editable mapping fields and visible Cancel and Save actions. Keep catalog metadata and optional capabilities under advanced settings. Show video configuration for declared video output, unknown output, or an existing saved video configuration. On model catalog cards and detail pages (`ModelTable`), use concise **`Try`** (`试用`) for single-workflow trial actions (disambiguating `Try chat` / `Try video` only when a single model exposes both simultaneously) rather than verbose `"Try in Chat"` (`在对话中试用`), `"Try in Video"` (`在视频中试用`), or `"Open Generations"` (`打开多模态生成`), preserve distinguishing date suffixes (`disambiguatedCatalogTitle`) when dated and undated sibling variants coexist, reserve **`Not published`** (`未发布`) strictly for genuinely uncallable commercial models (`callable === false`, with zero trial links), and never stamp `"Capabilities not published"` (`能力未发布`) on callable models.
 
 Tab navigation must preserve already available data within the same authorization and resource scope. A presentation-only tab change must not revalidate unrelated route loaders. Keep slow first reads and errors local to the affected panel. Verify both cold activation and return visits with browser frames.
+
+Show video prompt examples only when the composer can accept them. Keep prerequisite actions next to the new-video heading.
 
 Workspace users discover models in one catalog. Platform administrators manage upstream Provider credentials. Never present internal funding classifications as model sources or imply that workspace users supply upstream keys. Workspace API keys authorize access to Niu.
 
@@ -166,6 +170,8 @@ Direct video-mode links open the Video composer and its existing availability or
 
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
 
-Show video prompt examples only when the composer can accept them. Keep prerequisite actions next to the new-video heading.
+Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
+
+When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
 
 Registration validation focuses the first invalid field and associates the inline error with that control. Editing an unrelated field preserves the error.
