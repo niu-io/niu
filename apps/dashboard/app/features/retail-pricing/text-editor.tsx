@@ -18,7 +18,7 @@ import { ContextTierFields, TextRateBand } from './text-rate-band';
 import { tokenBand, ratesFrom, checkedRates, checkedTiers, type Rates, type Tier } from './text-terms';
 
 /** Full text selling terms; optional categories stay distinct from explicit zero. */
-export function TextStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean) => void; onSaved: () => void }) {
+export function TextStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean, conflict?: boolean) => void; onSaved: () => void }) {
   const { t: uiT } = useUILocale();
   const original = previous?.schedule.kind === 'text' ? previous.schedule : undefined;
   const [model, setModel] = useState(previous?.model_alias ?? initialModel);
@@ -71,7 +71,7 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
   function requestClose() {
     if (busy) return;
     if (dirty && !attempt && !conflict) setConfirmDiscard(true);
-    else onClose(!!attempt && !conflict);
+    else onClose(!!attempt && !conflict, conflict);
   }
   const locked = busy || !!attempt || conflict;
   async function publish(event: FormEvent) {

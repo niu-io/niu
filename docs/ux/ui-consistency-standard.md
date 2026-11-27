@@ -161,3 +161,5 @@ Workspace activity summaries keep the workspace, request count and charge visibl
 Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action.
 
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
+
+Closing an unchanged pricing editor restores focus to its opening control. Refresh prices after a confirmed publication or revision conflict, and keep the price list mounted on ordinary cancellation.
