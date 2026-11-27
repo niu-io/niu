@@ -55,7 +55,7 @@ export default function WorkspaceIncidentNotice({ token, workspaceId, workspaceS
           const last = page.data.at(-1);
           if (!last) throw new Error('Invalid incident cursor');
           const query = new URLSearchParams({ after_model: last.model, after_owner_funded: String(last.owner_funded) });
-          page = await request<WorkspaceIncidents>(token, endpoint + '?' + query, 'GET', undefined, controller.signal);
+          page = await request<WorkspaceIncidents>(token, `${endpoint}?${query}`, 'GET', undefined, controller.signal);
           if (page.data.some(item => item.model === last.model && item.owner_funded === last.owner_funded)) throw new Error('Incident cursor did not advance');
           allModels.push(...page.data);
         }
