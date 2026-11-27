@@ -1,4 +1,4 @@
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { translateUI, readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
@@ -72,6 +72,8 @@ function AuditLogs({ token }: { token: string }) {
   const [revision, setRevision] = useState(0);
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
+  const searchInput = useRef<HTMLInputElement>(null);
+  const filtered = category !== 'all' || Boolean(query.trim());
   useEffect(() => {
     const timer = window.setTimeout(() => setSearch(query.trim()), 220);
     return () => window.clearTimeout(timer);
@@ -165,6 +167,7 @@ function AuditLogs({ token }: { token: string }) {
           <IconSearch size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="w-full pl-9"
+            ref={searchInput}
             type="search" maxLength={256}
             value={query}
             onChange={event => setQuery(event.target.value)}
@@ -175,7 +178,14 @@ function AuditLogs({ token }: { token: string }) {
       </div>
     </div>
     {error && <p role="alert" className="text-sm text-destructive">{error} <Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
-    {rows === null || loadedPath !== path || query.trim() !== search ? !error && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : (rows ?? []).length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconHistory size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{query.trim() ? uiT("No matching audit events") : uiT("No audit events yet")}</EmptyTitle></EmptyHeader></Empty> : <Table>
+    {rows === null || loadedPath !== path || query.trim() !== search ? !error && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : (rows ?? []).length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconHistory size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{filtered ? uiT("No matching audit events") : uiT("No audit events yet")}</EmptyTitle></EmptyHeader>
+      {filtered && <EmptyContent><Button variant="outline" onClick={() => {
+        setCategory('all');
+        setQuery('');
+        setSearch('');
+        searchInput.current?.focus();
+      }}>{uiT("Clear filters")}</Button></EmptyContent>}
+    </Empty> : <Table>
       <TableHeader><TableRow><TableHead className="w-48">{uiT("Time (UTC)")}</TableHead><TableHead>{uiT("Action")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Actor")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Target")}</TableHead></TableRow></TableHeader>
       <TableBody>{(rows ?? []).map(event => <TableRow key={event.id}>
         <TableCell className="align-top whitespace-normal text-xs tabular-nums sm:whitespace-nowrap"><time dateTime={event.created_at}>{new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' }).format(new Date(event.created_at))}</time></TableCell>
