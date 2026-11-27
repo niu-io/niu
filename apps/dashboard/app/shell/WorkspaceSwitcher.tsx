@@ -108,6 +108,17 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange, withinSetti
   const { organization, createWorkspace, session } = context;
   const canSetLimit = session?.kind === 'installation' || session?.operator?.role === 'owner';
   const [amount, setAmount] = useState('');
+  const [showAmountError, setShowAmountError] = useState(false);
+  const amountInput = useRef<HTMLInputElement>(null);
+  let limitNanos: string | undefined;
+  let amountError = '';
+  if (amount.trim()) {
+    try {
+      limitNanos = amountToNanos(amount, true);
+    } catch (cause) {
+      amountError = cause instanceof Error ? uiT(cause.message) : t('Invalid amount.', '金额无效。');
+    }
+  }
   const {currency,error:currencyError} = usePlatformCurrency();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -126,6 +137,7 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange, withinSetti
   useEffect(() => {
     if (!open) return;
     setAmount('');
+    setShowAmountError(false);
     setName('');
     setSlug('');
     setSlugEdited(false);
@@ -136,12 +148,17 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange, withinSetti
   async function submitCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving || !name.trim()) return;
+    if (amountError) {
+      setShowAmountError(true);
+      amountInput.current?.focus();
+      return;
+    }
     setSaving(true);
     setCreateError('');
     try {
-      if (amount.trim()) {
+      if (limitNanos !== undefined) {
         if (!canSetLimit || !currency || currencyError) throw new Error('Billing currency is unavailable.');
-        await createWorkspace(name.trim(), organization?.id, slug, {currency, limit_nanos: amountToNanos(amount, true)});
+        await createWorkspace(name.trim(), organization?.id, slug, {currency, limit_nanos: limitNanos});
       } else {
         await createWorkspace(name.trim(), organization?.id, slug);
       }
@@ -161,9 +178,10 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange, withinSetti
         {slug === 'default' && <p className="error-text" role="alert">{t('The slug “default” is reserved. Choose a different slug.', '“default” 为系统保留标识，请使用其他名称。')}</p>}
         {canSetLimit && <div className="grid gap-2">
           <Label htmlFor="workspace-limit">{t('Spending limit', '消费限额')}{currency ? ` (${currencySymbol(currency)})` : ''}</Label>
-          <Input id="workspace-limit" inputMode="decimal" placeholder={t('No limit', '不限额')} disabled={saving || !currency || Boolean(currencyError)} value={amount} onChange={event => setAmount(event.target.value)} aria-describedby={amount.trim() ? 'workspace-budget-help' : undefined} />
-          {amount.trim() && <p id="workspace-budget-help" className="text-sm text-muted-foreground">
-            {/^0+(\.0*)?$/.test(amount.trim()) && t('Zero blocks paid requests. ', '零限额将阻止付费请求。')}
+          <Input ref={amountInput} id="workspace-limit" inputMode="decimal" placeholder={t('No limit', '不限额')} disabled={saving || !currency || Boolean(currencyError)} value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={showAmountError && Boolean(amountError)} aria-describedby={showAmountError && amountError ? 'workspace-limit-error' : limitNanos !== undefined ? 'workspace-budget-help' : undefined} />
+          {showAmountError && amountError && <p id="workspace-limit-error" className="error-text" role="alert">{amountError}</p>}
+          {limitNanos !== undefined && <p id="workspace-budget-help" className="text-sm text-muted-foreground">
+            {limitNanos === '0' && t('Zero blocks paid requests. ', '零限额将阻止付费请求。')}
             {t('Setting a limit prevents workspace deletion.', '设置限额后将无法删除此工作空间。')}
           </p>}
           {currencyError && <p className="text-sm text-muted-foreground">{uiT(currencyError)}</p>}
