@@ -34,13 +34,13 @@ export function PriceComparison({ health, currency }: { health?: PricingHealth; 
     {health.checks.map((check, index) => <section key={index} className="space-y-2">
       <h3 className="break-all font-medium">{[check.provider, check.route].filter(Boolean).join(' · ')}</h3>
       {check.status === 'below_cost' && <p className="text-destructive">{t('Below purchase cost', '低于采购成本')}</p>}
-      {check.rates?.length ? <Table className="unit-price-comparison">
+      {check.rates?.length ? <Table className="unit-price-comparison text-unit-comparison">
         <caption className="caption-top pb-2 text-left text-sm">{currency} / {t('million tokens', '百万 Token')}</caption>
         <TableHeader><TableRow>{[t('Item'), t('Purchase price', '采购价'), t('Selling price', '售价'), t('Unit spread', '单位价差')].map(label => <TableHead key={label}>{label}</TableHead>)}</TableRow></TableHeader>
         <TableBody>{check.rates.map(rate => <TableRow key={rate.minimum_input_tokens + rate.dimension}>
           <TableCell>{t(rate.dimension)}{rate.minimum_input_tokens !== '0' && <small className="block">≥ {BigInt(rate.minimum_input_tokens).toLocaleString()} {t("Tokens")}</small>}</TableCell>
-          <TableCell>{money(rate.purchase, currency)}</TableCell><TableCell>{money(rate.selling, currency)}</TableCell>
-          <TableCell>{money((BigInt(rate.selling) - BigInt(rate.purchase)).toString(), currency)}</TableCell>
+          <TableCell data-label={t('Purchase price', '采购价')}>{money(rate.purchase, currency)}</TableCell><TableCell data-label={t('Selling price', '售价')}>{money(rate.selling, currency)}</TableCell>
+          <TableCell data-label={t('Unit spread', '单位价差')}>{money((BigInt(rate.selling) - BigInt(rate.purchase)).toString(), currency)}</TableCell>
         </TableRow>)}</TableBody>
       </Table> : check.media_rates ? <dl className="grid grid-cols-2 gap-2">
         <dt>{t('Purchase price', '采购价')}</dt><dd>{mediaPrice(check.media_rates.purchase, currency, t(check.media_rates.meter))}</dd>
