@@ -229,4 +229,4 @@ Standard price directories show the comparable unit spread and billing unit alon
 
 When a price comparison already identifies the model, label its quotes by provider and include the upstream route only when it differs from the displayed model or the provider name is missing.
 
-Promotion lists keep dates, scope, and actions visible when a quote is expanded. Give the comparison the full row width inside the dialog at desktop, tablet, and phone sizes. Text promotion terms show changed rates first, with the original and resulting schedules available on demand.
+Promotion lists keep dates, scope, and actions visible when a quote is expanded. Give the comparison the full row width inside the dialog at desktop, tablet, and phone sizes. Promotion terms show changed rates and media billing terms first, with the original and resulting schedules available on demand.
