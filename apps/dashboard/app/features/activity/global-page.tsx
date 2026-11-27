@@ -5,7 +5,7 @@ import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams, type LoaderFunctionArgs } from 'react-router';
+import { Link, useLocation, useNavigate, useNavigationType, useSearchParams, type LoaderFunctionArgs } from 'react-router';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import ConnectGate from '@/shell/ConnectGate';
 import type { Workspace } from '@/shell/dashboard-context';
@@ -22,7 +22,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { catalogTitle } from '@/lib/providers';
 import { money } from '@/lib/money';
-import { fetchQuery, peekQuery } from '@/lib/query-cache';
+import { fetchQuery, peekQuery, primeQuery } from '@/lib/query-cache';
 import { IconActivity, IconChevronDown, IconRefresh, IconRoute } from '@tabler/icons-react';
 
 type UnitCharge = { definition_revision?: string; unit_name?: string; name?: string; display_precision: number; net_atoms: string };
@@ -72,6 +72,16 @@ async function read<T>(url: string, token: string, signal: AbortSignal): Promise
   if (!response.ok) throw new Error(formatLocalizedMessage('Activity could not be loaded ({0}). Try again.', [response.status], readUILocale()));
   return response.json() as Promise<T>;
 }
+async function appendRequestPage(item: WorkspacePage, pageQuery: string, token: string, signal: AbortSignal): Promise<WorkspacePage> {
+  const cursor = item.page.next_cursor;
+  if (!cursor) return item;
+  const cursors = [...(item.cursors ?? []), cursor];
+  const next = await readRequestPage(`${root(item.workspace)}?${pageQuery}&after=${encodeURIComponent(cursor)}`, token, signal);
+  if (next.next_cursor && cursors.includes(next.next_cursor)) throw new Error('Activity history could not advance. Refresh and try again.');
+  const seen = new Set(item.page.data.map(row => row.attempt_id));
+  return {...item, cursors, page: {...next, data: [...item.page.data, ...next.data.filter(row => !seen.has(row.attempt_id))]}};
+}
+
 function checkedRequestPage(value: Page): Page {
   const integer = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
   const decimal = (value: unknown) => typeof value === 'string' && /^\d{1,40}$/.test(value);
@@ -125,9 +135,16 @@ function GlobalActivity({token, models}: {token: string; models: string[]}) {
   const section = location.pathname === '/activity/logs' ? 'logs' : 'overview';
   const pendingOnly = section === 'logs' && params.get('settlement') === 'pending';
   const pageQuery = pendingOnly ? 'limit=100&pending_settlement=true' : 'limit=100';
+  const navigationType = useNavigationType();
+  const returnKey = `activity-log-return:${location.key}:${location.pathname}${location.search}`;
+  type ReturnPoint = { attempt: string; depth: Record<string, number> };
+  const returnPoint = useRef(navigationType === 'POP' && section === 'logs' ? peekQuery<ReturnPoint>(token, returnKey) : undefined);
+  function rememberRequest(attempt: string) {
+    primeQuery<ReturnPoint>(token, returnKey, { attempt, depth: Object.fromEntries(pages.map(item => [item.workspace.id, item.cursors?.length ?? 0])) });
+  }
   const cachedWorkspaces = peekQuery<{ data: Workspace[] }>(token, '/api/v1/workspaces', { persist: true })?.data;
   const initialPages = (() => {
-    if (!cachedWorkspaces || selectedId) return [];
+    if (!cachedWorkspaces || selectedId || returnPoint.current) return [];
     const hydrated: WorkspacePage[] = [];
     for (const workspace of cachedWorkspaces) {
       const page = peekQuery<Page>(token, `${root(workspace)}?${pageQuery}`);
@@ -178,7 +195,12 @@ function GlobalActivity({token, models}: {token: string; models: string[]}) {
           sig => readRequestPage(pageUrl, token, sig),
           { signal: controller.signal, force: revision > 0 },
         );
-        return { workspace, page: checkedRequestPage(page) };
+        let item: WorkspacePage = { workspace, page: checkedRequestPage(page) };
+        const depth = returnPoint.current?.depth[workspace.id] ?? 0;
+        for (let i = 0; i < depth && item.page.next_cursor; i++) {
+          item = await appendRequestPage(item, pageQuery, token, controller.signal);
+        }
+        return item;
       }));
       if (!controller.signal.aborted) setPages(values);
     }).catch(reason => {
@@ -196,17 +218,18 @@ function GlobalActivity({token, models}: {token: string; models: string[]}) {
     olderController.current = controller;
     setOlder(true); setError('');
     try {
-      const values = await Promise.all(pages.map(async item => {
-        if (!item.page.next_cursor) return item;
-        const cursors = [...(item.cursors ?? []), item.page.next_cursor];
-        const next = await readRequestPage(`${root(item.workspace)}?${pageQuery}&after=${encodeURIComponent(item.page.next_cursor)}`,token,controller.signal);
-        if (next.next_cursor && cursors.includes(next.next_cursor)) throw new Error('Activity history could not advance. Refresh and try again.');
-        const seen = new Set(item.page.data.map(row => row.attempt_id));
-        return {...item, cursors, page: {...next, data: [...item.page.data, ...next.data.filter(row => !seen.has(row.attempt_id))]}};
-      }));
+      const values = await Promise.all(pages.map(item => appendRequestPage(item, pageQuery, token, controller.signal)));
       if (!controller.signal.aborted) setPages(current => current === pages ? values : current);
     } catch (reason) {if (!controller.signal.aborted) setError((reason as Error).message);} finally {if (olderController.current === controller) {olderController.current = null;if (!controller.signal.aborted) setOlder(false);}}
   }
+  useEffect(() => {
+    if (loading || !pages.length || !returnPoint.current) return;
+    const link = document.getElementById(`activity-request-${returnPoint.current.attempt}`);
+    if (!link) return;
+    returnPoint.current = undefined;
+    link.focus({preventScroll: true});
+    link.scrollIntoView({block: 'center', behavior: 'instant'});
+  }, [pages, loading]);
   const totals = activityTotals(pages);
   const rows = pages.flatMap(item => item.page.data.map(request => ({workspace: item.workspace, request}))).sort((a,b) => b.request.created_at.localeCompare(a.request.created_at));
   const chooseWorkspace = (id: string) => {const query = new URLSearchParams(); if (pendingOnly) query.set('settlement','pending'); if (id) query.set('workspace',id); setParams(query);};
@@ -238,7 +261,7 @@ function GlobalActivity({token, models}: {token: string; models: string[]}) {
           />
         </section>
         <section aria-label={uiT("Activity by workspace")} className="min-w-0"><h2 className="mb-3 text-lg font-semibold">{uiT("Usage by workspace")}</h2><Table><TableHeader><TableRow><TableHead>{uiT("Workspace")}</TableHead><TableHead className="text-right">{uiT("Requests")}</TableHead><TableHead className="hidden sm:table-cell text-right">{uiT("Tokens")}</TableHead><TableHead className="hidden md:table-cell text-right tabular-nums">{uiT("Niu charges", "Niu 费用")}</TableHead></TableRow></TableHeader><TableBody>{pages.map(({workspace,page})=>{const wsPending = page.summary.unresolved_customer_charge_count ?? 0; const wsUnpriced = page.summary.unpriced_request_count ?? 0; const wsOwnerFunded = page.summary.owner_funded_request_count ?? 0; const settled = formatSettledChargeTotals(page.summary); return <TableRow key={workspace.id}><TableCell><Link className="font-medium hover:underline" to={`/activity?workspace=${encodeURIComponent(scopeSegment(workspace, workspaces))}`}>{name(workspace)}</Link>{workspace.organization_name && <p className="text-xs text-muted-foreground">{organizationDisplayName(workspace.organization_name)}</p>}</TableCell><TableCell className="text-right tabular-nums">{page.summary.request_count.toLocaleString(readUILocale())}</TableCell><TableCell className="hidden sm:table-cell text-right tabular-nums">{page.summary.request_count > 0 && page.summary.usage_count === 0 ? uiT("Unknown") : (BigInt(page.summary.prompt_tokens)+BigInt(page.summary.completion_tokens)).toLocaleString(readUILocale())}<p className="mt-1 text-xs text-muted-foreground">{page.summary.usage_count === 1 ? uiF("1 request reported · {0} unknown", [(page.summary.request_count-page.summary.usage_count).toLocaleString(readUILocale())]) : uiF("{0} requests reported · {1} unknown", [page.summary.usage_count.toLocaleString(readUILocale()), (page.summary.request_count-page.summary.usage_count).toLocaleString(readUILocale())])}</p></TableCell><TableCell className="hidden md:table-cell text-right tabular-nums">{settled.join(' · ') || (wsPending > 0 ? uiT("Pending settlement", "待结算") : wsUnpriced > 0 ? uiT("No rate set", "未配置费率") : wsOwnerFunded > 0 ? uiT("No Niu charge") : uiT("No settled charges"))}</TableCell></TableRow>;})}</TableBody></Table></section>
-      </> : <section aria-label={uiT("Requests across workspaces")} className="min-w-0"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold">{pendingOnly ? uiT("Pending settlement") : uiT("Requests")}</h2>{pendingOnly && <Button asChild variant="ghost" size="sm"><Link to="/activity/logs">{uiT("Clear filter", "清除筛选")}</Link></Button>}<span className="text-sm text-muted-foreground">{rows.length.toLocaleString(readUILocale())}{" "}{uiT("loaded · newest first · all time")}</span></div><Table><TableHeader><TableRow><TableHead className="hidden sm:table-cell">{uiT("Time")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Workspace")}</TableHead><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Status")}</TableHead><TableHead className="hidden md:table-cell text-right tabular-nums">{uiT("Tokens")}</TableHead><TableHead className="hidden md:table-cell text-right tabular-nums">{uiT("Customer charge")}</TableHead></TableRow></TableHeader><TableBody>{rows.map(({workspace,request})=><TableRow key={`${workspace.id}:${request.attempt_id}`} tabIndex={0} className="cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]" aria-label={uiF("Open {0} request in {1} at {2}", [request.model, name(workspace), new Date(request.created_at).toLocaleString(readUILocale())])} onClick={event => {if (!(event.target as HTMLElement).closest('a, button')) navigate(`${scopeHref(workspace,workspaces,'executions')}#gateway-attempt-${request.reference??request.attempt_id}`);}} onKeyDown={event => {if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {event.preventDefault(); navigate(`${scopeHref(workspace,workspaces,'executions')}#gateway-attempt-${request.reference??request.attempt_id}`);}}}><TableCell className="hidden whitespace-nowrap sm:table-cell">{new Date(request.created_at).toLocaleString(readUILocale())}</TableCell><TableCell className="hidden sm:table-cell">{name(workspace)}</TableCell><TableCell className="max-w-52 whitespace-normal break-words"><Link className="font-medium hover:underline" aria-label={uiF("Open {0} request in {1} at {2}", [request.model, name(workspace), new Date(request.created_at).toLocaleString(readUILocale())])} to={`${scopeHref(workspace,workspaces,'executions')}#gateway-attempt-${request.reference??request.attempt_id}`}>{catalogTitle({ id: request.model })}</Link><p className="mt-1 text-xs text-muted-foreground sm:hidden">{name(workspace)} · {new Date(request.created_at).toLocaleString(readUILocale())}</p></TableCell><TableCell><span className={`gateway-table-status ${request.execution === 'confirmed_completed' ? 'is-complete' : request.execution === 'confirmed_not_executed' ? 'is-failed' : 'is-pending'}`}>{requestOutcomeLabel(request)}</span><p className="mt-1 text-xs text-muted-foreground md:hidden">{chargeLabel(request)}</p></TableCell><TableCell className="hidden md:table-cell text-right tabular-nums">{request.prompt_tokens !== null && request.completion_tokens !== null ? (BigInt(request.prompt_tokens)+BigInt(request.completion_tokens)).toLocaleString(readUILocale()) : uiT("Unknown")}</TableCell><TableCell className="hidden md:table-cell text-right tabular-nums">{chargeLabel(request)}</TableCell></TableRow>)}</TableBody></Table>{!rows.length && <Empty className="mt-3 min-h-36 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconActivity size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{pendingOnly ? uiT("No matching requests") : uiT("No requests recorded by Niu.")}</EmptyDescription></EmptyHeader></Empty>}{pages.some(item=>item.page.next_cursor) && <Button className="mt-4" variant="outline" disabled={older} onClick={()=>void loadOlder()}>{older ? uiT("Loading…") : uiT("Load older requests")}</Button>}</section>}
+      </> : <section aria-label={uiT("Requests across workspaces")} className="min-w-0"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold">{pendingOnly ? uiT("Pending settlement") : uiT("Requests")}</h2>{pendingOnly && <Button asChild variant="ghost" size="sm"><Link to="/activity/logs">{uiT("Clear filter", "清除筛选")}</Link></Button>}<span className="text-sm text-muted-foreground">{rows.length.toLocaleString(readUILocale())}{" "}{uiT("loaded · newest first · all time")}</span></div><Table><TableHeader><TableRow><TableHead className="hidden sm:table-cell">{uiT("Time")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Workspace")}</TableHead><TableHead>{uiT("Model")}</TableHead><TableHead>{uiT("Status")}</TableHead><TableHead className="hidden md:table-cell text-right tabular-nums">{uiT("Tokens")}</TableHead><TableHead className="hidden md:table-cell text-right tabular-nums">{uiT("Customer charge")}</TableHead></TableRow></TableHeader><TableBody>{rows.map(({workspace,request})=><TableRow key={`${workspace.id}:${request.attempt_id}`} onClickCapture={() => rememberRequest(request.attempt_id)} tabIndex={0} className="cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]" aria-label={uiF("Open {0} request in {1} at {2}", [request.model, name(workspace), new Date(request.created_at).toLocaleString(readUILocale())])} onClick={event => {if (!(event.target as HTMLElement).closest('a, button')) navigate(`${scopeHref(workspace,workspaces,'executions')}#gateway-attempt-${request.reference??request.attempt_id}`);}} onKeyDown={event => {if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {event.preventDefault(); rememberRequest(request.attempt_id); navigate(`${scopeHref(workspace,workspaces,'executions')}#gateway-attempt-${request.reference??request.attempt_id}`);}}}><TableCell className="hidden whitespace-nowrap sm:table-cell">{new Date(request.created_at).toLocaleString(readUILocale())}</TableCell><TableCell className="hidden sm:table-cell">{name(workspace)}</TableCell><TableCell className="max-w-52 whitespace-normal break-words"><Link id={`activity-request-${request.attempt_id}`} className="font-medium hover:underline" aria-label={uiF("Open {0} request in {1} at {2}", [request.model, name(workspace), new Date(request.created_at).toLocaleString(readUILocale())])} to={`${scopeHref(workspace,workspaces,'executions')}#gateway-attempt-${request.reference??request.attempt_id}`}>{catalogTitle({ id: request.model })}</Link><p className="mt-1 text-xs text-muted-foreground sm:hidden">{name(workspace)} · {new Date(request.created_at).toLocaleString(readUILocale())}</p></TableCell><TableCell><span className={`gateway-table-status ${request.execution === 'confirmed_completed' ? 'is-complete' : request.execution === 'confirmed_not_executed' ? 'is-failed' : 'is-pending'}`}>{requestOutcomeLabel(request)}</span><p className="mt-1 text-xs text-muted-foreground md:hidden">{chargeLabel(request)}</p></TableCell><TableCell className="hidden md:table-cell text-right tabular-nums">{request.prompt_tokens !== null && request.completion_tokens !== null ? (BigInt(request.prompt_tokens)+BigInt(request.completion_tokens)).toLocaleString(readUILocale()) : uiT("Unknown")}</TableCell><TableCell className="hidden md:table-cell text-right tabular-nums">{chargeLabel(request)}</TableCell></TableRow>)}</TableBody></Table>{!rows.length && <Empty className="mt-3 min-h-36 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconActivity size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>{pendingOnly ? uiT("No matching requests") : uiT("No requests recorded by Niu.")}</EmptyDescription></EmptyHeader></Empty>}{pages.some(item=>item.page.next_cursor) && <Button className="mt-4" variant="outline" disabled={older} onClick={()=>void loadOlder()}>{older ? uiT("Loading…") : uiT("Load older requests")}</Button>}</section>}
     </>}
   </div>;
 }

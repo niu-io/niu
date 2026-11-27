@@ -125,3 +125,5 @@ A catalog model can be labeled free only when the complete applicable tariff est
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
 Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
+
+Returning from request details restores the inspected row, focus and loaded page depth for that log history entry. Restore only from workspaces that are still authorized.
