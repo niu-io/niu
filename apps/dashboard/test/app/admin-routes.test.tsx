@@ -1,6 +1,7 @@
 import { render, waitFor } from '@testing-library/react';
 import { createMemoryRouter, matchRoutes, RouterProvider } from 'react-router';
 import { expect, it } from 'vitest';
+import { resolveLegacyRedirectTarget } from '@/shell/legacy-redirect-route';
 import { appRoutes } from '@/routes';
 
 it.each([
@@ -47,4 +48,11 @@ it.each([
 ])('registers %s as a page rather than a redirect', path => {
   const route = matchRoutes(appRoutes, path)?.at(-1)?.route;
   expect(route?.lazy).toBeTypeOf('function');
+});
+
+it.each([
+  ['/admin/settings/registration', '/admin/settings?tab=registration&status=pending#request'],
+  ['/admin/registrations', '/admin/customers?tab=registrations&status=pending#request'],
+])('preserves registration bookmarks at %s', (path, target) => {
+  expect(resolveLegacyRedirectTarget(path, '?tab=old&status=pending', '#request', {})).toBe(target);
 });

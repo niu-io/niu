@@ -63,8 +63,6 @@ export const routeImporters = {
   setup: memoImport('setup', () => import('@/features/login/setup-page')),
   invite: memoImport('invite', () => import('@/features/invitations/accept-page')),
   adminOverview: memoImport('adminOverview', () => import('@/features/admin-overview/page')),
-  adminRegistrations: memoImport('adminRegistrations', () => import('@/features/registrations/page')),
-  platformRegistrationPolicy: memoImport('platformRegistrationPolicy', () => import('@/features/platform-settings/registration-page')),
   commercialPosition: memoImport('commercialPosition', () => import('@/features/commercial-position/page')),
   platformSettings: memoImport('platformSettings', () => import('@/features/platform-settings/page')),
   customers: memoImport('customers', () => import('@/features/customers/page')),
@@ -149,15 +147,13 @@ export function preloadRouteChunk(pathname: string): void {
     if (!sub) void routeImporters.adminOverview();
     else if (sub === 'providers' || sub === 'suppliers') void routeImporters.providers();
     else if (sub === 'routing' || sub === 'pools' || sub === 'route-pools' || sub === 'model-pools') void routeImporters.routePools();
-    else if (sub === 'customers' || sub === 'balances' || sub === 'customer-accounts' || sub === 'account-balances') void routeImporters.customers();
-    else if (sub === 'registrations') void routeImporters.adminRegistrations();
+    else if (sub === 'customers' || sub === 'registrations' || sub === 'balances' || sub === 'customer-accounts' || sub === 'account-balances') void routeImporters.customers();
     else if (sub === 'reports' || sub === 'commercial' || sub === 'financial-reports') void routeImporters.commercialPosition();
     else if (sub === 'pricing') void routeImporters.retailPricing();
     else if (sub === 'payments' || sub === 'payment-gateways') void routeImporters.payments();
     else if (sub === 'branding') void routeImporters.branding();
     else if (sub === 'audit' || sub === 'audit-logs') void routeImporters.auditLogs();
     else if (sub === 'incidents') void routeImporters.incidents();
-    else if (sub === 'settings' && parts[2] === 'registration') void routeImporters.platformRegistrationPolicy();
     else if (sub === 'settings') void routeImporters.platformSettings();
     return;
   }
@@ -263,7 +259,7 @@ export function prefetchRouteData(
     if (sub === 'providers') {
       prefetchGet(token, '/api/v1/admin/providers', { persist: true });
       prefetchGet(token, '/api/v1/admin/providers/connections');
-    } else if (sub === 'customers' || sub === 'balances') {
+    } else if (sub === 'customers' || sub === 'registrations' || sub === 'balances') {
       prefetchGet(token, '/api/v1/admin/customers?limit=50');
     } else if (sub === 'routing') {
       prefetchGet(token, '/api/v1/admin/routing/index?limit=50');

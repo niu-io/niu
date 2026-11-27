@@ -151,6 +151,7 @@ describe('Shared UI primitives layout safeguards', () => {
   it('keeps the key directory as a responsive list instead of a fixed-width table', () => {
     const css = readFileSync(resolve(process.cwd(), 'app/styles/operations.css'), 'utf8');
     const keys = readFileSync(join(appDir, 'features/keys/components/KeysView.tsx'), 'utf8');
+    expect(keys).not.toMatch(/className="header-icon-action"[^>]+aria-label=\{uiT\("New key"\)/);
     expect(css).toContain('.key-rows {');
     expect(css).toContain('.key-row-facts {');
     expect(css).toContain('@media (max-width: 900px)');
