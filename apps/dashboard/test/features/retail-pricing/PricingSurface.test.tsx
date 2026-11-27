@@ -85,14 +85,14 @@ describe('unified pricing surface', () => {
     expect(await screen.findByRole('table', { name: 'Platform standard selling prices' })).toBeTruthy();
     expect(screen.getByText('shared-model')).toBeTruthy();
     expect(screen.queryByText(currencyRow.catalog.description)).toBeNull();
-    expect(screen.getByRole('tab', { name: 'Settlement Currency' }).getAttribute('aria-selected')).toBe('true');
-    expect(screen.getByText('Active billing mode: Settlement Currency')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: /^Currency/ }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: /Currency.*Used for billing/ })).toBeTruthy();
     expect(screen.queryByRole('table', { name: 'Branded Credits text tariffs' })).toBeNull();
 
-    await user.click(screen.getByRole('tab', { name: 'Branded Credits' }));
+    await user.click(screen.getByRole('tab', { name: /^Credits/ }));
     expect(await screen.findByRole('table', { name: 'Branded Credits text tariffs' })).toBeTruthy();
     expect(screen.getByText('credits-model')).toBeTruthy();
-    expect(screen.getByText('Preparing prices for Branded Credits')).toBeTruthy();
+    expect(screen.queryByText(/Preparing prices for/)).toBeNull();
     expect(screen.queryByRole('table', { name: 'Platform standard selling prices' })).toBeNull();
     expect(screen.queryByText(/Tariff v/)).toBeNull();
     expect(screen.queryByText(/1,000,000,000/)).toBeNull();
@@ -108,13 +108,13 @@ describe('unified pricing surface', () => {
     const user = userEvent.setup();
 
     expect(await screen.findByRole('table', { name: 'Branded Credits text tariffs' })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: 'Branded Credits' }).getAttribute('aria-selected')).toBe('true');
-    expect(screen.getByText('Active billing mode: Branded Credits')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: /^Credits/ }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: /Credits.*Used for billing/ })).toBeTruthy();
     expect(screen.queryByRole('table', { name: 'Platform standard selling prices' })).toBeNull();
 
-    await user.click(screen.getByRole('tab', { name: 'Settlement Currency' }));
+    await user.click(screen.getByRole('tab', { name: /^Currency/ }));
     expect(await screen.findByRole('table', { name: 'Platform standard selling prices' })).toBeTruthy();
-    expect(screen.getByText('Preparing prices for Settlement Currency')).toBeTruthy();
+    expect(screen.queryByText(/Preparing prices for/)).toBeNull();
     expect(screen.queryByRole('table', { name: 'Branded Credits text tariffs' })).toBeNull();
   });
 
