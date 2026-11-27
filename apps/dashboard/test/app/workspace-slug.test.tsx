@@ -73,8 +73,9 @@ describe('workspace slugs', () => {
     render(<WorkspaceCreateDialog context={{session:{kind:'installation'},createWorkspace} as unknown as DashboardContext} open onOpenChange={vi.fn()}/>);
     await user.type(screen.getByLabelText('Workspace name'), 'Budget test');
     expect(screen.getByLabelText('Spending limit ($)').getAttribute('placeholder')).toBe('No limit');
-    expect(screen.getByText(/zero blocks new paid requests/)).toBeTruthy();
+    expect(screen.queryByText(/prevents workspace deletion/)).toBeNull();
     await user.type(screen.getByLabelText('Spending limit ($)'), '0');
+    expect(screen.getByText(/Zero blocks paid requests/)).toBeTruthy();
     await user.click(screen.getByRole('button', {name:'Create workspace'}));
     expect(createWorkspace).toHaveBeenCalledWith('Budget test',undefined,'budget-test',{currency:'USD',limit_nanos:'0'});
   });
@@ -123,7 +124,7 @@ describe('workspace slugs', () => {
   });
   it('keeps spending controls owner-only', () => {
     render(<WorkspaceCreateDialog context={{session:{kind:'operator',operator:{role:'admin'}},createWorkspace:vi.fn()} as unknown as DashboardContext} open onOpenChange={vi.fn()}/>);
-    expect(screen.queryByRole('heading',{name:'Budget (optional)'})).toBeNull();
+    expect(screen.queryByLabelText(/Spending limit/)).toBeNull();
   });
 
 });
