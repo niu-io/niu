@@ -436,7 +436,7 @@ export default function AdminOverviewPage() {
             ? t('Active', '已开通')
             : t('Ready', '可开户'),
       actionLabel: (snapshot?.pendingRegistrations ?? 0) > 0 ? t('Review registrations', '审批注册') : t('Manage customers', '管理客户'),
-      to: (snapshot?.pendingRegistrations ?? 0) > 0 ? '/admin/registrations' : '/admin/customers',
+      to: (snapshot?.pendingRegistrations ?? 0) > 0 ? '/admin/customers?tab=registrations' : '/admin/customers',
     });
   }
 
@@ -488,7 +488,7 @@ export default function AdminOverviewPage() {
               {format('{0} registration requests awaiting approval.', [snapshot?.pendingRegistrations ?? 0])}
             </span>
             <Button asChild variant="outline" size="sm">
-              <Link to="/admin/registrations">{t('Review requests', '前往审批')}</Link>
+              <Link to="/admin/customers?tab=registrations">{t('Review requests', '前往审批')}</Link>
             </Button>
           </AlertDescription>
         </Alert>
