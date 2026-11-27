@@ -133,7 +133,8 @@ describe('Shared UI primitives layout safeguards', () => {
   it('uses the same tier boundary validation for the editor field and submitted schedule', () => {
     const field = readFileSync(join(appDir, 'features/retail-pricing/text-rate-band.tsx'), 'utf8');
     const schedule = readFileSync(join(appDir, 'features/retail-pricing/text-terms.ts'), 'utf8');
-    expect(field).toContain('input?.setCustomValidity(validTierThreshold(');
+    expect(field).toContain('input?.setCustomValidity(validStart ?');
+    expect(field).toContain('const range = validStart ? tokenBand(');
     expect(schedule).toContain('if (!validTierThreshold(tier.minimum_input_tokens');
   });
 

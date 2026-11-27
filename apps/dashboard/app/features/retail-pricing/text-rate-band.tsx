@@ -44,14 +44,16 @@ export function ContextTierFields({ tiers, setTiers, previous, locked, onDirty }
   const { t: uiT } = useLocale();
   return <div className="space-y-4">
       {tiers.map((tier, index) => {
+        const validStart = validTierThreshold(tier.minimum_input_tokens, tiers[index - 1]?.minimum_input_tokens ?? '0');
+        const range = validStart ? tokenBand(tier.minimum_input_tokens, tiers[index + 1]?.minimum_input_tokens) : '—';
         const savedTier = previous?.find(saved => saved.minimum_input_tokens === tier.minimum_input_tokens);
         return <section key={index} className="space-y-3 border-t pt-4">
-          <h3 className="font-medium">{uiT("Input tokens", "输入 Token")} · {tokenBand(tier.minimum_input_tokens, tiers[index + 1]?.minimum_input_tokens)}</h3>
+          <h3 className="font-medium">{uiT("Input tokens", "输入 Token")} · {range}</h3>
           <div className="flex items-end gap-2">
             <div className="grid gap-2">
               <Label htmlFor={'tier-threshold-' + index}>{uiT("Minimum input tokens")}</Label>
               <Input id={'tier-threshold-' + index} inputMode="numeric" required
-                ref={input => { input?.setCustomValidity(validTierThreshold(tier.minimum_input_tokens, tiers[index - 1]?.minimum_input_tokens ?? '0') ? '' : uiT('Use increasing whole-token thresholds starting at 1 or higher.')); }} disabled={locked} value={tier.minimum_input_tokens}
+                ref={input => { input?.setCustomValidity(validStart ? '' : uiT('Use increasing whole-token thresholds starting at 1 or higher.')); }} disabled={locked} value={tier.minimum_input_tokens}
                 onChange={event => setTiers(current => current.map((item, i) => i === index ? { ...item, minimum_input_tokens: event.target.value } : item))} />
             </div>
             <Button type="button" variant="outline" disabled={locked} onClick={() => {

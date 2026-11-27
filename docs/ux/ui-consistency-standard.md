@@ -174,7 +174,7 @@ Direct video-mode links open the Video composer and its existing availability or
 
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
 
-Tiered price forms focus the first invalid token threshold on submit and recompute the next threshold when its preceding boundary changes. Range previews show an em dash for either endpoint outside the supported token count.
+Tiered price forms focus the first invalid token threshold on submit and recompute the next threshold when its preceding boundary changes. Range previews show an em dash for an unsupported endpoint or a lower bound that repeats or precedes the previous tier.
 
 Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
 
