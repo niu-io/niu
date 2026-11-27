@@ -1247,7 +1247,7 @@ export const UI_MESSAGES_ZH: Record<string, string> = {
   "· Unpaid": "· 未付",
   "Platform net contribution": "平台净贡献",
   "margin": "利润率",
-  "settled requests ·": "个已结算请求 ·",
+  "Matched charges and payables ({0})": "扣费与应付已匹配（{0} 笔）",
   "active": "活跃",
   "model": "个模型",
   "models": "个模型",

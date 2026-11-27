@@ -893,7 +893,7 @@ function CommercialStatement({ token }: { token: string }) {
                 <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1 tabular-nums">
-                {currentCohort.unresolvedAttempts > 0n && <span>{currentCohort.unresolvedAttempts.toString()} {uiT('unresolved', '项未核定')} · </span>}{currentCohort.matchedAttempts.toString()}{" "}{uiT("settled requests ·")}{' '}
+                {currentCohort.unresolvedAttempts > 0n && <span>{currentCohort.unresolvedAttempts.toString()} {uiT('unresolved', '项未核定')} · </span>}{uiF("Matched charges and payables ({0})", [currentCohort.matchedAttempts.toString()])} ·{' '}
                 {uiF('{0} active models', [currentCohort.activeModelCount])}
               </p>
             </article>
