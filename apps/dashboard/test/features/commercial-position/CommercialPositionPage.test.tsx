@@ -150,6 +150,18 @@ it('renders a structured financial statement with period comparisons, active mod
   // Financial figures are formatted to 4 decimal places with $ symbol
   expect(screen.getAllByText('$0.8000').length).toBeGreaterThan(0);
 
+  // Crossing a minute boundary while inspecting a report must retain its snapshot.
+  const requestsBeforeDrilldown = fetchMock.mock.calls.length;
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(Date.now() + 60_000);
+  try {
+    await user.click(screen.getByRole('tab', { name: 'Unit economics' }));
+    expect(await screen.findByRole('heading', { name: 'Unit economics by Provider & model' })).toBeTruthy();
+    expect(fetchMock.mock.calls.length).toBe(requestsBeforeDrilldown);
+  } finally {
+    vi.useRealTimers();
+  }
+
   // Switch to Cash & wallet position tab
   await user.click(screen.getByRole('tab', { name: 'Cash & wallet position' }));
   expect(screen.getByRole('heading', { name: 'Cash receipts, payables & wallet position' })).toBeTruthy();
