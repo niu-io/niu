@@ -21,8 +21,8 @@ export async function registeredRetailModelChoices(token: string, signal: AbortS
   } while (after);
   return [...choices.values()];
 }
-export async function registeredRetailModels(token: string, signal: AbortSignal): Promise<string[]> {
-  return (await registeredRetailModelChoices(token,signal)).map(row=>row.model_alias);
+export async function registeredTextModelChoices(token: string, signal: AbortSignal): Promise<RetailModelChoice[]> {
+  return (await registeredRetailModelChoices(token, signal)).filter(choice => !choice.media);
 }
 
 export type RetailCustomer = { organization_id: string; organization_name: string; created_at: string };
