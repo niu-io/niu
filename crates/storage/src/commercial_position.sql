@@ -141,6 +141,14 @@ WITH raw_bounds AS MATERIALIZED (
            r.supplier_settled
     FROM raw_traffic r
     LEFT JOIN covered_accounts account_cov ON account_cov.account_id=r.debit_account_id
+), reconciliation AS (
+    SELECT traffic.*,
+           charge IS NOT NULL AND revenue_covered IS NOT TRUE AS revenue_source_missing,
+           (charge IS NOT NULL AND revenue_covered IS NOT TRUE)
+           OR (execution<>'confirmed_not_executed'
+               AND (execution<>'confirmed_completed' OR usage_confidence<>'provider_reported'
+                    OR charge IS NULL OR earning IS NULL)) AS needs_reconciliation
+    FROM traffic
 ), inventory AS (
     SELECT provider_id,model_alias FROM mappings
     UNION SELECT provider_id,model_alias FROM traffic
@@ -213,9 +221,7 @@ WITH raw_bounds AS MATERIALIZED (
                COALESCE(sum(earning) FILTER (WHERE supplier_settled),0)::text END AS settled_earning_nanos,
            CASE WHEN count(earning)>0 THEN
                COALESCE(sum(earning) FILTER (WHERE NOT supplier_settled),0)::text END AS unsettled_earning_nanos,
-           count(*) FILTER (WHERE execution<>'confirmed_not_executed'
-               AND (execution<>'confirmed_completed' OR usage_confidence<>'provider_reported'
-                    OR charge IS NULL OR earning IS NULL))::text AS unresolved_attempts,
+           count(*) FILTER (WHERE needs_reconciliation)::text AS unresolved_attempts,
            count(*) FILTER (WHERE charge IS NOT NULL AND earning IS NOT NULL)::text AS matched_attempts,
            count(*) FILTER (WHERE charge IS NOT NULL AND earning IS NOT NULL AND cost IS NOT NULL)::text AS cost_known_attempts,
            CASE WHEN count(*) FILTER (WHERE charge IS NOT NULL AND earning IS NOT NULL)>0
@@ -227,20 +233,18 @@ WITH raw_bounds AS MATERIALIZED (
                         OR charge IS NULL OR earning IS NULL))=0
                THEN sum(charge::numeric-earning::numeric)
                    FILTER (WHERE charge IS NOT NULL AND earning IS NOT NULL)::text END AS margin_nanos
-    FROM traffic GROUP BY provider_id,model_alias
+    FROM reconciliation GROUP BY provider_id,model_alias
 ), pending AS (
-    SELECT id,provider_id,model_alias,execution,usage_confidence,charge,earning,
+    SELECT id,provider_id,model_alias,execution,usage_confidence,charge,earning,revenue_source_missing,
            row_number() OVER (PARTITION BY provider_id,model_alias ORDER BY id DESC) AS ordinal
-    FROM traffic
+    FROM reconciliation
     WHERE ($7::uuid IS NULL OR id < $7)
       AND ($5::uuid IS NULL OR (provider_id = $5 AND model_alias = $6::text))
-      AND execution<>'confirmed_not_executed'
-      AND (execution<>'confirmed_completed' OR usage_confidence<>'provider_reported'
-           OR charge IS NULL OR earning IS NULL)
+      AND needs_reconciliation
 ), pending_examples AS (
     SELECT provider_id,model_alias,jsonb_agg(jsonb_build_object(
         'attempt',id::text,'execution',execution,'usage_confidence',usage_confidence,
-        'charge_missing',charge IS NULL,'payable_missing',earning IS NULL
+        'charge_missing',charge IS NULL,'payable_missing',earning IS NULL,'revenue_source_missing',revenue_source_missing
     ) ORDER BY ordinal) AS attempts
     FROM pending WHERE ordinal<=$8::int GROUP BY provider_id,model_alias
 ), rows AS (
