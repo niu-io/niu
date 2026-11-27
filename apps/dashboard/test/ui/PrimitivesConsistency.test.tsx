@@ -642,6 +642,7 @@ it('opens the archive after mobile history releases its focus scope', () => {
   const layout = readFileSync(resolve('app/features/generations/GenerationsLayout.tsx'), 'utf8');
   expect(layout).toMatch(/onCloseAutoFocus: event => \{\s*if \(pendingArchive.current\)/);
   expect(layout).toMatch(/pendingArchive.current = openArchive;\s*setOpenMobile\(false\)/);
+});
 
 it('fills the route body when the empty state is its direct child', () => {
   const css = readFileSync(resolve('app/styles/surfaces.css'), 'utf8');
