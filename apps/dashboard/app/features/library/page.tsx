@@ -51,6 +51,7 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug,compact=fal
   const [cursor,setCursor]=useState<string|null>(()=>initialPage?.next_cursor??null), [loading,setLoading]=useState(()=>!initialPage), [loadingMore,setLoadingMore]=useState(false), [error,setError]=useState(''), [moreError,setMoreError]=useState(''), [notice,setNotice]=useState(''), [revision,setRevision]=useState(0);
   const [selected,setSelected]=useState<{asset:WorkspaceAsset;action:'preview'|'rename'|'delete'}|null>(null), [name,setName]=useState(''), [busy,setBusy]=useState(false), [actionError,setActionError]=useState('');
   const [uploading,setUploading]=useState(false);
+  const [uploadError,setUploadError]=useState('');
   const uploadInput=useRef<HTMLInputElement|null>(null);
   const [preview,setPreview]=useState(''), [previewLoading,setPreviewLoading]=useState(false);
   const menuButtons=useRef(new Map<string,HTMLButtonElement>()), searchButton=useRef<HTMLButtonElement|null>(null);
@@ -141,20 +142,31 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug,compact=fal
   }
   async function uploadFiles(files:FileList|null){
     if(!files?.length||!canWrite||uploading||busy)return;
-    setUploading(true);setError('');setNotice('');
-    try{
-      for(const file of Array.from(files)){
-        if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size<1||file.size>8*1024*1024){
-          throw new Error(uiT('Choose a PNG, JPEG or WebP image up to 8 MiB.', '请选择 8 MiB 以内的 PNG、JPEG 或 WebP 图片。'));
-        }
-        const bytes=new Uint8Array(await file.arrayBuffer());
+    setUploading(true);setUploadError('');setNotice('');
+    const batch = Array.from(files);
+    let currentFile = '';
+    let submitted = false;
+    try {
+      const invalid = batch.find(file => !['image/png','image/jpeg','image/webp'].includes(file.type) || file.size < 1 || file.size > 8*1024*1024);
+      if (invalid) {
+        currentFile = invalid.name;
+        throw new Error(uiT('Choose a PNG, JPEG or WebP image up to 8 MiB.', '请选择 8 MiB 以内的 PNG、JPEG 或 WebP 图片。'));
+      }
+      for (const file of batch) {
+        currentFile = file.name;
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        submitted = true;
         await client.uploadWorkspaceAsset(scope,{name:file.name,contentType:file.type,bytes});
       }
-      invalidateQueries(key=>key.startsWith(`${token||'public'}::library:${scope.organizationId}:${scope.projectId}:`));
-      if(active.current){setNotice(uiT('File uploaded to workspace.', '文件已上传至工作空间。'));setRevision(value=>value+1);}
-    }catch(cause){
-      if(active.current)setError(cause instanceof Error?cause.message:uiT('The image could not be uploaded.', '图片上传失败。'));
-    }finally{
+      if (active.current) setNotice(uiT('Upload complete', '上传完成'));
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : uiT('The image could not be uploaded.', '图片上传失败。');
+      if (active.current) setUploadError(`${currentFile} · ${message}`);
+    } finally {
+      if (submitted) {
+        invalidateQueries(key=>key.startsWith(`${token||'public'}::library:${scope.organizationId}:${scope.projectId}:`));
+        if (active.current) setRevision(value=>value+1);
+      }
       if(active.current){setUploading(false);if(uploadInput.current)uploadInput.current.value='';}
     }
   }
@@ -168,6 +180,7 @@ export function WorkspaceLibrary({token,scope,canWrite,workspaceSlug,compact=fal
       {canWrite&&(loading||error||assets.length>0||query)&&<Button variant="outline" size={compact?'sm':'default'} disabled={uploading||busy} onClick={()=>uploadInput.current?.click()}><IconUpload size={compact?15:16}/>{uploading?uiT("Saving image…"):uiT("Upload image", "上传图片")}</Button>}
       {query&&<Button className="min-w-0 max-w-full" variant="ghost" size={compact?'sm':'default'} onClick={()=>setQuery('')}>{uiT("Clear search:")}{" "}<span className="truncate">{query}</span></Button>}
     </div>
+    {uploadError && <p role="alert" className="break-words text-sm text-destructive">{uploadError}</p>}
     {notice&&<p role="status" className="text-xs text-muted-foreground">{uiT(notice)}</p>}
     {loading&&!assets.length&&!error?(compact?<ListRowsSkeleton rows={4} label={uiT("Loading library…")}/>:<TableSkeleton columns={5} rows={5} label={uiT("Loading library…")}/>):error?<div role="alert" className="space-y-2 text-sm"><p>{uiT(error)}</p><Button variant="outline" size={compact?'sm':'default'} onClick={()=>setRevision(value=>value+1)}>{uiT("Retry library")}</Button></div>:<>
       {!visible.length ? <Empty className={compact ? 'border-0 bg-transparent p-4' : 'min-h-64'}>
