@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ProviderRequestError, request, writeMayHaveCommitted } from '@/features/providers/api';
 import { amountFromNanos, amountToNanos } from '@/lib/money';
@@ -104,7 +104,7 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
       setError((failure instanceof Error ? failure.message : 'Publication outcome unavailable.') + (uncertain ? ' Retry this submission to confirm the original outcome before starting another publication.' : failure instanceof ProviderRequestError && failure.status === 409 ? ' Close and refresh current prices before editing again.' : ' Correct the fields and submit again. Your draft has been preserved.'));
     } finally { setBusy(false); }
   }
-  return <Dialog open={open} onOpenChange={value => { if (!value) requestClose(); }}><DialogContent onCloseAutoFocus={onCloseAutoFocus} className="w-[calc(100vw-2rem)] sm:max-w-3xl"><DialogHeader><DialogTitle>{previous ? uiT("Revise text standard price") : uiT("Publish text standard price")}</DialogTitle><DialogDescription>{uiT("Customer selling terms in")}{" "}{currency || uiT("the platform currency")}{uiT(". These prices apply across workspaces. Existing requests and promotions keep their original prices. Model availability and access are managed separately.")}</DialogDescription></DialogHeader><form onChange={() => setDirty(true)} className="space-y-4" onSubmit={event => void publish(event)}>
+  return <Dialog open={open} onOpenChange={value => { if (!value) requestClose(); }}><DialogContent aria-describedby={undefined} onCloseAutoFocus={onCloseAutoFocus} className="w-[calc(100vw-2rem)] sm:max-w-3xl"><DialogHeader><DialogTitle>{previous ? uiT("Revise text standard price") : uiT("Publish text standard price")}</DialogTitle></DialogHeader><form onChange={() => setDirty(true)} className="space-y-4" onSubmit={event => void publish(event)}>
     <div className="space-y-2"><Label>{uiT("Model")}</Label>{previous ? <p className="break-words">{model}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={locked || !!modelsError} aria-label={uiT("Standard price model")}>{model || uiT("Choose registered model")}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><Input aria-label={uiT("Filter registered models")} placeholder={uiT("Filter models")} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key.length === 1 || event.key === 'Backspace' || event.key === 'Delete') event.stopPropagation(); }} /><DropdownMenuRadioGroup value={model} onValueChange={value => { setDirty(true); setModel(value); }}>{models.filter(name => name.toLowerCase().includes(query.trim().toLowerCase())).map(name => <DropdownMenuRadioItem key={name} value={name}>{name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>{!models.length && <p className="p-2 text-sm">{uiT("No registered shared models loaded.")}</p>}</DropdownMenuContent></DropdownMenu>}</div>
     {modelsError && <Alert variant="destructive"><AlertDescription>{uiT(modelsError)}</AlertDescription></Alert>}
     <p className="text-sm text-muted-foreground">{uiT("Currency:")}{" "}{currency || uiT("configure in Admin")}</p>
@@ -143,12 +143,6 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
       <Alert variant="destructive">
         <IconAlertTriangle size={16} aria-hidden="true" />
         <AlertDescription className="space-y-3">
-          <p>
-            {uiT(
-              "Input or output rate is set to 0. Publishing this standard price will offer this model free to all workspaces even if the upstream Provider charges for usage.",
-              "输入或输出单价为 0。发布后所有工作空间将按免费单价调用此模型，即使上游供应商实际收费也会由平台承担全部成本。",
-            )}
-          </p>
           <div className="flex items-start gap-2">
             <Checkbox
               id="standard-confirm-zero"
@@ -157,7 +151,7 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
               onCheckedChange={checked => setZeroConfirmed(checked === true)}
             />
             <Label htmlFor="standard-confirm-zero" className="text-sm font-medium text-foreground">
-              {uiT("I confirm this $0.00 (free) customer selling rate is intentional", "我确认有意将该模型的客户售价设为 0（免费）")}
+              {uiT("Confirm zero-priced base rates", "确认将上述零价基础费率按免费发布")}
             </Label>
           </div>
         </AlertDescription>
