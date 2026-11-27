@@ -22,6 +22,13 @@ function collectTsxFiles(dir: string): string[] {
 }
 
 describe('Shared UI primitives layout safeguards', () => {
+  it('adapts Provider model rows to their container and groups discount with secondary actions', () => {
+    const table = readFileSync(resolve('app/features/provider-business/ProviderModelsTable.tsx'), 'utf8');
+    const css = readFileSync(resolve('app/styles/operations.css'), 'utf8');
+    expect(css).toContain('@container provider-models');
+    expect(table).toMatch(/DropdownMenuItem[^>]*onSelect=\{\(\) => onOpenDiscount/);
+  });
+
   const appDir = resolve(process.cwd(), 'app');
   const tsxFiles = collectTsxFiles(appDir);
 
