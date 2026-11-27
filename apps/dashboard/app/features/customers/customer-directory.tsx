@@ -156,7 +156,7 @@ export function Customers({
   }, [query, kindFilter]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || activeTab === 'registrations') return;
     const controller = new AbortController();
     void request<PlatformRegistrationQueuePage>(
       token,
@@ -172,7 +172,7 @@ export function Customers({
         // Ignore badge prefetch errors; opening Registrations surfaces failures.
       });
     return () => controller.abort();
-  }, [token, refreshTick]);
+  }, [token, refreshTick, activeTab]);
 
   const filteredCompanies = useMemo(() => {
     const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
@@ -604,6 +604,7 @@ export function Customers({
           <RegistrationRequestsQueue
             token={token}
             showPolicySection={false}
+            onCountsChange={counts => setPendingRegistrations(counts.pending)}
             onApproved={() => {
               onWorkspaceCreated();
               refresh();

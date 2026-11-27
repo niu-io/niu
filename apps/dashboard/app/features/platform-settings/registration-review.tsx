@@ -369,6 +369,7 @@ export function RegistrationRequestsQueue({
         setNextCursor(page.next_cursor);
         setCounts(page.counts);
         onCountsRef.current?.(page.counts);
+        window.dispatchEvent(new CustomEvent('niu:registrations-updated', { detail: page.counts.pending }));
       } catch {
         if (!controller.signal.aborted) {
           setLoadFailed(true);
@@ -399,7 +400,6 @@ export function RegistrationRequestsQueue({
     } else {
       setNoticeKind('rejected');
     }
-    window.dispatchEvent(new Event('niu:registrations-updated'));
     void loadQueue(statusFilter);
   }
 
