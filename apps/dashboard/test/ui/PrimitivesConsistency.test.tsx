@@ -29,7 +29,7 @@ describe('Shared UI primitives layout safeguards', () => {
     const source = readFileSync(join(appDir, 'features/activity/global-page.tsx'), 'utf8');
     const section = source.split('<section aria-label={uiT("Activity by workspace")}')[1].split('</section>')[0];
     for (const tag of ['TableHead', 'TableCell']) {
-      const cells = [...section.matchAll(new RegExp('<' + tag + '\\b([^>]*)>', 'g'))];
+      const cells = [...section.matchAll(new RegExp(`<${tag}\\b([^>]*)>`, 'g'))];
       expect(cells.at(-1)?.[1]).toContain('whitespace-normal');
       expect(cells.at(-1)?.[1]).not.toContain('hidden');
     }
