@@ -1,5 +1,5 @@
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
@@ -59,6 +59,7 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
   const [rows, setRows] = useState<(RetailPriceRecord & { pricing_health?: PricingHealth })[]>(() => Array.isArray(initialPage?.data) ? initialPage.data : []);
   const [cursor, setCursor] = useState<string | null>(() => initialPage?.next_after ?? null);
   const [loading, setLoading] = useState(() => !initialPage), [error, setError] = useState(''), [filter, setFilter] = useState('');
+  const priceSearch = useRef<HTMLInputElement>(null);
   const [supplyFilter, setSupplyFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [failed, setFailed] = useState<string>(), [selected, setSelected] = useState<RetailPriceRecord | null>(null);
   const [editor, setEditor] = useState<{ kind: 'text' | 'media'; previous: RetailPriceRecord | null; initialModel?: string } | null>(null);
@@ -214,14 +215,14 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
             <Badge variant={mode === activeMode ? 'secondary' : 'outline'}>{mode === activeMode ? uiF("Active billing mode: {0}", [modeLabel]) : uiF("Preparing prices for {0}", [modeLabel])}</Badge>
             {mode === 'currency' && supplyFilterControl}
           </div>
-          <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
+          <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={priceSearch} type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
         </div>
       )}
       <TabsContent value="currency" className="space-y-4">
         {!currency && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("Configure the platform currency in Admin Settings before publishing currency prices. If it is already configured, refresh this page.")}</span><Button asChild variant="link" className="h-auto p-0"><Link to="/admin/settings">{uiT("Open Settings")}</Link></Button></AlertDescription></Alert>}
         {!showModeTabs && (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
+            <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={priceSearch} type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
             {supplyFilterControl}
           </div>
         )}
@@ -240,7 +241,14 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
             {below && <div className="mt-2 space-y-1"><Badge variant="destructive">{uiT("Below purchase cost", "低于采购成本")}</Badge>
               {loss && <p className="text-sm">{uiT(loss.dimension)} · {below.provider} · {uiT("Selling price", "售价")} {money(loss.selling, row.currency)} · {uiT("Purchase price", "采购价")} {money(loss.purchase, row.currency)} / {uiT("million tokens", "百万 Token")}{loss.minimum_input_tokens !== '0' && ' · ≥ ' + BigInt(loss.minimum_input_tokens).toLocaleString() + ' ' + uiT("Tokens")}</p>}</div>}</TableCell><TableCell data-label={uiT("Published")} className="text-sm text-muted-foreground whitespace-normal">{date(row.published_at)}</TableCell><TableCell><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="sm" disabled={loading || !!error} onClick={event => { dialogOpener.current = event.currentTarget; setSelected(row); }}>{uiT("Compare prices", "核对价格")}</Button><DropdownMenu><DropdownMenuTrigger asChild><Button onFocus={event => { dialogOpener.current = event.currentTarget; }} variant="ghost" size="icon" aria-label={uiT("Actions")} disabled={loading || !!error}><IconDots /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={!!editor} onSelect={() => { setEditor({ kind: row.schedule.kind, previous: row }); setEditorOpen(true); }}>{uiT("Revise standard")}</DropdownMenuItem><DropdownMenuItem onSelect={() => setManaged(row)}>{uiT("Promotions")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></TableCell></TableRow>;
         })}</TableBody></Table>}
-        {!loading && !error && !visible.length && <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{rows.length ? uiT("No matching prices") : uiT("No standard prices yet")}</EmptyTitle><EmptyDescription>{rows.length ? uiT("No loaded prices match the current filter.") : uiT("No platform standard prices have been published.")}</EmptyDescription></EmptyHeader></Empty>}
+        {!loading && !error && !cursor && !visible.length && <Empty className="min-h-48">
+          <EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{rows.length ? uiT("No matching prices") : uiT("No standard prices yet")}</EmptyTitle></EmptyHeader>
+          {(filter.trim() || supplyFilter !== 'all') && <EmptyContent><Button variant="outline" onClick={() => {
+            setFilter('');
+            setSupplyFilter('all');
+            priceSearch.current?.focus();
+          }}>{uiT("Clear filters")}</Button></EmptyContent>}
+        </Empty>}
         {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{uiT("More prices")}</Button>}
       </TabsContent>
       <TabsContent value="credits" className="space-y-4"><BrandedUnitTariffsSection token={token} filter={filter} /></TabsContent>
