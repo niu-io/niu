@@ -198,6 +198,8 @@ Organization and workspace creation derive the address from the name. Preview th
 
 Registration queue links retain the selected review status on reopen and browser Back. Preserve unrelated query parameters when switching status.
 
+Tiered price forms focus the first invalid token threshold on submit and recompute the next threshold when its preceding boundary changes. Range previews show an em dash for an unsupported endpoint or a lower bound that repeats or precedes the previous tier.
+
 Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
 
 Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
