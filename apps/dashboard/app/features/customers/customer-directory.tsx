@@ -415,12 +415,13 @@ export function Customers({
                           ref={searchTriggerRef}
                           type="button"
                           variant="ghost"
-                          size="icon"
-                          aria-label={uiT("Search customers", "搜索客户")}
-                          title={uiT("Search customers", "搜索客户")}
+                          size={query.trim() ? "sm" : "icon"}
+                          aria-label={[uiT("Search customers", "搜索客户"), query.trim()].filter(Boolean).join(" · ")}
+                          title={query.trim() || uiT("Search customers", "搜索客户")}
                           className={query ? "text-primary bg-accent" : undefined}
                         >
                           <IconSearch size={17} />
+                          {query.trim() && <span className="max-w-20 truncate sm:max-w-36">{query.trim()}</span>}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-2">
@@ -483,23 +484,6 @@ export function Customers({
             </Alert>
           )}
 
-          {query.trim() && filteredCompanies.length > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-              <span>{uiF('Showing {0} of {1} customers matching "{2}"', [filteredCompanies.length, companies.length, query.trim()])}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setQuery('');
-                  searchTriggerRef.current?.focus();
-                }}
-              >
-                {uiT("Clear search")}
-              </Button>
-            </div>
-          )}
-
           {loading && !companies.length && <TableSkeleton columns={5} rows={5} label={uiT("Loading customer balances…")} />}
 
           {!loading && !error && !companies.length && !query.trim() && kindFilter === 'all' && (
@@ -524,16 +508,13 @@ export function Customers({
             </Empty>
           )}
 
-          {!loading && (companies.length > 0 || query.trim().length > 0 || kindFilter !== 'all') && filteredCompanies.length === 0 && (
+          {!loading && !error && (companies.length > 0 || query.trim().length > 0 || kindFilter !== 'all') && filteredCompanies.length === 0 && (
             <Empty role="status">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <IconSearch size={20} aria-hidden="true" />
                 </EmptyMedia>
                 <EmptyTitle>{uiT("No matching customers", "没有匹配的客户")}</EmptyTitle>
-                <EmptyDescription>
-                  {uiT("Try another name, email, or customer type.", "请尝试其他名称、邮箱或客户类型。")}
-                </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
                 <Button
@@ -545,7 +526,7 @@ export function Customers({
                     searchTriggerRef.current?.focus();
                   }}
                 >
-                  {uiT("Clear search")}
+                  {kindFilter === "all" ? uiT("Clear search") : uiT("Clear filters")}
                 </Button>
               </EmptyContent>
             </Empty>
