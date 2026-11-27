@@ -23,6 +23,7 @@ const MAX_NANOS = 9_223_372_036_854_775_807n;
 
 /** Parse currency units exactly; zero is opt-in for approved credit policies. */
 export function amountToNanos(amount: string, allowZero = false): string {
+  if (/^\d+\.$/.test(amount.trim())) throw new Error('Enter digits after the decimal point.');
   const match = /^(\d+)(?:\.(\d{1,9}))?$/.exec(amount.trim());
   if (!match) throw new Error('Enter an amount with no more than 9 decimal places.');
   const whole = BigInt(match[1]);

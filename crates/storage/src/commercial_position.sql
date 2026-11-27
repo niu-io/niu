@@ -36,7 +36,7 @@ WITH raw_bounds AS MATERIALIZED (
     JOIN vendor_supplier_ownership own ON own.vendor_id=v.id
     WHERE NOT EXISTS (SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=v.id)
 ), raw_traffic AS MATERIALIZED (
-    SELECT a.id, b.provider_id, a.resource_id AS model_alias,
+    SELECT a.id, a.project_id, a.public_reference, b.provider_id, a.resource_id AS model_alias,
            a.execution, a.usage_confidence, c.amount_nanos AS charge,
            e.amount_nanos AS earning, cost.cash_nanos AS cost,
            debit.id AS debit_id, debit.account_id AS debit_account_id,
@@ -113,7 +113,7 @@ WITH raw_bounds AS MATERIALIZED (
                 AND niu_simulated_payment(receipt.channel,receipt.payment_reference)) AS real_funding_only
     FROM (SELECT DISTINCT debit_account_id AS account_id FROM raw_traffic WHERE debit_account_id IS NOT NULL) active
 ), traffic AS MATERIALIZED (
-    SELECT r.id, r.provider_id, r.model_alias,
+    SELECT r.id, r.project_id, r.public_reference, r.provider_id, r.model_alias,
            r.execution, r.usage_confidence, r.charge,
            r.earning, r.cost,
            (r.charge=0 OR (r.allocation_source_coverage='known'
@@ -235,7 +235,7 @@ WITH raw_bounds AS MATERIALIZED (
                    FILTER (WHERE charge IS NOT NULL AND earning IS NOT NULL)::text END AS margin_nanos
     FROM reconciliation GROUP BY provider_id,model_alias
 ), pending AS (
-    SELECT id,provider_id,model_alias,execution,usage_confidence,charge,earning,revenue_source_missing,
+    SELECT id,project_id,public_reference,provider_id,model_alias,execution,usage_confidence,charge,earning,revenue_source_missing,
            row_number() OVER (PARTITION BY provider_id,model_alias ORDER BY id DESC) AS ordinal
     FROM reconciliation
     WHERE ($7::uuid IS NULL OR id < $7)
@@ -243,7 +243,8 @@ WITH raw_bounds AS MATERIALIZED (
       AND needs_reconciliation
 ), pending_examples AS (
     SELECT provider_id,model_alias,jsonb_agg(jsonb_build_object(
-        'attempt',id::text,'execution',execution,'usage_confidence',usage_confidence,
+        'attempt',id::text,'workspace_id',project_id::text,'reference',public_reference,
+        'execution',execution,'usage_confidence',usage_confidence,
         'charge_missing',charge IS NULL,'payable_missing',earning IS NULL,'revenue_source_missing',revenue_source_missing
     ) ORDER BY ordinal) AS attempts
     FROM pending WHERE ordinal<=$8::int GROUP BY provider_id,model_alias

@@ -150,15 +150,15 @@ describe("customer billing", () => {
       organization:{id:'org-b',name:'Beta'}, session:{kind:'operator',operator:{role:'owner',organization_id:'org-a',project_id:null}}, models:[],
     } as unknown as DashboardContext;
     const view = render(<MemoryRouter><BillingRoute /></MemoryRouter>);
-    expect(screen.getByText(/Alpha's Niu balance is shared across its workspaces/)).toBeTruthy();
+    expect(screen.queryByText(/Shared workspace balance/)).toBeNull();
     expect(screen.getByText(/Organization billing is unavailable/)).toBeTruthy();
-    expect(screen.queryByRole('link',{name:'Manage credits'})).toBeNull();
+    expect(screen.queryByRole('link',{name:'Add credits'})).toBeNull();
     fixture.context = {...fixture.context, organization:{id:'org-a',name:'Alpha'}};
     view.rerender(<MemoryRouter><BillingRoute /></MemoryRouter>);
-    expect(screen.getByRole('link',{name:'Manage credits'})).toBeTruthy();
+    expect(screen.getByRole('link',{name:'Add credits'})).toBeTruthy();
     fixture.context = {...fixture.context, session:{kind:'operator',operator:{role:'viewer',organization_id:'org-a',project_id:null}}} as unknown as DashboardContext;
     view.rerender(<MemoryRouter><BillingRoute /></MemoryRouter>);
-    expect(screen.queryByRole('link',{name:'Manage credits'})).toBeNull();
+    expect(screen.queryByRole('link',{name:'Add credits'})).toBeNull();
     expect(screen.getByText('Contact your organization owner to add credits.')).toBeTruthy();
   });
   it('displays Unlimited credit badge and shared balance cleanly on self-use / postpaid accounts', async () => {
@@ -188,7 +188,7 @@ describe("customer billing", () => {
     render(<MemoryRouter><BillingRoute /></MemoryRouter>);
     expect(await screen.findByText('Unlimited credit')).toBeTruthy();
     expect(await screen.findByText(/12\.5/)).toBeTruthy();
-    expect(screen.getByRole('link',{name:'Manage credits'})).toBeTruthy();
+    expect(screen.getByRole('link',{name:'Add credits'})).toBeTruthy();
   });
   it("opens a directly linked billing tab", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ data })));
@@ -718,7 +718,7 @@ it('separates pending settlement and missing rates headlines with direct action 
   );
   await screen.findByText('Pending settlement · missing rates');
   expect(screen.getByText('2 requests awaiting settlement · 3 requests without a customer rate')).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'Inspect pending requests' }).getAttribute('href')).toBe('/workspaces/demo/executions?status=may_have_executed');
+  expect(screen.getByRole('link', { name: 'Inspect pending requests' }).getAttribute('href')).toBe('/workspaces/demo/executions?settlement=pending');
   const reviewRates = screen.getByRole('button', { name: 'Review rates' });
   expect(reviewRates).toBeTruthy();
 

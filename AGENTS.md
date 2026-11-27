@@ -46,7 +46,7 @@ Never use a native HTML `<select>` / `<option>` control, the shadcn Select compo
 
 Customer access lists retain workspace links, member roles and workspace scope on narrow screens. Show labeled values within each row without horizontal scrolling.
 
-The API key directory shows one labeled creation action at every width, including when an active filter hides historical keys.
+Customer and API key directories keep their primary creation action visibly labeled at every width. The key directory shows one creation action even when an active filter hides historical keys.
 
 ## Shared UI components
 
@@ -93,7 +93,7 @@ Standing global invariants established from user feedback:
 - **Card-free, vertically centered, spacious empty placeholders**: `<Empty>` must stay transparent and card-free (`bg-transparent`, no `bg-card` / `bg-muted` card slabs, no `rounded-[var(--radius-panel)]`, no decorative shadows) across sidebars, drawers, dialogs, embedded sections, and full-width management pages. Full-page empty states (including Guardrails, Events, Routing, Evaluations, and Registrations) MUST optically center in the remaining viewport height via the shared flex canvas rules in `apps/dashboard/app/styles/surfaces.css` (never trapped in the upper half by hardcoded `min-h-[...]` caps or `flex: 0 0 auto` overrides) and breathe comfortably using `<Empty>`'s spacious defaults (`gap-5`, 16px `leading-snug` title, 14px `max-w-[36rem]` `text-balance` relaxed description, and `max-w-xl` action row so 2–3 buttons align on one horizontal row with clear primary/secondary hierarchy instead of cramping inside `max-w-sm`). Narrow rails (such as Generations `Sessions`) override with compact padding and an unboxed muted icon (`EmptyMedia` default variant).
 - **Default-safe form and dialog field spacing**: `<Label>` must use CJK-safe line height (`leading-snug`, never `leading-none`). Every labeled field in forms, dialogs, and popovers pairs `<Label>` and its control inside an explicit `grid gap-2` (or `space-y-2`) container with uniform label weight and control height, backed by the zero-specificity CSS field-spacing safeguard in `apps/dashboard/app/styles/foundation.css` so text and controls can never overlap by default. Registration validation focuses the first invalid field and associates the inline error with that control. Editing an unrelated field preserves the error.
 - **Staging post-test data hygiene**: Whenever tests or verification run against staging, clean up all created test customers/organizations, test workspaces, test operators/API keys, and test request/billing debris upon completion while preserving baseline staging configuration (default workspace, staging admin/demo logins, Providers, Vendors, Offers, and Standard Prices). Disable temporary upstream qualification connections after verification and confirm their aliases have disappeared from the customer catalog. Preserve prior request and settlement records.
-- **Prerequisite-aware entry points and in-place resolution**: Never route a user into a workspace surface whose required prerequisite is known to be absent (for example, directing a workspace with `active_key_count === 0` from Overview or Models into Playground/Generations without surfacing the missing API key first), and never open an empty selector dropdown as an error response when a required resource is missing. Always guide the user honestly according to their permissions and, when they have write permission, provide a 1-click in-place resolution (such as auto-creating a revocable default `"Playground"` API key with explicit user confirmation) alongside custom setup so they never bounce through dead-end detours. Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action. Direct video-mode links open the Video composer and its existing availability or setup state. A saved session retains its own workflow.
+- **Prerequisite-aware entry points and in-place resolution**: Never route a user into a workspace surface whose required prerequisite is known to be absent (for example, directing a workspace with `active_key_count === 0` from Overview or Models into Playground/Generations without surfacing the missing API key first), and never open an empty selector dropdown as an error response when a required resource is missing. Always guide the user honestly according to their permissions and, when they have write permission, provide a 1-click in-place resolution (such as auto-creating a revocable default `"Playground"` API key with explicit user confirmation) alongside custom setup so they never bounce through dead-end detours. Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action. On workspace Overview, expose a prerequisite action once. Keep the primary action visibly labeled on phones and use status counts to inspect the underlying resources. Direct video-mode links open the Video composer and its existing availability or setup state. A saved session retains its own workflow.
 - **Viewport-appropriate information density over rigid single-column sprawl**: Full-width canvas utilization means never trapping pages inside an artificial centered column — it does NOT mean stretching individual browsable items awkwardly across 1400px–2560px of horizontal space, nor cramping cards below readable widths. Browsable item directories (such as the public and workspace Models catalog and `CardGridSkeleton`) MUST render as a responsive multi-column card grid (`repeat(auto-fill, minmax(min(100%, 352px), 1fr))`) so desktop viewports display 3–5 comfortable, equal-height cards per row without truncating model titles, wrapping 4 capability badges, or clipping model IDs, collapsing cleanly to 2 columns on tablet and 1 column on mobile. Every UX review must evaluate real spatial ergonomics, scan density, and viewport fit rather than checking rules mechanically.
 - **Unified docs shell and zero unscoped third-party CSS**: Never embed third-party full-viewport SPA widgets with unscoped global stylesheets (such as `@scalar/api-reference-react`) inside the Starlight documentation shell, and never hide `.sidebar-pane` or shift the top header on a documentation subroute. Interactive API debugging belongs natively inside the shared Niu docs shell using installed shadcn primitives (`OperationTryIt` on `/docs/api/rest/<slug>/` pages and `ApiExplorer` on `/docs/api/explorer/`) so styles, navigation, light/dark themes, and `<ClientRouter />` transitions stay 100% cohesive with zero cross-page CSS bleed.
 - **Top-bar section tabs replace redundant static page titles**: On top-level single-crumb management pages whose primary view is partitioned by top-level section `<Tabs>` (such as Customers `Customers | Registrations`, Platform Settings, Connection Incidents, standalone Payments, multi-mode Standard Pricing) AND on multi-tabbed workspace/activity sections rendered via `ShellSectionTabs` (`General | Guardrails | Events`, `Models | Routing | Evaluations`, `Usage | Spending | Statements | Rates`, `Overview | Logs`), render those tabs directly in the top header bar (`#dashboard-page-tabs`), aligned flush with `.page-content`'s horizontal gutter and anchored by a subtle header bottom hairline divider, instead of stacking a redundant static title/breadcrumb above a second tab strip. Never stack two rows of horizontal tabs on top of each other: exclude entity detail subroutes (`/events/:slug`, `/routing/:slug`, `/evaluations/:slug`, `/models/:id`) from `ShellSectionTabs` (preserving interactive parent breadcrumbs), flatten peer billing subviews into the single top-bar strip, and place secondary audit/history inspection views (such as Guardrails `Blocked requests` and `History`) in the top-right header action slot opening single-level dialogs (with in-dialog subviews, never nested `<Dialog>`s). Keep the route `<h1>` accessible (`sr-only` when header tabs are active), and scope legitimate nested sub-tabs inside tab content with `<PageHeaderTabsTargetContext.Provider value="">`.
@@ -149,9 +149,15 @@ Before delivery, compare the rendered result directly against both the reference
 
 ## Navigation hierarchy
 
+Account-wide Activity belongs in the account section of the workspace sidebar. Keep that destination selected on both the overview and logs tabs. Workspace Logs stays scoped to the selected workspace.
+
 The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
 
+Pending settlement counts in Spending and Activity open request logs filtered by settlement, preserving the workspace and the counted period. All-time totals open without a date limit.
+
 Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
+
+Closing an unchanged pricing editor restores focus to its opening control. Refresh prices after a confirmed publication or revision conflict, and keep the price list mounted on ordinary cancellation.
 
 Returning from request details restores the inspected row, focus and loaded page depth for that log history entry. Restore only from workspaces that are still authorized.
 
@@ -166,6 +172,8 @@ Model lists use a directly visible filter field in the first toolbar row, alongs
 Use Manus as the reference for the shared visual treatment of agent-product surfaces. Prefer subtle solid background tones and spacing to separate navigation, content, and sections. Avoid repeated bordered cards and decorative shadows. Reserve elevation for floating panels, menus, and dialogs; retain meaningful input, focus, selection, and data-table affordances. Preserve Niu branding and use shared theme rules rather than page-by-page overrides.
 
 ## Status and list information
+
+Request toolbar date controls show both selected bounds at phone widths. Let the controls wrap below the request count when the row is too narrow.
 
 Search paginated audit history on the server before applying page limits. Match localized display labels, load further results only on request, and restore the first page when search is cleared.
 
@@ -191,7 +199,11 @@ The backend is the source of truth for saved product data, including Chat sessio
 
 ## Commercial data boundaries
 
+Workspace spending-limit feedback uses the parsed amount. Show the consequences of a valid limit only. On invalid submission, focus the amount field, associate its inline error, and clear the error when the amount becomes valid.
+
 Rounded financial amounts and changes must expose their exact values to touch and keyboard users. Use a focusable amount button and a popover when precision is omitted.
+
+Workspace spending labels identify the shared balance and the all-time workspace charge at their amounts. Show one funding action linked to account billing and keep workspace limits separately accessible.
 
 Group grant history with customer inspection actions and place balance-changing actions after a menu separator. Apply this order in the directory and customer detail.
 
@@ -200,6 +212,8 @@ Provider purchase prices, upstream expenses, procurement budgets, and platform m
 Zero-key generation sessions must disable the prompt, attachments, starter prompts and all submission paths. Keep prior drafts readable. Confirm key creation separately from sending a request. Aggregate duplicate empty notices for one collection and keep the recovery action beside the empty result. See the UI consistency standard.
 
 Model mapping dialogs show a single title, the editable mapping fields and visible Cancel and Save actions. Keep catalog metadata and optional capabilities under advanced settings. Show video configuration for declared video output, unknown output, or an existing saved video configuration.
+
+Switching between named workspaces in Activity preserves the reporting dates. Workspace-specific keys do not follow the switch, and the all-workspaces summary retains its all-time scope.
 
 Tab navigation must preserve already available data within the same authorization and resource scope. A presentation-only tab change must not revalidate unrelated route loaders. Keep slow first reads and errors local to the affected panel. Verify both cold activation and return visits with browser frames.
 
@@ -217,6 +231,8 @@ Use field labels, units, comparable values and action names to make workflows cl
 
 New text price and credit tariff menus use the registered route’s text eligibility. Missing media price specifications alone never establish eligibility. Inspect route pool candidates and upstream modality metadata even when a public alias hides the underlying model name.
 
+Unresolved financial report entries link their public request reference to the owning workspace log when that workspace is accessible. Older responses without scope remain readable.
+
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
@@ -225,8 +241,12 @@ When an explicit pricing tab is open, keep both tab destinations available acros
 
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
 
-Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
+Organization and workspace creation derive the address from the name. Preview the organization settings or workspace destination and expose identifier constraints when editing the address.
+
+Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
 
 Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
+
+Pricing editors show a single decision footer. When confirming draft dismissal, focus Keep editing, offer Discard changes, and prevent publication until editing resumes.
 
 When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.

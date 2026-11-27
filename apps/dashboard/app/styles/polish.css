@@ -24,7 +24,6 @@
 .gateway-task-feed.is-compact .gateway-feed-actions { flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; }
 .gateway-task-feed.is-compact .gateway-feed-actions a { font-size: 14px; }
 .gateway-task-feed.is-compact > .gateway-first-use { max-width: 100%; }
-.gateway-first-use .gateway-first-use-steps { max-width: 900px; }
 @media (max-width: 640px) { .gateway-task-feed.is-compact .gateway-task-feed-heading { flex-wrap: wrap; row-gap: 6px; }}
 .keys-scope-line > span[role="status"] { color: var(--muted-foreground); font-size: 14px; }
 

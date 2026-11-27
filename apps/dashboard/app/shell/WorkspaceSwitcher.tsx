@@ -103,11 +103,22 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange, withinSetti
   withinSettings?: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { t: uiT, format: uiF } = useUILocale();
-  const { isZh, t } = useLocale();
-  const { organization, createWorkspace, session } = context;
+  const { t: uiT } = useUILocale();
+  const { t } = useLocale();
+  const { organization, organizations, createWorkspace, session } = context;
   const canSetLimit = session?.kind === 'installation' || session?.operator?.role === 'owner';
   const [amount, setAmount] = useState('');
+  const [showAmountError, setShowAmountError] = useState(false);
+  const amountInput = useRef<HTMLInputElement>(null);
+  let limitNanos: string | undefined;
+  let amountError = '';
+  if (amount.trim()) {
+    try {
+      limitNanos = amountToNanos(amount, true);
+    } catch (cause) {
+      amountError = cause instanceof Error ? uiT(cause.message) : t('Invalid amount.', '金额无效。');
+    }
+  }
   const {currency,error:currencyError} = usePlatformCurrency();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -126,6 +137,7 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange, withinSetti
   useEffect(() => {
     if (!open) return;
     setAmount('');
+    setShowAmountError(false);
     setName('');
     setSlug('');
     setSlugEdited(false);
@@ -136,12 +148,17 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange, withinSetti
   async function submitCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving || !name.trim()) return;
+    if (amountError) {
+      setShowAmountError(true);
+      amountInput.current?.focus();
+      return;
+    }
     setSaving(true);
     setCreateError('');
     try {
-      if (amount.trim()) {
+      if (limitNanos !== undefined) {
         if (!canSetLimit || !currency || currencyError) throw new Error('Billing currency is unavailable.');
-        await createWorkspace(name.trim(), organization?.id, slug, {currency, limit_nanos: amountToNanos(amount, true)});
+        await createWorkspace(name.trim(), organization?.id, slug, {currency, limit_nanos: limitNanos});
       } else {
         await createWorkspace(name.trim(), organization?.id, slug);
       }
@@ -153,17 +170,29 @@ export function WorkspaceCreateDialog({ context, open, onOpenChange, withinSetti
     }
   }
 
-  const description = <>{t('Organize API keys, usage, and spending limits.', '统一管理 API 密钥、用量与消费限额。')}{organization ? (isZh ? ` 归属组织：${organizationDisplayName(organization.name)}。` : uiF(" In {0}.", [organizationDisplayName(organization.name)])) : t(' A personal organization will be created.', ' 将自动创建个人组织。')}</>;
+  const owner = organization ?? organizations.find(item => item.id === session?.operator?.organization_id);
+  const description = owner
+    ? `${t('Organization', '组织')} · ${organizationDisplayName(owner.name)}`
+    : session?.kind === 'installation'
+      ? t('A personal organization will be created.', '将自动创建个人组织。')
+      : t('Current organization', '当前组织');
   const form = <form onSubmit={submitCreate} className="niu-modal-form">
         <div className="grid gap-2"><Label htmlFor="workspace-name">{t('Workspace name', '工作空间名称')}</Label><Input ref={nameInput} id="workspace-name" required maxLength={200} autoFocus disabled={saving} value={name} onChange={event => { setName(event.target.value); if (!slugEdited) setSlug(workspaceSlugFromName(event.target.value)); }} placeholder={t('e.g. Product experiments', '例如：产品研发实验')} /></div>
-        {slugOpen ? <div className="grid gap-2"><Label htmlFor="workspace-slug">{t('Slug', '路径标识 (Slug)')}</Label><Input id="workspace-slug" required maxLength={48} pattern="[a-z0-9]+(-[a-z0-9]+)*" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoFocus disabled={saving} value={slug} onChange={event => {setSlugEdited(true);setSlug(event.target.value);}} placeholder={uiT("product-experiments")} aria-describedby="workspace-slug-help"/><p id="workspace-slug-help" className="break-words text-sm text-muted-foreground">{slug ? t(`Used in /workspaces/${slug}. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.`, `用于 /workspaces/${slug}。仅限小写字母、数字和连字符，中文名称自动转为拼音。`) : t('Used in /workspaces/your-workspace. Lowercase letters, numbers, and hyphens. Chinese names use pinyin.', '将用于 /workspaces/your-workspace。仅限小写字母、数字和连字符，中文名称自动转为拼音。')}</p></div>
-          : <div className="flex flex-wrap items-center justify-between gap-2"><p className="break-words text-sm text-muted-foreground">{slug ? <>{t('URL slug', '路径标识')}: {slug}</> : t('URL slug: generated from workspace name', '路径标识：将根据工作空间名称自动生成')}</p><Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => setSlugOpen(true)}>{t('Edit slug', '编辑路径')}</Button></div>}
+        {slugOpen ? <div className="grid gap-2">
+          <Label htmlFor="workspace-slug">{t('Address identifier', '地址标识')}</Label>
+          <Input id="workspace-slug" required maxLength={48} pattern="[a-z0-9]+(-[a-z0-9]+)*" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoFocus disabled={saving} value={slug} onChange={event => { setSlugEdited(true); setSlug(event.target.value); }} aria-describedby="workspace-slug-help" />
+          <p id="workspace-slug-help" className="text-sm text-muted-foreground">{t('Use lowercase letters, numbers, and hyphens.', '使用小写字母、数字和连字符。')}</p>
+        </div> : <div className="flex flex-wrap items-center gap-2">
+          {slug && <span className="min-w-0 break-all text-sm text-muted-foreground">{createPath({ pathname: `/workspaces/${slug}` })}</span>}
+          <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => setSlugOpen(true)}>{t('Edit address', '编辑地址')}</Button>
+        </div>}
         {slug === 'default' && <p className="error-text" role="alert">{t('The slug “default” is reserved. Choose a different slug.', '“default” 为系统保留标识，请使用其他名称。')}</p>}
         {canSetLimit && <div className="grid gap-2">
           <Label htmlFor="workspace-limit">{t('Spending limit', '消费限额')}{currency ? ` (${currencySymbol(currency)})` : ''}</Label>
-          <Input id="workspace-limit" inputMode="decimal" placeholder={t('No limit', '不限额')} disabled={saving || !currency || Boolean(currencyError)} value={amount} onChange={event => setAmount(event.target.value)} aria-describedby={amount.trim() ? 'workspace-budget-help' : undefined} />
-          {amount.trim() && <p id="workspace-budget-help" className="text-sm text-muted-foreground">
-            {/^0+(\.0*)?$/.test(amount.trim()) && t('Zero blocks paid requests. ', '零限额将阻止付费请求。')}
+          <Input ref={amountInput} id="workspace-limit" inputMode="decimal" placeholder={t('No limit', '不限额')} disabled={saving || !currency || Boolean(currencyError)} value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={showAmountError && Boolean(amountError)} aria-describedby={showAmountError && amountError ? 'workspace-limit-error' : limitNanos !== undefined ? 'workspace-budget-help' : undefined} />
+          {showAmountError && amountError && <p id="workspace-limit-error" className="error-text" role="alert">{amountError}</p>}
+          {limitNanos !== undefined && <p id="workspace-budget-help" className="text-sm text-muted-foreground">
+            {limitNanos === '0' && t('Zero blocks paid requests. ', '零限额将阻止付费请求。')}
             {t('Setting a limit prevents workspace deletion.', '设置限额后将无法删除此工作空间。')}
           </p>}
           {currencyError && <p className="text-sm text-muted-foreground">{uiT(currencyError)}</p>}

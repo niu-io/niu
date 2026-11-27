@@ -12,9 +12,11 @@ In narrow headers, truncate the parent breadcrumb before clipping a short curren
 - **Sidebar hierarchy**: Active navigation items use a clear, unmistakable fill (`#E8E3DC` light / `#2F2A26` dark) with medium-semibold ink (`--sidebar-accent-foreground`).
 - **Concise Chinese labels**: Use the shortest unambiguous Chinese noun or verb for navigation, buttons, field labels, statuses, and headings. Do not retain qualifier phrases already established by the section, icon, or entity name (`在对话中试用` → `试用`; `外观与语言` → `外观`; `成员管理` → `成员`; `额度与充值` → `额度`; `保存更改` → `保存`; `版本发布说明` → `发布说明`). Keep entity, authorization, scope, and financial terms intact, and keep the English label coherent with the Chinese action. Explanatory and metric labels stay complete when the short form would be ambiguous (`可用余额`, `账面余额`, `请求预留`, `已关闭`).
 
+Account-wide Activity belongs in the account section of the workspace sidebar. Keep that destination selected on both the overview and logs tabs. Workspace Logs stays scoped to the selected workspace.
+
 The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
 
-The API key directory shows one labeled creation action at every width, including when an active filter hides historical keys.
+Customer and API key directories keep their primary creation action visibly labeled at every width. The key directory shows one creation action even when an active filter hides historical keys.
 
 ## 2. Stable Dialog Frames & In-Control Loading
 
@@ -34,6 +36,8 @@ The API key directory shows one labeled creation action at every width, includin
 ## 3. Uniform Choice, Header & Toolbar Controls
 
 Legacy platform settings URLs open the matching tab in the shared settings header. Keep unrelated query parameters and fragments when redirecting.
+
+Request toolbar date controls show both selected bounds at phone widths. Let the controls wrap below the request count when the row is too narrow.
 
 Search paginated audit history on the server before applying page limits. Match localized display labels, load further results only on request, and restore the first page when search is cleared.
 
@@ -68,7 +72,11 @@ After a registration queue refresh or review decision, the queue, customer tab a
 
 ## 5. Structured Loading, Empty, and Error Surfaces
 
+Pending settlement counts in Spending and Activity open request logs filtered by settlement, preserving the workspace and the counted period. All-time totals open without a date limit.
+
 Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
+
+Closing an unchanged pricing editor restores focus to its opening control. Refresh prices after a confirmed publication or revision conflict, and keep the price list mounted on ordinary cancellation.
 
 Returning from request details restores the inspected row, focus and loaded page depth for that log history entry. Restore only from workspaces that are still authorized.
 
@@ -116,6 +124,8 @@ Upstream Providers are platform-managed vendor connections rather than multi-use
 
 Model mapping dialogs show a single title, the editable mapping fields and visible Cancel and Save actions. Keep catalog metadata and optional capabilities under advanced settings. Show video configuration for declared video output, unknown output, or an existing saved video configuration. On model catalog cards and detail pages (`ModelTable`), use concise **`Try`** (`试用`) for single-workflow trial actions (disambiguating `Try chat` / `Try video` only when a single model exposes both simultaneously) rather than verbose `"Try in Chat"` (`在对话中试用`), `"Try in Video"` (`在视频中试用`), or `"Open Generations"` (`打开多模态生成`), preserve distinguishing date suffixes (`disambiguatedCatalogTitle`) when dated and undated sibling variants coexist, reserve **`Not published`** (`未发布`) strictly for genuinely uncallable commercial models (`callable === false`, with zero trial links), and never stamp `"Capabilities not published"` (`能力未发布`) on callable models.
 
+Switching between named workspaces in Activity preserves the reporting dates. Workspace-specific keys do not follow the switch, and the all-workspaces summary retains its all-time scope.
+
 Tab navigation must preserve already available data within the same authorization and resource scope. A presentation-only tab change must not revalidate unrelated route loaders. Keep slow first reads and errors local to the affected panel. Verify both cold activation and return visits with browser frames.
 
 Workspace users discover models in one catalog. Platform administrators manage upstream Provider credentials. Never present internal funding classifications as model sources or imply that workspace users supply upstream keys. Workspace API keys authorize access to Niu.
@@ -133,6 +143,8 @@ Multi-mode creation and configuration dialogs MUST follow top-down causal order:
 ### Pricing and commercial inspection
 
 Rounded financial amounts and changes must expose their exact values to touch and keyboard users. Use a focusable amount button and a popover when precision is omitted.
+
+Workspace spending labels identify the shared balance and the all-time workspace charge at their amounts. Show one funding action linked to account billing and keep workspace limits separately accessible.
 
 Group grant history with customer inspection actions and place balance-changing actions after a menu separator. Apply this order in the directory and customer detail.
 
@@ -156,6 +168,8 @@ New text price and credit tariff menus use the registered route’s text eligibi
 
 A catalog model can be labeled free only when the complete applicable tariff establishes zero charges, including all token categories, context tiers, the request fee and the minimum charge. Show positive per-request charges alongside token rates.
 
+Unresolved financial report entries link their public request reference to the owning workspace log when that workspace is accessible. Older responses without scope remain readable.
+
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
@@ -166,12 +180,20 @@ Workspace activity summaries keep the workspace, request count and charge visibl
 
 Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action.
 
+On workspace Overview, expose a prerequisite action once. Keep the primary action visibly labeled on phones and use status counts to inspect the underlying resources.
+
 Direct video-mode links open the Video composer and its existing availability or setup state. A saved session retains its own workflow.
 
-Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
+Organization and workspace creation derive the address from the name. Preview the organization settings or workspace destination and expose identifier constraints when editing the address.
+
+Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
 
 Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
+
+Pricing editors show a single decision footer. When confirming draft dismissal, focus Keep editing, offer Discard changes, and prevent publication until editing resumes.
 
 When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
 
 Registration validation focuses the first invalid field and associates the inline error with that control. Editing an unrelated field preserves the error.
+
+Workspace spending-limit feedback uses the parsed amount. Show the consequences of a valid limit only. On invalid submission, focus the amount field, associate its inline error, and clear the error when the amount becomes valid.

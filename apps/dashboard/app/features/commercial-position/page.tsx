@@ -4,6 +4,7 @@ import { MetricStripSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useLocale } from '@/shell/ui-locale';
+import { workspacePathSegment } from '@/shell/workspace-route';
 import { providerPathSegment } from '@/shell/provider-route';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -56,6 +57,7 @@ function PendingAttempts({ row, from, until, token }: {
   row: CommercialPositionRow; from: string; until: string; token: string;
 }) {
   const { t: uiT } = useLocale();
+  const { workspaces } = useDashboardContext();
   const first = row.pending_attempts ?? [];
   const [rest, setRest] = useState<typeof first>([]);
   const [finished, setFinished] = useState(false);
@@ -82,10 +84,13 @@ function PendingAttempts({ row, from, until, token }: {
       setRest(previous => [...previous, ...next]);
       setFinished(next.length < 50);
     } catch (cause) {
-      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : uiT("Could not load requests", "无法加载请求"));
+      if (!controller.signal.aborted) setError(cause instanceof VendorRequestError ? cause.message : uiT("Could not load more requests.", "无法加载更多请求。"));
     } finally { if (!controller.signal.aborted) setLoading(false); }
   }
-  return <Sheet>
+  const hasMore = !finished && BigInt(attempts.length) < BigInt(row.unresolved_attempts);
+  return <Sheet onOpenChange={open => {
+    if (open && hasMore && rest.length === 0 && !error) void more();
+  }}>
     <SheetTrigger asChild><Button variant="link" size="sm">{uiT("Pending (")}{row.unresolved_attempts} {uiT("unresolved)")}</Button></SheetTrigger>
     <SheetContent className="overflow-y-auto">
       <SheetHeader>
@@ -93,19 +98,26 @@ function PendingAttempts({ row, from, until, token }: {
         <SheetDescription>{row.model_alias} · {row.supplier_name} · {row.currency}</SheetDescription>
       </SheetHeader>
       <div className="space-y-4 px-4 pb-4">
-        <ul className="divide-y">{attempts.map(attempt => <li className="space-y-1 py-3" key={attempt.attempt}>
-          <code className="break-all text-xs">{attempt.attempt}</code>
-          <p className="text-sm">{[
-            attempt.execution !== 'confirmed_completed' && uiT("Execution unconfirmed", "执行结果未确认"),
-            attempt.usage_confidence !== 'provider_reported' && uiT("Usage unconfirmed", "用量未确认"),
-            attempt.charge_missing && uiT("Customer charge missing", "缺少客户扣费"),
-            attempt.revenue_source_missing && uiT("Revenue source unverified", "收入来源未核定"),
-            attempt.payable_missing && uiT("Supplier payable missing", "缺少采购应付"),
-          ].filter(Boolean).join(' · ')}</p>
-        </li>)}</ul>
-        {error && <p role="alert">{error}</p>}
-        {!finished && BigInt(attempts.length) < BigInt(row.unresolved_attempts) &&
-          <Button variant="outline" size="sm" disabled={loading} onClick={() => void more()}>{uiT("Load more")}</Button>}
+        <ul className="divide-y">{attempts.map(attempt => {
+          const workspace = workspaces?.find(item => item.id === attempt.workspace_id);
+          const reference = attempt.reference || attempt.attempt;
+          return <li className="space-y-1 py-3" key={attempt.attempt}>
+            {workspace ? <Link className="break-all text-sm font-medium underline underline-offset-4"
+              to={`/workspaces/${encodeURIComponent(workspacePathSegment(workspace, workspaces))}/executions#gateway-attempt-${encodeURIComponent(reference)}`}>
+              {reference}
+            </Link> : <code className="break-all text-xs">{reference}</code>}
+            <p className="text-sm">{[
+              attempt.execution !== 'confirmed_completed' && uiT("Execution unconfirmed", "执行结果未确认"),
+              attempt.usage_confidence !== 'provider_reported' && uiT("Usage unconfirmed", "用量未确认"),
+              attempt.charge_missing && uiT("Customer charge missing", "缺少客户扣费"),
+              attempt.revenue_source_missing && uiT("Revenue source unverified", "收入来源未核定"),
+              attempt.payable_missing && uiT("Supplier payable missing", "缺少采购应付"),
+            ].filter(Boolean).join(' · ')}</p>
+          </li>;
+        })}</ul>
+        {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+        {hasMore &&
+          <Button variant="outline" size="sm" disabled={loading} onClick={() => void more()}>{error ? uiT("Retry") : uiT("Load more")}</Button>}
       </div>
     </SheetContent>
   </Sheet>;
