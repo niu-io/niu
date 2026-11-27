@@ -303,6 +303,11 @@ it('compacts sub-cent-hundredth figures and single-nanounit quotes while surfaci
   );
 
   expect((await screen.findAllByText('<$0.0001')).length).toBeGreaterThan(0);
+  const amount = (await screen.findAllByRole('button', { name: '<$0.0001' }))[0];
+  await user.click(amount);
+  expect((await screen.findByRole('dialog')).textContent).toContain('Exact amount:');
+  await user.keyboard('{Escape}');
+  expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByText(/\$0\.0000 · simulated excluded/)).toBeTruthy();
 
   await user.click(screen.getByRole('tab', { name: 'Cash & wallet position' }));

@@ -171,6 +171,8 @@ The backend is the source of truth for saved product data, including Chat sessio
 
 ## Commercial data boundaries
 
+Rounded financial amounts and changes must expose their exact values to touch and keyboard users. Use a focusable amount button and a popover when precision is omitted.
+
 Group grant history with customer inspection actions and place balance-changing actions after a menu separator. Apply this order in the directory and customer detail.
 
 Provider purchase prices, upstream expenses, procurement budgets, and platform margins are confidential platform information. Never show them in customer workspace pages, Chat, Observability, usage reports, exports, or customer API responses. Customer billing and request costs mean customer-facing charges only; never substitute supplier cost when a customer charge is unavailable. Keep procurement controls in platform administration, and restrict providers to their own agreed rates and settlements. Enforce these boundaries in backend authorization and response serialization, not merely by hiding UI elements. Installation administrator access does not justify mixing procurement information into customer-facing workspace screens.

@@ -118,6 +118,8 @@ Multi-mode creation and configuration dialogs MUST follow top-down causal order:
 
 ### Pricing and commercial inspection
 
+Rounded financial amounts and changes must expose their exact values to touch and keyboard users. Use a focusable amount button and a popover when precision is omitted.
+
 Group grant history with customer inspection actions and place balance-changing actions after a menu separator. Apply this order in the directory and customer detail.
 
 The base text rate starts at zero. Both monetary and credit editors show the inclusive range for each band, accept positive increasing token thresholds, and stop offering additional bands at 32.
