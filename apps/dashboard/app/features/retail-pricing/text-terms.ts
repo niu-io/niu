@@ -20,3 +20,12 @@ export function checkedRates(value: Rates) {
   }));
   return rates as Pick<TextSchedule, RateKey>;
 }
+
+/** Inclusive input-token interval used to select a full rate schedule. */
+export function tokenBand(start: string, next?: string): string {
+  if (!/^\d+$/.test(start)) return '—';
+  const lower = BigInt(start);
+  if (next === undefined) return '≥ ' + lower.toLocaleString();
+  if (!/^\d+$/.test(next) || BigInt(next) <= lower) return '—';
+  return lower.toLocaleString() + '–' + (BigInt(next) - 1n).toLocaleString();
+}

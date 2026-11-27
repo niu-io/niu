@@ -123,6 +123,7 @@ fn compare(sell: &Value, currency: &str, cost: &Value) -> Value {
         }
     }
     let mut dimensions = Vec::new();
+    let mut rates = Vec::new();
     for input in boundaries {
         let selling = at(sell, input);
         let purchase = at(buy, input);
@@ -144,6 +145,10 @@ fn compare(sell: &Value, currency: &str, cost: &Value) -> Value {
                 result["message"] = json!("A required price dimension is missing.");
                 return result;
             };
+            rates.push(json!({
+                "dimension": label, "minimum_input_tokens": input.to_string(),
+                "selling": s.to_string(), "purchase": c.to_string()
+            }));
             // Ignore a single-nanounit sentinel rate (1 nanounit / 1M, i.e. $0.000000001 / 1M)
             // often used as a minimal positive placeholder on zero-priced routes.
             if s < c && c > 1 {
@@ -158,6 +163,7 @@ fn compare(sell: &Value, currency: &str, cost: &Value) -> Value {
         "below_cost"
     });
     result["dimensions"] = json!(dimensions);
+    result["rates"] = json!(rates);
     result["message"] = json!(
         "Unit-rate comparison only. Fixed fees, minimum charges, usage mix and promotions affect the final request margin. Supply eligibility is checked separately."
     );
@@ -230,6 +236,26 @@ fn compare_media(sell: &Value, currency: &str, cost: &Value, mut result: Value) 
     result["message"] = json!(
         "Matching effective media unit rates. Supply eligibility and actual request charges are checked separately."
     );
+    // Stored media cards may encode integer amounts as JSON numbers. Preserve their
+    // precision across the JavaScript boundary, including in older revisions.
+    let integer_string = |value: &Value| {
+        value
+            .as_str()
+            .map(str::to_owned)
+            .unwrap_or_else(|| value.to_string())
+    };
+    let unit_price = |tariff: &Value| {
+        json!({
+            "amount_units": integer_string(&tariff["amount_units"]),
+            "decimal_places": tariff["decimal_places"],
+            "per_quantity": {
+                "numerator": integer_string(&tariff["per_quantity"]["numerator"]),
+                "denominator": integer_string(&tariff["per_quantity"]["denominator"])
+            }
+        })
+    };
+    result["media_rates"] =
+        json!({"meter":sell["meter"],"selling":unit_price(sell),"purchase":unit_price(buy)});
     if below {
         result["dimensions"] = json!([{ "dimension":sell["meter"], "minimum_input_tokens":"0" }]);
     }

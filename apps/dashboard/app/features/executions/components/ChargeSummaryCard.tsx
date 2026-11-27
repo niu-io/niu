@@ -18,12 +18,11 @@ export type ChargeSummarySource = {
   }>;
 };
 
-/** Exclude explicit zero ledgers when unsettled, unpriced, or own-key exceptions remain. */
+/** Exclude explicit zero ledgers when unsettled or unpriced exceptions remain. */
 export function formatSettledChargeTotals(summary: ChargeSummarySource): string[] {
   const hasExceptions =
     (summary.unresolved_customer_charge_count ?? 0) > 0 ||
-    (summary.unpriced_request_count ?? 0) > 0 ||
-    (summary.owner_funded_request_count ?? 0) > 0;
+    (summary.unpriced_request_count ?? 0) > 0;
   const unitTotals = (summary.customer_unit_charges ?? [])
     .filter((item) => !hasExceptions || item.net_atoms !== '0')
     .map((item) =>

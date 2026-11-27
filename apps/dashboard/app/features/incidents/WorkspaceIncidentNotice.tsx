@@ -21,6 +21,7 @@ export default function WorkspaceIncidentNotice({ token, workspaceId, workspaceS
   const endpoint = `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/incidents`;
   const cached = peekQuery<WorkspaceIncidents>(token, endpoint);
   const [models, setModels] = useState<WorkspaceIncidents['data']>(() => cached?.data ?? []);
+  const [expanded, setExpanded] = useState(false);
   const [more, setMore] = useState(() => cached?.more ?? false);
   const [notifications, setNotifications] = useState<WorkspaceNotifications | null>(() => cached?.notifications ?? null);
   const [error, setError] = useState(false);
@@ -64,13 +65,19 @@ export default function WorkspaceIncidentNotice({ token, workspaceId, workspaceS
     <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0 space-y-1">
         {models.some(item => item.owner_funded) && <div>
-          <p className="break-words">{t('Affected models:', '受影响的模型：')} {models.filter(item => item.owner_funded).slice(0, 3).map((item, idx) => <span key={item.model}>{idx > 0 ? ', ' : ''}{catalogTitle(item.model)}{catalogTitle(item.model) !== item.model && <span className="sr-only"> {item.model}</span>}</span>)}{models.filter(item => item.owner_funded).length > 3 || more ? '…' : ''}</p>
+          <p className="break-words">{t('Affected models:', '受影响的模型：')} {models.filter(item => item.owner_funded).slice(0, 3).map((item, idx) => <span key={item.model}>{idx > 0 ? ', ' : ''}{catalogTitle(item.model)}{catalogTitle(item.model) !== item.model && <span className="sr-only"> {item.model}</span>}</span>)}{models.filter(item => item.owner_funded).length > 3 ? '…' : ''}</p>
           {!error && <p>{t('Contact your platform administrator to check the upstream connection.', '请联系平台管理员检查上游连接。')}</p>}
         </div>}
         {models.some(item => !item.owner_funded) && <div>
-          <p className="break-words">{t('Platform supply:', '平台供应：')} {models.filter(item => !item.owner_funded).slice(0, 3).map((item, idx) => <span key={item.model}>{idx > 0 ? ', ' : ''}{catalogTitle(item.model)}{catalogTitle(item.model) !== item.model && <span className="sr-only"> {item.model}</span>}</span>)}{models.filter(item => !item.owner_funded).length > 3 || more ? '…' : ''}</p>
+          <p className="break-words">{t('Platform supply:', '平台供应：')} {models.filter(item => !item.owner_funded).slice(0, 3).map((item, idx) => <span key={item.model}>{idx > 0 ? ', ' : ''}{catalogTitle(item.model)}{catalogTitle(item.model) !== item.model && <span className="sr-only"> {item.model}</span>}</span>)}{models.filter(item => !item.owner_funded).length > 3 ? '…' : ''}</p>
           {!error && <p>{t('Review your failed requests and contact your platform operator. A retry may incur charges.', '请检查失败的请求并联系平台操作者。重试可能产生费用。')}</p>}
         </div>}
+        {models.length > 3 && <Button type="button" variant="link" className="h-auto p-0" aria-expanded={expanded}
+          onClick={() => setExpanded(value => !value)}>{expanded ? t('Show less') : t('Show affected models', '查看受影响模型')}</Button>}
+        {expanded && <ul>{models.map(item => <li key={item.model + String(item.owner_funded)}>
+          <Link className="underline" to={`/workspaces/${encodeURIComponent(workspaceSlug)}/executions?modelAlias=${encodeURIComponent(item.model)}`}>{item.model}</Link>
+        </li>)}</ul>}
+        {more && <p>{t('Showing the first 50 affected models.', '当前显示前 50 个受影响模型。')}</p>}
         {error && <p>{t('Could not refresh incident status. Check your request logs before assuming recovery.', '无法刷新事故状态。确认恢复前请检查请求日志。')}</p>}
         {!error && notifications && models.length > 0 && <p className="text-sm text-muted-foreground">{notifications.state === 'not_configured'
           ? t('No external notification receiver is configured for this workspace. Niu records the incident here; no message was sent.', '此工作空间未配置外部通知接收方。Niu 会在此记录事故，但不会发送消息。')

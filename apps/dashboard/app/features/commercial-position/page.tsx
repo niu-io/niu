@@ -1,5 +1,5 @@
 import { readLocale, useLocale as useUILocale } from '@/shell/ui-locale';
-import { currencySymbol, formatCompactRateMoney, formatFinancialMoney, formatRateMoney, formatStatementMoney } from '@/lib/money';
+import { currencySymbol, formatFinancialMoney, formatRateMoney, formatStatementMoney } from '@/lib/money';
 import { MetricStripSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { usePlatformCurrency } from '@/shell/platform-currency';
@@ -398,13 +398,13 @@ function CommercialStatement({ token }: { token: string }) {
     summary?.recognized_revenue_nanos != null
       ? BigInt(summary.recognized_revenue_nanos)
       : summary
-        ? BigInt(summary.known_revenue_subtotal_nanos)
+        ? null
         : currentCohort.netRevenue;
   const priorRecognizedRevenue =
     priorSummary?.recognized_revenue_nanos != null
       ? BigInt(priorSummary.recognized_revenue_nanos)
       : priorSummary
-        ? BigInt(priorSummary.known_revenue_subtotal_nanos)
+        ? null
         : priorCohort?.netRevenue ?? null;
 
   const nominalConsumption = summary ? BigInt(summary.nominal_consumption_nanos) : currentCohort.nominalCharges;
@@ -430,12 +430,12 @@ function CommercialStatement({ token }: { token: string }) {
         ? BigInt(priorSummary.known_gift_allowance_subtotal_nanos)
         : priorCohort?.giftAllowance ?? null;
 
-  const netContribution =
-    recognizedRevenue !== null ? recognizedRevenue - currentCohort.providerPayable : currentCohort.netContribution;
-  const priorNetContribution =
-    priorRecognizedRevenue !== null && priorCohort
-      ? priorRecognizedRevenue - priorCohort.providerPayable
-      : priorCohort?.netContribution ?? null;
+  const netContribution = recognizedRevenue !== null && currentCohort.unresolvedAttempts === 0n && currentCohort.netContribution !== null
+    ? recognizedRevenue - currentCohort.providerPayable
+    : null;
+  const priorNetContribution = priorRecognizedRevenue !== null && priorCohort?.unresolvedAttempts === 0n && priorCohort.netContribution !== null
+    ? priorRecognizedRevenue - priorCohort.providerPayable
+    : null;
 
   const verifiedCashReceipts =
     summary?.verified_cash_receipts_nanos != null ? BigInt(summary.verified_cash_receipts_nanos) : null;
@@ -493,8 +493,9 @@ function CommercialStatement({ token }: { token: string }) {
     [sortedRows],
   );
 
-  const displayedRows =
-    modelFilter === 'active' ? activeRows : sortedRows;
+  const inspectedModel = search.get('model');
+  const displayedRows = inspectedModel ? sortedRows.filter(row => row.model_alias === inspectedModel)
+    : modelFilter === 'active' ? activeRows : sortedRows;
 
   const priorRowMap = useMemo(() => {
     const map = new Map<string, CommercialPositionRow>();
@@ -767,7 +768,7 @@ function CommercialStatement({ token }: { token: string }) {
 
       {position && (
         <>
-          <Tabs defaultValue="operations" className="min-w-0 space-y-4">
+          <Tabs defaultValue={inspectedModel || search.get('tab') === 'unit-economics' ? 'unit-economics' : 'operations'} className="min-w-0 space-y-4">
             <div className="max-w-full overflow-x-auto overflow-y-hidden commercial-print-hide">
               <TabsList variant="line" aria-label={uiT("Financial statement sections")}>
                 <TabsTrigger value="operations">{uiT("Statement of operations")}</TabsTrigger>
@@ -776,7 +777,7 @@ function CommercialStatement({ token }: { token: string }) {
               </TabsList>
             </div>
           {/* Layer 1: Executive Financial KPI Cards with Period-over-Period Comparison */}
-          <div className="commercial-kpi-grid grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {!inspectedModel && <div className="commercial-kpi-grid grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <article className="min-w-0 rounded-xl bg-card p-5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-muted-foreground">{uiT("Net recognized revenue")}</span>
@@ -826,14 +827,14 @@ function CommercialStatement({ token }: { token: string }) {
                   {formatMarginPercent(netContribution, recognizedRevenue)}{" "}{uiT("margin")}</Badge>
               </div>
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
-                {netContribution === null ? uiT("Unavailable") : <StatementMoney amount={netContribution} currency={currency} />}
+                {netContribution === null ? uiT("Pending reconciliation", "待核定") : <StatementMoney amount={netContribution} currency={currency} />}
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
                 {formatDeltaBadge(uiT, netContribution, priorNetContribution, currency)}
                 <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1 tabular-nums">
-                {currentCohort.matchedAttempts.toString()}{" "}{uiT("settled requests ·")}{' '}
+                {currentCohort.unresolvedAttempts > 0n && <span>{currentCohort.unresolvedAttempts.toString()} {uiT('unresolved', '项未核定')} · </span>}{currentCohort.matchedAttempts.toString()}{" "}{uiT("settled requests ·")}{' '}
                 {uiF('{0} active models', [currentCohort.activeModelCount])}
               </p>
             </article>
@@ -861,7 +862,7 @@ function CommercialStatement({ token }: { token: string }) {
                     : uiT("Unavailable")}
               </p>
             </article>
-          </div>
+          </div>}
 
             <TabsContent value="operations" forceMount className="data-[state=inactive]:hidden print:data-[state=inactive]:block">
             <div className="min-w-0 rounded-xl bg-card p-5 space-y-3">
@@ -1105,19 +1106,20 @@ function CommercialStatement({ token }: { token: string }) {
                   {uiF("Models with traffic: {0} · Configured routes: {1}", [activeRows.length, sortedRows.length])}</p>
               </div>
               <div className="commercial-print-hide flex flex-wrap items-center gap-1.5">
+                {inspectedModel && <span className="break-all text-sm">{inspectedModel}</span>}
                 <Button
                   size="sm"
                   variant="ghost"
-                  aria-pressed={modelFilter === 'active'}
-                  onClick={() => setModelFilter('active')}
+                  aria-pressed={!inspectedModel && modelFilter === 'active'}
+                  onClick={() => { setModelFilter('active'); if (inspectedModel) setSearch(params => { params.delete('model'); return params; }); }}
                 >
                   {uiT("Active in period (")}{activeRows.length})
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
-                  aria-pressed={modelFilter === 'all'}
-                  onClick={() => setModelFilter('all')}
+                  aria-pressed={!inspectedModel && modelFilter === 'all'}
+                  onClick={() => { setModelFilter('all'); if (inspectedModel) setSearch(params => { params.delete('model'); return params; }); }}
                 >
                   {uiT("All configured (")}{sortedRows.length})
                 </Button>
@@ -1126,7 +1128,7 @@ function CommercialStatement({ token }: { token: string }) {
 
             {displayedRows.length === 0 ? (
               <Empty className="min-h-36 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconCalendarStats size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>
-                {modelFilter === 'active' ? uiT("No models had activity in this period.") : uiT("No models are configured for this currency.")}</EmptyDescription></EmptyHeader></Empty>
+                {inspectedModel ? uiT('No report row for this model and period.', '该模型在本期暂无报表记录。') : modelFilter === 'active' ? uiT("No models had activity in this period.") : uiT("No models are configured for this currency.")}</EmptyDescription></EmptyHeader></Empty>
             ) : (
               <div className="table-wrap"><Table className="commercial-position-table" aria-label={uiT("Provider commercial positions")}>
                 <TableHeader>
@@ -1206,27 +1208,10 @@ function CommercialStatement({ token }: { token: string }) {
                               >
                                 <span className="text-muted-foreground">
                                   {offer.rate_kind === 'text' ? (
-                                    (() => {
-                                      const compact = uiF("In {0} · Out {1} / 1M", [
-                                        offer.prompt_rate == null ? '—' : formatCompactRateMoney(offer.prompt_rate, row.currency),
-                                        offer.completion_rate == null ? '—' : formatCompactRateMoney(offer.completion_rate, row.currency),
-                                      ]);
-                                      const exact = uiF("In {0} · Out {1} / 1M", [
-                                        offer.prompt_rate == null ? '—' : formatRateMoney(offer.prompt_rate, row.currency),
-                                        offer.completion_rate == null ? '—' : formatRateMoney(offer.completion_rate, row.currency),
-                                      ]);
-                                      return compact === exact ? compact : (
-                                        <Tooltip>
-                                          <TooltipTrigger
-                                            type="button"
-                                            className="inline border-0 bg-transparent p-0 text-left font-inherit text-inherit cursor-help underline decoration-dotted underline-offset-2"
-                                          >
-                                            {compact}
-                                          </TooltipTrigger>
-                                          <TooltipContent>{exact}</TooltipContent>
-                                        </Tooltip>
-                                      );
-                                    })()
+                                    uiF("In {0} · Out {1} / 1M", [
+                                      offer.prompt_rate == null ? '—' : formatRateMoney(offer.prompt_rate, row.currency),
+                                      offer.completion_rate == null ? '—' : formatRateMoney(offer.completion_rate, row.currency),
+                                    ])
                                   ) : offer.media_rates.length === 0
                                       ? uiT("Media rate")
                                       : offer.media_rates
@@ -1348,7 +1333,19 @@ function CommercialStatement({ token }: { token: string }) {
                               </div>
                             </div>
                           ) : unresolved > 0n ? (
-                            <Badge variant="outline">{uiT("Pending (")}{unresolved.toString()}{" "}{uiT("unresolved)")}</Badge>
+                            row.pending_attempts?.length ? <details className="text-left text-xs">
+                              <summary className="cursor-pointer">{uiT("Pending (")}{unresolved.toString()} {uiT("unresolved)")}</summary>
+                              <ul className="mt-2 space-y-2">{row.pending_attempts.map(attempt => <li key={attempt.attempt}>
+                                <code className="break-all">{attempt.attempt}</code>
+                                <p>{[
+                                  attempt.execution !== 'confirmed_completed' && uiT("Execution unconfirmed", "执行结果未确认"),
+                                  attempt.usage_confidence !== 'provider_reported' && uiT("Usage unconfirmed", "用量未确认"),
+                                  attempt.charge_missing && uiT("Customer charge missing", "缺少客户扣费"),
+                                  attempt.payable_missing && uiT("Supplier payable missing", "缺少采购应付"),
+                                ].filter(Boolean).join(' · ')}</p>
+                              </li>)}</ul>
+                              {BigInt(row.pending_attempts.length) < unresolved && <p>{uiT("Showing the first 50 requests", "显示前 50 条请求")}</p>}
+                            </details> : <Badge variant="outline">{uiT("Pending (")}{unresolved.toString()} {uiT("unresolved)")}</Badge>
                           ) : (
                             <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
                           )}

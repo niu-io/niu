@@ -60,6 +60,7 @@ type RequestLedgerEntry = {
   customer_charge_currency: string | null;
 };
 type ComparisonResult = {
+  httpStatus?: number;
   model: string;
   content: string;
   elapsedMs: number;
@@ -235,7 +236,8 @@ async function runModel(
     }
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      const failed = result('failed', errorMessage(payload, `Niu returned ${response.status}.`));
+      const failed = result('failed', errorMessage(payload, formatLocalizedMessage('Request failed ({0}).', [response.status], readUILocale())));
+      failed.httpStatus = response.status;
       onUpdate(failed);
       return failed;
     }
@@ -1269,8 +1271,8 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
                     <div className="playground-result-grid" data-model-count={turn.results.length}>{turn.results.map((result, index) => <article className="panel playground-result-card" key={result.model + '-' + index}>
                       <div className="playground-result-card-heading"><div><ProviderLogo provider={modelIdentity(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model })} size="small" /><h3>{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? [])}{disambiguatedCatalogTitle(dashboard.models?.find(item => item.id === result.model) ?? { id: result.model }, dashboard.models ?? []) !== result.model && <span className="sr-only"> {result.model}</span>}</h3></div><Button type="button" variant="ghost" className="playground-status-trigger h-auto p-0" title={result.phase === 'connecting' || result.phase === 'streaming' ? uiT("View progress") : uiT("Generation details")} onClick={() => openGenerationsContextRun(`turn-${turnIndex + 1}:${result.model}:${index}`)}><Badge variant={result.phase === 'failed' ? 'destructive' : 'secondary'}>{result.phase === 'failed' ? uiT("Failed") : result.phase === 'cancelled' ? uiT("Cancelled") : result.phase === 'connecting' ? uiT("Connecting") : result.phase === 'streaming' ? uiT("Generating") : uiT(generationOutcome(result.finishReason).label)}</Badge></Button></div>
                       {result.phase === 'complete' && generationOutcome(result.finishReason).detail && <p className="px-5 pt-3 text-sm text-muted-foreground">{uiT(generationOutcome(result.finishReason).detail)}</p>}
-                      {result.phase === 'failed' && <p className="playground-response-error">{result.error && uiT(result.error)}</p>}
-                      {result.content ? <div className="playground-response"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[[rehypeKatex, { trust: false, strict: false }]]}>{mathDelimiters(result.content)}</ReactMarkdown></div> : result.phase === 'cancelled' ? <p className="playground-response-error">{uiT("Cancelled before any output arrived.")}</p> : result.phase === 'complete' || result.phase === 'failed' ? <p className="playground-response text-muted-foreground">{uiT("No text output was returned.")}</p> : <div className="playground-response playground-response-pending">{result.phase === 'streaming' ? uiT("Waiting for more output…") : uiT("Waiting for a response…")}</div>}
+                      {result.phase === 'failed' && <p className="playground-response-error">{result.httpStatus && <span>HTTP {result.httpStatus} · </span>}{result.error && uiT(result.error)}</p>}
+                      {result.content ? <div className="playground-response"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[[rehypeKatex, { trust: false, strict: false }]]}>{mathDelimiters(result.content)}</ReactMarkdown></div> : result.phase === 'cancelled' ? <p className="playground-response-error">{uiT("Cancelled before any output arrived.")}</p> : result.phase === 'failed' ? null : result.phase === 'complete' ? <p className="playground-response text-muted-foreground">{uiT("No text output was returned.")}</p> : <div className="playground-response playground-response-pending">{result.phase === 'streaming' ? uiT("Waiting for more output…") : uiT("Waiting for a response…")}</div>}
                       <div className="playground-result-footer">
                         <div className="playground-card-metrics">
                           <div><Clock3 size={15} /><span>{uiT("Time")}</span><strong>{result.elapsedMs.toLocaleString(readUILocale())}{" "}{uiT("ms")}</strong></div>

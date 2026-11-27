@@ -10,6 +10,13 @@ description: "Generated TypeScript declaration for CommercialPositionRow"
 ```typescript
 /** Confidential platform comparison. Customer charge is not an external cash receipt. */
 export type CommercialPositionRow = {
+    pending_attempts?: Array<{
+        attempt: string;
+        execution: string;
+        usage_confidence: string;
+        charge_missing: boolean;
+        payable_missing: boolean;
+    }>;
     supplier_id: string;
     supplier_name: string;
     model_alias: string;

@@ -1604,6 +1604,7 @@ export interface RoutingRegistryStatus {
 
 /** Confidential platform comparison. Customer charge is not an external cash receipt. */
 export type CommercialPositionRow = {
+  pending_attempts?: Array<{ attempt: string; execution: string; usage_confidence: string; charge_missing: boolean; payable_missing: boolean }>;
   supplier_id: string; supplier_name: string; model_alias: string; currency: string;
   offers: Array<{
     offer_id: string; route_alias: string; revision: string; rate_kind: 'text' | 'media';
@@ -1722,6 +1723,7 @@ export type RetailPromotionPublication = {
 };
 export type RetailPromotionRetirement = { effective_until: string; expected_version: string; idempotency_key: string; reason: string };
 /** Confidential platform-only advice; never a realized margin or dispatch authorization. */
+type ComparableMediaAmount = { amount_units: string; decimal_places: number; per_quantity: { numerator: string; denominator: string } };
 export type PlatformPricingHealth = {
   advisory: boolean;
   supply_status?: 'active' | 'inactive' | 'unconfigured';
@@ -1732,6 +1734,8 @@ export type PlatformPricingHealth = {
     status: 'below_cost' | 'missing_provider_price' | 'comparison_unavailable' | 'no_lower_unit_rates';
     message?: string;
     dimensions: Array<{ dimension: string; minimum_input_tokens: string }>;
+    rates?: Array<{ dimension: string; minimum_input_tokens: string; selling: string; purchase: string }>;
+    media_rates?: { meter: string; selling: ComparableMediaAmount; purchase: ComparableMediaAmount };
   }>;
 };
 export type RetailPriceRecord = RetailPublicationResult & { model_alias: string; currency: string; schedule: RetailSchedule; published_at: string; pricing_health?: PlatformPricingHealth };

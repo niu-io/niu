@@ -73,7 +73,7 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
       ) : context.session ? (
         <>
           {scopedWorkspace && !lockedWorkspace && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 p-3">
-            <p className="text-sm text-muted-foreground">{t('Showing members with access to this workspace.', '仅显示此工作空间的成员。')}</p>
+            <p className="text-sm text-muted-foreground">{t('Workspace members', '工作空间成员')} · {scopedWorkspace.name}</p>
             <Button asChild variant="ghost" size="sm"><Link replace state={location.state} to={settingsHref('members')}>{t('View all organization members', '查看全部成员')}</Link></Button>
           </div>}
           <OperatorsView

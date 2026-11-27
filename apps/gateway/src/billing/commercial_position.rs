@@ -212,6 +212,38 @@ pub struct PositionQuery {
 ///                           "null"
 ///                         ]
 ///                       },
+///                       "pending_attempts": {
+///                         "type": "array",
+///                         "maxItems": 50,
+///                         "description": "First 50 unresolved attempt references with the available execution, usage and ledger evidence for this Provider, model and period.",
+///                         "items": {
+///                           "type": "object",
+///                           "properties": {
+///                             "attempt": {
+///                               "type": "string"
+///                             },
+///                             "execution": {
+///                               "type": "string"
+///                             },
+///                             "usage_confidence": {
+///                               "type": "string"
+///                             },
+///                             "charge_missing": {
+///                               "type": "boolean"
+///                             },
+///                             "payable_missing": {
+///                               "type": "boolean"
+///                             }
+///                           },
+///                           "required": [
+///                             "attempt",
+///                             "execution",
+///                             "usage_confidence",
+///                             "charge_missing",
+///                             "payable_missing"
+///                           ]
+///                         }
+///                       },
 ///                       "unresolved_attempts": {
 ///                         "type": "string",
 ///                         "pattern": "^[0-9]+$"

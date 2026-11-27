@@ -10513,6 +10513,38 @@ Content type: `application/json`.
               "null"
             ]
           },
+          "pending_attempts": {
+            "type": "array",
+            "maxItems": 50,
+            "description": "First 50 unresolved attempt references with the available execution, usage and ledger evidence for this Provider, model and period.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "attempt": {
+                  "type": "string"
+                },
+                "execution": {
+                  "type": "string"
+                },
+                "usage_confidence": {
+                  "type": "string"
+                },
+                "charge_missing": {
+                  "type": "boolean"
+                },
+                "payable_missing": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "attempt",
+                "execution",
+                "usage_confidence",
+                "charge_missing",
+                "payable_missing"
+              ]
+            }
+          },
           "unresolved_attempts": {
             "type": "string",
             "pattern": "^[0-9]+$"
@@ -52259,6 +52291,108 @@ Local `#/components/schemas/…` references resolve to these definitions.
           },
           "message": {
             "type": "string"
+          },
+          "rates": {
+            "type": "array",
+            "description": "Effective comparable token rates in currency nanounits per million tokens at each input threshold.",
+            "items": {
+              "type": "object",
+              "required": [
+                "dimension",
+                "minimum_input_tokens",
+                "selling",
+                "purchase"
+              ],
+              "properties": {
+                "dimension": {
+                  "type": "string"
+                },
+                "minimum_input_tokens": {
+                  "type": "string"
+                },
+                "selling": {
+                  "type": "string"
+                },
+                "purchase": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "media_rates": {
+            "type": "object",
+            "required": [
+              "meter",
+              "selling",
+              "purchase"
+            ],
+            "properties": {
+              "meter": {
+                "type": "string"
+              },
+              "selling": {
+                "type": "object",
+                "required": [
+                  "amount_units",
+                  "decimal_places",
+                  "per_quantity"
+                ],
+                "properties": {
+                  "amount_units": {
+                    "type": "string"
+                  },
+                  "decimal_places": {
+                    "type": "integer"
+                  },
+                  "per_quantity": {
+                    "type": "object",
+                    "required": [
+                      "numerator",
+                      "denominator"
+                    ],
+                    "properties": {
+                      "numerator": {
+                        "type": "string"
+                      },
+                      "denominator": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              "purchase": {
+                "type": "object",
+                "required": [
+                  "amount_units",
+                  "decimal_places",
+                  "per_quantity"
+                ],
+                "properties": {
+                  "amount_units": {
+                    "type": "string"
+                  },
+                  "decimal_places": {
+                    "type": "integer"
+                  },
+                  "per_quantity": {
+                    "type": "object",
+                    "required": [
+                      "numerator",
+                      "denominator"
+                    ],
+                    "properties": {
+                      "numerator": {
+                        "type": "string"
+                      },
+                      "denominator": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "dimensions": {
             "type": "array",
