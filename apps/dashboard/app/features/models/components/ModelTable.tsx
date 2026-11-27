@@ -1,5 +1,6 @@
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { categories, tokenBand } from '@/features/retail-pricing/text-terms';
 import { generationCapability } from '../generation-capabilities';
 import '../models.css';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -28,7 +29,7 @@ import { capabilityGroups, capabilityValues, emptyCapabilities, matchesCapabilit
 import { Label } from '@/components/ui/label';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import { QuickKeyDialog, useQuickKeyProvisioner } from '@/features/generations/QuickKeyDialog';
-import type { Model } from '@/shell/dashboard-context';
+import type { CustomerPricing, CustomerUnitPricing, CustomerTokenRates, Model } from '@/shell/dashboard-context';
 
 function ModelFilterButton({ activeCount = 0 }: { activeCount?: number }) {
   const { t: uiT } = useUILocale();
@@ -75,7 +76,8 @@ function formatModalityList(values: string[], isZh: boolean): string {
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useModelPopularity } from '@/shell/useModelPopularity';
-import { formatUnitAtoms, money } from '@/lib/money';
+import { requestCharges } from '@/lib/customer-tariff';
+import { formatExactUnitAtoms, money } from '@/lib/money';
 import { workspacePathSegment } from '@/shell/workspace-route';
 
 
@@ -116,6 +118,37 @@ function requestExample(baseUrl: string, model: Model) {
     '  -H "Content-Type: application/json"',
     `  -d '${JSON.stringify(body)}'`,
   ].join(` ${String.fromCharCode(92)}\n`);
+}
+
+function zeroTokenRates(rates: CustomerTokenRates) {
+  return rates.prompt_rate === '0' && rates.completion_rate === '0' &&
+    [rates.cached_prompt_rate, rates.cache_write_prompt_rate, rates.reasoning_completion_rate]
+      .every(rate => rate == null || rate === '0');
+}
+
+function isFreeTariff(price?: CustomerPricing | CustomerUnitPricing | null) {
+  if (!price || !zeroTokenRates(price) || !price.context_tiers?.every(zeroTokenRates)) return false;
+  return 'unit_name' in price
+    ? price.request_fee_atoms === '0' && price.minimum_charge_atoms === '0'
+    : price.request_fee_nanos === '0' && price.minimum_charge_nanos === '0';
+}
+
+function ContextTariff({ price }: { price: CustomerPricing | CustomerUnitPricing }) {
+  const { t } = useUILocale();
+  const bands = [{ ...price, minimum_input_tokens: '0' }, ...(price.context_tiers ?? [])];
+  return <section className="space-y-2" aria-label={t('Context tiers')}>
+    <h3 className="font-medium">{t('Context tiers')}</h3>
+    {bands.map((band, index) => <div key={band.minimum_input_tokens} className="border-t py-2">
+      <h4 className="text-sm font-medium">{t('Input tokens')} · {tokenBand(band.minimum_input_tokens, bands[index + 1]?.minimum_input_tokens)}</h4>
+      <dl className="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm">{categories.map(([key, label]) => {
+        const value = band[key];
+        if (value == null) return null;
+        const amount = 'unit_name' in price
+          ? formatExactUnitAtoms(value, price.unit_name, price.display_precision) : money(value, price.currency);
+        return <div key={key}><dt className="text-muted-foreground">{t(label)}</dt><dd>{amount}</dd></div>;
+      })}</dl>
+    </div>)}
+  </section>;
 }
 
 export default function ModelTable(props: { models: Model[]; header?: ReactNode; publicMode?: boolean }) {
@@ -348,6 +381,8 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
   }, [popularModels, query, providersSelected, capabilities, sort]);
   const visible = filtered.slice(0, limit);
   const selected = models.find(model => model.id === selectedId) ?? null;
+  const selectedPrice = selected && (showUnitPricing(selected) ? selected.customer_unit_pricing : selected.customer_pricing);
+  const tieredPrice = selectedPrice?.context_tiers?.length ? selectedPrice : null;
   const showOriginalDescription = Boolean(selected?.catalog?.description) && (!publicMode || (isZh ? !/\p{Script=Han}/u.test(selected?.catalog?.description ?? '') : /\p{Script=Han}/u.test(selected?.catalog?.description ?? '')));
   const descriptionRef = useRef<HTMLDivElement>(null);
   const descriptionTriggerRef = useRef<HTMLButtonElement>(null);
@@ -481,8 +516,8 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
             const rawDesc = model.catalog?.description;
             const hasHanDesc = /\p{Script=Han}/u.test(rawDesc ?? '');
             const showDesc = publicMode && Boolean(rawDesc && (isZh ? hasHanDesc : !hasHanDesc));
-            const isFreeUnit = showUnitPricing(model) && model.customer_unit_pricing?.prompt_rate === '0' && model.customer_unit_pricing?.completion_rate === '0';
-            const isFreeCurrency = !showUnitPricing(model) && model.customer_pricing != null && model.customer_pricing.prompt_rate === '0' && model.customer_pricing.completion_rate === '0';
+            const price = showUnitPricing(model) ? model.customer_unit_pricing : model.customer_pricing;
+            const free = !isVideoModel(model) && isFreeTariff(price);
             const contextText = model.catalog?.context_length != null
               ? `${new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(model.catalog.context_length)} ${uiT("context")}`
               : null;
@@ -498,7 +533,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
                 <div className="models-card-identity">
                   <div className="models-card-title-row">
                     <Link className="models-card-title text-foreground hover:underline" title={cardTitle} to={detailHref}>{cardTitle}</Link>
-                    {(isFreeUnit || isFreeCurrency) && !uncallable && <Badge variant="secondary" className="models-card-tag shrink-0 font-normal">{uiT("Free")}</Badge>}
+
                   </div>
                   {tags.length > 0 ? (
                     <div className="models-card-tags" aria-label={uiT("Model capabilities")}>
@@ -520,7 +555,8 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
 
               <div className="models-card-footer">
                 <div className="models-card-rates">
-                  {uncallable ? <span className="text-muted-foreground">{readinessBadgeText(model, uiT)}</span> : model.billing_source === 'own_api_key' ? <span>{uiT("No Niu charge")}</span> : isFreeUnit || isFreeCurrency ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}
+                  {uncallable ? <span className="text-muted-foreground">{readinessBadgeText(model, uiT)}</span> : model.billing_source === 'own_api_key' ? <span>{uiT("No Niu charge")}</span> : price?.context_tiers?.length && !free ? <Link className="underline underline-offset-2" to={detailHref}>{uiT('Context tiers')}</Link> : free ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatExactUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatExactUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}
+                  {!uncallable && model.billing_source !== 'own_api_key' && requestCharges(price).map(charge => <span key={charge.label}>{uiT(charge.label)} · {charge.amount}</span>)}
                   {contextText && <span>{contextText}</span>}
                 </div>
 
@@ -588,9 +624,11 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
             : uiT("Billing information is unavailable. Refresh the catalog or ask your administrator to confirm how usage is billed before sending a request.")}</p>
       )}
       <dl className="model-route-facts">
-        {selected.billing_source !== 'own_api_key' && (!isVideoModel(selected) || hasChatOutput(selected)) && <><div><dt>{uiT("Input price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatUnitAtoms(selected.customer_unit_pricing!.prompt_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.prompt_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div>
-        {showUnitPricing(selected) && selected.customer_unit_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{formatUnitAtoms(selected.customer_unit_pricing.cached_prompt_rate, selected.customer_unit_pricing.unit_name, selected.customer_unit_pricing.display_precision)}{" "}{uiT("/M tokens")}</dd></div> : selected.customer_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{money(selected.customer_pricing.cached_prompt_rate, selected.customer_pricing.currency)}{" "}{uiT("/M tokens")}</dd></div> : null}
-        <div><dt>{uiT("Output price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatUnitAtoms(selected.customer_unit_pricing!.completion_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.completion_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div></>}
+        {!tieredPrice && selected.billing_source !== 'own_api_key' && (!isVideoModel(selected) || hasChatOutput(selected)) && <><div><dt>{uiT("Input price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatExactUnitAtoms(selected.customer_unit_pricing!.prompt_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.prompt_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div>
+        {showUnitPricing(selected) && selected.customer_unit_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{formatExactUnitAtoms(selected.customer_unit_pricing.cached_prompt_rate, selected.customer_unit_pricing.unit_name, selected.customer_unit_pricing.display_precision)}{" "}{uiT("/M tokens")}</dd></div> : selected.customer_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{money(selected.customer_pricing.cached_prompt_rate, selected.customer_pricing.currency)}{" "}{uiT("/M tokens")}</dd></div> : null}
+        <div><dt>{uiT("Output price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatExactUnitAtoms(selected.customer_unit_pricing!.completion_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.completion_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div></>}
+        {selected.billing_source !== 'own_api_key' && requestCharges(showUnitPricing(selected) ? selected.customer_unit_pricing : selected.customer_pricing).map(charge =>
+          <div key={charge.label}><dt>{uiT(charge.label)}</dt><dd>{charge.amount}</dd></div>)}
         {selected.catalog?.context_length != null && <div><dt>{uiT("Context length")}</dt><dd>{selected.catalog.context_length.toLocaleString(readUILocale())}{" "}{uiT("tokens")}</dd></div>}
         {selected.catalog?.max_completion_tokens != null && <div><dt>{uiT("Maximum output")}</dt><dd>{selected.catalog.max_completion_tokens.toLocaleString(readUILocale())}{" "}{uiT("tokens")}</dd></div>}
         {!!selected.catalog?.input_modalities?.length && <div><dt>{uiT("Input modalities")}</dt><dd>{formatModalityList(selected.catalog.input_modalities, isZh)}</dd></div>}
@@ -599,6 +637,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
         {modelProviderName(selected) && <div><dt>{uiT("Provider")}</dt><dd>{modelProviderName(selected)}</dd></div>}
         {selected.upstream_model && selected.upstream_model !== selected.id && <div><dt>{uiT("Upstream model")}</dt><dd>{selected.upstream_model}</dd></div>}
       </dl>
+      {tieredPrice && selected.billing_source !== 'own_api_key' && <ContextTariff price={tieredPrice} />}
       {isUncallable(selected) ? (
         isPlatformAdmin ? <div className="model-route-cta">
           {readinessIssues(selected).includes('procurement_pricing_missing') && <Button asChild variant={readinessIssues(selected).includes('selling_price_missing') ? 'outline' : 'default'}><Link to="/admin/providers">{uiT("Complete Provider rate")}</Link></Button>}
