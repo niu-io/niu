@@ -186,3 +186,5 @@ New text price and credit tariff menus use the registered route’s text eligibi
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
+
+When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
