@@ -259,4 +259,6 @@ Pricing editors show a single decision footer. When confirming draft dismissal, 
 
 When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
 
+Routing forms open on the rule name. Keep priority and weight ranges with their advanced fields and preserve their values across disclosure changes.
+
 Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.

@@ -637,3 +637,9 @@ it('keeps tbody row headers on cell metrics and fills 404 empty states', () => {
   const surfaces = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
   expect(surfaces).toMatch(/\.not-found-empty \{[^}]*flex: 1 1 auto;[^}]*justify-content: center/);
 });
+
+it('keeps routing ranges with advanced controls and starts with the rule name', () => {
+  const editor = readFileSync(resolve('app/features/routing/page.tsx'), 'utf8');
+  expect(editor.indexOf('id="pool-name"')).toBeLessThan(editor.indexOf('aria-expanded={advancedPool}'));
+  expect(editor).toMatch(/\{advancedPool && <p[^>]*>\s*\{t\(\s*'Higher priority/);
+});
