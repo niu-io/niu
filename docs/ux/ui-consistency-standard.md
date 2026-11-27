@@ -77,6 +77,8 @@ Returning from request details restores the inspected row, focus and loaded page
 - **Sibling first-run parity**: Sibling creation surfaces in Generations (`Chat` and `Video`) share the same centered mode switcher (`Chat` / `Video`), heading scale (`.playground-first-run-heading`), and `.playground-starters` / `.playground-starter` card grid (`<strong>` title, `<span>` summary, trailing arrow icon).
 - **Never leak internal IDs**: Never render UUIDs/GUIDs in UI labels, tooltips, badges, dialogs, or error notices.
 
+Customer access lists retain workspace links, member roles and workspace scope on narrow screens. Show labeled values within each row without horizontal scrolling.
+
 A filtered registration queue with zero results shows the relevant empty title. Omit raw submission URLs and generic audit explanations.
 
 ## 6. Primitive & Stylesheet Hygiene
@@ -113,6 +115,8 @@ Dialog utility buttons (such as Refresh or Load more) must never stretch full-wi
 Upstream Providers are platform-managed vendor connections rather than multi-user tenant workspaces. Provider detail (`/admin/providers/:provider`) exposes strictly two tabs — **Configuration** (`配置`, combining Business profile + Default integration, API keys, and Model access & default discount on one scannable page) and **Analytics** (`统计`, combining 90-day model/media consumption, payables, and payment history). Never expose a `Members` tab, Provider member-assignment dialog, or deletion copy referencing Provider members, and never dump the full model table onto the Configuration page by default: default to **All models** with **no discount (`100%`)**, render inline model rows only for **Allowlist** or **Blocklist** exceptions, and keep full catalog search/inspection inside the bounded **Browse models** dialog (using inline subviews rather than nested `<Dialog>`s). Scope API key dialogs on `/admin/providers/:provider` strictly to the active Provider (hiding the redundant `Provider` picker, inheriting the Provider's existing connection or `/presets` protocol/`api_base` instead of defaulting to OpenRouter, hiding `OpenRouter API` on non-OpenRouter Providers, omitting per-key integration overrides, rendering neutral `IconKey` badges on key rows instead of URL-guessed brand logos, locking built-in brand integrations as read-only presets, and limiting custom Provider integration choices to `Custom` / `New API` / `LiteLLM`). Legacy `/keys`, `/models`, `/settings`, and `/members` subroutes redirect cleanly to `/admin/providers/:provider`, and `/settlements` redirects to `/admin/providers/:provider/usage`. Across Provider lists, connection cards, and model sections, strictly distinguish **Pending setup** (`待配置`) + concrete missing prerequisite (`API key not configured` / `API 密钥未配置`, `No models imported yet` / `尚未导入模型`, `Model pricing not configured` / `模型价格未配置`) from **Disabled** (`已停用`), which applies only when saved credentials or routes exist and were explicitly turned off.
 
 Model mapping dialogs show a single title, the editable mapping fields and visible Cancel and Save actions. Keep catalog metadata and optional capabilities under advanced settings. Show video configuration for declared video output, unknown output, or an existing saved video configuration. On model catalog cards and detail pages (`ModelTable`), use concise **`Try`** (`试用`) for single-workflow trial actions (disambiguating `Try chat` / `Try video` only when a single model exposes both simultaneously) rather than verbose `"Try in Chat"` (`在对话中试用`), `"Try in Video"` (`在视频中试用`), or `"Open Generations"` (`打开多模态生成`), preserve distinguishing date suffixes (`disambiguatedCatalogTitle`) when dated and undated sibling variants coexist, reserve **`Not published`** (`未发布`) strictly for genuinely uncallable commercial models (`callable === false`, with zero trial links), and never stamp `"Capabilities not published"` (`能力未发布`) on callable models.
+
+Switching between named workspaces in Activity preserves the reporting dates. Workspace-specific keys do not follow the switch, and the all-workspaces summary retains its all-time scope.
 
 Tab navigation must preserve already available data within the same authorization and resource scope. A presentation-only tab change must not revalidate unrelated route loaders. Keep slow first reads and errors local to the affected panel. Verify both cold activation and return visits with browser frames.
 
@@ -162,8 +166,12 @@ Workspace activity summaries keep the workspace, request count and charge visibl
 
 Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action.
 
+Direct video-mode links open the Video composer and its existing availability or setup state. A saved session retains its own workflow.
+
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
 
-Switching between named workspaces in Activity preserves the reporting dates. Workspace-specific keys do not follow the switch, and the all-workspaces summary retains its all-time scope.
+Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
+
+When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
 
 Registration validation focuses the first invalid field and associates the inline error with that control. Editing an unrelated field preserves the error.
