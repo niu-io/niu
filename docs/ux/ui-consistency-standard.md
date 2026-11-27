@@ -43,6 +43,8 @@ Search paginated audit history on the server before applying page limits. Match 
 
 - **List readability and action affordance**: Management lists must not hide a decision-critical field in a truncated fixed column. API key rows expose model access, limits, expiry, status, and last use in a responsive row/list with no horizontal scrolling; multi-model access may use a keyboard-accessible popover, and model trial actions must look like actions (button/link with affordance), not metadata text.
 
+Registration review rows keep the applicant identity and available decision actions readable without horizontal scrolling across desktop, tablet and phone widths.
+
 ## 4. Unified Input & Composer Controls
 
 - **Single shared composer across all Generations modes**: `Chat`, `New Video`, and `Video Session` MUST all render [`GenerationComposer`](../../apps/dashboard/app/features/generations/GenerationComposer.tsx) and [`GenerationComposerCover`](../../apps/dashboard/app/features/generations/GenerationComposer.tsx) with identical geometry (`max-width: var(--generation-reading-width)`, `20px` radius, `54px` minimum textarea height, `36px` bottom toolbar, and `36×36` circular submit button).
@@ -131,5 +133,7 @@ A catalog model can be labeled free only when the complete applicable tariff est
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
+
+When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
 
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.

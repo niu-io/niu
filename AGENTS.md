@@ -36,7 +36,7 @@ Use a single word for each API route segment unless a compound is strictly neces
 
 Use SSH for authorized remote inspection and configuration transfers. Do not use Supen to inspect remote sessions or coordinate development unless the user explicitly requests it. Keep transferred credentials outside the public repository.
 
-Audit history distinguishes an empty filtered result from an empty journal. Clearing filters resets the category and query together and returns focus to search.
+Registration review rows keep the applicant identity and available decision actions readable without horizontal scrolling across desktop, tablet and phone widths.
 
 ## Dashboard choice controls
 
@@ -61,6 +61,8 @@ Consider Tabler alongside Lucide when choosing icons. Generations uses Tabler `s
 Use **workspace** consistently for Niu's customer-facing scope. Do not call the same Niu entity a **project** in product UI, guidance, or generated setup commands. Keep legacy `project` / `project_id` names only where required by existing API, database, or compatibility contracts; translate them to workspace terminology at the product boundary.
 
 ## User-reported issues are global requirements
+
+Audit history distinguishes an empty filtered result from an empty journal. Clearing filters resets the category and query together and returns focus to search.
 
 Treat every defect or UX/engineering complaint raised by the user as a **global product requirement**, never as a one-off local patch. For every user-reported issue:
 
@@ -192,5 +194,7 @@ New text price and credit tariff menus use the registered route’s text eligibi
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
+
+When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
 
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
