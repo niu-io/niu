@@ -196,9 +196,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
 
   return (
     <section className="space-y-4" aria-label={uiF("{0} consumption tariffs", [unitName])}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="max-w-2xl text-sm text-muted-foreground">{uiF("Rates are charged in {0} when the installation bills in Branded Credits. Publishing a rate does not change the active billing mode.", [unitName])}</p>
-        <div className="flex flex-wrap items-center gap-2">
+      {config?.definition && <div className="flex flex-wrap items-center justify-end gap-2">
           <Button variant="outline" size="sm" disabled={loading} onClick={() => void load(true)}>
             {uiT("Refresh Credits tariffs")}</Button>
           <Button
@@ -222,8 +220,7 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
             }}
           >
             {uiT("Publish Credits media tariff")}</Button>
-        </div>
-      </div>
+      </div>}
 
       {notice && (
         <Alert>
@@ -239,8 +236,8 @@ export function BrandedUnitTariffsSection({ token, filter }: { token: string; fi
       {!loading && !error && !config?.definition && (
         <Alert>
           <AlertDescription className="flex flex-wrap items-center gap-2">
-            <span>{uiT("Publish a branded unit definition in Admin → Settings before publishing Credits consumption tariffs.")}</span>
-            <Button asChild variant="link" className="h-auto p-0"><Link to="/admin/settings">{uiT("Open Settings")}</Link></Button>
+            <span>{uiT("Branded credits are not configured.", "品牌额度尚未配置。")}</span>
+            <Button asChild variant="link" className="h-auto p-0"><Link to="/admin/settings?tab=units">{uiT("Configure credits", "配置额度")}</Link></Button>
           </AlertDescription>
         </Alert>
       )}
