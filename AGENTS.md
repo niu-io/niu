@@ -226,3 +226,5 @@ Workspace activity summaries keep the workspace, request count and charge visibl
 Organization creation derives the address from the name. Preview the organization settings destination and expose identifier constraints when editing the address.
 
 Standard price directories show the comparable unit spread and billing unit alongside selling rates. Identify partial quote coverage, reserve publication timestamps for price details, and keep realized profit in financial reports.
+
+When a price comparison already identifies the model, label its quotes by provider and include the upstream route only when it differs from the displayed model or the provider name is missing.

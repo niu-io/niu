@@ -171,3 +171,5 @@ Organization creation derives the address from the name. Preview the organizatio
 Standard price directories show the comparable unit spread and billing unit alongside selling rates. Identify partial quote coverage, reserve publication timestamps for price details, and keep realized profit in financial reports.
 
 Registration validation focuses the first invalid field and associates the inline error with that control. Editing an unrelated field preserves the error.
+
+When a price comparison already identifies the model, label its quotes by provider and include the upstream route only when it differs from the displayed model or the provider name is missing.

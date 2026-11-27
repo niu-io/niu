@@ -278,7 +278,7 @@ function History({ token, price, onClose, onCloseAutoFocus }: { token: string; p
           <h3 className="font-medium">{uiT('Standard price', '标准售价')}</h3>
           <SellingSchedule schedule={price.schedule} currency={price.currency} />
         </section>}
-        <PriceComparison health={price.pricing_health} currency={price.currency} />
+        <PriceComparison modelAlias={price.model_alias} health={price.pricing_health} currency={price.currency} />
         <Button asChild variant="outline" className="self-start"><Link to={`/admin/reports?tab=unit-economics&model=${encodeURIComponent(price.model_alias)}`}>
           {uiT("View realized margin", "查看实际毛利")}
         </Link></Button>
