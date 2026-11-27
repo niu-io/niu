@@ -33,7 +33,8 @@ WITH events AS (
  (SELECT * FROM (
  SELECT 'vendor', e.id::text, 'configuration', e.action, e.actor_kind,
    CASE WHEN e.actor_kind='installation' THEN 'Installation administrator (recorded)' ELSE 'Unknown actor' END,
-   CASE WHEN e.model_alias IS NULL THEN v.name ELSE v.name || ' / ' || e.model_alias END,
+   concat_ws(' / ', COALESCE(e.vendor_name,
+       CASE WHEN v.updated_at <= e.created_at THEN v.name END, e.vendor_id::text), e.model_alias),
    e.revision, NULL::text, NULL::text, e.created_at FROM vendor_audit_events e JOIN vendors v ON v.id=e.vendor_id
  WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)

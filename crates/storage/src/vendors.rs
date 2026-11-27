@@ -1740,8 +1740,8 @@ async fn insert_audit(
     revision: i64,
 ) -> Result<(), StoreError> {
     sqlx::query(
-        "INSERT INTO vendor_audit_events(vendor_id,model_alias,action,revision,actor_kind) \
-         VALUES($1,$2,$3,$4,'installation')",
+        "INSERT INTO vendor_audit_events(vendor_id,model_alias,action,revision,actor_kind,vendor_name) \
+         VALUES($1,$2,$3,$4,'installation',(SELECT name FROM vendors WHERE id=$1))",
     )
     .bind(vendor_id)
     .bind(alias)
