@@ -17,7 +17,7 @@ export function supplyStateOf(health?: PricingHealth): PricingSupplyState {
 type Check = PricingHealth['checks'][number];
 type MediaAmount = NonNullable<Check['media_rates']>['purchase'];
 
-function mediaPrice(value: MediaAmount, currency: string, meter: string) {
+export function mediaPrice(value: MediaAmount, currency: string, meter: string) {
   const { numerator, denominator } = value.per_quantity;
   const quantity = denominator === '1' ? numerator : `${numerator}/${denominator}`;
   return `${currencySymbol(currency)}${mediaAmount(value.amount_units, value.decimal_places)} / ${quantity} ${meter}`;
@@ -30,6 +30,12 @@ function mediaUnitRate(rate: MediaAmount): UnitSpread {
     nanos: BigInt(rate.amount_units) * 10n ** BigInt(9 - rate.decimal_places) * BigInt(rate.per_quantity.denominator),
     quantity: BigInt(rate.per_quantity.numerator),
   };
+}
+
+function mediaSpread(rates: NonNullable<Check['media_rates']>): UnitSpread {
+  const sell = mediaUnitRate(rates.selling);
+  const buy = mediaUnitRate(rates.purchase);
+  return { nanos: sell.nanos * buy.quantity - buy.nanos * sell.quantity, quantity: sell.quantity * buy.quantity };
 }
 
 function formatSpread({ nanos, quantity }: UnitSpread, currency: string) {
@@ -51,11 +57,8 @@ export function DirectorySpread({ health, currency }: { health?: PricingHealth; 
   let unit = t('million tokens', '百万 Token');
   for (const check of checks) {
     if (check.media_rates) {
-      const { meter, selling, purchase } = check.media_rates;
-      const sell = mediaUnitRate(selling);
-      const buy = mediaUnitRate(purchase);
-      spreads.push({ nanos: sell.nanos * buy.quantity - buy.nanos * sell.quantity, quantity: sell.quantity * buy.quantity });
-      unit = t(meter);
+      spreads.push(mediaSpread(check.media_rates));
+      unit = t(check.media_rates.meter);
     } else {
       for (const rate of check.rates ?? []) {
         spreads.push({ nanos: BigInt(rate.selling) - BigInt(rate.purchase), quantity: 1n });
@@ -113,6 +116,7 @@ export function PriceComparison({ health, currency, modelAlias }: { modelAlias?:
       {check.rates?.length ? <TextComparison rates={check.rates} currency={currency} /> : check.media_rates ? <dl className="grid grid-cols-2 gap-2">
         <dt>{t('Purchase price', '采购价')}</dt><dd>{mediaPrice(check.media_rates.purchase, currency, t(check.media_rates.meter))}</dd>
         <dt>{t('Selling price', '售价')}</dt><dd>{mediaPrice(check.media_rates.selling, currency, t(check.media_rates.meter))}</dd>
+        <dt>{t('Unit spread', '单位价差')}</dt><dd>{formatSpread(mediaSpread(check.media_rates), currency)} / {t(check.media_rates.meter)}</dd>
       </dl> : <p>{check.message && check.status !== 'below_cost' && check.status !== 'no_lower_unit_rates' ? t(check.message) : t('Purchase price unavailable', '采购价暂不可用')}</p>}
     </section>)}
   </div>;
