@@ -186,6 +186,8 @@ On pricing tabs, identify the mode used for billing independently of the selecte
 
 When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
 
+A full-page empty state fills the available route height whether mounted directly in the route body or inside a list wrapper.
+
 Workspace activity summaries keep the workspace, request count and charge visible at every viewport width. Long workspace names and charge amounts wrap within their cells.
 
 Present default and custom key setup together in the confirmation dialog. A composer that opens this dialog needs only one setup action.
@@ -214,6 +216,8 @@ Workspace spending-limit feedback uses the parsed amount. Show the consequences 
 
 When a mobile sheet opens a separate dialog, hand off focus after the sheet closes. Immediate dismissal of the dialog must return focus to its original action in the reopened sheet.
 
-A full-page empty state fills the available route height whether mounted directly in the route body or inside a list wrapper.
+Routing forms open on the rule name. Keep priority and weight ranges with their advanced fields and preserve their values across disclosure changes.
 
 Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.
+
+Promotion lists keep dates, scope, and actions visible when a quote is expanded. Give the comparison the full row width inside the dialog at desktop, tablet, and phone sizes.
