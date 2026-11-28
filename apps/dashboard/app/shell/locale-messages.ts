@@ -1,5 +1,13 @@
 /** System copy only. Customer names and persisted API values stay unchanged. */
 export const UI_MESSAGES_ZH: Record<string, string> = {
+  "No managed Provider price is available for this route comparison.": "该线路暂无采购报价。",
+  "The selling and purchase prices use different billing meters.": "售价和采购价使用不同的计量单位。",
+  "Configure a Provider price before dispatch.": "尚未配置采购价。",
+  "Currencies differ; no exchange rate is assumed.": "采购价和售价的币种不同。",
+  "A required price dimension is missing.": "缺少可供比较的计费项。",
+  "No unique effective Provider media rate matches these billing dimensions.": "当前规格无法匹配唯一的有效采购价。",
+  "Currency, Provider discounts, minimum quantity or rounding require a request-specific comparison.": "币种、采购折扣、最低计费量或舍入规则需按请求核对。",
+  "Exact media comparison exceeds supported arithmetic or has missing dimensions.": "计费项缺失或数值超出范围，无法精确比较。",
   "Candidate model pricing is not configured": "候选模型采购价未配置",
   "Role saved.": "角色已保存。",
   "Role saved, but recent activity could not be refreshed.": "角色已保存，但无法刷新近期活动。",
