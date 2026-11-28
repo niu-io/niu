@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Niu Gateway API
-  version: 0.4.1
+  version: 0.4.2
   description: |
     Model inference and management APIs for Niu. Browse the resource groups in the sidebar,
     search by operation or path, and expand the request and response schemas for exact fields.
