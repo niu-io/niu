@@ -55,11 +55,11 @@
   --sidebar-primary-foreground: var(--primary-foreground);
   --sidebar-ring: var(--ring);
 }
-/* Filled actions use the mark's tangerine and its original dark lettering.
+/* Filled actions pair brand orange with neutral dark lettering.
    Deployment-defined primary palettes continue to override this default. */
 :root:not([style*="--primary:"]) :is([data-slot="button"], [data-slot="dropdown-menu-trigger"], [data-slot="dialog-trigger"], [data-slot="popover-trigger"])[data-variant="default"]:not(:disabled) {
   background-color: var(--brand-orange);
-  color: var(--brand-ink);
+  color: #242424;
 }
 :root:not([style*="--primary:"]) :is([data-slot="button"], [data-slot="dropdown-menu-trigger"], [data-slot="dialog-trigger"], [data-slot="popover-trigger"])[data-variant="default"]:hover:not(:disabled) {
   background-color: color-mix(in srgb, var(--brand-orange) 90%, var(--brand-paper));
