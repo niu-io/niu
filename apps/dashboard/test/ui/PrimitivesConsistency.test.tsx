@@ -31,6 +31,13 @@ describe('Shared UI primitives layout safeguards', () => {
   });
 
   const appDir = resolve(process.cwd(), 'app');
+  it('gives expanded promotion quotes a full row in the dialog', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/promotions.tsx'), 'utf8');
+    const css = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
+    expect(source).toContain('className="promotion-states"');
+    expect(css).toContain('.promotion-states > tbody > tr > td:not([data-label]) { grid-column: 1 / -1; }');
+  });
+
   const tsxFiles = collectTsxFiles(appDir);
 
   it('pins both credit tariff writes to the revision shown on opening', () => {
@@ -642,4 +649,10 @@ it('opens the archive after mobile history releases its focus scope', () => {
   const layout = readFileSync(resolve('app/features/generations/GenerationsLayout.tsx'), 'utf8');
   expect(layout).toMatch(/onCloseAutoFocus: event => \{\s*if \(pendingArchive.current\)/);
   expect(layout).toMatch(/pendingArchive.current = openArchive;\s*setOpenMobile\(false\)/);
+});
+
+it('keeps routing ranges with advanced controls and starts with the rule name', () => {
+  const editor = readFileSync(resolve('app/features/routing/page.tsx'), 'utf8');
+  expect(editor.indexOf('id="pool-name"')).toBeLessThan(editor.indexOf('aria-expanded={advancedPool}'));
+  expect(editor).toMatch(/\{advancedPool && <p[^>]*>\s*\{t\(\s*'Higher priority/);
 });

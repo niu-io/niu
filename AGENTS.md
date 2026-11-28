@@ -247,6 +247,8 @@ Workspace activity summaries keep the workspace, request count and charge visibl
 
 Organization and workspace creation derive the address from the name. Preview the organization settings or workspace destination and expose identifier constraints when editing the address.
 
+Upstream incident notices and their polling belong on the administration overview and supply management routes. Keep customer, registration, pricing and other unrelated tasks free of this alert.
+
 Registration queue links retain the selected review status on reopen and browser Back. Preserve unrelated query parameters when switching status.
 
 Tiered price forms focus the first invalid token threshold on submit and recompute the next threshold when its preceding boundary changes. Range previews show an em dash for an unsupported endpoint or a lower bound that repeats or precedes the previous tier.
@@ -261,6 +263,8 @@ When a pending model lookup can replace a pricing form with prerequisite actions
 
 When a mobile sheet opens a separate dialog, hand off focus after the sheet closes. Immediate dismissal of the dialog must return focus to its original action in the reopened sheet.
 
-Upstream incident notices and their polling belong on the administration overview and supply management routes. Keep customer, registration, pricing and other unrelated tasks free of this alert.
+Routing forms open on the rule name. Keep priority and weight ranges with their advanced fields and preserve their values across disclosure changes.
 
 Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.
+
+Promotion lists keep dates, scope, and actions visible when a quote is expanded. Give the comparison the full row width inside the dialog at desktop, tablet, and phone sizes.
