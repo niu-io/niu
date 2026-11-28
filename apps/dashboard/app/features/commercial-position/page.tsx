@@ -158,7 +158,7 @@ function aggregateCohort(rows?: CommercialPositionRow[] | null): CohortAggregate
   let contributionKnown = true;
   let matchedAttempts = 0n;
   let unresolvedAttempts = 0n;
-  let activeModelCount = 0;
+  const activeModels = new Set<string>();
 
   for (const row of Array.isArray(rows) ? rows : []) {
     const hasActivity =
@@ -166,7 +166,7 @@ function aggregateCohort(rows?: CommercialPositionRow[] | null): CohortAggregate
       row.earning_nanos !== null ||
       BigInt(row.matched_attempts || '0') > 0n ||
       BigInt(row.unresolved_attempts || '0') > 0n;
-    if (hasActivity) activeModelCount++;
+    if (hasActivity) activeModels.add(row.model_alias);
 
     if (row.customer_charge_nanos !== null) nominalCharges += BigInt(row.customer_charge_nanos);
     if (row.customer_refunds_nanos !== null) refunds += BigInt(row.customer_refunds_nanos);
@@ -218,7 +218,7 @@ function aggregateCohort(rows?: CommercialPositionRow[] | null): CohortAggregate
     netContribution: contributionKnown && unresolvedAttempts === 0n ? netContribution : null,
     matchedAttempts,
     unresolvedAttempts,
-    activeModelCount,
+    activeModelCount: activeModels.size,
   };
 }
 
@@ -934,7 +934,7 @@ function CommercialStatement({ token }: { token: string }) {
                     showSection('unit-economics');
                   }
                 }}>{uiF("{0} unresolved", [currentCohort.unresolvedAttempts.toString()])}</Button> · </>}{uiF("Matched charges and payables ({0})", [currentCohort.matchedAttempts.toString()])} ·{' '}
-                {uiF('{0} active models', [currentCohort.activeModelCount])}
+                {uiF('Active models: {0}', [currentCohort.activeModelCount])}
               </p>
             </article>
 

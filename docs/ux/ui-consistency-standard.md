@@ -78,6 +78,8 @@ Pending settlement counts in Spending and Activity open request logs filtered by
 
 Pending settlement drilldowns preserve the source scope and filter by customer charge state before pagination, independently of execution outcome.
 
+Financial report model counts use distinct active model aliases across Providers. Provider-by-model rows retain their individual financial amounts.
+
 Closing an unchanged pricing editor restores focus to its opening control. Refresh prices after a confirmed publication or revision conflict, and keep the price list mounted on ordinary cancellation.
 
 Returning from request details restores the inspected row, focus and loaded page depth for that log history entry. Restore only from workspaces that are still authorized.
