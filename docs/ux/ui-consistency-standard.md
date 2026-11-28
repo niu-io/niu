@@ -202,6 +202,8 @@ Tiered price forms focus the first invalid token threshold on submit and recompu
 
 Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
 
+Purchase comparisons identify the selling rate as standard or promotional in both desktop headers and mobile field labels.
+
 Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
 
 Pricing editors show a single decision footer. When confirming draft dismissal, focus Keep editing, offer Discard changes, and prevent publication until editing resumes.
@@ -214,7 +216,7 @@ Workspace spending-limit feedback uses the parsed amount. Show the consequences 
 
 When a mobile sheet opens a separate dialog, hand off focus after the sheet closes. Immediate dismissal of the dialog must return focus to its original action in the reopened sheet.
 
-Purchase comparisons identify the selling rate as standard or promotional in both desktop headers and mobile field labels.
+Routing forms open on the rule name. Keep priority and weight ranges with their advanced fields and preserve their values across disclosure changes.
 
 Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.
 
