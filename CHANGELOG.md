@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-28
+
+- Show purchase prices alongside promotional rates and preserve pricing drafts when another operator publishes a revision.
+- Refresh registration counts after review and improve access to affected connections and workspace request logs during supplier incidents.
+- Show the charge for owner-funded requests once.
+
 ## [0.4.1] - 2026-11-26
 
 ### Added
@@ -649,7 +655,8 @@ Agent-oriented UX, documentation and native coding-agent integrations.
   - OpenAPI 3.1 contract specifications (`contracts/`) and TypeScript client SDKs (`sdks/javascript`, `sdks/agent-connect`).
   - Single-container `Dockerfile`, `compose.yaml`, and Render Blueprint (`render.yaml`).
 
-[Unreleased]: https://github.com/niu-io/niu/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/niu-io/niu/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/niu-io/niu/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/niu-io/niu/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/niu-io/niu/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/niu-io/niu/compare/v0.3.1...v0.3.2

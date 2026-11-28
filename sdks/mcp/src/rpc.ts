@@ -4,7 +4,7 @@ import { getPrompt, promptDefinitions } from "./prompts.js";
 import type { GatewayClient } from "./gateway.js";
 
 const SUPPORTED_PROTOCOLS = ["2024-11-05", "2025-03-26", "2025-06-18"];
-export const MCP_SERVER_VERSION = "0.4.1";
+export const MCP_SERVER_VERSION = "0.4.2";
 
 type RpcMessage = {
   jsonrpc?: unknown;
