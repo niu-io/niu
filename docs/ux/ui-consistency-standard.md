@@ -235,3 +235,5 @@ Provider analytics shows one empty state when all reported usage, balance and pa
 Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.
 
 Promotion lists keep dates, scope, and actions visible when a quote is expanded. Give the comparison the full row width inside the dialog at desktop, tablet, and phone sizes.
+
+Show the customer charge state once per request-detail field. Reserve secondary text for distinct information such as a refund or unresolved settlement.

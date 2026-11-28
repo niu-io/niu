@@ -1382,7 +1382,8 @@ it('localizes Niu charge summary, breakdown states, and request charge hints cle
 
   await user.click(await screen.findByRole('button', { name: 'slow', exact: true }));
   const ownKeyDialog = await screen.findByRole('dialog', { name: '请求详情' });
-  expect(within(ownKeyDialog).getByText('使用自有 API 密钥，不由 Niu 扣费，费用以 Provider 为准。')).toBeTruthy();
+  const charge = within(ownKeyDialog).getByText('无 Niu 扣费').parentElement!;
+  expect(charge.querySelector('small')).toBeNull();
  } finally {
   saveLocale('en');
  }
