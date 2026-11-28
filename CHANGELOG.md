@@ -8,9 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [0.4.2] - 2026-11-28
 
-- Show purchase prices alongside promotional rates and preserve pricing drafts when another operator publishes a revision.
-- Refresh registration counts after review and improve access to affected connections and workspace request logs during supplier incidents.
-- Show the charge for owner-funded requests once.
+### Pricing and margins
+
+- Standard Pricing shows the selling price and purchase cost together, including the applicable unit and currency. Operators can inspect the spread and see when a model has no active supply.
+- Promotion details show the promotional rate, purchase price, original standard rate, and effective dates. These comparisons also fit phone screens.
+- Price revisions point directly to invalid tier thresholds. If another operator changes a text or media credit tariff, the editor preserves the draft and prevents a stale price from overwriting the newer revision.
+
+### Customers and workspaces
+
+- Customer onboarding creates the organization, first workspace, sign-in credential, and optional initial credit together. A failed submission can be corrected without leaving a partially provisioned customer.
+- Operators can approve or reject registrations on a phone. Queue counts refresh after a decision, and the selected status survives reload and Back navigation.
+- Workspace setup previews the address, distinguishes an optional budget from a required field, and directs users with no API key to key setup.
+
+### Usage, billing, and operations
+
+- Spending and activity reports keep the selected period when opening the underlying requests. Pending settlements are easier to isolate, and owner-funded requests show the charge once.
+- Supplier incident notices appear on supply-management pages and in affected workspaces. Operators can open the affected connection, and workspace users can go directly to that model’s request logs.
+- Model trials surface applicable workspace rates, including free or conditional pricing. Video entry points preserve the selected mode and expose missing prerequisites before submission.
 
 ## [0.4.1] - 2026-11-26
 
