@@ -4,6 +4,7 @@ import { MetricStripSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useLocale } from '@/shell/ui-locale';
+import { workspacePathSegment } from '@/shell/workspace-route';
 import { providerPathSegment } from '@/shell/provider-route';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -16,7 +17,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge'; import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { CommercialPosition, CommercialPositionRow, CustomerFinancialSummary } from '@niu-io/sdk/admin';
@@ -56,6 +57,7 @@ function PendingAttempts({ row, from, until, token }: {
   row: CommercialPositionRow; from: string; until: string; token: string;
 }) {
   const { t: uiT } = useLocale();
+  const { workspaces } = useDashboardContext();
   const first = row.pending_attempts ?? [];
   const [rest, setRest] = useState<typeof first>([]);
   const [finished, setFinished] = useState(false);
@@ -82,10 +84,13 @@ function PendingAttempts({ row, from, until, token }: {
       setRest(previous => [...previous, ...next]);
       setFinished(next.length < 50);
     } catch (cause) {
-      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : uiT("Could not load requests", "无法加载请求"));
+      if (!controller.signal.aborted) setError(cause instanceof VendorRequestError ? cause.message : uiT("Could not load more requests.", "无法加载更多请求。"));
     } finally { if (!controller.signal.aborted) setLoading(false); }
   }
-  return <Sheet>
+  const hasMore = !finished && BigInt(attempts.length) < BigInt(row.unresolved_attempts);
+  return <Sheet onOpenChange={open => {
+    if (open && hasMore && rest.length === 0 && !error) void more();
+  }}>
     <SheetTrigger asChild><Button variant="link" size="sm">{uiT("Pending (")}{row.unresolved_attempts} {uiT("unresolved)")}</Button></SheetTrigger>
     <SheetContent className="overflow-y-auto">
       <SheetHeader>
@@ -93,19 +98,26 @@ function PendingAttempts({ row, from, until, token }: {
         <SheetDescription>{row.model_alias} · {row.supplier_name} · {row.currency}</SheetDescription>
       </SheetHeader>
       <div className="space-y-4 px-4 pb-4">
-        <ul className="divide-y">{attempts.map(attempt => <li className="space-y-1 py-3" key={attempt.attempt}>
-          <code className="break-all text-xs">{attempt.attempt}</code>
-          <p className="text-sm">{[
-            attempt.execution !== 'confirmed_completed' && uiT("Execution unconfirmed", "执行结果未确认"),
-            attempt.usage_confidence !== 'provider_reported' && uiT("Usage unconfirmed", "用量未确认"),
-            attempt.charge_missing && uiT("Customer charge missing", "缺少客户扣费"),
-            attempt.revenue_source_missing && uiT("Revenue source unverified", "收入来源未核定"),
-            attempt.payable_missing && uiT("Supplier payable missing", "缺少采购应付"),
-          ].filter(Boolean).join(' · ')}</p>
-        </li>)}</ul>
-        {error && <p role="alert">{error}</p>}
-        {!finished && BigInt(attempts.length) < BigInt(row.unresolved_attempts) &&
-          <Button variant="outline" size="sm" disabled={loading} onClick={() => void more()}>{uiT("Load more")}</Button>}
+        <ul className="divide-y">{attempts.map(attempt => {
+          const workspace = workspaces?.find(item => item.id === attempt.workspace_id);
+          const reference = attempt.reference || attempt.attempt;
+          return <li className="space-y-1 py-3" key={attempt.attempt}>
+            {workspace ? <Link className="break-all text-sm font-medium underline underline-offset-4"
+              to={`/workspaces/${encodeURIComponent(workspacePathSegment(workspace, workspaces))}/executions#gateway-attempt-${encodeURIComponent(reference)}`}>
+              {reference}
+            </Link> : <code className="break-all text-xs">{reference}</code>}
+            <p className="text-sm">{[
+              attempt.execution !== 'confirmed_completed' && uiT("Execution unconfirmed", "执行结果未确认"),
+              attempt.usage_confidence !== 'provider_reported' && uiT("Usage unconfirmed", "用量未确认"),
+              attempt.charge_missing && uiT("Customer charge missing", "缺少客户扣费"),
+              attempt.revenue_source_missing && uiT("Revenue source unverified", "收入来源未核定"),
+              attempt.payable_missing && uiT("Supplier payable missing", "缺少采购应付"),
+            ].filter(Boolean).join(' · ')}</p>
+          </li>;
+        })}</ul>
+        {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+        {hasMore &&
+          <Button variant="outline" size="sm" disabled={loading} onClick={() => void more()}>{error ? uiT("Retry") : uiT("Load more")}</Button>}
       </div>
     </SheetContent>
   </Sheet>;
@@ -236,17 +248,19 @@ function formatDeltaBadge(
     );
   }
   const isPositive = diff > 0n;
+  const exactChange = (isPositive ? '+' : '-') + formatRateMoney(absDiff, currency);
   if (absDiff < 100_000n) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span tabIndex={0} className="inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs text-muted-foreground tabular-nums">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button type="button" variant="link" className="h-auto gap-1 p-0 text-xs text-muted-foreground tabular-nums underline decoration-dotted underline-offset-2">
             {isPositive ? <IconArrowUpRight size={14} /> : <IconArrowDownRight size={14} />}
-            {isPositive ? '+' : '-'}{formatStatementMoney(absDiff, currency)}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>{uiT("Exact change:")}{" "} {isPositive ? '+' : '-'}{formatRateMoney(absDiff, currency)}</TooltipContent>
-      </Tooltip>
+            <span className="print:hidden">{isPositive ? '+' : '-'}{formatStatementMoney(absDiff, currency)}</span>
+            <span className="hidden print:inline">{exactChange}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact change:")}{" "} {exactChange}</PopoverContent>
+      </Popover>
     );
   }
   const pct =
@@ -260,22 +274,22 @@ function formatDeltaBadge(
   const good = invertSentiment ? !isPositive : isPositive;
   const badge = (
     <span
-      tabIndex={absDiff % 100_000n !== 0n ? 0 : undefined}
       className={`inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs font-medium tabular-nums ${
         good ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
       }`}
     >
       {isPositive ? <IconArrowUpRight size={14} /> : <IconArrowDownRight size={14} />}
-      <span>{signedMoney}</span>
+      <span className="print:hidden">{signedMoney}</span>
+      <span className="hidden print:inline">{exactChange}</span>
       <span className="text-muted-foreground font-normal">({pct})</span>
     </span>
   );
   if (absDiff % 100_000n !== 0n) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>{badge}</TooltipTrigger>
-        <TooltipContent>{uiT("Exact change:")}{" "} {isPositive ? '+' : '-'}{formatRateMoney(absDiff, currency)}</TooltipContent>
-      </Tooltip>
+      <Popover>
+        <PopoverTrigger asChild><Button type="button" variant="link" className="h-auto p-0 underline decoration-dotted underline-offset-2">{badge}</Button></PopoverTrigger>
+        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact change:")}{" "} {exactChange}</PopoverContent>
+      </Popover>
     );
   }
   return badge;
@@ -286,16 +300,18 @@ function StatementMoney({ amount, currency }: { amount: bigint; currency: string
   const abs = amount < 0n ? -amount : amount;
   const display = formatStatementMoney(amount, currency);
   if (abs === 0n || abs % 100_000n === 0n) return <>{display}</>;
+  const exact = formatFinancialMoney(amount, currency);
   return (
-    <Tooltip>
-      <TooltipTrigger
+    <Popover>
+      <PopoverTrigger asChild><Button variant="link"
         type="button"
-        className="inline border-0 bg-transparent p-0 font-inherit text-inherit cursor-help underline decoration-dotted underline-offset-2"
+        className="inline h-auto border-0 bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-2"
       >
-        {display}
-      </TooltipTrigger>
-      <TooltipContent>{uiT("Exact amount:")}{" "}{formatFinancialMoney(amount, currency)}</TooltipContent>
-    </Tooltip>
+        <span className="print:hidden">{display}</span>
+        <span className="hidden print:inline">{exact}</span>
+      </Button></PopoverTrigger>
+      <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact amount:")}{" "}{exact}</PopoverContent>
+    </Popover>
   );
 }
 
@@ -303,9 +319,7 @@ function StatementMoney({ amount, currency }: { amount: bigint; currency: string
 export default function CommercialPositionPage() {
   const { token } = useDashboardContext();
   return (
-    <TooltipProvider>
       <CommercialStatement key={token} token={token} />
-    </TooltipProvider>
   );
 }
 
@@ -316,7 +330,8 @@ function CommercialStatement({ token }: { token: string }) {
   const { settings: branding, logo } = useBranding();
   const [search, setSearch] = useSearchParams();
   const [refresh, setRefresh] = useState(0);
-  const asOf = useMemo(() => new Date(), [search, refresh]);
+  // Tabs and model details inspect the same financial snapshot.
+  const asOf = useMemo(() => new Date(), [refresh]);
   const months = useMemo(() => buildRecentMonths(12, asOf, locale, uiF), [asOf, locale]);
   const normalizedSearch = useMemo(() => {
     const next = new URLSearchParams(search);
@@ -1191,9 +1206,7 @@ function CommercialStatement({ token }: { token: string }) {
           <div className="min-w-0 rounded-xl bg-card p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 ref={economicsHeading} tabIndex={-1} className="scroll-mt-20 text-[15px] font-semibold">{uiT("Unit economics by Provider & model")}</h2>
-                <p className="text-xs text-muted-foreground">
-                  {uiF("Models with traffic: {0} · Configured routes: {1}", [activeRows.length, sortedRows.length])}</p>
+                <h2 ref={economicsHeading} tabIndex={-1} className="sr-only print:not-sr-only">{uiT("Unit economics by Provider & model")}</h2>
               </div>
               <div className="commercial-print-hide flex flex-wrap items-center gap-1.5">
                 {inspectedModel && <span className="break-all text-sm">{inspectedModel}</span>}
@@ -1203,7 +1216,7 @@ function CommercialStatement({ token }: { token: string }) {
                   aria-pressed={!inspectedModel && modelFilter === 'active'}
                   onClick={() => { setModelFilter('active'); if (inspectedModel) setSearch(params => { params.delete('model'); return params; }); }}
                 >
-                  {uiT("Active in period (")}{activeRows.length})
+                  {uiF("Active in period ({0})", [activeRows.length])}
                 </Button>
                 <Button
                   size="sm"
@@ -1211,7 +1224,7 @@ function CommercialStatement({ token }: { token: string }) {
                   aria-pressed={!inspectedModel && modelFilter === 'all'}
                   onClick={() => { setModelFilter('all'); if (inspectedModel) setSearch(params => { params.delete('model'); return params; }); }}
                 >
-                  {uiT("All configured (")}{sortedRows.length})
+                  {uiF("All configured ({0})", [sortedRows.length])}
                 </Button>
               </div>
             </div>
@@ -1275,7 +1288,7 @@ function CommercialStatement({ token }: { token: string }) {
 
                     return (
                       <TableRow key={row.supplier_id + ':' + row.model_alias + ':' + row.currency}>
-                        <TableCell className="align-top whitespace-normal">
+                        <TableCell data-label={uiT("Provider / model")} className="align-top whitespace-normal">
                           <div className="font-medium text-foreground">{row.model_alias}</div>
                           <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                             <Link
@@ -1287,7 +1300,7 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Net contribution")} className="text-right align-top whitespace-nowrap tabular-nums">
                           {rowContrib !== null ? (
                             <div>
                               <div className="font-medium">
@@ -1305,7 +1318,7 @@ function CommercialStatement({ token }: { token: string }) {
                           )}
                         </TableCell>
 
-                        <TableCell className="align-top whitespace-normal hidden md:table-cell text-xs max-w-[240px]">
+                        <TableCell data-label={uiT("Agreed offer quote")} className="align-top whitespace-normal hidden md:table-cell text-xs max-w-[240px]">
                           {row.offers.length === 0 ? (
                             <span className="text-muted-foreground">{uiT("No quote in")}{" "}{row.currency}</span>
                           ) : (
@@ -1337,7 +1350,7 @@ function CommercialStatement({ token }: { token: string }) {
                           )}
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Gross charges")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowCharge === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
@@ -1355,7 +1368,7 @@ function CommercialStatement({ token }: { token: string }) {
                           )}
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Net revenue")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowNetRev === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
@@ -1372,7 +1385,7 @@ function CommercialStatement({ token }: { token: string }) {
                           )}
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Customer cash applied")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowCashApplied === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
@@ -1384,7 +1397,7 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Customer unpaid credit")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowUnpaidCredit === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
@@ -1396,7 +1409,7 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Provider payable")} className="text-right align-top whitespace-nowrap tabular-nums">
                           {rowPayable === null ? (
                             <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
                           ) : (
@@ -1420,7 +1433,7 @@ function CommercialStatement({ token }: { token: string }) {
                           )}
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Recorded upstream cost")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowUpstreamCost === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
@@ -1488,31 +1501,16 @@ function StatementRow({
   invertSentiment?: boolean;
 }) {
   const { t: uiT } = useUILocale();
-  const formatVal = (val: bigint | null) => {
-    if (val === null) return uiT('Unavailable');
-    if (negateDisplay && val > 0n) return `-${formatStatementMoney(val, currency)}`;
-    return formatStatementMoney(val, currency);
-  };
   return (
     <TableRow className={strong ? 'bg-muted/30 font-semibold' : muted ? 'text-muted-foreground text-xs' : undefined}>
       <TableCell className={`whitespace-normal ${indented ? 'pl-6 text-muted-foreground' : ''}`}>
         {label}
       </TableCell>
       <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
-        {current === null ? formatVal(current) : (
-          <Tooltip>
-            <TooltipTrigger asChild><span tabIndex={0}>{formatVal(current)}</span></TooltipTrigger>
-            <TooltipContent>{uiT("Exact amount:")}{" "}{formatRateMoney(negateDisplay ? -current : current, currency)}</TooltipContent>
-          </Tooltip>
-        )}
+        {current === null ? uiT('Unavailable') : <StatementMoney amount={negateDisplay && current > 0n ? -current : current} currency={currency} />}
       </TableCell>
       <TableCell className="text-right align-top whitespace-nowrap tabular-nums hidden sm:table-cell text-muted-foreground">
-        {prior === null ? formatVal(prior) : (
-          <Tooltip>
-            <TooltipTrigger asChild><span tabIndex={0}>{formatVal(prior)}</span></TooltipTrigger>
-            <TooltipContent>{uiT("Exact amount:")}{" "}{formatRateMoney(negateDisplay ? -prior : prior, currency)}</TooltipContent>
-          </Tooltip>
-        )}
+        {prior === null ? uiT('Unavailable') : <StatementMoney amount={negateDisplay && prior > 0n ? -prior : prior} currency={currency} />}
       </TableCell>
       <TableCell className="text-right align-top whitespace-nowrap">
         {formatDeltaBadge(uiT, current, prior, currency, invertSentiment)}

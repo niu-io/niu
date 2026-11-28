@@ -1416,6 +1416,7 @@ export type GatewayChargeSummary = {
 };
 export type GatewayActivityPage = { data: GatewayActivityEntry[]; next_cursor: string | null; summary: GatewayActivitySummary };
 export type GatewayActivityQuery = {
+  pendingSettlement?: boolean;
   /** Case-insensitive search of customer-visible request metadata. */
   q?: string;
   limit?: number; after?: string; fromMs?: number; toMs?: number;
@@ -1604,7 +1605,7 @@ export interface RoutingRegistryStatus {
 
 /** Confidential platform comparison. Customer charge is not an external cash receipt. */
 export type CommercialPositionRow = {
-  pending_attempts?: Array<{ attempt: string; execution: string; usage_confidence: string; charge_missing: boolean; revenue_source_missing?: boolean; payable_missing: boolean }>;
+  pending_attempts?: Array<{ attempt: string; workspace_id?: string; reference?: string | null; execution: string; usage_confidence: string; charge_missing: boolean; revenue_source_missing?: boolean; payable_missing: boolean }>;
   supplier_id: string; supplier_name: string; model_alias: string; currency: string;
   offers: Array<{
     offer_id: string; route_alias: string; revision: string; rate_kind: 'text' | 'media';
@@ -3097,7 +3098,7 @@ export class NiuAdminClient {
   }
 
   /** Registered shared aliases, including disabled configuration; not supply readiness. */
-  listRegisteredRetailModels(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { model_alias: string }[]; next_after: string | null }> {
+  listRegisteredRetailModels(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { model_alias: string; text: boolean; media: { channel: string; resolutions: string[]; reference_video: boolean; meter: string } | null }[]; next_after: string | null }> {
     const query = new URLSearchParams();
     if (page.after !== undefined) {
       if (!page.after || new TextEncoder().encode(page.after).length > 200) throw new TypeError('A model cursor of at most 200 bytes is required');
@@ -4619,6 +4620,7 @@ export class NiuAdminClient {
 
 function gatewayActivityParameters(query: GatewayActivityQuery): URLSearchParams {
   const parameters = new URLSearchParams();
+  if (query.pendingSettlement) parameters.set('pending_settlement', 'true');
   if (query.q?.trim()) parameters.set('q', query.q.trim());
   if (query.httpStatus !== undefined) {
     if (query.httpStatus !== 'unknown' && (!Number.isInteger(query.httpStatus) || query.httpStatus < 100 || query.httpStatus > 599)) throw new Error('httpStatus must be an integer from 100 to 599 or unknown');

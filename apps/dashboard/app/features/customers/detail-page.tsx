@@ -186,7 +186,6 @@ export function CustomerDetail({
   const members: CompanyMemberSummary[] = currentCompany.members ?? [];
   const transactions = currentCompany.recent_transactions ?? [];
   const customPriceCount = currentCompany.custom_price_count ?? 0;
-  const workspaceCount = currentCompany.workspace_count ?? workspaces.length;
   const memberCount = currentCompany.member_count ?? members.length;
   const workspaceNameById = new Map(workspaces.map(ws => [ws.id, ws.name]));
   const outstandingNanos =
@@ -243,6 +242,12 @@ export function CustomerDetail({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {primaryAccount && (
+                  <DropdownMenuItem onSelect={() => openEditorFrom('history', primaryAccount, openerRef.current)}>
+                    {uiT('Noncash grant history')}
+                  </DropdownMenuItem>
+                )}
+                {primaryAccount && <DropdownMenuSeparator />}
                 <DropdownMenuItem
                   className="sm:hidden"
                   disabled={!canTransactPrimary}
@@ -258,18 +263,12 @@ export function CustomerDetail({
                 >
                   {uiT('Set up access', '配置工作空间与账号')}
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   disabled={!canTransactPrimary}
                   onSelect={() => openEditorFrom('grant', primaryAccount, openerRef.current)}
                 >
                   {uiT('Grant noncash balance')}
                 </DropdownMenuItem>
-                {primaryAccount && (
-                  <DropdownMenuItem onSelect={() => openEditorFrom('history', primaryAccount, openerRef.current)}>
-                    {uiT('Noncash grant history')}
-                  </DropdownMenuItem>
-                )}
                 <DropdownMenuItem onSelect={() => openEditorFrom('units', primaryAccount, openerRef.current)}>
                   {uiT('Manage Branded Credits')}
                 </DropdownMenuItem>
@@ -313,14 +312,7 @@ export function CustomerDetail({
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="access" className="gap-1.5">
-              <span>{uiT('Workspaces & members', '工作空间与成员')}</span>
-              {workspaceCount > 0 && (
-                <Badge variant="secondary" className="px-1.5 py-0 text-[11px] font-normal">
-                  {workspaceCount}
-                </Badge>
-              )}
-            </TabsTrigger>
+            <TabsTrigger value="access">{uiT('Workspaces & members', '工作空间与成员')}</TabsTrigger>
           </TabsList>
         </div>
 
@@ -579,10 +571,7 @@ export function CustomerDetail({
         </TabsContent>
 
         <TabsContent value="access" className="space-y-6 pt-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              {uiT('Workspaces within this company share its balance.', '该公司下的所有工作空间共享同一账户余额。')}
-            </p>
+          <div className="flex justify-end">
             <Button
               type="button"
               size="sm"
@@ -599,7 +588,7 @@ export function CustomerDetail({
           <div className="space-y-2.5">
             <h2 className="text-sm font-medium">{uiT('Workspaces')}</h2>
             {workspaces.length > 0 ? (
-              <Table aria-label={uiT('Customer workspaces', '客户工作空间')}>
+              <Table className="customer-access-table" aria-label={uiT('Customer workspaces', '客户工作空间')}>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{uiT('Workspace')}</TableHead>
@@ -610,7 +599,7 @@ export function CustomerDetail({
                 <TableBody>
                   {workspaces.map(ws => (
                     <TableRow key={ws.id}>
-                      <TableCell className="font-medium">
+                      <TableCell data-label={uiT('Workspace')} className="font-medium">
                         <Link
                           className="underline-offset-4 hover:underline"
                           to={`/workspaces/${encodeURIComponent(ws.slug || ws.id)}`}
@@ -618,10 +607,10 @@ export function CustomerDetail({
                           {ws.name}
                         </Link>
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
+                      <TableCell data-label={uiT('URL slug', '路径标识')} className="font-mono text-xs text-muted-foreground">
                         {ws.slug ? `/${ws.slug}` : '—'}
                       </TableCell>
-                      <TableCell className="text-right text-muted-foreground tabular-nums">
+                      <TableCell data-label={uiT('Created', '创建时间')} className="text-right text-muted-foreground tabular-nums">
                         {formatCustomerShortDate(ws.created_at, locale)}
                       </TableCell>
                     </TableRow>
@@ -636,47 +625,34 @@ export function CustomerDetail({
           </div>
 
           <div className="space-y-2.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-medium">{uiT('Members', '成员')}</h2>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={event => {
-                  openerRef.current = event.currentTarget;
-                  setSetupOpen(true);
-                }}
-              >
-                {members.length > 0 ? uiT('Manage login & password', '管理登录密码') : uiT('Create login account', '创建登录账号')}
-              </Button>
-            </div>
+            <h2 className="text-sm font-medium">{uiT('Members', '成员')}</h2>
             {members.length > 0 ? (
-              <Table aria-label={uiT('Customer members', '客户成员')}>
+              <Table className="customer-access-table" aria-label={uiT('Customer members', '客户成员')}>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{uiT('Member', '成员')}</TableHead>
                     <TableHead>{uiT('Email', '邮箱')}</TableHead>
                     <TableHead>{uiT('Role')}</TableHead>
-                    <TableHead className="hidden sm:table-cell">{uiT('Scope', '范围')}</TableHead>
-                    <TableHead className="hidden md:table-cell text-right">{uiT('Joined', '加入时间')}</TableHead>
+                    <TableHead>{uiT('Scope', '范围')}</TableHead>
+                    <TableHead className="text-right">{uiT('Joined', '加入时间')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {members.map(member => (
                     <TableRow key={member.id}>
-                      <TableCell className="font-medium [overflow-wrap:anywhere]">{member.name}</TableCell>
-                      <TableCell className="text-muted-foreground [overflow-wrap:anywhere]">{member.email ?? '—'}</TableCell>
-                      <TableCell>
-                        <Badge variant={member.role === 'owner' && !member.project_id ? 'default' : 'outline'}>
+                      <TableCell data-label={uiT('Member', '成员')} className="font-medium [overflow-wrap:anywhere]">{member.name}</TableCell>
+                      <TableCell data-label={uiT('Email', '邮箱')} className="text-muted-foreground [overflow-wrap:anywhere]">{member.email ?? '—'}</TableCell>
+                      <TableCell data-label={uiT('Role')}>
+                        <Badge className="justify-self-end" variant={member.role === 'owner' && !member.project_id ? 'default' : 'outline'}>
                           {memberRoleLabel(member.role, uiT)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell text-muted-foreground">
+                      <TableCell data-label={uiT('Scope', '范围')} className="text-muted-foreground">
                         {member.project_id
                           ? workspaceNameById.get(member.project_id) ?? uiT('Workspace')
                           : uiT('All workspaces')}
                       </TableCell>
-                      <TableCell className="hidden md:table-cell text-right text-muted-foreground tabular-nums">
+                      <TableCell data-label={uiT('Joined', '加入时间')} className="text-right text-muted-foreground tabular-nums">
                         {formatCustomerShortDate(member.created_at, locale)}
                       </TableCell>
                     </TableRow>
@@ -685,7 +661,7 @@ export function CustomerDetail({
               </Table>
             ) : (
               <div className="rounded-xl bg-muted/45 px-4 py-5 text-sm text-muted-foreground">
-                {uiT('Owner not set')}
+                {uiT('No members yet.', '暂无成员。')}
               </div>
             )}
           </div>

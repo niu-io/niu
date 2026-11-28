@@ -5642,6 +5642,27 @@ Opaque source-qualified next_cursor from the previous page; do not parse or disp
 }
 ```
 
+`search` (query, optional)
+
+Case-insensitive literal search over displayed event metadata, applied before pagination.
+
+```json
+{
+  "type": "string",
+  "maxLength": 256
+}
+```
+
+`labels` (query, optional)
+
+Comma-separated localized matches for action, actor, source or category identifiers, e.g. action:session_created. Combined with search using OR.
+
+```json
+{
+  "type": "string"
+}
+```
+
 `category` (query, optional)
 
 ```json
@@ -9548,6 +9569,17 @@ Exact public model alias filter.
 }
 ```
 
+`pending_settlement` (query, optional)
+
+Restrict requests and summary to pending customer settlement before pagination.
+
+```json
+{
+  "type": "boolean",
+  "default": false
+}
+```
+
 `operation_id` (query, optional)
 
 Restrict attempts and summaries to one operation within the authorized workspace. Unknown or foreign operations yield an empty result; this does not authorize cross-workspace reads.
@@ -10582,6 +10614,17 @@ Content type: `application/json`.
               "properties": {
                 "attempt": {
                   "type": "string"
+                },
+                "workspace_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "reference": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Customer-visible request reference."
                 },
                 "execution": {
                   "type": "string"
@@ -15200,11 +15243,17 @@ Content type: `application/json`.
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "model_alias"
+          "model_alias",
+          "text",
+          "media"
         ],
         "properties": {
           "model_alias": {
             "type": "string"
+          },
+          "text": {
+            "type": "boolean",
+            "description": "Eligible for a standard text tariff."
           },
           "media": {
             "type": [

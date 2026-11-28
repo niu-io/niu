@@ -17,7 +17,7 @@ export const shouldRevalidate = routeShouldRevalidate;
 export default function ExecutionsRoute() {
   useOptionalRouteLoaderData();
   const [params] = useSearchParams();
-  const { workspace } = useDashboardContext();
+  const { workspace, session } = useDashboardContext();
   const scope = workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null;
   return <ConnectGate>
     {({ token, models }) => <GatewayActivity
@@ -26,6 +26,7 @@ export default function ExecutionsRoute() {
       models={models.map(model => model.id)}
       initialScope={scope}
       preferredModelAlias={params.get('modelAlias') ?? undefined}
+      canCreateKey={session?.permissions.write === true}
       activeKeyCount={workspace?.active_key_count}
     />}
   </ConnectGate>;

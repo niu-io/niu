@@ -5433,6 +5433,23 @@
             "description": "Opaque source-qualified next_cursor from the previous page; do not parse or display."
           },
           {
+            "name": "search",
+            "in": "query",
+            "description": "Case-insensitive literal search over displayed event metadata, applied before pagination.",
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "labels",
+            "in": "query",
+            "description": "Comma-separated localized matches for action, actor, source or category identifiers, e.g. action:session_created. Combined with search using OR.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "category",
             "in": "query",
             "schema": {
@@ -9080,6 +9097,15 @@
             }
           },
           {
+            "name": "pending_settlement",
+            "in": "query",
+            "description": "Restrict requests and summary to pending customer settlement before pagination.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
             "name": "operation_id",
             "in": "query",
             "description": "Restrict attempts and summaries to one operation within the authorized workspace. Unknown or foreign operations yield an empty result; this does not authorize cross-workspace reads.",
@@ -10083,6 +10109,17 @@
                               "properties": {
                                 "attempt": {
                                   "type": "string"
+                                },
+                                "workspace_id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "reference": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "Customer-visible request reference."
                                 },
                                 "execution": {
                                   "type": "string"
@@ -14865,11 +14902,17 @@
                         "type": "object",
                         "additionalProperties": false,
                         "required": [
-                          "model_alias"
+                          "model_alias",
+                          "text",
+                          "media"
                         ],
                         "properties": {
                           "model_alias": {
                             "type": "string"
+                          },
+                          "text": {
+                            "type": "boolean",
+                            "description": "Eligible for a standard text tariff."
                           },
                           "media": {
                             "type": [

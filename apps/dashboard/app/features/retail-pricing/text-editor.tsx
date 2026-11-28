@@ -7,18 +7,18 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ProviderRequestError, request, writeMayHaveCommitted } from '@/features/providers/api';
 import { amountFromNanos, amountToNanos } from '@/lib/money';
 import { lookupProviderDefaultTextSchedule, registeredTextModelChoices } from './api';
 import type { RetailPriceRecord, RetailPublicationResult, RetailStandardPublication } from '@niu-io/sdk/admin';
 
-import { TextRateBand } from './text-rate-band';
-import { tokenBand, ratesFrom, checkedRates, type Rates, type Tier } from './text-terms';
+import { ContextTierFields, TextRateBand } from './text-rate-band';
+import { tokenBand, ratesFrom, checkedRates, checkedTiers, type Rates, type Tier } from './text-terms';
 
 /** Full text selling terms; optional categories stay distinct from explicit zero. */
-export function TextStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean) => void; onSaved: () => void }) {
+export function TextStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean, conflict?: boolean) => void; onSaved: () => void }) {
   const { t: uiT } = useUILocale();
   const original = previous?.schedule.kind === 'text' ? previous.schedule : undefined;
   const [model, setModel] = useState(previous?.model_alias ?? initialModel);
@@ -71,22 +71,17 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
   function requestClose() {
     if (busy) return;
     if (dirty && !attempt && !conflict) setConfirmDiscard(true);
-    else onClose(!!attempt && !conflict);
+    else onClose(!!attempt && !conflict, conflict);
   }
   const locked = busy || !!attempt || conflict;
   async function publish(event: FormEvent) {
-    event.preventDefault(); if (busy || conflict) return;
+    event.preventDefault(); if (busy || conflict || confirmDiscard) return;
     let input = attempt;
     if (!input) {
       try {
         const note = reason.trim();
         if (!model || !/^[A-Z]{3}$/.test(currency) || [...note].length > 500 || /[\u0000-\u001f\u007f-\u009f]/.test(note)) throw new Error('Choose a model, uppercase three-letter currency and an optional single-line note of up to 500 characters.');
-        let last = -1n;
-        const context_tiers = tiers.map(tier => {
-          if (!/^\d+$/.test(tier.minimum_input_tokens) || BigInt(tier.minimum_input_tokens) <= last || BigInt(tier.minimum_input_tokens) > 9_223_372_036_854_775_807n) throw new Error('Context thresholds must be increasing nonnegative integer token counts.');
-          last = BigInt(tier.minimum_input_tokens);
-          return { minimum_input_tokens: last.toString(), ...checkedRates(tier.rates) };
-        });
+        const context_tiers = checkedTiers(tiers);
         input = { model_alias: model, currency, schedule: { kind: 'text', ...checkedRates(rates), request_fee_nanos: amountToNanos(fee, true), minimum_charge_nanos: amountToNanos(minimum, true), context_tiers }, expected_version: previous?.version ?? '0', idempotency_key: key.current, reason: note };
       } catch (failure) { setError(failure instanceof Error ? failure.message : 'Invalid selling terms.'); return; }
     }
@@ -112,31 +107,7 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
     <TextRateBand id="standard" rates={rates} previous={original ? ratesFrom(original) : undefined}
       disabled={locked} onChange={(field, value) => setRates(current => ({ ...current, [field]: value }))} />
 
-    <div className="space-y-4">
-      {tiers.map((tier, index) => {
-        const savedTier = original?.context_tiers.find(saved => saved.minimum_input_tokens === tier.minimum_input_tokens);
-        return <section key={index} className="space-y-3 border-t pt-4">
-          <h3 className="font-medium">{uiT("Input tokens", "输入 Token")} · {tokenBand(tier.minimum_input_tokens, tiers[index + 1]?.minimum_input_tokens)}</h3>
-          <div className="flex items-end gap-2">
-            <div className="grid gap-2">
-              <Label htmlFor={'tier-threshold-' + index}>{uiT("Minimum input tokens")}</Label>
-              <Input id={'tier-threshold-' + index} inputMode="numeric" disabled={locked} value={tier.minimum_input_tokens}
-                onChange={event => setTiers(current => current.map((item, i) => i === index ? { ...item, minimum_input_tokens: event.target.value } : item))} />
-            </div>
-            <Button type="button" variant="outline" disabled={locked} onClick={() => {
-              setDirty(true);
-              setTiers(current => current.filter((_, i) => i !== index));
-            }}>{uiT("Remove tier")} {index + 1}</Button>
-          </div>
-          <TextRateBand id={'tier-' + index} rates={tier.rates} previous={savedTier ? ratesFrom(savedTier) : undefined} disabled={locked}
-            onChange={(field, value) => setTiers(current => current.map((item, i) => i === index ? { ...item, rates: { ...item.rates, [field]: value } } : item))} />
-        </section>;
-      })}
-      <Button type="button" variant="outline" disabled={locked || tiers.length >= 128} onClick={() => {
-        setDirty(true);
-        setTiers(current => [...current, { minimum_input_tokens: '', rates: ratesFrom() }]);
-      }}>{uiT("Add tier")}</Button>
-    </div>
+    <ContextTierFields tiers={tiers} setTiers={setTiers} previous={original?.context_tiers} locked={locked} onDirty={() => setDirty(true)} />
     <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="standard-fee">{uiT("Request fee")}</Label><Input id="standard-fee" value={fee} disabled={locked} inputMode="decimal" onChange={event => setFee(event.target.value)} /></div><div className="space-y-2"><Label htmlFor="standard-minimum">{uiT("Minimum charge")}</Label><Input id="standard-minimum" value={minimum} disabled={locked} inputMode="decimal" onChange={event => setMinimum(event.target.value)} /></div></div>
     <div className="space-y-2"><Label htmlFor="standard-reason">{uiT("Note (optional)")}</Label><Input id="standard-reason" value={reason} maxLength={500} disabled={locked} onChange={event => setReason(event.target.value)} /></div>
     {hasZeroBaseRate && (
@@ -158,11 +129,9 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
       </Alert>
     )}
     {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
-    {confirmDiscard && <Alert><AlertDescription className="flex flex-wrap items-center gap-2">
-      {uiT("Discard unpublished changes?", "放弃未发布的修改？")}
-      <Button type="button" onClick={() => setConfirmDiscard(false)}>{uiT("Keep editing", "继续编辑")}</Button>
+    {confirmDiscard ? <DialogFooter key="discard">
       <Button type="button" variant="outline" onClick={() => onClose(false)}>{uiT("Discard changes", "放弃修改")}</Button>
-    </AlertDescription></Alert>}
-    <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" onClick={requestClose}>{uiT("Close")}</Button><Button type="submit" disabled={busy || conflict || !model || (hasZeroBaseRate && !zeroConfirmed)}>{busy ? uiT("Publishing…") : attempt ? uiT("Retry exact publication") : uiT("Publish standard price")}</Button></div>
+      <Button type="button" autoFocus onClick={() => setConfirmDiscard(false)}>{uiT("Keep editing", "继续编辑")}</Button>
+    </DialogFooter> : <DialogFooter key="publish"><Button type="button" variant="outline" onClick={requestClose}>{uiT("Close")}</Button><Button type="submit" disabled={busy || conflict || !model || (hasZeroBaseRate && !zeroConfirmed)}>{busy ? uiT("Publishing…") : attempt ? uiT("Retry exact publication") : uiT("Publish standard price")}</Button></DialogFooter>}
   </form></DialogContent></Dialog>;
 }

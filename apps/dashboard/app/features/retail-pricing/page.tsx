@@ -48,11 +48,11 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
     tabParam === 'credits' || tabParam === 'currency' ? tabParam : null,
   );
   const activeMode: BillingMode = billingMode ?? 'currency';
-  const showModeTabs = activeMode === 'credits' || Boolean(unit) || tabParam === 'credits';
+  const showModeTabs = activeMode === 'credits' || Boolean(unit) || tabParam === 'credits' || tabParam === 'currency';
   const mode: BillingMode = tabParam === 'credits' || tabParam === 'currency'
     ? tabParam
     : viewMode ?? activeMode;
-  const modeLabel = mode === 'credits' ? uiT("Branded Credits") : uiT("Settlement Currency");
+  const billingBadge = <Badge variant="secondary">{uiT("Used for billing", "计费中")}</Badge>;
   const scope = token || 'public';
   const firstPagePath = base + '?limit=50';
   const initialPage = peekQuery<{ data: (RetailPriceRecord & { pricing_health?: PricingHealth })[]; next_after: string | null }>(scope, firstPagePath);
@@ -97,6 +97,11 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
       setRows(current => after ? [...current, ...result.data.filter(row => !current.some(item => item.price_id === row.price_id))] : result.data); setCursor(result.next_after);
     } catch (failure) { if (!controller.signal.aborted) { setFailed(after); setError(failure instanceof Error ? failure.message : 'Standard prices unavailable.'); } }
     finally { if (!controller.signal.aborted) setLoading(false); }
+  }
+  function closeEditor(pending: boolean, conflict = false) {
+    setEditorOpen(false);
+    if (!pending) setEditor(null);
+    if (conflict) reloadFresh();
   }
   const reloadFresh = () => {
     invalidateQueries(base);
@@ -147,6 +152,7 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
       : supplyFilter === 'inactive'
         ? uiF("No active supply ({0})", [cursor ? inactiveSupplyCount + "+" : inactiveSupplyCount])
         : uiF("All models ({0})", [cursor ? rows.length + "+" : rows.length]);
+  const modelSearch = <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={priceSearch} type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>;
   const supplyFilterControl = hasSupplyData ? (
     <div className="flex flex-wrap items-center gap-2">
       <DropdownMenu>
@@ -202,27 +208,18 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
         title={uiT("Standard pricing", "标准售价")}
         tabs={showModeTabs ? (
           <TabsList variant="line" aria-label={uiT("Pricing mode")}>
-            <TabsTrigger value="currency">{uiT("Settlement Currency")}</TabsTrigger>
-            <TabsTrigger value="credits">{uiT("Branded Credits")}</TabsTrigger>
+            <TabsTrigger value="currency">{uiT("Currency", "结算币种")}{billingMode === 'currency' && billingBadge}</TabsTrigger>
+            <TabsTrigger value="credits">{uiT("Credits", "额度")}{billingMode === 'credits' && billingBadge}</TabsTrigger>
           </TabsList>
         ) : undefined}
         action={currencyHeaderActions}
       />
       {editor && !editorOpen && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("A price publication is awaiting confirmation. Reopen it to check or retry before leaving this page.")}</span><Button type="button" variant="outline" onClick={event => { dialogOpener.current = event.currentTarget; setEditorOpen(true); }}>{uiT("Return to publication")}</Button></AlertDescription></Alert>}
-      {showModeTabs && (
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={mode === activeMode ? 'secondary' : 'outline'}>{mode === activeMode ? uiF("Active billing mode: {0}", [modeLabel]) : uiF("Preparing prices for {0}", [modeLabel])}</Badge>
-            {mode === 'currency' && supplyFilterControl}
-          </div>
-          <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={priceSearch} type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
-        </div>
-      )}
       <TabsContent value="currency" className="space-y-4">
         {!currency && <Alert><AlertDescription className="flex flex-wrap items-center gap-2"><span>{uiT("Configure the platform currency in Admin Settings before publishing currency prices. If it is already configured, refresh this page.")}</span><Button asChild variant="link" className="h-auto p-0"><Link to="/admin/settings">{uiT("Open Settings")}</Link></Button></AlertDescription></Alert>}
-        {!showModeTabs && (
+        {rows.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="relative w-full min-w-0 sm:max-w-sm"><IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={priceSearch} type="search" className="pl-9" aria-label={uiT("Filter model prices")} placeholder={uiT("Filter by model name…")} value={filter} onChange={event => setFilter(event.target.value)} /></div>
+            {modelSearch}
             {supplyFilterControl}
           </div>
         )}
@@ -239,7 +236,7 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
           return <TableRow key={row.price_id} className={unsupplied ? 'opacity-75 transition-opacity hover:opacity-100' : undefined}><TableCell className="max-w-64 whitespace-normal"><p className="inline-flex items-center gap-2 font-medium break-words"><ProviderLogo provider={modelIdentity({ id: row.model_alias })} size="small" /><span>{row.model_alias}</span></p><div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"><span>{row.currency} · {row.schedule.kind === 'text' ? uiT("Text tokens") : row.schedule.meter === 'video_tokens' ? uiT("Video tokens") : row.schedule.meter === 'seconds' ? uiT("Seconds") : row.schedule.meter}</span>{supply === 'active' && <Badge variant="secondary" className="h-5 px-1.5 text-[11px] font-normal">{providers.length ? uiF("Active supply · {0}", [providers.join(', ')]) : uiT("Active supply", "有可用供应")}</Badge>}{supply === 'inactive' && <Badge variant="outline" className="h-5 px-1.5 text-[11px] font-normal text-muted-foreground">{uiT("Supply inactive", "供应已停用")}</Badge>}{supply === 'unconfigured' && <Badge variant="outline" className="h-5 px-1.5 text-[11px] font-normal text-muted-foreground">{uiT("No active supply", "无可用供应")}</Badge>}</div></TableCell><TableCell data-label={uiT("Standard price")} className="min-w-0 sm:min-w-52 whitespace-normal tabular-nums"><SellingSchedule schedule={row.schedule} currency={row.currency} compact />
             {missingQuote && <Badge variant="outline">{uiT("Purchase comparison incomplete", "采购价待核对")}</Badge>}
             {below && <div className="mt-2 space-y-1"><Badge variant="destructive">{uiT("Below purchase cost", "低于采购成本")}</Badge>
-              {loss && <p className="text-sm">{uiT(loss.dimension)} · {below.provider} · {uiT("Selling price", "售价")} {money(loss.selling, row.currency)} · {uiT("Purchase price", "采购价")} {money(loss.purchase, row.currency)} / {uiT("million tokens", "百万 Token")}{loss.minimum_input_tokens !== '0' && ' · ≥ ' + BigInt(loss.minimum_input_tokens).toLocaleString() + ' ' + uiT("Tokens")}</p>}</div>}</TableCell><TableCell data-label={uiT("Published")} className="text-sm text-muted-foreground whitespace-normal">{date(row.published_at)}</TableCell><TableCell><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="sm" disabled={loading || !!error} onClick={event => { dialogOpener.current = event.currentTarget; setSelected(row); }}>{uiT("Compare prices", "核对价格")}</Button><DropdownMenu><DropdownMenuTrigger asChild><Button onFocus={event => { dialogOpener.current = event.currentTarget; }} variant="ghost" size="icon" aria-label={uiT("Actions")} disabled={loading || !!error}><IconDots /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={!!editor} onSelect={() => { setEditor({ kind: row.schedule.kind, previous: row }); setEditorOpen(true); }}>{uiT("Revise standard")}</DropdownMenuItem><DropdownMenuItem onSelect={() => setManaged(row)}>{uiT("Promotions")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></TableCell></TableRow>;
+              {loss && <p className="text-sm">{uiT(loss.dimension)} · {below.provider} · {uiT("Selling price", "售价")} {money(loss.selling, row.currency)} · {uiT("Purchase price", "采购价")} {money(loss.purchase, row.currency)} / {uiT("million tokens", "百万 Token")}{loss.minimum_input_tokens !== '0' && ' · ≥ ' + BigInt(loss.minimum_input_tokens).toLocaleString() + ' ' + uiT("Tokens")}</p>}</div>}</TableCell><TableCell data-label={uiT("Published")} className="text-sm text-muted-foreground whitespace-normal">{date(row.published_at)}</TableCell><TableCell><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="sm" disabled={loading || !!error} onClick={event => { dialogOpener.current = event.currentTarget; setSelected(row); }}>{uiT("Compare prices", "核对价格")}</Button><DropdownMenu><DropdownMenuTrigger asChild><Button onPointerDownCapture={event => { dialogOpener.current = event.currentTarget; }} onFocus={event => { dialogOpener.current = event.currentTarget; }} variant="ghost" size="icon" aria-label={uiT("Actions")} disabled={loading || !!error}><IconDots /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={!!editor} onSelect={() => { setEditor({ kind: row.schedule.kind, previous: row }); setEditorOpen(true); }}>{uiT("Revise standard")}</DropdownMenuItem><DropdownMenuItem onSelect={() => setManaged(row)}>{uiT("Promotions")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></TableCell></TableRow>;
         })}</TableBody></Table>}
         {!loading && !error && !cursor && !visible.length && <Empty className="min-h-48">
           <EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{rows.length ? uiT("No matching prices") : uiT("No standard prices yet")}</EmptyTitle></EmptyHeader>
@@ -251,11 +248,11 @@ function Standards({ token, refreshModels }: { token: string; refreshModels: () 
         </Empty>}
         {cursor && <Button variant="outline" disabled={loading} onClick={() => void load(cursor)}>{uiT("More prices")}</Button>}
       </TabsContent>
-      <TabsContent value="credits" className="space-y-4"><BrandedUnitTariffsSection token={token} filter={filter} /></TabsContent>
+      <TabsContent value="credits" className="space-y-4"><BrandedUnitTariffsSection token={token} filter={filter} searchControl={modelSearch} /></TabsContent>
     </Tabs>
     {legacyOpen && <LegacyMediaContracts token={token} returnFocus={legacyOpener} onClose={() => setLegacyOpen(false)}/>}
-    {editor?.kind === 'text' && <TextStandardEditor token={token} previous={editor.previous} initialModel={editor.initialModel} open={editorOpen} onCloseAutoFocus={restorePricingFocus} onClose={pending => { setEditorOpen(false); if (!pending) { setEditor(null); reloadFresh(); } }} onSaved={() => { setEditor(null); setNotice(uiT("Text standard price published.")); reloadFresh(); }} />}
-    {editor?.kind === 'media' && <MediaStandardEditor token={token} previous={editor.previous} initialModel={editor.initialModel} open={editorOpen} onCloseAutoFocus={restorePricingFocus} onClose={pending => { setEditorOpen(false); if (!pending) { setEditor(null); reloadFresh(); } }} onSaved={() => { setEditor(null); setNotice(uiT("Media standard price published.")); reloadFresh(); }} />}
+    {editor?.kind === 'text' && <TextStandardEditor token={token} previous={editor.previous} initialModel={editor.initialModel} open={editorOpen} onCloseAutoFocus={restorePricingFocus} onClose={closeEditor} onSaved={() => { setEditor(null); setNotice(uiT("Text standard price published.")); reloadFresh(); }} />}
+    {editor?.kind === 'media' && <MediaStandardEditor token={token} previous={editor.previous} initialModel={editor.initialModel} open={editorOpen} onCloseAutoFocus={restorePricingFocus} onClose={closeEditor} onSaved={() => { setEditor(null); setNotice(uiT("Media standard price published.")); reloadFresh(); }} />}
     {managed && <PromotionsManager token={token} price={managed} onClose={() => { setManaged(null); reloadFresh(); }} onPublish={baseline => { setManaged(null); setPromotion(baseline); }} />}
     {promotion && <PromotionEditor token={token} baseline={promotion} onClose={() => { setPromotion(null); reloadFresh(); }} onSaved={() => { setPromotion(null); setNotice('Finite promotion published. Existing request prices are unchanged.'); reloadFresh(); }} />}
     {selected && <History key={selected.price_id} token={token} price={selected} onCloseAutoFocus={restorePricingFocus} onClose={() => setSelected(null)} />}

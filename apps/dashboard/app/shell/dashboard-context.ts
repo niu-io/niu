@@ -11,7 +11,12 @@ export type CustomerTokenRates = {
 };
 type CustomerTariff = CustomerTokenRates & { context_tiers?: (CustomerTokenRates & { minimum_input_tokens: string })[] };
 export type CustomerPricing = CustomerTariff & {currency:string; unit:'nanounits_per_million_tokens'; request_fee_nanos?:string; minimum_charge_nanos?:string};
-export type CustomerUnitPricing = CustomerTariff & {definition_revision:string; unit_name:string; display_precision:number; atoms_per_unit:string; unit?:'atoms_per_million_tokens'; request_fee_atoms?:string; minimum_charge_atoms?:string; rounding_mode?:string};
+export type ModelMediaTariff = {
+  channel: string; resolution: string; reference_video: boolean;
+  unit_name: string; display_precision: number;
+  price: { amount_atoms: string; per_quantity: { numerator: string; denominator: string }; meter: string };
+};
+export type CustomerUnitPricing = CustomerTariff & {definition_revision:string; unit_name:string; display_precision:number; atoms_per_unit:string; unit?:'atoms_per_million_tokens'; request_fee_atoms?:string; minimum_charge_atoms?:string; rounding_mode?:string; media_tariffs?: ModelMediaTariff[]};
 export type Model = { generation_capabilities?: {chat:boolean|null;video:boolean|null}|null; billing_source?: 'own_api_key' | 'niu_credits' | null; callable?: boolean; readiness_issues?: string[]; customer_pricing?: CustomerPricing | null; customer_unit_pricing?: CustomerUnitPricing | null; catalog?: CatalogMetadata; id: string; provider?: string; provider_name?: string | null; upstream_model?: string; public_catalog: boolean };
 export type Health = { status: string; model_count?: number };
 export type GatewayStatus = 'online' | 'offline' | 'checking';

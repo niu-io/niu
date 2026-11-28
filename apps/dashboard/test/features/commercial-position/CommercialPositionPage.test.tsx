@@ -9,6 +9,7 @@ import CommercialPositionPage from '../../../app/features/commercial-position/pa
 vi.mock('../../../app/shell/dashboard-context', () => ({
   useDashboardContext: () => ({
     token: 'platform-admin-token',
+    workspaces: [{ id: 'w1', slug: 'research', name: 'Research' }],
   }),
 }));
 
@@ -149,6 +150,18 @@ it('renders a structured financial statement with period comparisons, active mod
 
   // Financial figures are formatted to 4 decimal places with $ symbol
   expect(screen.getAllByText('$0.8000').length).toBeGreaterThan(0);
+
+  // Crossing a minute boundary while inspecting a report must retain its snapshot.
+  const requestsBeforeDrilldown = fetchMock.mock.calls.length;
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(Date.now() + 60_000);
+  try {
+    await user.click(screen.getByRole('tab', { name: 'Unit economics' }));
+    expect(await screen.findByRole('heading', { name: 'Unit economics by Provider & model' })).toBeTruthy();
+    expect(fetchMock.mock.calls.length).toBe(requestsBeforeDrilldown);
+  } finally {
+    vi.useRealTimers();
+  }
 
   // Switch to Cash & wallet position tab
   await user.click(screen.getByRole('tab', { name: 'Cash & wallet position' }));
@@ -291,6 +304,11 @@ it('compacts sub-cent-hundredth figures and single-nanounit quotes while surfaci
   );
 
   expect((await screen.findAllByText('<$0.0001')).length).toBeGreaterThan(0);
+  const amount = (await screen.findAllByRole('button', { name: '<$0.0001' }))[0];
+  await user.click(amount);
+  expect((await screen.findByRole('dialog')).textContent).toContain('Exact amount:');
+  await user.keyboard('{Escape}');
+  expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByText(/\$0\.0000 · simulated excluded/)).toBeTruthy();
 
   await user.click(screen.getByRole('tab', { name: 'Cash & wallet position' }));
@@ -300,4 +318,25 @@ it('compacts sub-cent-hundredth figures and single-nanounit quotes while surfaci
   const unitTable = screen.getByRole('table', { name: 'Provider commercial positions' });
   expect(within(unitTable).getByText('In <$0.000001 · Out <$0.000001 / 1M')).toBeTruthy();
   expect(within(unitTable).queryByText(/\$0\.000000001/)).toBeNull();
+});
+
+it('links pending evidence only for accessible workspaces', async () => {
+  const row = {
+    ...samplePosition.data[0],
+    unresolved_attempts: '2',
+    pending_attempts: [
+      { attempt: 'a1', workspace_id: 'w1', reference: 'req-1', charge_missing: true },
+      { attempt: 'a2', workspace_id: 'other', reference: 'req-2', charge_missing: true },
+    ],
+  };
+  vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => Response.json(
+    String(url).includes('/finance/position') ? {...samplePosition, data: [row]} : sampleSummary,
+  )));
+  const user = userEvent.setup();
+  render(<MemoryRouter initialEntries={['/admin/reports?tab=unit-economics']}><CommercialPositionPage/></MemoryRouter>);
+  await user.click(await screen.findByRole('button', {name: /Pending.*2.*unresolved/i}));
+  const sheet = within(screen.getByRole('dialog'));
+  expect(sheet.getByRole('link', {name: 'req-1'}).getAttribute('href')).toBe('/workspaces/research/executions#gateway-attempt-req-1');
+  expect(sheet.getByText('req-2')).toBeTruthy();
+  expect(sheet.queryByRole('link', {name: 'req-2'})).toBeNull();
 });

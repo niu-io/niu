@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useSearchParams, useNavigate } from 'react-router';
 import GlobalActivityRoute, {activityTotals} from '@/features/activity/global-page';
 import { saveLocale } from '@/shell/locale';
 vi.mock('@/shell/ConnectGate',()=>({default:({children}: {children: (value: unknown)=>unknown})=>children({token:'authorized-token',models:[]})}));
@@ -16,8 +16,14 @@ function mockData(fail=false){vi.stubGlobal('fetch',vi.fn(async (input:unknown,i
  if(fail && path.includes('/workspaces/b/'))return new Response('',{status:403});
  return Response.json({data:[request],summary:summary(),next_cursor:null});
 }));}
-function open(path='/activity'){render(<MemoryRouter initialEntries={[path]}><Routes><Route path="/activity/:section?" element={<GlobalActivityRoute/>}/><Route path="/workspaces/a/executions" element={<p>Application request details</p>}/></Routes></MemoryRouter>);}
+function CurrentQuery(){const [query]=useSearchParams();return <output aria-label="Current query">{query.toString()}</output>;}
+function open(path='/activity'){render(<MemoryRouter initialEntries={[path]}><CurrentQuery/><Routes><Route path="/activity/:section?" element={<GlobalActivityRoute/>}/><Route path="/workspaces/a/executions" element={<p>Application request details</p>}/></Routes></MemoryRouter>);}
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
+function RequestDetail() {
+  const navigate = useNavigate();
+  return <button type="button" onClick={() => navigate(-1)}>Back</button>;
+}
+
 describe('Global Activity',()=>{
  it('adds exact usage and charges without combining currencies',()=>{
   const totals=activityTotals([{page:{summary:summary()}},{page:{summary:summary('5','CNY')}}]);
@@ -42,6 +48,16 @@ describe('Global Activity',()=>{
   expect(await screen.findByText('b scoped Overview')).toBeTruthy();
   expect(screen.queryByRole('button',{name:'Refresh Activity'})).toBeNull();
 
+ });
+ it('keeps the reporting period when comparing two workspaces',async()=>{
+  mockData();open('/activity/logs?workspace=a&from=2026-11-01&to=2026-11-24&settlement=pending&keyId=only-a');
+  const user=userEvent.setup();
+  await screen.findByText('a scoped Logs');
+  await user.click(screen.getByRole('button',{name:'Filter Activity by workspace'}));
+  await user.click(screen.getByRole('menuitemradio',{name:'Research · Second organization'}));
+  await screen.findByText('b scoped Logs');
+  const query = new URLSearchParams(screen.getByLabelText('Current query').textContent ?? '');
+  expect(Object.fromEntries(query)).toEqual({workspace:'b', from:'2026-11-01', to:'2026-11-24', settlement:'pending'});
  });
  it('loads scoped logs from its sidebar destination',async()=>{mockData();open('/activity/logs?workspace=b');expect(await screen.findByText('b scoped Logs')).toBeTruthy();});
  it('links global requests to diagnostics in their own workspace',async()=>{
@@ -114,6 +130,24 @@ describe('Global Activity',()=>{
   expect(screen.getAllByRole('row',{name:/Open model-one request/})).toHaveLength(1);
   expect(screen.getByText('2 loaded · newest first · all time')).toBeTruthy();
   expect(screen.queryByRole('button',{name:'Load older requests'})).toBeNull();
+ });
+ it('restores a later page and the opened link when navigating back', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
+    const path = String(input);
+    if (path === '/api/v1/workspaces') return Response.json({data: [workspaces[0]]});
+    const older = path.includes('after=');
+    return Response.json({data: [older ? {...request, attempt_id: 'older', reference: 'run-1002', model: 'older-model'} : request], summary: summary(), next_cursor: older ? null : 'page-two'});
+  }));
+  render(<MemoryRouter initialEntries={['/activity/logs']}><Routes>
+    <Route path="/activity/logs" element={<GlobalActivityRoute/>}/>
+    <Route path="/workspaces/a/executions" element={<RequestDetail/>}/>
+  </Routes></MemoryRouter>);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', {name: 'Load older requests'}));
+  await user.click(await screen.findByRole('link', {name: /Open older-model request/}));
+  await user.click(await screen.findByRole('button', {name: 'Back'}));
+  const restored = await screen.findByRole('link', {name: /Open older-model request/});
+  await waitFor(() => expect(document.activeElement).toBe(restored));
  });
  it('rejects a cursor cycle across older pages and recovers only by explicit refresh',async()=>{
   let olderReads=0;

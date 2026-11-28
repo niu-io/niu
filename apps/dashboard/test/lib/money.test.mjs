@@ -35,6 +35,7 @@ describe('cash amount input', () => {
   it('converts decimal amounts to exact nanounits', () => {
     expect(amountToNanos('9007199.254740993')).toBe('9007199254740993');
     expect(amountToNanos('0.000000001')).toBe('1');
+    expect(() => amountToNanos('0.', true)).toThrow('Enter digits after the decimal point.');
     expect(amountToNanos('1250.12')).toBe('1250120000000');
   });
 

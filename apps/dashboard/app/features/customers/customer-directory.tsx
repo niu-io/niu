@@ -156,7 +156,7 @@ export function Customers({
   }, [query, kindFilter]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || activeTab === 'registrations') return;
     const controller = new AbortController();
     void request<PlatformRegistrationQueuePage>(
       token,
@@ -172,7 +172,7 @@ export function Customers({
         // Ignore badge prefetch errors; opening Registrations surfaces failures.
       });
     return () => controller.abort();
-  }, [token, refreshTick]);
+  }, [token, refreshTick, activeTab]);
 
   const filteredCompanies = useMemo(() => {
     const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
@@ -327,29 +327,29 @@ export function Customers({
             <DropdownMenuItem asChild className="sm:hidden">
               <Link to={detailHref}>{uiT("Manage", "管理")}</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'topup', company, account })}>
-              {uiT("Top up balance")}
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'credit', company, account })}>
-              {uiT("Set credit")}
-            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to={`${detailHref}?tab=pricing`}>{uiT("Customer pricing", "专属价格")}</Link>
-            </DropdownMenuItem>
-            {canSetup && (
-              <DropdownMenuItem onSelect={() => openSetup(company)}>
-                {uiT("Set up")}
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'grant', company, account })}>
-              {uiT("Grant noncash balance")}
             </DropdownMenuItem>
             {account && (
               <DropdownMenuItem onSelect={() => openEditor({ kind: 'history', company, account })}>
                 {uiT("Noncash grant history")}
               </DropdownMenuItem>
             )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'topup', company, account })}>
+              {uiT("Top up balance")}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'credit', company, account })}>
+              {uiT("Set credit")}
+            </DropdownMenuItem>
+            {canSetup && (
+              <DropdownMenuItem onSelect={() => openSetup(company)}>
+                {uiT("Set up")}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'grant', company, account })}>
+              {uiT("Grant noncash balance")}
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => openEditor({ kind: 'units', company, account })}>
               {uiT("Manage Branded Credits")}
             </DropdownMenuItem>
@@ -449,12 +449,16 @@ export function Customers({
                 </Button>
                 {canSetup && (
                   <Button aria-label={uiT("New customer")} onClick={event => { opener.current = event.currentTarget; setCreate(true); }}>
-                    <IconPlus size={16} />
-                    <span className="hidden sm:inline">{uiT("New customer")}</span>
+                    <IconPlus size={16} aria-hidden="true" />
+                    <span>{uiT("New customer")}</span>
                   </Button>
                 )}
               </>
-            ) : undefined
+            ) : (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/admin/settings?tab=registration">{uiT("Registration policy", "注册策略")}</Link>
+              </Button>
+            )
           }
         />
 
@@ -600,6 +604,7 @@ export function Customers({
           <RegistrationRequestsQueue
             token={token}
             showPolicySection={false}
+            onCountsChange={counts => setPendingRegistrations(counts.pending)}
             onApproved={() => {
               onWorkspaceCreated();
               refresh();

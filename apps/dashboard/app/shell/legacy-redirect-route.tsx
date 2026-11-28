@@ -143,10 +143,20 @@ export function resolveLegacyRedirectTarget(
   if (parts[0] === 'admin') {
     if (parts.length === 1) return `/admin/providers${suffix}`;
     const sub = parts[1];
+    if (sub === 'registrations' || (sub === 'settings' && parts[2] === 'registration')) {
+      const queue = sub === 'registrations';
+      const query = new URLSearchParams(search);
+      query.set('tab', queue ? 'registrations' : 'registration');
+      return `/admin/${queue ? 'customers' : 'settings'}?${query.toString()}${hash}`;
+    }
     if (sub === 'commercial' || sub === 'financial-reports') return `/admin/reports${suffix}`;
     if (sub === 'balances' || sub === 'customer-accounts' || sub === 'account-balances') return `/admin/customers${suffix}`;
     if (sub === 'route-pools' || sub === 'model-pools' || sub === 'pools') return `/admin/routing${suffix}`;
-    if (sub === 'payment-gateways') return `/admin/payments${suffix}`;
+    if (sub === 'branding' || sub === 'payments' || sub === 'payment-gateways') {
+      const query = new URLSearchParams(search);
+      query.set('tab', sub === 'branding' ? 'branding' : 'payments');
+      return `/admin/settings?${query.toString()}${hash}`;
+    }
     if (sub === 'audit-logs') return `/admin/audit${suffix}`;
     if (sub === 'authentication' || sub === 'oauth') return `/admin/settings${suffix}`;
 

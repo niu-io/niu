@@ -23,7 +23,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from '
 import { useNewChatAction } from '../useNewChatAction';
 import { useDraftNavigation } from '../useDraftNavigation';
 import { useChatDraft, prefetchChatDraft, clearPrefetchedChatDraft, type ChatDraft, type ChatDraftSnapshot } from '../useChatDraft';
-import { IconX as X, IconDots as MoreHorizontal, IconPencil as Pencil, IconTrash as Trash, IconArchive as Archive, IconDownload as Download, IconPaperclip as Paperclip, IconFlask as FlaskConical, IconArrowRight as ArrowRight, IconArrowUp as ArrowUp, IconCoin as CircleDollarSign, IconCopy as ClipboardCopy, IconClock as Clock3, IconHash as Hash, IconKey as KeyRound, IconLoader2, IconPlus as Plus, IconAdjustmentsHorizontal as Settings2, IconSparkles, IconSquare as Square, IconStopwatch as Timer, IconMessageChatbot, IconVideo as Video } from "@tabler/icons-react";
+import { IconX as X, IconDots as MoreHorizontal, IconPencil as Pencil, IconTrash as Trash, IconArchive as Archive, IconDownload as Download, IconPaperclip as Paperclip, IconFlask as FlaskConical, IconArrowRight as ArrowRight, IconArrowUp as ArrowUp, IconCoin as CircleDollarSign, IconCopy as ClipboardCopy, IconClock as Clock3, IconHash as Hash, IconKey as KeyRound, IconPlus as Plus, IconAdjustmentsHorizontal as Settings2, IconSquare as Square, IconStopwatch as Timer, IconMessageChatbot, IconVideo as Video } from "@tabler/icons-react";
 import PlaygroundModelPickerDialog from './PlaygroundModelPickerDialog';
 import GenerationKeyPicker from '@/features/generations/GenerationKeyPicker';
 import { QuickKeyDialog, useQuickKeyProvisioner } from '@/features/generations/QuickKeyDialog';
@@ -35,7 +35,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatUnitAtoms, money } from '@/lib/money';
+import { requestCharges } from '@/lib/customer-tariff';
+import { formatExactUnitAtoms, money } from '@/lib/money';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useWorkspaceVideo } from '@/features/provider-modules/useWorkspaceVideo';
 import { useDashboardContext } from '@/shell/dashboard-context';
@@ -795,18 +796,19 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
     if (model.billing_source === 'own_api_key') return uiT('No Niu charge');
     const units = model.customer_unit_pricing;
     const price = model.customer_pricing;
-    let input: string;
-    let output: string;
-    if (units && (billingMode === 'credits' || !price)) {
-      input = formatUnitAtoms(units.prompt_rate, units.unit_name, units.display_precision);
-      output = formatUnitAtoms(units.completion_rate, units.unit_name, units.display_precision);
-    } else if (price) {
-      input = money(price.prompt_rate, price.currency);
-      output = money(price.completion_rate, price.currency);
-    } else {
+    const tariff = units && (billingMode === 'credits' || !price) ? units : price;
+    if (!tariff || tariff.prompt_rate == null || tariff.completion_rate == null) {
       return uiT("Rate unavailable", "费率暂不可用");
     }
-    return input + uiT("/M input tokens") + ' · ' + output + uiT("/M output tokens");
+    const amount = (rate: string) => 'unit_name' in tariff
+      ? formatExactUnitAtoms(rate, tariff.unit_name, tariff.display_precision)
+      : money(rate, tariff.currency);
+    const parts = tariff.context_tiers?.length ? [uiT("Context tiers")] : [
+      amount(tariff.prompt_rate) + uiT("/M input tokens"),
+      amount(tariff.completion_rate) + uiT("/M output tokens"),
+    ];
+    for (const charge of requestCharges(tariff)) parts.push(uiT(charge.label) + ' · ' + charge.amount);
+    return parts.join(' · ');
   }
   const singleTrialRate = selectedModels.length === 1 ? trialRate(selectedModels[0]) : null;
   const billingSources = selectedModels.map(alias => dashboard.models?.find(model => model.id === alias)?.billing_source);
@@ -1161,7 +1163,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
   const composerElement = showComposer ? <Popover open={chatSettingsOpen} onOpenChange={open => {if (open) {setSettingsSaveError('');setChatSettingsOpen(true);} else void closeChatSettings();}}>
           <GenerationComposer formRef={composerRef} onSubmit={compare} onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void addAttachments(event.dataTransfer.files); }} wrapSurface={surface => <PopoverAnchor asChild>{surface}</PopoverAnchor>}
             topBanner={noAvailableKeys && !managedKey
-              ? <div className="composer-key-banner" role="status"><div className="composer-key-banner-copy"><KeyRound size={15} className="shrink-0 text-muted-foreground" aria-hidden="true" /><span>{session?.permissions.write !== false ? uiT("Create an API key to start using models in this workspace.") : uiT("No active API key in this workspace yet. Ask a workspace administrator to create one before trying models.", "当前工作空间暂无可用 API 密钥，请联系工作空间管理员创建后再试用模型。")}</span></div>{session?.permissions.write !== false && <div className="flex flex-wrap items-center gap-2"><Button type="button" size="sm" disabled={quickKey.busy} onClick={() => { quickKey.setError(''); setQuickKeyDialogOpen(true); }}>{quickKey.busy ? <IconLoader2 size={14} className="animate-spin" aria-hidden="true" /> : <IconSparkles size={14} aria-hidden="true" />}{quickKey.busy ? uiT("Creating key…", "正在创建密钥…") : uiT("Auto-create key", "自动创建试用密钥")}</Button><Button type="button" size="sm" variant="outline" disabled={quickKey.busy} onClick={() => void (async () => { if (!await draft.flush()) return; navigate(`${workspaceRoot}/keys`, {state:{createKey:true,returnTo:`${location.pathname}${location.search}${location.hash}`}}); })()}>{uiT("Create API key")}</Button></div>}</div>
+              ? <div className="composer-key-banner" role="status"><div className="composer-key-banner-copy"><KeyRound size={15} className="shrink-0 text-muted-foreground" aria-hidden="true" /><span>{session?.permissions.write !== false ? uiT("Create an API key to start using models in this workspace.") : uiT("No active API key in this workspace yet. Ask a workspace administrator to create one before trying models.", "当前工作空间暂无可用 API 密钥，请联系工作空间管理员创建后再试用模型。")}</span></div>{session?.permissions.write !== false && <Button type="button" size="sm" disabled={quickKey.busy} onClick={() => { quickKey.setError(''); setQuickKeyDialogOpen(true); }}>{uiT("Create API key")}</Button>}</div>
               : workspaceKeysReady && !availableKeys.loading && !noAvailableKeys && !managedKey && !selectedKey
                 ? <div className="composer-key-banner" role="status"><div className="composer-key-banner-copy"><KeyRound size={15} className="shrink-0 text-muted-foreground" aria-hidden="true" /><span>{uiT("Select an API key to send messages in this workspace.")}</span></div><Button type="button" size="sm" variant="outline" onClick={() => setApiSettingsOpen(true)}>{uiT("Choose API key")}</Button></div>
                 : null}
@@ -1251,7 +1253,7 @@ export default function PlaygroundView({ token, models, unverifiedModels = [], m
           </div>} onNewSession={startWithNewChat ? startNewComparison : undefined} notice={historyError && <div className="grid justify-items-start gap-2 p-3"><p role="alert" className="text-sm text-destructive">{uiT(historyError)}</p><Button variant="ghost" onClick={()=>setHistoryRevision(value=>value+1)}>{uiT("Retry chat history")}</Button></div>} history={{context: (dashboard), currentKeys: (workspaceKeys), pending: ((historyLoading || !draft.ready) && history.length === 0), failed: (Boolean(historyError)), chats: (history), activeChat: (activeComparisonId ?? (requestedSession && !startWithNewChat ? requestedSession : null)), disabled: (running || settingsSaving || !draft.ready), onChat: (id=>{const item=history.find(item=>item.id===id);if(item){openComparison(item);void draft.flush(comparisonDraft(item,selectedKeyId));navigate(`/generations/${encodeURIComponent(item.reference??id)}`);if(isMobile)setOpenMobile(false);}}), chatActions: (id=>{const item=history.find(item=>item.id===id);if(!item)return null;return (
               <DropdownMenu><DropdownMenuTrigger asChild><SidebarMenuAction ref={element => { if (element) historyActionButtons.current.set(item.id, element); else historyActionButtons.current.delete(item.id); }} showOnHover disabled={running || settingsSaving} aria-label={uiF("Actions for {0}", [sessionTitle(item)])}><MoreHorizontal /></SidebarMenuAction></DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start"><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setRenamingChat(item); setChatTitle(sessionTitle(item)); setRenameError(''); if (isMobile) setOpenMobile(false); }}><Pencil size={14} />{uiT("Rename")}</DropdownMenuItem><DropdownMenuItem disabled={exporting} onSelect={() => { void exportComparison(item); if (isMobile) setOpenMobile(false); }}><Download size={14} />{exporting ? uiT("Exporting…") : uiT("Export")}</DropdownMenuItem><DropdownMenuItem disabled={archiveBusy || running} onSelect={() => { void changeArchive(item, true); if (isMobile) setOpenMobile(false); }}><Archive size={14} />{uiT("Archive")}</DropdownMenuItem><DropdownMenuItem onSelect={() => { historyDialogOpener.current = historyActionButtons.current.get(item.id) ?? null; setDeletingChat(item); setDeleteError(''); if (isMobile) setOpenMobile(false); }}><Trash size={14} />{uiT("Delete")}</DropdownMenuItem></DropdownMenuContent>
-              </DropdownMenu>);})}} onArchive={event => { historyDialogOpener.current = event.currentTarget; archiveFromMobileHistory.current = isMobile; setArchiveOpen(true); }} />
+              </DropdownMenu>);})}} onArchive={trigger => { historyDialogOpener.current = trigger; archiveFromMobileHistory.current = isMobile; setArchiveOpen(true); }} />
 
       <section className={`playground-chat-main${isFirstRunEmpty ? ' is-first-run' : ''}`} aria-label={uiT("Model comparison chat")}>
         <div ref={transcriptRef} className="playground-transcript" aria-live="polite">

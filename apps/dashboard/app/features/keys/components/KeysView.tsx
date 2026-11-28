@@ -486,13 +486,15 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   // never prevents either mutation form from opening or submitting.
   const activeNotice: KeyRequestNotice | null = requestNotice ?? (activePending ? {kind:'uncertain', pending:activePending} : null);
 
-  const emptyCollection = Boolean(workspace && !workspaceLoading && !isPending && !error && keyStatusFilter === "all" && !visibleKeys.length);
+  const emptyResult = Boolean(workspace && !workspaceLoading && !isPending && !error && !visibleKeys.length);
+  const emptyCollection = emptyResult && keyStatusFilter === "all";
+  const showCreateInEmptyState = emptyResult && keyStatusFilter !== "inactive";
   const usageExample = issued ? `curl "${baseUrl()}/models" ${String.fromCharCode(92)}
   -H "Authorization: Bearer ${issued.token}"` : '';
   const invocationAllowed = issued?.key?.invocation_allowed !== false;
 
   return <div className="keys-page">
-    <PageHeader title={uiT("Keys")} action={<>{workspace && <Button ref={refreshButtonRef} type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh keys")} title={uiT("Refresh")} disabled={isPending} onClick={() => void reload()}><RefreshCw size={16} className={isPending ? 'animate-spin' : undefined} /></Button>}{canIssue && !emptyCollection && <Button className="header-icon-action" aria-label={uiT("New key")} title={uiT("New key")} onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New key")}</span></Button>}</>} />
+    <PageHeader title={uiT("Keys")} action={<>{workspace && <Button ref={refreshButtonRef} type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh keys")} title={uiT("Refresh")} disabled={isPending} onClick={() => void reload()}><RefreshCw size={16} className={isPending ? 'animate-spin' : undefined} /></Button>}{canIssue && !showCreateInEmptyState && <Button size="sm" aria-label={uiT("New key")} title={uiT("New key")} onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New key")}</span></Button>}</>} />
     {activeNotice && (() => {
       const noticeError = 'error' in activeNotice ? activeNotice.error : '';
       const pendingAction = 'pending' in activeNotice ? activeNotice.pending.action : null;

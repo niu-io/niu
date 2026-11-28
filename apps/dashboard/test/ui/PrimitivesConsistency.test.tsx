@@ -1,3 +1,4 @@
+import { tokenBand } from '@/features/retail-pricing/text-terms';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -22,8 +23,44 @@ function collectTsxFiles(dir: string): string[] {
 }
 
 describe('Shared UI primitives layout safeguards', () => {
+  it('adapts Provider model rows to their container and groups discount with secondary actions', () => {
+    const table = readFileSync(resolve('app/features/provider-business/ProviderModelsTable.tsx'), 'utf8');
+    const css = readFileSync(resolve('app/styles/operations.css'), 'utf8');
+    expect(css).toContain('@container provider-models');
+    expect(table).toMatch(/DropdownMenuItem[^>]*onSelect=\{\(\) => onOpenDiscount/);
+  });
+
   const appDir = resolve(process.cwd(), 'app');
+  it('gives expanded promotion quotes a full row in the dialog', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/promotions.tsx'), 'utf8');
+    const css = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
+    expect(source).toContain('className="promotion-states"');
+    expect(css).toContain('.promotion-states > tbody > tr > td:not([data-label]) { grid-column: 1 / -1; }');
+  });
+
   const tsxFiles = collectTsxFiles(appDir);
+
+  it('pins both credit tariff writes to the revision shown on opening', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/unit-tariffs.tsx'), 'utf8');
+    expect(source.match(/const \[config\] = useState\(openingConfig\)/g)).toHaveLength(2);
+    expect(source.match(/expected_revision: config\.revision/g)).toHaveLength(2);
+    expect(source).not.toContain('expected_revision: latestCfg');
+  });
+
+  it('keeps storage precision guidance out of the credit tariff heading', () => {
+    const source = readFileSync(join(appDir, 'features/retail-pricing/unit-tariffs.tsx'), 'utf8');
+    expect(source).not.toContain('decimal places are stored exactly');
+  });
+
+  it('keeps per-workspace charge headers and values visible on phones', () => {
+    const source = readFileSync(join(appDir, 'features/activity/global-page.tsx'), 'utf8');
+    const section = source.split('<section aria-label={uiT("Activity by workspace")}')[1].split('</section>')[0];
+    for (const tag of ['TableHead', 'TableCell']) {
+      const cells = [...section.matchAll(new RegExp(`<${tag}\\b([^>]*)>`, 'g'))];
+      expect(cells.at(-1)?.[1]).toContain('whitespace-normal');
+      expect(cells.at(-1)?.[1]).not.toContain('hidden');
+    }
+  });
 
   it('keeps Empty placeholders card-free, spacious, and auto-centered on full-page routes', () => {
     const { container } = render(
@@ -59,6 +96,10 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(surfaces).not.toContain('.guardrails-page:has(> .guardrails-empty) { display: flex; flex: 0 0 auto;');
     const guardrails = readFileSync(join(appDir, 'features/guardrails/page.tsx'), 'utf8');
     expect(guardrails).toContain('guardrails-page empty-region');
+    const assets = readFileSync(join(appDir, 'features/assets/page.tsx'), 'utf8');
+    expect(assets).not.toContain('<div className="space-y-5">');
+    const library = readFileSync(join(appDir, 'features/library/page.tsx'), 'utf8');
+    expect(library).not.toContain('min-h-64');
     expect(guardrails).not.toContain('min-h-[min(56dvh,28rem)]');
   });
 
@@ -96,6 +137,21 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(violations).toEqual([]);
   });
 
+  it('withholds both adjacent previews for unsupported token counts', () => {
+    const overflow = '9223372036854775808';
+    expect(tokenBand('33', overflow)).toBe('—');
+    expect(tokenBand(overflow)).toBe('—');
+    expect(tokenBand('33', '43')).toBe('33–42');
+  });
+
+  it('uses the same tier boundary validation for the editor field and submitted schedule', () => {
+    const field = readFileSync(join(appDir, 'features/retail-pricing/text-rate-band.tsx'), 'utf8');
+    const schedule = readFileSync(join(appDir, 'features/retail-pricing/text-terms.ts'), 'utf8');
+    expect(field).toContain('input?.setCustomValidity(validStart ?');
+    expect(field).toContain('const range = validStart ? tokenBand(');
+    expect(schedule).toContain('if (!validTierThreshold(tier.minimum_input_tokens');
+  });
+
   it('retains the global zero-specificity field-spacing safeguard in foundation.css', () => {
     const css = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
     expect(css).toContain(':has(> [data-slot="label"]:not(.sr-only))');
@@ -127,9 +183,38 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(fallback.className).not.toContain('bg-muted');
   });
 
+  it('sizes the narrow log date control to its selected range', () => {
+    const css = readFileSync(join(appDir, 'styles/operations.css'), 'utf8');
+    expect(css).not.toMatch(/\.request-date-trigger\s*\{\s*width:\s*100px;/);
+  });
+
+  it('reserves room for the current breadcrumb in narrow headers', () => {
+    const css = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
+    expect(css).toContain('[data-slot="breadcrumb-item"]:last-child { flex: 1 0 auto;');
+    expect(css).toContain('[data-slot="breadcrumb-item"]:only-child { max-width: 100%; }');
+  });
+
+  it('keeps event setup methods in their action labels', () => {
+    const events = readFileSync(join(appDir, 'features/event-subscriptions/page.tsx'), 'utf8');
+    expect(events).not.toContain('You can use your coding agent or follow the API reference.');
+  });
+
+  it('keeps the customer creation label visible on phones', () => {
+    const customers = readFileSync(join(appDir, 'features/customers/customer-directory.tsx'), 'utf8');
+    expect(customers).not.toMatch(/className="hidden sm:inline">\{uiT\("New customer"\)/);
+  });
+
+  it('offers recovery when an audit category or search yields no matches', () => {
+    const source = readFileSync(join(appDir, 'features/audit-logs/page.tsx'), 'utf8');
+    expect(source).toContain("const filtered = category !== 'all' || Boolean(query.trim())");
+    expect(source).toContain('filtered && <EmptyContent>');
+    expect(source).toContain('searchInput.current?.focus()');
+  });
+
   it('keeps the key directory as a responsive list instead of a fixed-width table', () => {
     const css = readFileSync(resolve(process.cwd(), 'app/styles/operations.css'), 'utf8');
     const keys = readFileSync(join(appDir, 'features/keys/components/KeysView.tsx'), 'utf8');
+    expect(keys).not.toMatch(/className="header-icon-action"[^>]+aria-label=\{uiT\("New key"\)/);
     expect(css).toContain('.key-rows {');
     expect(css).toContain('.key-row-facts {');
     expect(css).toContain('@media (max-width: 900px)');
@@ -151,6 +236,12 @@ describe('Shared UI primitives layout safeguards', () => {
       }
     }
     expect(violations).toEqual([]);
+  });
+
+  it('keeps account activity reachable on both global activity tabs', () => {
+    const rail = readFileSync(join(appDir, 'shell/ShellNavigation.tsx'), 'utf8');
+    expect(rail).toContain('<ProductRailLink to="/activity"');
+    expect(rail).toContain("isActive={pathname === '/activity' || pathname.startsWith('/activity/')}");
   });
 
   it('portals top-level PageHeader tabs into #dashboard-page-tabs and falls back inline when nested', () => {
@@ -211,6 +302,14 @@ describe('Shared UI primitives layout safeguards', () => {
     ]) {
       const source = readFileSync(join(appDir, rel), 'utf8');
       expect(source, `${rel} should pass primary section tabs into PageHeader`).toMatch(/<PageHeader[\s\S]*?tabs=/);
+    }
+  });
+
+  it('guards submission while price editors ask whether to discard a draft', () => {
+    for (const kind of ['text', 'media']) {
+      const source = readFileSync(join(appDir, 'features/retail-pricing', `${kind}-editor.tsx`), 'utf8');
+      expect(source).toContain('if (busy || conflict || confirmDiscard) return;');
+      expect(source).toContain('{confirmDiscard ? <DialogFooter');
     }
   });
 
@@ -334,6 +433,23 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(surfaces).toContain('.dashboard-page-header:has(.dashboard-page-tabs:not(:empty)) .dashboard-page-tabs { order: 10; flex: 1 0 100%;');
     expect(shell).toContain('.page-content { width: 100%; max-width: none; flex: 1 0 auto; margin: 0; padding-block: 24px 72px; }');
     expect(foundation).not.toMatch(/\.page-content\s*\{[^}]*padding:/);
+  });
+
+  it('reveals the selected header tab after portal selection and strip resize without moving focus', () => {
+    const shell = readFileSync(join(appDir, 'shell/ShellHeader.tsx'), 'utf8');
+    const start = shell.indexOf('function revealSelectedTab');
+    const effect = shell.slice(start, shell.indexOf('}, []);', start));
+    expect(effect).toContain('aria-selected="true"');
+    expect(effect).toContain('new MutationObserver(revealSelectedTab)');
+    expect(effect).toContain('new ResizeObserver(revealSelectedTab)');
+    expect(effect).toContain('host.scrollLeft');
+    expect(effect).not.toMatch(/scrollIntoView|\.focus\(/);
+  });
+
+  it('keeps the price row available for focus on editor cancellation', () => {
+    const page = readFileSync(join(appDir, 'features/retail-pricing/page.tsx'), 'utf8');
+    expect(page).toContain('if (conflict) reloadFresh();');
+    expect(page).not.toContain('if (!pending) { setEditor(null); reloadFresh(); }');
   });
 
   it('keeps dialog framing, bounded scroll, and close affordances in the shared primitive', () => {
@@ -527,4 +643,16 @@ it('keeps tbody row headers on cell metrics and fills 404 empty states', () => {
   expect(table).toContain('[&[scope=row]]:py-3.5');
   const surfaces = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
   expect(surfaces).toMatch(/\.not-found-empty \{[^}]*flex: 1 1 auto;[^}]*justify-content: center/);
+});
+
+it('opens the archive after mobile history releases its focus scope', () => {
+  const layout = readFileSync(resolve('app/features/generations/GenerationsLayout.tsx'), 'utf8');
+  expect(layout).toMatch(/onCloseAutoFocus: event => \{\s*if \(pendingArchive.current\)/);
+  expect(layout).toMatch(/pendingArchive.current = openArchive;\s*setOpenMobile\(false\)/);
+});
+
+it('keeps routing ranges with advanced controls and starts with the rule name', () => {
+  const editor = readFileSync(resolve('app/features/routing/page.tsx'), 'utf8');
+  expect(editor.indexOf('id="pool-name"')).toBeLessThan(editor.indexOf('aria-expanded={advancedPool}'));
+  expect(editor).toMatch(/\{advancedPool && <p[^>]*>\s*\{t\(\s*'Higher priority/);
 });
