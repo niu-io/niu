@@ -249,6 +249,8 @@ Workspace activity summaries keep the workspace, request count and charge visibl
 
 Organization and workspace creation derive the address from the name. Preview the organization settings or workspace destination and expose identifier constraints when editing the address.
 
+Upstream incident notices and their polling belong on the administration overview and supply management routes. Keep customer, registration, pricing and other unrelated tasks free of this alert.
+
 Registration queue links retain the selected review status on reopen and browser Back. Preserve unrelated query parameters when switching status.
 
 Tiered price forms focus the first invalid token threshold on submit and recompute the next threshold when its preceding boundary changes. Range previews show an em dash for an unsupported endpoint or a lower bound that repeats or precedes the previous tier.

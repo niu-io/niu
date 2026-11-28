@@ -1,5 +1,5 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { Link, Outlet, useLocation } from 'react-router';
+import { Link, Outlet } from 'react-router';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { WorkspaceShellSkeleton } from '@/components/PageSkeletons';
@@ -14,7 +14,6 @@ export const handle: RouteHandle = { destination: 'Administration' };
 export default function Administration() {
   const { t: uiT } = useUILocale();
   const context = useDashboardContext();
-  const location = useLocation();
   if (!context.session) return <WorkspaceShellSkeleton label={uiT("Checking administrator access…")} />;
   if (!canManagePlatform(context.session)) {
     const roles = context.roleSwitch;
@@ -38,5 +37,5 @@ export default function Administration() {
       </>}
     </AlertDescription></Alert>;
   }
-  return <>{!location.pathname.replace(/\/+$/, '').endsWith('/admin/incidents') && <IncidentNotice key={`${context.token}:${context.session.kind}:${context.session.operator?.id ?? ''}`} token={context.token} />}<Outlet context={context} /></>;
+  return <><IncidentNotice key={`${context.token}:${context.session.kind}:${context.session.operator?.id ?? ''}`} token={context.token} /><Outlet context={context} /></>;
 }

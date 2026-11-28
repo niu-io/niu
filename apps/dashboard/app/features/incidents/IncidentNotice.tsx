@@ -7,8 +7,15 @@ import { useLocale } from '@/shell/ui-locale';
 import { loadIncidents } from './api';
 
 export default function IncidentNotice({ token }: { token: string }) {
+  const path = useLocation().pathname.replace(/\/+$/, '') || '/';
+  const connectionSections = ['providers', 'suppliers', 'routing', 'pools', 'model-pools', 'route-pools'];
+  const visible = path === '/' || path === '/admin' ||
+    connectionSections.some(section => path === `/admin/${section}` || path.startsWith(`/admin/${section}/`));
+  return visible ? <ConnectionNotice token={token} /> : null;
+}
+
+function ConnectionNotice({ token }: { token: string }) {
   const { t } = useLocale();
-  const location = useLocation();
   const cacheKey = '/api/v1/admin/incidents?status=active';
   const cachedActive = peekQuery<boolean>(token, cacheKey);
   const [active, setActive] = useState(() => cachedActive ?? false);
@@ -46,9 +53,7 @@ export default function IncidentNotice({ token }: { token: string }) {
     return () => { controller.abort(); window.clearInterval(timer); };
   }, [token]);
   if (!checked) return <p role="status" className="sr-only">{t('Checking connection incidents…', '正在检查连接事故…')}</p>;
-  const path = location.pathname.replace(/\/+$/, '') || '/';
-  const isConnectionSurface = path === '/' || path === '/admin' || path.startsWith('/admin/providers') || path.startsWith('/admin/suppliers') || path.startsWith('/admin/routing') || path.startsWith('/admin/pools') || path.startsWith('/admin/model-pools') || path.startsWith('/admin/route-pools');
-  if (!active && (!error || !isConnectionSurface)) return null;
+  if (!active && !error) return null;
   return <Alert variant={active ? 'destructive' : 'default'} className="mb-6">
     <AlertTitle>{active ? t('Upstream connections need attention', '上游连接需要处理') : t('Connection monitoring unavailable', '无法读取连接监控')}</AlertTitle>
     <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
