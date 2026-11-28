@@ -16,6 +16,8 @@ Account-wide Activity belongs in the account section of the workspace sidebar. K
 
 The shared header tab strip keeps its selected tab fully visible on direct entry, selection changes, and viewport resize. Scroll only the strip so page position and keyboard focus are preserved.
 
+Empty workspace Logs and Usage link writers directly to key creation when no key is active. Readers see the missing prerequisite without a mutation action. Filtered empty results offer filter recovery.
+
 Customer and API key directories keep their primary creation action visibly labeled at every width. The key directory shows one creation action even when an active filter hides historical keys.
 
 ## 2. Stable Dialog Frames & In-Control Loading
@@ -85,6 +87,8 @@ Returning from request details restores the inspected row, focus and loaded page
 - **Sibling first-run parity**: Sibling creation surfaces in Generations (`Chat` and `Video`) share the same centered mode switcher (`Chat` / `Video`), heading scale (`.playground-first-run-heading`), and `.playground-starters` / `.playground-starter` card grid (`<strong>` title, `<span>` summary, trailing arrow icon).
 - **Never leak internal IDs**: Never render UUIDs/GUIDs in UI labels, tooltips, badges, dialogs, or error notices.
 
+Customer access lists expose one setup action in the tab content. Keep balance policy with billing and describe an empty member list in terms of members.
+
 Customer access lists retain workspace links, member roles and workspace scope on narrow screens. Show labeled values within each row without horizontal scrolling.
 
 A filtered registration queue with zero results shows the relevant empty title. Omit raw submission URLs and generic audit explanations.
@@ -128,6 +132,8 @@ Switching between named workspaces in Activity preserves the reporting dates. Wo
 
 Tab navigation must preserve already available data within the same authorization and resource scope. A presentation-only tab change must not revalidate unrelated route loaders. Keep slow first reads and errors local to the affected panel. Verify both cold activation and return visits with browser frames.
 
+Show video prompt examples only when the composer can accept them. Keep prerequisite actions next to the new-video heading.
+
 Workspace users discover models in one catalog. Platform administrators manage upstream Provider credentials. Never present internal funding classifications as model sources or imply that workspace users supply upstream keys. Workspace API keys authorize access to Niu.
 
 Verify the customer catalog after staging supply qualification. Temporary upstream connections must be inactive after the review, and their test aliases must be absent when the customer reloads the model list. Retain historical request attribution.
@@ -154,11 +160,17 @@ Use a right-side sheet for a current price comparison. Show both comparable rate
 
 Audit history distinguishes an empty filtered result from an empty journal. Clearing filters resets the category and query together and returns focus to search.
 
+Localize billing request counts as complete phrases so each language controls the order of the count, noun and settlement status.
+
 A tab that groups multiple entity types must not show an unlabeled count for just one type. Keep counts with the entity they describe.
 
 ## Decision-focused interface copy
 
+Customer access handoff presents a copyable sign-in address for the current installation. Keep first-request instructions in the linked guide.
+
 Registration policy and the registration review queue link directly to each other within their owning Settings and Customers tabs. Display the pending count on the review action when positive.
+
+Empty-state descriptions may identify a prerequisite. Omit instructions that simply restate the adjacent action labels.
 
 Use field labels, units, comparable values and action names to make workflows clear. Remove introductions that repeat a title, describe visible controls or explain unrelated product behavior. Keep concrete errors, prerequisites and irreversible consequences at the affected action.
 
@@ -186,6 +198,10 @@ Direct video-mode links open the Video composer and its existing availability or
 
 Organization and workspace creation derive the address from the name. Preview the organization settings or workspace destination and expose identifier constraints when editing the address.
 
+Registration queue links retain the selected review status on reopen and browser Back. Preserve unrelated query parameters when switching status.
+
+Tiered price forms focus the first invalid token threshold on submit and recompute the next threshold when its preceding boundary changes. Range previews show an em dash for an unsupported endpoint or a lower bound that repeats or precedes the previous tier.
+
 Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
 
 Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
@@ -201,3 +217,11 @@ When a price comparison already identifies the model, label its quotes by provid
 Promotion lists keep dates, scope, and actions visible when a quote is expanded. Give the comparison the full row width inside the dialog at desktop, tablet, and phone sizes. Promotion terms show changed rates and media billing terms first, with the original and resulting schedules available on demand. Expand terms in the selected promotion row and associate the toggle with its details.
 
 Workspace spending-limit feedback uses the parsed amount. Show the consequences of a valid limit only. On invalid submission, focus the amount field, associate its inline error, and clear the error when the amount becomes valid.
+
+When a mobile sheet opens a separate dialog, hand off focus after the sheet closes. Immediate dismissal of the dialog must return focus to its original action in the reopened sheet.
+
+Routing forms open on the rule name. Keep priority and weight ranges with their advanced fields and preserve their values across disclosure changes.
+
+Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.
+
+Promotion lists keep dates, scope, and actions visible when a quote is expanded. Give the comparison the full row width inside the dialog at desktop, tablet, and phone sizes.

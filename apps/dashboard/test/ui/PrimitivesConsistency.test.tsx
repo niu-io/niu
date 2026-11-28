@@ -1,3 +1,4 @@
+import { tokenBand } from '@/features/retail-pricing/text-terms';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -22,6 +23,13 @@ function collectTsxFiles(dir: string): string[] {
 }
 
 describe('Shared UI primitives layout safeguards', () => {
+  it('adapts Provider model rows to their container and groups discount with secondary actions', () => {
+    const table = readFileSync(resolve('app/features/provider-business/ProviderModelsTable.tsx'), 'utf8');
+    const css = readFileSync(resolve('app/styles/operations.css'), 'utf8');
+    expect(css).toContain('@container provider-models');
+    expect(table).toMatch(/DropdownMenuItem[^>]*onSelect=\{\(\) => onOpenDiscount/);
+  });
+
   const appDir = resolve(process.cwd(), 'app');
   it('gives expanded promotion quotes a full row in the dialog', () => {
     const source = readFileSync(join(appDir, 'features/retail-pricing/promotions.tsx'), 'utf8');
@@ -132,6 +140,21 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(violations).toEqual([]);
   });
 
+  it('withholds both adjacent previews for unsupported token counts', () => {
+    const overflow = '9223372036854775808';
+    expect(tokenBand('33', overflow)).toBe('—');
+    expect(tokenBand(overflow)).toBe('—');
+    expect(tokenBand('33', '43')).toBe('33–42');
+  });
+
+  it('uses the same tier boundary validation for the editor field and submitted schedule', () => {
+    const field = readFileSync(join(appDir, 'features/retail-pricing/text-rate-band.tsx'), 'utf8');
+    const schedule = readFileSync(join(appDir, 'features/retail-pricing/text-terms.ts'), 'utf8');
+    expect(field).toContain('input?.setCustomValidity(validStart ?');
+    expect(field).toContain('const range = validStart ? tokenBand(');
+    expect(schedule).toContain('if (!validTierThreshold(tier.minimum_input_tokens');
+  });
+
   it('retains the global zero-specificity field-spacing safeguard in foundation.css', () => {
     const css = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
     expect(css).toContain(':has(> [data-slot="label"]:not(.sr-only))');
@@ -172,6 +195,11 @@ describe('Shared UI primitives layout safeguards', () => {
     const css = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
     expect(css).toContain('[data-slot="breadcrumb-item"]:last-child { flex: 1 0 auto;');
     expect(css).toContain('[data-slot="breadcrumb-item"]:only-child { max-width: 100%; }');
+  });
+
+  it('keeps event setup methods in their action labels', () => {
+    const events = readFileSync(join(appDir, 'features/event-subscriptions/page.tsx'), 'utf8');
+    expect(events).not.toContain('You can use your coding agent or follow the API reference.');
   });
 
   it('keeps the customer creation label visible on phones', () => {
@@ -625,4 +653,16 @@ it('keeps tbody row headers on cell metrics and fills 404 empty states', () => {
   expect(table).toContain('[&[scope=row]]:py-3.5');
   const surfaces = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
   expect(surfaces).toMatch(/\.not-found-empty \{[^}]*flex: 1 1 auto;[^}]*justify-content: center/);
+});
+
+it('opens the archive after mobile history releases its focus scope', () => {
+  const layout = readFileSync(resolve('app/features/generations/GenerationsLayout.tsx'), 'utf8');
+  expect(layout).toMatch(/onCloseAutoFocus: event => \{\s*if \(pendingArchive.current\)/);
+  expect(layout).toMatch(/pendingArchive.current = openArchive;\s*setOpenMobile\(false\)/);
+});
+
+it('keeps routing ranges with advanced controls and starts with the rule name', () => {
+  const editor = readFileSync(resolve('app/features/routing/page.tsx'), 'utf8');
+  expect(editor.indexOf('id="pool-name"')).toBeLessThan(editor.indexOf('aria-expanded={advancedPool}'));
+  expect(editor).toMatch(/\{advancedPool && <p[^>]*>\s*\{t\(\s*'Higher priority/);
 });
