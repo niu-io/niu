@@ -392,6 +392,7 @@
   .standard-price-directory tbody tr { display: grid; gap: .4rem; padding-block: 1rem; border-bottom: 1px solid var(--border); }
   .standard-price-directory tbody td { display: block; max-width: none; padding: 0; border: 0; white-space: normal; }
   .standard-price-directory tbody td[data-label] { display: grid; grid-template-columns: minmax(6rem, 32%) minmax(0, 1fr); gap: .6rem; align-items: baseline; }
+  .standard-price-directory td[data-label] > * { grid-column: 2; min-width: 0; }
   .standard-price-directory td[data-label]::before { content: attr(data-label); color: var(--muted-foreground); font-size: .8rem; }
   .standard-price-directory td:last-child { margin-top: .3rem; }
 }

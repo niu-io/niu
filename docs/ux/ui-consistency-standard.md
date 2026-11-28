@@ -184,6 +184,8 @@ Unresolved financial report entries link their public request reference to the o
 
 Keep the financial reporting cutoff fixed while inspecting report tabs and model details. Refreshing the report advances the cutoff. Opening unresolved items must preserve the reporting interval and focus the destination heading.
 
+Standard price directories show the comparable unit spread and billing unit alongside selling rates. Identify partial quote coverage, reserve publication timestamps for price details, and keep realized profit in financial reports.
+
 On pricing tabs, identify the mode used for billing independently of the selected tab. Browsing an inactive schedule must not imply that a publication or preparation job is running.
 
 When an explicit pricing tab is open, keep both tab destinations available across navigation and reload, including before a credit unit is configured.
@@ -217,6 +219,10 @@ Pricing editors show a single decision footer. When confirming draft dismissal, 
 When a pending model lookup can replace a pricing form with prerequisite actions, keep the draft controls disabled and cancellation available until the lookup settles.
 
 Registration validation focuses the first invalid field and associates the inline error with that control. Editing an unrelated field preserves the error.
+
+When a price comparison already identifies the model, label its quotes by provider and include the upstream route only when it differs from the displayed model or the provider name is missing.
+
+Promotion lists keep dates, scope, and actions visible when a quote is expanded. Give the comparison the full row width inside the dialog at desktop, tablet, and phone sizes. Promotion terms show changed rates and media billing terms first, with the original and resulting schedules available on demand. Expand terms in the selected promotion row and associate the toggle with its details.
 
 Workspace spending-limit feedback uses the parsed amount. Show the consequences of a valid limit only. On invalid submission, focus the amount field, associate its inline error, and clear the error when the amount becomes valid.
 

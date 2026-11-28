@@ -35,6 +35,9 @@ describe('Shared UI primitives layout safeguards', () => {
     const source = readFileSync(join(appDir, 'features/retail-pricing/promotions.tsx'), 'utf8');
     const css = readFileSync(join(appDir, 'styles/surfaces.css'), 'utf8');
     expect(source).toContain('className="promotion-states"');
+    expect(source).toContain('aria-expanded={terms === item.row.revision}');
+    expect(source).toContain('<MediaPromotionChanges original={selected.original_schedule} result={selected.schedule}');
+    expect(source).toContain('<ScheduleRevision prior={selected.original_schedule} schedule={selected.schedule}');
     expect(css).toContain('.promotion-states > tbody > tr > td:not([data-label]) { grid-column: 1 / -1; }');
   });
 
@@ -377,6 +380,13 @@ describe('Shared UI primitives layout safeguards', () => {
     expect(modelTable).toContain('uiT("Not published")');
     expect(modelTable).toContain('uiT("Try")');
   });
+  it('shows unit spread in standard price rows and keeps publication time in the detail sheet', () => {
+    const page = readFileSync(join(appDir, 'features/retail-pricing/page.tsx'), 'utf8');
+    expect(page).toContain('<DirectorySpread health={row.pricing_health} currency={row.currency}');
+    expect(page).toContain('{date(price.published_at)}</SheetDescription>');
+    expect(page).not.toContain('{date(row.published_at)}</TableCell>');
+  });
+
   it('prevents fixed-layout table cells from bleeding text over adjacent columns and keeps bare table rules inside @layer base', () => {
     const foundation = readFileSync(resolve(process.cwd(), 'app/styles/foundation.css'), 'utf8');
     expect(foundation).toContain(':where(table.table-fixed, .billing-transactions, .billing-invoices, .gateway-request-table, .activity-charge-breakdown table, .operator-session-table table) :where(th, td)');
