@@ -2250,7 +2250,7 @@ async fn limited_preview_registration_requires_approval_and_provisions_workspace
         json!({
             "name": "Ada Lovelace",
             "email": "ada@example.test",
-            "password": "too-short"
+            "password": "short77"
         }),
     )
     .await;
@@ -2536,6 +2536,17 @@ async fn limited_preview_registration_requires_approval_and_provisions_workspace
     assert!(actions.contains(&"registration_approved"), "{actions:?}");
     assert!(actions.contains(&"registration_rejected"), "{actions:?}");
     assert!(actions.contains(&"registration_disabled"), "{actions:?}");
+    let filtered = request(
+        &app,
+        Method::GET,
+        "/api/v1/admin/audit?limit=1&search=approved&labels=action%3Aregistration_approved",
+        Some(ADMIN),
+        None,
+        Value::Null,
+    )
+    .await;
+    assert_eq!(filtered.0, StatusCode::OK);
+    assert_eq!(filtered.2["data"][0]["action"], "registration_approved");
 }
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
@@ -2621,7 +2632,7 @@ async fn initial_installation_setup_creates_first_platform_admin_once(pool: PgPo
         json!({
             "name": "Founder",
             "email": "founder@example.test",
-            "password": "too-short"
+            "password": "short77"
         }),
     )
     .await;
@@ -2722,4 +2733,321 @@ async fn initial_installation_setup_creates_first_platform_admin_once(pool: PgPo
     )
     .await;
     assert_eq!(login_res.0, StatusCode::OK);
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn atomic_customer_onboarding_and_member_creation_roll_back_on_duplicate_email_and_accept_8_char_passwords(
+    pool: PgPool,
+) {
+    let mut state = test_state(None, pool.clone());
+    state.password_auth = Some(Arc::new(
+        crate::admin::passwords::Runtime::new("https://niu.example.test")
+            .await
+            .unwrap(),
+    ));
+    let app = router(state.clone());
+
+    let currency_res = request(
+        &app,
+        Method::PUT,
+        "/api/v1/admin/currency",
+        Some(ADMIN),
+        None,
+        json!({ "currency": "USD" }),
+    )
+    .await;
+    assert_eq!(currency_res.0, StatusCode::OK, "{}", currency_res.2);
+
+    async fn idempotent_request(
+        app: &Router,
+        method: Method,
+        path: &str,
+        idempotency_key: Option<&str>,
+        body: Value,
+    ) -> (StatusCode, Value) {
+        let mut req = Request::builder()
+            .method(method)
+            .uri(path)
+            .header("content-type", "application/json")
+            .header("authorization", format!("Bearer {ADMIN}"))
+            .header("origin", "https://niu.example.test");
+        if let Some(key) = idempotency_key {
+            req = req.header("idempotency-key", key);
+        }
+        let res = app
+            .clone()
+            .oneshot(req.body(Body::from(body.to_string())).unwrap())
+            .await
+            .unwrap();
+        let status = res.status();
+        let bytes = to_bytes(res.into_body(), 32768).await.unwrap();
+        let payload = if bytes.is_empty() {
+            Value::Null
+        } else {
+            serde_json::from_slice(&bytes).unwrap()
+        };
+        (status, payload)
+    }
+
+    // 1. 7-character password fails with 400 and commits zero rows.
+    let too_short = idempotent_request(
+        &app,
+        Method::POST,
+        "/api/v1/admin/customers",
+        Some("tiwater-short"),
+        json!({
+            "name": "Short Pw Org",
+            "account_kind": "organization",
+            "create_default_workspace": true,
+            "owner": {
+                "name": "Short Owner",
+                "email": "short@tiwater.test",
+                "password": "7-chars"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(too_short.0, StatusCode::BAD_REQUEST, "{}", too_short.1);
+    let short_org_count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM organizations WHERE name = 'Short Pw Org'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(short_org_count, 0);
+
+    // 2. 8-character password succeeds atomically in a single transaction, creating
+    //    organization + customer_balance_account + Default workspace + owner + credential + trial credit.
+    let tiwater_payload = json!({
+        "name": "Tiwater",
+        "account_kind": "organization",
+        "create_default_workspace": true,
+        "owner": {
+            "name": "Tiwater Owner",
+            "email": "Owner@Tiwater.test",
+            "password": "Secret88"
+        },
+        "trial_credit_nanos": "5000000000"
+    });
+    let created = idempotent_request(
+        &app,
+        Method::POST,
+        "/api/v1/admin/customers",
+        Some("onboard-tiwater-1"),
+        tiwater_payload.clone(),
+    )
+    .await;
+    assert_eq!(created.0, StatusCode::CREATED, "{}", created.1);
+    let data = &created.1["data"];
+    let org_id = data["id"].as_str().unwrap().to_owned();
+    let workspace_id = data["workspace_id"].as_str().unwrap().to_owned();
+    let owner_id = data["owner_id"].as_str().unwrap().to_owned();
+    assert_eq!(data["name"], "Tiwater");
+    assert_eq!(data["slug"], "tiwater");
+    assert_eq!(data["workspace_name"], "Default");
+    assert_eq!(data["owner_email"], "owner@tiwater.test");
+    assert_eq!(data["trial_credit_nanos"], "5000000000");
+
+    // Owner can immediately sign in with the 8-character password.
+    let owner_login = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/login",
+        None,
+        Some("https://niu.example.test"),
+        json!({ "email": "owner@tiwater.test", "password": "Secret88" }),
+    )
+    .await;
+    assert_eq!(owner_login.0, StatusCode::OK, "{}", owner_login.2);
+
+    // 3. Replaying the exact Idempotency-Key returns the identical result without double-crediting.
+    let replay = idempotent_request(
+        &app,
+        Method::POST,
+        "/api/v1/admin/customers",
+        Some("onboard-tiwater-1"),
+        tiwater_payload,
+    )
+    .await;
+    assert_eq!(replay.0, StatusCode::CREATED, "{}", replay.1);
+    assert_eq!(replay.1, created.1);
+    let balance_nanos: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(amount_nanos), 0)::bigint FROM customer_balance_entries WHERE organization_id = $1::uuid",
+    )
+    .bind(&org_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(balance_nanos, 5_000_000_000);
+
+    // Reusing the same Idempotency-Key with a different payload returns 409 Conflict.
+    let mismatched_replay = idempotent_request(
+        &app,
+        Method::POST,
+        "/api/v1/admin/customers",
+        Some("onboard-tiwater-1"),
+        json!({ "name": "Different Customer" }),
+    )
+    .await;
+    assert_eq!(mismatched_replay.0, StatusCode::CONFLICT);
+
+    // 4. Duplicate owner email fails with 409 registration_email_exists AND rolls back 100%
+    //    (zero orphan organization, workspace, or operator rows).
+    let duplicate_customer = idempotent_request(
+        &app,
+        Method::POST,
+        "/api/v1/admin/customers",
+        Some("onboard-duplicate-email"),
+        json!({
+            "name": "Half Created Should Never Exist",
+            "account_kind": "organization",
+            "create_default_workspace": true,
+            "owner": {
+                "name": "Duplicate Email Owner",
+                "email": "OWNER@tiwater.test",
+                "password": "Secret88"
+            },
+            "trial_credit_nanos": "1000000000"
+        }),
+    )
+    .await;
+    assert_eq!(
+        duplicate_customer.0,
+        StatusCode::CONFLICT,
+        "{}",
+        duplicate_customer.1
+    );
+    assert_eq!(
+        duplicate_customer.1["error"]["type"],
+        "registration_email_exists"
+    );
+    let orphan_orgs: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM organizations WHERE name = 'Half Created Should Never Exist'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let orphan_ops: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM admin_operators WHERE name = 'Duplicate Email Owner'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(orphan_orgs, 0);
+    assert_eq!(orphan_ops, 0);
+
+    // 5. POST /api/v1/members with inline email + password rolls back on duplicate email
+    //    and commits atomically on unique email.
+    let dup_member = idempotent_request(
+        &app,
+        Method::POST,
+        "/api/v1/members",
+        Some("dup-member-1"),
+        json!({
+            "organization_id": org_id,
+            "project_id": workspace_id,
+            "name": "Colliding Teammate",
+            "role": "admin",
+            "issue_session": false,
+            "email": "owner@tiwater.test",
+            "password": "Secret88"
+        }),
+    )
+    .await;
+    assert_eq!(dup_member.0, StatusCode::CONFLICT, "{}", dup_member.1);
+    assert_eq!(dup_member.1["error"]["type"], "registration_email_exists");
+    let colliding_ops: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM admin_operators WHERE name = 'Colliding Teammate'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(colliding_ops, 0);
+
+    let ok_member = idempotent_request(
+        &app,
+        Method::POST,
+        "/api/v1/members",
+        Some("ok-member-1"),
+        json!({
+            "organization_id": org_id,
+            "project_id": workspace_id,
+            "name": "Atomic Teammate",
+            "role": "admin",
+            "issue_session": false,
+            "email": "teammate@tiwater.test",
+            "password": "TeamPass"
+        }),
+    )
+    .await;
+    assert_eq!(ok_member.0, StatusCode::CREATED, "{}", ok_member.1);
+    let teammate_login = request(
+        &app,
+        Method::POST,
+        "/api/v1/auth/login",
+        None,
+        Some("https://niu.example.test"),
+        json!({ "email": "teammate@tiwater.test", "password": "TeamPass" }),
+    )
+    .await;
+    assert_eq!(teammate_login.0, StatusCode::OK, "{}", teammate_login.2);
+
+    // 6. Exact regression test for the legacy "Tiwater" partial-setup bug:
+    //    PUT /api/v1/members/{operator}/password with expected_revision = 0 succeeds on an
+    //    unconfigured member (returning revision = 1), and returns registration_email_exists
+    //    (never opaque conflict) if given an email already owned by another account.
+    let legacy_member = idempotent_request(
+        &app,
+        Method::POST,
+        "/api/v1/members",
+        Some("legacy-member-1"),
+        json!({
+            "organization_id": org_id,
+            "name": "Legacy Passwordless Owner",
+            "role": "owner",
+            "issue_session": false
+        }),
+    )
+    .await;
+    assert_eq!(legacy_member.0, StatusCode::CREATED, "{}", legacy_member.1);
+    let legacy_id = legacy_member.1["operator"]["id"].as_str().unwrap();
+
+    let email_collision = idempotent_request(
+        &app,
+        Method::PUT,
+        &format!("/api/v1/members/{legacy_id}/password"),
+        None,
+        json!({
+            "email": "owner@tiwater.test",
+            "password": "Retry888",
+            "expected_revision": 0
+        }),
+    )
+    .await;
+    assert_eq!(
+        email_collision.0,
+        StatusCode::CONFLICT,
+        "{}",
+        email_collision.1
+    );
+    assert_eq!(
+        email_collision.1["error"]["type"],
+        "registration_email_exists"
+    );
+
+    let retry_zero_rev = idempotent_request(
+        &app,
+        Method::PUT,
+        &format!("/api/v1/members/{legacy_id}/password"),
+        None,
+        json!({
+            "email": "recovered@tiwater.test",
+            "password": "Retry888",
+            "expected_revision": 0
+        }),
+    )
+    .await;
+    assert_eq!(retry_zero_rev.0, StatusCode::OK, "{}", retry_zero_rev.1);
+    assert_eq!(retry_zero_rev.1, json!({ "revision": 1 }));
+    assert_ne!(legacy_id, owner_id);
 }

@@ -263,6 +263,19 @@ impl Store {
         .fetch_optional(&self.pool)
         .await?)
     }
+    pub async fn catalog_provider_names(
+        &self,
+        ids: &[Uuid],
+    ) -> Result<std::collections::BTreeMap<Uuid, String>, StoreError> {
+        let rows: Vec<(Uuid, String)> = sqlx::query_as(
+            "SELECT id, name FROM provider_businesses WHERE id = ANY($1) AND deleted_at IS NULL",
+        )
+        .bind(ids)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().collect())
+    }
+
     pub async fn provider_businesses(&self) -> Result<Vec<Value>, StoreError> {
         Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name,'logo_url',p.logo_url,'model_access_mode',p.model_access_mode,'default_discount_bps',p.default_discount_bps,'api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o WHERE o.provider_id=p.id),'configured_api_keys',(SELECT COUNT(*) FROM vendors v JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND octet_length(v.credential_ciphertext) > 0),'models',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'enabled_api_keys',(SELECT COUNT(*) FROM vendors v JOIN vendor_supplier_ownership o ON o.vendor_id=v.id WHERE o.provider_id=p.id AND v.enabled AND octet_length(v.credential_ciphertext) > 0),'enabled_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id AND vm.enabled AND niu_model_has_enabled_vendor(vm.alias)),'internal_api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o JOIN personal_vendor_ownership po ON po.vendor_id=o.vendor_id WHERE o.provider_id=p.id),'internal_model_routes',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id JOIN personal_vendor_ownership po ON po.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'offers',(SELECT COUNT(*) FROM provider_offers f WHERE f.provider_id=p.id),'ready_offers',(SELECT COUNT(*) FROM provider_offers f JOIN vendor_models vm ON vm.alias=f.model_alias AND vm.vendor_id=f.vendor_id JOIN vendor_supplier_ownership own ON own.vendor_id=vm.vendor_id AND own.provider_id=p.id WHERE f.provider_id=p.id AND f.active AND vm.enabled AND niu_model_has_enabled_vendor(vm.alias) AND niu_offer_qualification_current(p.id,f.id,f.current_revision)),'members',(SELECT COUNT(*) FROM provider_memberships m JOIN admin_operators a ON a.id=m.operator_id WHERE m.provider_id=p.id AND m.active AND a.revoked_at IS NULL)) FROM provider_businesses p WHERE p.deleted_at IS NULL ORDER BY p.name,p.id").fetch_all(&self.pool).await?)
     }

@@ -93,7 +93,7 @@ export default function WorkspaceAssetsRoute() {
 
   if (extensionSections.length === 0) {
     return (
-      <div className="space-y-5">
+      <div className="empty-region space-y-5">
         <PageHeader title={t('Assets', '素材库')} action={headerAction} />
         {libraryElement}
       </div>
@@ -101,7 +101,7 @@ export default function WorkspaceAssetsRoute() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="empty-region space-y-5">
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <PageHeader
           title={t('Assets', '素材库')}

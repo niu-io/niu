@@ -417,7 +417,9 @@ fn billing_and_pricing_routes(app: Router<AppState>) -> Router<AppState> {
         get(crate::billing::noncash_grants::prepared_by_key),
     )
     .route("/api/v1/admin/customers",
-        get(crate::billing::platform_accounts::list),
+        get(crate::billing::platform_accounts::list)
+            .post(crate::billing::platform_accounts::onboard_customer)
+            .layer(axum::extract::DefaultBodyLimit::max(8192)),
     )
     .route("/api/v1/admin/customers/{customer}",
         get(crate::billing::platform_accounts::get_customer),
@@ -3099,40 +3101,6 @@ struct AdminModelScope {
     include_uncallable: Option<bool>,
 }
 
-fn has_non_chat_modality_token(identifier: &str) -> bool {
-    identifier
-        .split(|c: char| !c.is_ascii_alphanumeric())
-        .filter(|segment| !segment.is_empty())
-        .any(|token| {
-            matches!(
-                token.to_ascii_lowercase().as_str(),
-                "video"
-                    | "seedance"
-                    | "wan2"
-                    | "kling"
-                    | "veo"
-                    | "sora"
-                    | "vidu"
-                    | "hailuo"
-                    | "luma"
-                    | "runway"
-                    | "seedream"
-                    | "flux"
-                    | "imagen"
-                    | "kolors"
-                    | "embedding"
-                    | "embeddings"
-                    | "embed"
-                    | "rerank"
-                    | "reranker"
-                    | "whisper"
-                    | "tts"
-                    | "asr"
-                    | "moderation"
-            )
-        })
-}
-
 /// Catalog descriptions cannot override the actual Video-only route boundary.
 /// OpenAI-compatible Chat Completions routes whose `/v1/models` response omits
 /// OpenRouter-style `output_modalities` are Chat-capable unless the identifier
@@ -3152,8 +3120,8 @@ fn configured_generation_capabilities(
                 .iter()
                 .any(|output| output == "text"),
         )
-    } else if has_non_chat_modality_token(alias)
-        || has_non_chat_modality_token(&model.upstream_model)
+    } else if niu_media::has_non_chat_modality_token(alias)
+        || niu_media::has_non_chat_modality_token(&model.upstream_model)
     {
         None
     } else {
@@ -3180,6 +3148,20 @@ async fn admin_models(
         return Err(ApiError::not_found());
     }
     let catalog = crate::vendors::generation_catalog_with_pools(&state, organization_id).await?;
+    let provider_names = if authorization.can_manage_platform() {
+        let ids: std::collections::BTreeSet<_> = catalog
+            .routes
+            .values()
+            .filter_map(|route| route.provider_id)
+            .collect();
+        state
+            .store
+            .catalog_provider_names(&ids.into_iter().collect::<Vec<_>>())
+            .await
+            .map_err(ApiError::from_store)?
+    } else {
+        Default::default()
+    };
     let (billing_mode, mut unit_prices) = state
         .store
         .customer_unit_model_prices()
@@ -3331,6 +3313,7 @@ async fn admin_models(
                 Some(json!({
                     "id": name,
                     "provider": model.provider,
+                    "provider_name": catalog.routes.get(name).and_then(|route| route.provider_id).and_then(|id| provider_names.get(&id)),
                     "upstream_model": model.upstream_model,
                     "public_catalog": model.public_catalog,
                     "callable": callable,
@@ -3356,7 +3339,7 @@ async fn admin_models(
                     "supports_responses": model.supports_responses
                 }))
             } else {
-                Some(json!({
+                let mut entry = json!({
                     "id": name,
                     "public_catalog": model.public_catalog,
                     "callable": callable,
@@ -3368,7 +3351,11 @@ async fn admin_models(
                     "billing_source": billing_source,
                     "generation_capabilities": generation_capabilities,
                     "capabilities": capabilities
-                }))
+                });
+                if let Some(name) = catalog.routes.get(name).and_then(|route| route.provider_id).and_then(|id| provider_names.get(&id)) {
+                    entry["provider_name"] = json!(name);
+                }
+                Some(entry)
             }
         })
         .collect();

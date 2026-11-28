@@ -18,7 +18,7 @@ afterEach(() => {
   mockedContext.session = null;
   cleanup();
 });
-const models = Array.from({ length: 25 }, (_, i) => ({ id: `openai/model-${i}`, provider: 'openrouter', public_catalog: true, catalog: {output_modalities:['text']} }));
+const models = Array.from({ length: 25 }, (_, i) => ({ id: `openai/model-${i}`, provider: 'openrouter', provider_name: 'OpenRouter', public_catalog: true, catalog: {output_modalities:['text']} }));
 it('searches and opens a model without losing the catalog filter on return', async () => {
   const user = userEvent.setup();
   render(<MemoryRouter initialEntries={['/models']}><Routes><Route path="/models/*" element={<SidebarProvider><Link to="/models">Models breadcrumb</Link><ModelTable models={models} /></SidebarProvider>} /></Routes></MemoryRouter>);
@@ -62,18 +62,25 @@ it('provides a working catalog recovery action for an unavailable model', async 
   expect(screen.getAllByRole('article')).toHaveLength(20);
 });
 
-it('clears both a developer filter and an unmatched search to recover the catalog', async () => {
+it('clears both a Provider filter and an unmatched search to recover the catalog', async () => {
   const user = userEvent.setup();
   render(<MemoryRouter initialEntries={['/models']}><SidebarProvider><ModelTable models={models} /></SidebarProvider></MemoryRouter>);
-  const developer = screen.getByRole('checkbox', { name: 'OpenAI', exact: true });
-  await user.click(developer);
+  const provider = screen.getByRole('checkbox', { name: 'OpenRouter', exact: true });
+  await user.click(provider);
   await user.type(screen.getByRole('textbox', { name: 'Search models by name or ID' }), 'unavailable-example');
   expect(screen.getByText('No matching models')).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Clear filters' }));
-  expect(developer.getAttribute('aria-checked')).toBe('false');
+  expect(provider.getAttribute('aria-checked')).toBe('false');
   expect(document.activeElement).toBe(screen.getByRole('textbox', {name:'Search models by name or ID'}));
   expect((screen.getByRole('textbox', { name: 'Search models by name or ID' }) as HTMLInputElement).value).toBe('');
   expect(screen.getAllByRole('article')).toHaveLength(20);
+});
+
+it('shows the request fee when base token rates are zero', () => {
+  const tariff = { currency: 'USD', unit: 'nanounits_per_million_tokens' as const, prompt_rate: '0', completion_rate: '0', request_fee_nanos: '10000000', minimum_charge_nanos: '0', context_tiers: [] };
+  render(<MemoryRouter><SidebarProvider><ModelTable models={[{ ...models[0], customer_pricing: tariff }]} /></SidebarProvider></MemoryRouter>);
+  expect(screen.queryByText('Free')).toBeNull();
+  expect(screen.getByText('Request fee · $0.01')).toBeTruthy();
 });
 
 it('formats published token rates without floating point artifacts or rounding tiny rates to zero', () => {
@@ -83,17 +90,17 @@ it('formats published token rates without floating point artifacts or rounding t
   expect(screen.getByText('$0.000001/M output tokens')).toBeTruthy();
 });
 
-it('preserves developer filters when their group is collapsed with the keyboard', async () => {
+it('preserves Provider filters when their group is collapsed with the keyboard', async () => {
   const user=userEvent.setup();
   render(<MemoryRouter><SidebarProvider><ModelTable models={models}/></SidebarProvider></MemoryRouter>);
-  await user.click(screen.getByRole('checkbox',{name:'OpenAI',exact:true}));
-  const trigger=screen.getByRole('button',{name:'Developer',exact:true});
+  await user.click(screen.getByRole('checkbox',{name:'OpenRouter',exact:true}));
+  const trigger=screen.getByRole('button',{name:'Providers',exact:true});
   trigger.focus();await user.keyboard(' ');
   expect(trigger.getAttribute('aria-expanded')).toBe('false');
-  expect(screen.queryByRole('checkbox',{name:'OpenAI',exact:true})).toBeNull();
+  expect(screen.queryByRole('checkbox',{name:'OpenRouter',exact:true})).toBeNull();
   await user.keyboard(' ');
   expect(trigger.getAttribute('aria-expanded')).toBe('true');
-  expect(screen.getByRole('checkbox',{name:'OpenAI',exact:true}).getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByRole('checkbox',{name:'OpenRouter',exact:true}).getAttribute('aria-checked')).toBe('true');
   await user.type(screen.getByRole('textbox',{name:'Search models by name or ID'}),'model-24');
   expect(screen.getByText('1 model')).toBeTruthy();
   expect(screen.queryByText('1 models')).toBeNull();
@@ -102,13 +109,11 @@ it('preserves developer filters when their group is collapsed with the keyboard'
 
 it('does not turn an imported distributor into a model developer', () => {
   const imported = [
-    { id:'babelark/third-party-model', provider:'babelark', catalog:{name:'Third-party model', output_modalities:['text']} },
-    { id:'babelark/deepseek-chat', provider:'babelark', catalog:{name:'DeepSeek Chat', output_modalities:['text']} },
+    { id:'babelark/third-party-model', provider:'babelark', provider_name: 'BabelArk', catalog:{name:'Third-party model', output_modalities:['text']} },
+    { id:'babelark/deepseek-chat', provider:'babelark', provider_name: 'BabelArk', catalog:{name:'DeepSeek Chat', output_modalities:['text']} },
   ];
   const view = render(<MemoryRouter><SidebarProvider><ModelTable models={imported}/></SidebarProvider></MemoryRouter>);
-  const developerFilters = screen.getByRole('region',{name:'Inferred developer filters'});
-  expect(within(developerFilters).queryByRole('checkbox',{name:'BabelArk',exact:true})).toBeNull();
-  expect(within(developerFilters).getByRole('checkbox',{name:'DeepSeek',exact:true})).toBeTruthy();
+  expect(screen.queryByRole('region',{name:'Inferred developer filters'})).toBeNull();
   const providerFilters = screen.getByRole('region',{name:'Provider filters'});
   expect(within(providerFilters).getByRole('checkbox',{name:'BabelArk',exact:true})).toBeTruthy();
   const thirdParty = screen.getByRole('link',{name:'Third-party model'}).closest('article')!;
@@ -204,26 +209,18 @@ it.each([['123456789', '$0.123456789 /M tokens'], ['0', '$0.00 /M tokens'], [nul
 it('keeps developer and provider facets separate without treating access namespaces as companies', async () => {
   const user=userEvent.setup();
   const routes=[
-    {id:'fastrouter/seedance-2.0-mini',provider:'fastrouter',public_catalog:false},
-    {id:'byok/claude-sonnet-4',provider:'openrouter',public_catalog:false},
+    {id:'fastrouter/seedance-2.0-mini',provider:'fastrouter', provider_name: 'FastRouter',public_catalog:false},
+    {id:'byok/claude-sonnet-4',provider:'openrouter', provider_name: 'OpenRouter',public_catalog:false},
     {id:'team/custom',provider:'byok',public_catalog:false},
-    {id:'anthropic/claude-haiku',provider:'fastrouter',public_catalog:true},
+    {id:'anthropic/claude-haiku',provider:'fastrouter', provider_name: 'FastRouter',public_catalog:true},
   ];
   render(<MemoryRouter><SidebarProvider><ModelTable models={routes}/></SidebarProvider></MemoryRouter>);
-  const developers=within(screen.getByRole('region',{name:'Inferred developer filters'}));
   const connections=within(screen.getByRole('region',{name:'Provider filters'}));
-  expect(developers.getByText('Inferred from model identifiers; not verified.')).toBeTruthy();
-  expect(developers.queryByRole('checkbox',{name:/byok|fastrouter|team/i})).toBeNull();
+  expect(screen.queryByRole('region',{name:'Inferred developer filters'})).toBeNull();
   expect(connections.queryByRole('checkbox',{name:/byok/i})).toBeNull();
-  expect(developers.getByRole('checkbox',{name:'ByteDance'})).toBeTruthy();
-  expect(screen.queryByText('by byok')).toBeNull();
-  expect(screen.queryByText('by team')).toBeNull();
-  await user.click(developers.getByRole('checkbox',{name:'Anthropic'}));
-  expect(screen.getAllByRole('article')).toHaveLength(2);
   await user.click(connections.getByRole('checkbox',{name:'FastRouter'}));
-  expect(screen.getAllByRole('article')).toHaveLength(1);
+  expect(screen.getAllByRole('article')).toHaveLength(2);
   expect(screen.getByRole('link',{name:'Claude Haiku',exact:true})).toBeTruthy();
-  expect(screen.getByText('Developer: Anthropic')).toBeTruthy();
   expect(screen.getByText('Provider: FastRouter')).toBeTruthy();
   await user.click(screen.getByRole('button',{name:'Clear filters'}));
   expect(screen.getAllByRole('article')).toHaveLength(4);
@@ -232,8 +229,8 @@ it('keeps developer and provider facets separate without treating access namespa
 it('filters explicit modalities and capabilities together, shows tags, and clears selections', async () => {
   const user = userEvent.setup();
   const tagged = [
-    {id:'openai/vision',provider:'openrouter',public_catalog:true,catalog:{input_modalities:['text','image'],output_modalities:['text'],supported_parameters:['tools','structured_outputs']}},
-    {id:'google/video',provider:'openrouter',public_catalog:true,catalog:{input_modalities:['text','image'],output_modalities:['video']}},
+    {id:'openai/vision',provider:'openrouter', provider_name: 'OpenRouter',public_catalog:true,catalog:{input_modalities:['text','image'],output_modalities:['text'],supported_parameters:['tools','structured_outputs']}},
+    {id:'google/video',provider:'openrouter', provider_name: 'OpenRouter',public_catalog:true,catalog:{input_modalities:['text','image'],output_modalities:['video']}},
     {id:'unknown',public_catalog:true},
   ];
   render(<MemoryRouter><SidebarProvider><ModelTable models={tagged}/></SidebarProvider></MemoryRouter>);
@@ -285,7 +282,7 @@ it('links an unknown-capability model to Chat without stamping misleading unpubl
   browse.unmount();
   render(<MemoryRouter initialEntries={['/models/babelark/example']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
   expect(screen.getByRole('link', {name:'Try'}).getAttribute('href')).toContain('model=babelark%2Fexample');
-  expect(screen.getByText('Upstream did not declare input or output modalities for this model.')).toBeTruthy();
+  expect(screen.getByText('Support unverified')).toBeTruthy();
 });
 
 
@@ -298,7 +295,7 @@ it('distinguishes direct Provider billing from missing platform prices without c
 it('keeps platform funding separate from an absent price', () => {
   const model = {...models[0], billing_source: 'niu_credits' as const};
   render(<MemoryRouter initialEntries={['/models/openai/model-0']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
-  expect(screen.getByText(/Niu charges, when applicable, use workspace credits/)).toBeTruthy();
+  expect(screen.queryByText(/Niu charges, when applicable/)).toBeNull();
   expect(screen.getAllByText('Not published')).toHaveLength(2);
   expect(screen.queryByText(/Your Provider bills/)).toBeNull();
 });
@@ -317,19 +314,19 @@ it('explains Video estimation without presenting token prices for a Video-only m
  render(<MemoryRouter initialEntries={['/models/example/video']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={[model]}/></SidebarProvider>}/></Routes></MemoryRouter>);
  expect(screen.queryByText('Input price')).toBeNull();
  expect(screen.queryByText('Output price')).toBeNull();
- expect(screen.getByText(/Video cost depends on request settings/)).toBeTruthy();
+ expect(screen.getByText('Video cost is estimated before generation.')).toBeTruthy();
  expect(screen.getByRole('link',{name:'Try'})).toBeTruthy();
 });
 
-it('restores developer, provider, and capability filters from URL parameters and preserves them on detail links',()=>{
+it('ignores legacy inferred developer filters and preserves capability filters on detail links',()=>{
  const catalog=[
-  {id:'anthropic/claude-sonnet-4',provider:'openrouter',public_catalog:true,catalog:{name:'Claude Sonnet 4',input_modalities:['text','image'],output_modalities:['text']}},
-  {id:'openai/gpt-4o',provider:'openrouter',public_catalog:true,catalog:{name:'GPT-4o',input_modalities:['text','image'],output_modalities:['text']}},
+  {id:'anthropic/claude-sonnet-4',provider:'openrouter', provider_name: 'OpenRouter',public_catalog:true,catalog:{name:'Claude Sonnet 4',input_modalities:['text','image'],output_modalities:['text']}},
+  {id:'openai/gpt-4o',provider:'openrouter', provider_name: 'OpenRouter',public_catalog:true,catalog:{name:'GPT-4o',input_modalities:['text','image'],output_modalities:['text']}},
  ];
  render(<MemoryRouter initialEntries={['/models?dev=anthropic&input=image']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={catalog}/></SidebarProvider>}/></Routes></MemoryRouter>);
- expect(screen.getAllByRole('article')).toHaveLength(1);
+ expect(screen.getAllByRole('article')).toHaveLength(2);
  const detailLink = screen.getByRole('link',{name:'Claude Sonnet 4'});
- expect(detailLink.getAttribute('href')).toBe('/models/anthropic/claude-sonnet-4?input=image&dev=anthropic');
+ expect(detailLink.getAttribute('href')).toBe('/models/anthropic/claude-sonnet-4?input=image');
 });
 
 it('shows one catalog even when an old billing-source bookmark is opened', () => {
@@ -347,8 +344,8 @@ it('shows one catalog even when an old billing-source bookmark is opened', () =>
 
 it('renders model card titles and meta action links with default foreground color instead of primary accent', () => {
   const mixed = [
-    { id: 'openai/gpt-4o', provider: 'openrouter', public_catalog: true, catalog: { name: 'GPT-4o', output_modalities: ['text'] } },
-    { id: 'fastrouter/seedance', provider: 'fastrouter', public_catalog: true, generation_capabilities: { chat: false, video: true }, catalog: { name: 'Seedance Video', output_modalities: ['video'] } },
+    { id: 'openai/gpt-4o', provider: 'openrouter', provider_name: 'OpenRouter', public_catalog: true, catalog: { name: 'GPT-4o', output_modalities: ['text'] } },
+    { id: 'fastrouter/seedance', provider: 'fastrouter', provider_name: 'FastRouter', public_catalog: true, generation_capabilities: { chat: false, video: true }, catalog: { name: 'Seedance Video', output_modalities: ['video'] } },
   ];
   render(<MemoryRouter initialEntries={['/models']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={mixed} /></SidebarProvider>} /></Routes></MemoryRouter>);
   const titleLink = screen.getByRole('link', { name: 'GPT-4o' });
@@ -365,7 +362,7 @@ it('renders model card titles and meta action links with default foreground colo
 it('hides active generation and curl CTAs for uncallable commercial models and links admins to missing pricing steps', () => {
   const uncallableModel = {
     id: 'openai/unpriced-commercial',
-    provider: 'openrouter',
+    provider: 'openrouter', provider_name: 'OpenRouter',
     billing_source: 'niu_credits' as const,
     public_catalog: false,
     callable: false,
@@ -374,7 +371,7 @@ it('hides active generation and curl CTAs for uncallable commercial models and l
   };
   const internalOwnKey = {
     id: 'internal/direct-chat',
-    provider: 'openrouter',
+    provider: 'openrouter', provider_name: 'OpenRouter',
     billing_source: 'own_api_key' as const,
     public_catalog: true,
     callable: true,

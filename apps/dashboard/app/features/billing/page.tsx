@@ -1,4 +1,3 @@
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { currencyTariffColumns } from './tariff-columns';
 import { translateUI } from '@/shell/ui-locale';
 import { readLocale as readUILocale } from '@/shell/ui-locale';
@@ -6,10 +5,10 @@ import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { Link, type LoaderFunctionArgs } from 'react-router';
 import { loadCriticalRouteEndpoint, routeShouldRevalidate, useOptionalRouteLoaderData } from '@/lib/route-data';
 import { settingsHref } from '@/features/account/settings-routes';
-import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import type { CustomerTariff, CustomerInvoiceLine, CustomerInvoiceMediaLine } from '@niu-io/sdk/admin';
 import { useSearchParams } from 'react-router';
-import { IconReceipt, IconCurrencyDollar, IconDots } from '@tabler/icons-react';
+import { IconReceipt, IconCurrencyDollar } from '@tabler/icons-react';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { IconRefresh as RefreshCw } from '@tabler/icons-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
@@ -23,7 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatExactUnitAtoms, formatUnitAtoms, money } from '@/lib/money';
+import { formatBalanceMoney, formatExactUnitAtoms, formatUnitAtoms, money } from '@/lib/money';
 import { cachedGet, markCachedStale, peekCachedGet, request } from '@/features/providers/api';
 import { TableSkeleton, WorkspaceShellSkeleton } from '@/components/PageSkeletons';
 
@@ -171,18 +170,18 @@ function OrgBalanceStrip({ token, organizationId, organizationName, canFund, wor
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs text-muted-foreground">
             {organizationName
-              ? `${organizationName} · ${t('Shared balance across workspaces', '组织内各工作空间共享余额')}`
-              : t('Shared balance across workspaces', '组织内各工作空间共享余额')}
+              ? `${organizationName} · ${t('Shared workspace balance', '工作空间共享余额')}`
+              : t('Shared workspace balance', '工作空间共享余额')}
           </p>
           {unlimited && <Badge variant="secondary">{t('Unlimited credit', '无限授信')}</Badge>}
         </div>
-        <p className="text-2xl font-semibold tabular-nums tracking-tight">
-          {primary ? money(unlimited ? (primary.balance_nanos ?? primary.available_nanos) : primary.available_nanos, primary.currency) : '—'}
+        <p className="text-2xl font-semibold tabular-nums tracking-tight" title={primary ? money(unlimited ? (primary.balance_nanos ?? primary.available_nanos) : primary.available_nanos, primary.currency) : undefined}>
+          {primary ? formatBalanceMoney(unlimited ? (primary.balance_nanos ?? primary.available_nanos) : primary.available_nanos, primary.currency) : '—'}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="outline" size="sm">
-          <Link to={workspaceSettingsHref}>{t('Spending limits', '支出限额')}</Link>
+          <Link to={workspaceSettingsHref}>{t('Workspace limits', '工作空间限额')}</Link>
         </Button>
         {canFund && (
           <Button asChild size="sm">
@@ -202,14 +201,6 @@ export default function BillingRoute() {
   if (!token || !workspace) return <><PageHeader title={uiT("Usage statements")} /><p>{uiT("Select a workspace to review billing.")}</p></>;
   const organizationName = organizationDisplayName(workspace.organization_name) || organizationDisplayName(organization?.id === workspace.organization_id ? organization.name : '') || '';
   const matchingOrganization = organization?.id === workspace.organization_id;
-  const headerAction = matchingOrganization && canFund
-    ? <><Button asChild variant="outline" size="sm" className="hidden sm:inline-flex"><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></Button><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="sm:hidden" aria-label={uiT("Billing actions")}><IconDots size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem asChild><Link to={settingsHref('billing')}>{uiT("Manage credits")}</Link></DropdownMenuItem></DropdownMenuContent></DropdownMenu></>
-    : undefined;
-  const zhOrgPossessive = organizationName
-    ? organizationName.charCodeAt(organizationName.length - 1) <= 0x7f
-      ? `${organizationName} 的`
-      : `${organizationName}的`
-    : '';
   return <>
     {matchingOrganization && (
       <OrgBalanceStrip
@@ -220,15 +211,12 @@ export default function BillingRoute() {
         workspaceSettingsHref="../settings"
       />
     )}
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <p className="text-sm text-muted-foreground">{organizationName ? uiT(`Spending and limits apply to this workspace. ${organizationName}'s Niu balance is shared across its workspaces.`, `支出与限额适用于此工作空间，${zhOrgPossessive} Niu 余额由组织内各工作空间共享。`) : uiT("Spending and limits apply to this workspace. Its organization's Niu balance is shared across its workspaces.")}</p>
-      {!matchingOrganization ? <p className="text-sm text-muted-foreground">{uiT("Organization billing is unavailable. Refresh or switch to this workspace's organization.")}</p> : !canFund ? <p className="text-sm text-muted-foreground">{uiT("Contact your organization owner to add credits.")}</p> : null}
-    </div>
-    <BillingView key={`${token}:${workspace.id}`} token={token} organization={workspace.organization_id} project={workspace.id} headerAction={headerAction} />
+    {!matchingOrganization ? <p className="mb-4 text-sm text-muted-foreground">{uiT("Organization billing is unavailable. Refresh or switch to this workspace's organization.")}</p> : !canFund ? <p className="mb-4 text-sm text-muted-foreground">{uiT("Contact your organization owner to add credits.")}</p> : null}
+    <BillingView key={`${token}:${workspace.id}`} token={token} organization={workspace.organization_id} project={workspace.id} />
   </>;
 }
 
-function BillingView({ token, organization, project, headerAction }: { token: string; organization: string; project: string; headerAction?: ReactNode }) {
+function BillingView({ token, organization, project }: { token: string; organization: string; project: string }) {
   const { t: uiT, format: uiF } = useUILocale();
   const { models = [], modelsLoading = false } = useDashboardContext();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -397,13 +385,12 @@ function BillingView({ token, organization, project, headerAction }: { token: st
   const rateColumns = currencyTariffColumns(sortedTariffs);
 
   return <>
-    <PageHeader title={uiT("Billing and rates", "账单与费率")} action={<>{headerAction}<Button variant="ghost" size="icon-sm" aria-label={uiT("Refresh billing")} title={uiT("Refresh billing")} disabled={loading || invoiceLoading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button></>} />
+    <PageHeader title={uiT("Billing and rates", "账单与费率")} action={<Button variant="ghost" size="icon-sm" aria-label={uiT("Refresh billing")} title={uiT("Refresh billing")} disabled={loading || invoiceLoading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button>} />
     {error && <Alert variant="destructive"><AlertTitle>{uiT("Billing unavailable")}</AlertTitle><AlertDescription>{uiT(error)}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></AlertDescription></Alert>}
     {loading && !data ? <WorkspaceShellSkeleton label={uiT("Loading billing…")} /> : data && <Tabs value={activeTab} onValueChange={selectTab} className="billing-content">
       <TabsContent value="balance" aria-label={uiT("Spending", "支出")} aria-labelledby={undefined} className="billing-balance-content">
         <section aria-label={uiT("Workspace spending")}>
-          <h2>{uiT("Workspace spending")}</h2>
-          <p className="text-muted-foreground">{uiT("All-time customer charges for this workspace.")}</p>
+          <h2>{uiT("All-time workspace spending", "工作空间累计支出")}</h2>
           {(data.unit_balances?.length ?? 0) > 0 && (
             <div className="space-y-3 my-3" aria-label={uiT("Workspace Credits spending")}>
               {data.unit_balances!.map(ub => (
@@ -412,7 +399,7 @@ function BillingView({ token, organization, project, headerAction }: { token: st
                     {formatUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {formatExactUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision) !== formatUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision) && <>{uiT("Exact net consumed:")} {formatExactUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision)} · </>}{ub.charged_requests}{" "}{uiT("settled")}{" "}{ub.charged_requests === 1 ? uiT("request") : uiT("requests")}
+                    {formatExactUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision) !== formatUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision) && <>{uiT("Exact net consumed:")} {formatExactUnitAtoms(ub.net_charged_atoms, ub.name, ub.display_precision)} · </>}{ub.charged_requests === 1 ? uiT("1 settled request") : uiF("{0} settled requests", [ub.charged_requests])}
                     {BigInt(ub.restored_atoms || '0') > 0n && uiF(" · Restored: {0}", [formatExactUnitAtoms(ub.restored_atoms, ub.name, ub.display_precision)])}
                     {BigInt(ub.held_atoms || '0') > 0n && uiF(" · Held for active requests: {0}", [formatExactUnitAtoms(ub.held_atoms, ub.name, ub.display_precision)])}
                   </p>
@@ -422,9 +409,9 @@ function BillingView({ token, organization, project, headerAction }: { token: st
           )}
           {(data.balances ?? []).some(b => Boolean(b.charged_nanos && b.charged_nanos !== '0')) ? (data.balances ?? []).map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos, balance.currency)}</p>) : (data.unit_balances?.length ?? 0) > 0 ? null : (data.unresolved !== '0' && data.unpriced !== '0') ? <p className="billing-spending">{uiT("Pending settlement · missing rates", "待结算 · 未配置费率")}</p> : data.unresolved !== '0' ? <p className="billing-spending">{uiT("Pending settlement", "待结算")}</p> : data.unpriced !== '0' ? <p className="billing-spending">{uiT("No rate set", "未配置费率")}</p> : (data.balances ?? []).length ? (data.balances ?? []).map(balance => <p className="billing-spending" key={balance.currency}>{money(balance.charged_nanos || '0', balance.currency)}</p>) : <Empty className="billing-spending-empty my-2 min-h-24 py-5"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar aria-hidden="true" /></EmptyMedia><EmptyDescription>{uiT("No charges yet.")}</EmptyDescription></EmptyHeader></Empty>}
           {(data.unresolved !== '0' || data.unpriced !== '0') && <div className="space-y-1.5">
-            <p className="text-muted-foreground">{[data.unresolved !== '0' && (data.unresolved === '1' ? uiT("1 request awaiting settlement") : uiF("{0} requests awaiting settlement", [data.unresolved])), data.unpriced !== '0' && (data.unpriced === '1' ? uiT("1 request without a customer rate") : uiF("{0} requests without a customer rate", [data.unpriced]))].filter(Boolean).join(' · ')}{uiT(".")}</p>
+            <p className="text-muted-foreground">{[data.unresolved !== '0' && (data.unresolved === '1' ? uiT("1 request awaiting settlement") : uiF("{0} requests awaiting settlement", [data.unresolved])), data.unpriced !== '0' && (data.unpriced === '1' ? uiT("1 request without a customer rate") : uiF("{0} requests without a customer rate", [data.unpriced]))].filter(Boolean).join(' · ')}</p>
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              {data.unresolved !== '0' && <Link className="font-medium text-primary hover:underline" to="../executions?status=may_have_executed" relative="path">{uiT("Inspect pending requests", "查看待结算请求")}</Link>}
+              {data.unresolved !== '0' && <Link className="font-medium text-primary hover:underline" to="../executions?settlement=pending" relative="path">{uiT("Inspect pending requests", "查看待结算请求")}</Link>}
               {data.unpriced !== '0' && <Button type="button" variant="link" size="sm" className="h-auto p-0 font-medium" onClick={() => selectTab('rates')}>{uiT("Review rates", "查看费率")}</Button>}
             </div>
           </div>}

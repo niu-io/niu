@@ -1,5 +1,4 @@
 import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { workspaceDisplayName } from '@/shell/workspace-route';
 import { IconArrowLeft as ArrowLeft } from "@tabler/icons-react";
 import { DialogFooter } from '@/components/ui/dialog';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -59,6 +58,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   const [projects, setProjects] = useState<NamedResource[]>(() => initialProjects);
   const [operators, setOperators] = useState<Operator[]>(() => initialOps ?? []);
   const [organization, setOrganization] = useState(initialOrgId);
+  const invitationWorkspace = lockedProject || initialWorkspace;
   const [project, setProject] = useState(lockedProject || initialWorkspace || '');
   const [selectedOperatorId, setSelectedOperatorId] = useState('');
   const [sessions, setSessions] = useState<OperatorSession[]>([]);
@@ -423,7 +423,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   }
 
   function onCreateInvitation(invitation: NewMemberInvitation) {
-    const targetProject = lockedProject || invitation.projectId;
+    const targetProject = invitationWorkspace || invitation.projectId;
     if (!organization || (lockedProject && !targetProject)) return;
     void perform(async () => {
       const result = await createMemberInvitation(token, organization, {
@@ -527,9 +527,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   const invitationTitle = issuedInvitation ? uiT("Invitation created", "邀请已创建") : uiT("Invite member", "邀请成员");
   const invitationDescription = issuedInvitation
     ? uiT("Copy the one-time link now. No email was sent.", "请立即复制一次性链接。系统未发送邮件。")
-    : lockedProject
-      ? uiF("Invite a member to {0}.", [workspaceDisplayName(projects.find(item => item.id === lockedProject)?.name ?? '') || uiT("this workspace", "此工作空间")])
-      : uiT("Choose the scope and role for this invitation.", "选择此邀请的访问范围和角色。");
+    : null;
   const revokeTitle = `${uiT("Revoke access for")} ${revokeTarget?.name ?? ''}?`;
   const revokeDescription = revokeTarget?.project_id
     ? uiT("This user will lose access to this workspace. All of their access sessions will end immediately.")
@@ -583,10 +581,10 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
         {error && <p role="alert" className="text-sm text-destructive">{uiT(error)}</p>}</>;
   const invitationBody = <>{error && <p className="text-sm text-destructive" role="alert">{uiT(error)}</p>}{issuedInvitation
           ? <InvitationLinkPanel created={issuedInvitation} onDismiss={closeMemberView} />
-          : <InviteMemberForm emailInputRef={createEmailRef} onCancel={closeMemberView} disabled={busy || loading || !organization} projects={projects} defaultProjectId={project || null} canChooseOrganizationScope={!lockedProject} onCreate={onCreateInvitation} />}</>;
+          : <InviteMemberForm emailInputRef={createEmailRef} onCancel={closeMemberView} disabled={busy || loading || !organization} projects={projects} defaultProjectId={invitationWorkspace || project || null} canChooseOrganizationScope={!invitationWorkspace} onCreate={onCreateInvitation} />}</>;
 
   const actions = <div className="operator-page-actions">
-    <Popover><PopoverTrigger asChild><Button ref={memberSearchTrigger} type="button" variant="ghost" size="icon-sm" aria-label={uiT("Search members", "搜索成员")} title={uiT("Search members", "搜索成员")} className={memberSearch ? "text-primary bg-accent" : undefined}><IconSearch size={16} /></Button></PopoverTrigger><PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-2"><Input autoFocus type="search" aria-label={uiT("Search members", "搜索成员")} placeholder={uiT("Search members…", "搜索成员…")} value={memberSearch} onChange={event => setMemberSearch(event.target.value)} />{memberSearch && <Button variant="ghost" size="sm" onClick={() => setMemberSearch('')}>{uiT("Reset search")}</Button>}</PopoverContent></Popover>
+    <Popover><PopoverTrigger asChild><Button ref={memberSearchTrigger} type="button" variant="ghost" size={memberSearch ? "sm" : "icon-sm"} aria-label={uiT("Search members", "搜索成员")} title={uiT("Search members", "搜索成员")} className={memberSearch ? "text-primary bg-accent" : undefined}><IconSearch size={16} />{memberSearch && <span className="max-w-[18vw] truncate sm:max-w-36">{memberSearch}</span>}</Button></PopoverTrigger><PopoverContent align="end" onCloseAutoFocus={event => { event.preventDefault(); memberSearchTrigger.current?.focus(); }} className="w-80 max-w-[calc(100vw-2rem)] space-y-2"><Input autoFocus type="search" aria-label={uiT("Search members", "搜索成员")} placeholder={uiT("Search members…", "搜索成员…")} value={memberSearch} onChange={event => setMemberSearch(event.target.value)} />{memberSearch && <Button variant="ghost" size="sm" onClick={() => setMemberSearch('')}>{uiT("Reset search")}</Button>}</PopoverContent></Popover>
     <Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh members", "刷新成员")} title={uiT("Refresh members", "刷新成员")} disabled={loading || busy} onClick={() => void perform(() => loadOperators())}><RefreshCw size={15} className={loading ? 'animate-spin' : undefined} /></Button>
     <Button ref={createButtonRef} type="button" className="header-icon-action" aria-label={uiT("Invite member", "邀请成员")} title={uiT("Invite member", "邀请成员")} disabled={loading || busy || !organization || Boolean(lockedProject && !project)} onClick={() => { returnTrigger.current = null; setIssuedInvitation(null); setCreateOpen(true); }}><Plus size={16} /><span>{uiT("Invite member", "邀请成员")}</span></Button>
   </div>;
@@ -640,7 +638,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
           <Button type="button" variant="ghost" size="sm" data-settings-member-back disabled={busy} onClick={closeMemberView}><ArrowLeft size={16} />{uiT('Back to members', '返回成员列表')}</Button>
           <header className="space-y-2">
             <h3 id="member-subview-title" ref={subviewHeading} tabIndex={-1} className="text-base font-semibold outline-none">{createOpen ? invitationTitle : revokeTarget ? revokeTitle : cancelInvitation ? `${uiT('Cancel invitation for', '取消此邀请：')} ${cancelInvitation.recipient_email}?` : uiT('Member access', '成员访问权限')}</h3>
-            <p className="text-sm text-muted-foreground">{createOpen ? invitationDescription : revokeTarget ? revokeDescription : cancelInvitation ? cancelDescription : detailDescription}</p>
+            {(!createOpen || invitationDescription) && <p className="text-sm text-muted-foreground">{createOpen ? invitationDescription : revokeTarget ? revokeDescription : cancelInvitation ? cancelDescription : detailDescription}</p>}
           </header>
         </>
       )}

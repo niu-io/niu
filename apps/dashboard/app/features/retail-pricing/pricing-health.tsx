@@ -1,11 +1,8 @@
-import { readLocale as readUILocale } from '@/shell/ui-locale';
-import { useLocale as useUILocale } from '@/shell/ui-locale';
-import { Link } from 'react-router';
-import { IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-
+import { tokenBand } from './text-terms';
+import { useLocale } from '@/shell/ui-locale';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { money, currencySymbol } from '@/lib/money';
+import { mediaAmount } from '@/lib/media-price';
 import type { PlatformPricingHealth } from '@niu-io/sdk/admin';
 export type PricingHealth = PlatformPricingHealth;
 export type PricingSupplyState = 'active' | 'inactive' | 'unconfigured' | 'unknown';
@@ -17,53 +14,110 @@ export function supplyStateOf(health?: PricingHealth): PricingSupplyState {
   return 'unknown';
 }
 
-/** Confidential platform price diagnostics; never use in customer surfaces. */
-export function PricingHealthNotice({ health }: { health?: PricingHealth }) {
-  const { t: uiT, format: uiF } = useUILocale();
-  const checks = health?.checks;
+type Check = PricingHealth['checks'][number];
+type MediaAmount = NonNullable<Check['media_rates']>['purchase'];
+
+export function mediaPrice(value: MediaAmount, currency: string, meter: string) {
+  const { numerator, denominator } = value.per_quantity;
+  const quantity = denominator === '1' ? numerator : `${numerator}/${denominator}`;
+  return `${currencySymbol(currency)}${mediaAmount(value.amount_units, value.decimal_places)} / ${quantity} ${meter}`;
+}
+
+type UnitSpread = { nanos: bigint; quantity: bigint };
+
+function mediaUnitRate(rate: MediaAmount): UnitSpread {
+  return {
+    nanos: BigInt(rate.amount_units) * 10n ** BigInt(9 - rate.decimal_places) * BigInt(rate.per_quantity.denominator),
+    quantity: BigInt(rate.per_quantity.numerator),
+  };
+}
+
+function mediaSpread(rates: NonNullable<Check['media_rates']>): UnitSpread {
+  const sell = mediaUnitRate(rates.selling);
+  const buy = mediaUnitRate(rates.purchase);
+  return { nanos: sell.nanos * buy.quantity - buy.nanos * sell.quantity, quantity: sell.quantity * buy.quantity };
+}
+
+function formatSpread({ nanos, quantity }: UnitSpread, currency: string) {
+  let divisor = nanos < 0n ? -nanos : nanos;
+  let remainder = quantity;
+  while (remainder) [divisor, remainder] = [remainder, divisor % remainder];
+  const amount = money((nanos / divisor).toString(), currency);
+  const units = quantity / divisor;
+  return units === 1n ? amount : `${amount} / ${units}`;
+}
+
+export function DirectorySpread({ health, currency }: { health?: PricingHealth; currency: string }) {
+  const { t } = useLocale();
   const supply = supplyStateOf(health);
-  const unsupplied = supply === 'inactive' || supply === 'unconfigured';
-  const below = !unsupplied && checks?.some(check => check.status === 'below_cost');
-  const missing = !unsupplied && checks?.some(check => check.status === 'missing_provider_price');
-  const unknown = !checks?.length || checks.some(check => check.status === 'comparison_unavailable');
-  const label = below
-    ? uiT("Below Provider cost")
-    : missing
-      ? uiT("Provider price missing")
-      : supply === 'unconfigured'
-        ? uiT("No active supply", "无可用供应")
-        : supply === 'inactive'
-          ? uiT("Supply inactive", "供应已停用")
-          : unknown
-            ? uiT("Comparison unavailable")
-            : uiT("No lower unit rates", "正常（不低于成本）");
-  return <div className="flex min-w-0 sm:min-w-36 max-w-sm flex-wrap items-center gap-1 whitespace-normal">
-    <Badge variant={below || missing ? 'destructive' : 'outline'} className="h-auto max-w-full whitespace-normal break-words text-left">{(below || missing) && <IconAlertTriangle size={14} />}{label}</Badge>
-    <Dialog><DialogTrigger asChild><Button type="button" variant="ghost" size="icon-sm" aria-label={uiT("Price check details")} title={uiT("Price check details")}><IconInfoCircle /></Button></DialogTrigger><DialogContent className="w-[calc(100vw-2rem)] sm:max-w-xl"><DialogHeader><DialogTitle>{label}</DialogTitle><DialogDescription>{uiT("Current configuration advice. Refresh after changing prices. Below-cost rates do not block publication.")}</DialogDescription></DialogHeader><div className="space-y-3 text-sm">
-      {supply === 'unconfigured' && (
-        <p className="text-muted-foreground">
-          {uiT(
-            "No commercial Provider route currently supplies this model. This saved standard price stays on record, but customers cannot invoke the model until supply is enabled in Providers.",
-            "当前没有任何商业供应商路由提供该模型。这条标准售价仅保留在价目表中，客户无法调用，直到在「模型供应商」中启用供应。",
-          )}
-        </p>
-      )}
-      {supply === 'inactive' && (
-        <p className="text-muted-foreground">
-          {uiT(
-            "A Provider route exists for this model, but its connection, API key, model route, or offer is currently disabled or unapproved. Customers cannot invoke it until supply is active.",
-            "该模型存在已配置的供应商路由，但对应的连接、API 密钥、模型路由或报价当前未启用或未生效，客户暂无法调用。",
-          )}
-        </p>
-      )}
-      {!checks?.length && <p>{uiT("Refresh prices to load current Provider comparisons.")}</p>}
-      {checks?.map((check, index) => <div key={index} className="space-y-1">
-        {(check.provider || check.route) && <p className="font-medium break-words">{[check.provider, check.route].filter(Boolean).join(' · ')}</p>}
-        {check.status === 'below_cost' && <p className="font-medium">{uiT("Selling unit rates are below Provider cost. Review the selling price or Provider quote.")}</p>}
-        {check.dimensions.map((item, i) => <p key={i}>{uiT(item.dimension)} · {item.minimum_input_tokens === '0' ? uiT("Base rate") : uiF("From {0} input tokens", [BigInt(item.minimum_input_tokens).toLocaleString(readUILocale())])}</p>)}
-        {check.message && <p className="text-muted-foreground">{uiT(check.message)}</p>}
-      </div>)}
-      <Button asChild variant="link" className="h-auto p-0"><Link to="/admin/providers">{uiT("Review Provider prices")}</Link></Button>
-    </div></DialogContent></Dialog>
+  if (supply === 'inactive' || supply === 'unconfigured') return t('No active purchase quote', '暂无生效采购报价');
+  const checks = health?.checks ?? [];
+  const incomplete = checks.some(check => check.status === 'missing_provider_price' || check.status === 'comparison_unavailable');
+  const spreads: UnitSpread[] = [];
+  let unit = t('million tokens', '百万 Token');
+  for (const check of checks) {
+    if (check.media_rates) {
+      spreads.push(mediaSpread(check.media_rates));
+      unit = t(check.media_rates.meter);
+    } else {
+      for (const rate of check.rates ?? []) {
+        spreads.push({ nanos: BigInt(rate.selling) - BigInt(rate.purchase), quantity: 1n });
+      }
+    }
+  }
+  if (!spreads.length) return t('Purchase price unavailable', '采购价暂不可用');
+  spreads.sort((a, b) => {
+    const difference = a.nanos * b.quantity - b.nanos * a.quantity;
+    return difference < 0n ? -1 : difference > 0n ? 1 : 0;
+  });
+  const low = formatSpread(spreads[0], currency);
+  const high = formatSpread(spreads[spreads.length - 1], currency);
+  return <><span>{low}{low !== high && ` – ${high}`}</span>
+    <div className="text-xs text-muted-foreground">/ {unit}</div>
+    {incomplete && <div className="text-xs text-muted-foreground">{t('Partial quotes', '部分报价')}</div>}</>;
+}
+
+function TextComparison({ rates, currency, sellingLabel }: { sellingLabel: string; rates: NonNullable<Check['rates']>; currency: string }) {
+  const { t } = useLocale();
+  const grouped = new Map<string, typeof rates>();
+  for (const rate of rates) {
+    const rows = grouped.get(rate.minimum_input_tokens);
+    if (rows) rows.push(rate);
+    else grouped.set(rate.minimum_input_tokens, [rate]);
+  }
+  const bands = [...grouped].sort(([a], [b]) => BigInt(a) < BigInt(b) ? -1 : 1);
+  return <Table className="unit-price-comparison text-unit-comparison">
+        <caption className="caption-top pb-2 text-left text-sm">{currency} / {t('million tokens', '百万 Token')}</caption>
+        <TableHeader><TableRow>{[t('Item'), t('Purchase price', '采购价'), sellingLabel, t('Unit spread', '单位价差')].map(label => <TableHead key={label}>{label}</TableHead>)}</TableRow></TableHeader>
+        {bands.map(([threshold, rows], index) => <TableBody key={threshold}>
+          {bands.length > 1 && <TableRow><TableHead scope="rowgroup" colSpan={4} className="h-auto text-foreground">
+            {t('Input tokens', '输入 Token')} · {tokenBand(threshold, bands[index + 1]?.[0])}
+          </TableHead></TableRow>}
+          {rows.map(rate => <TableRow key={rate.dimension}>
+          <TableCell>{t(rate.dimension)}</TableCell>
+          <TableCell data-label={t('Purchase price', '采购价')}>{money(rate.purchase, currency)}</TableCell><TableCell data-label={sellingLabel}>{money(rate.selling, currency)}</TableCell>
+          <TableCell data-label={t('Unit spread', '单位价差')}>{money((BigInt(rate.selling) - BigInt(rate.purchase)).toString(), currency)}</TableCell>
+        </TableRow>)}</TableBody>)}
+      </Table>;
+}
+
+/** Display only in platform administration, using the same operands as the comparison. */
+export function PriceComparison({ health, currency, modelAlias, sellingLabel, summaryShowsLoss = false }: { sellingLabel: string; summaryShowsLoss?: boolean; modelAlias?: string; health?: PricingHealth; currency: string }) {
+  const { t } = useLocale();
+  const supply = supplyStateOf(health);
+  if (supply === 'inactive' || supply === 'unconfigured') {
+    return <p>{t('No active purchase quote', '暂无生效采购报价')}</p>;
+  }
+  if (!health?.checks.length) return <p>{t('Purchase price unavailable', '采购价暂不可用')}</p>;
+  return <div className="space-y-5">
+    {health.checks.map((check, index) => <section key={index} className="space-y-2">
+      <h3 className="break-all font-medium">{check.provider && check.route === modelAlias ? check.provider : [check.provider, check.route].filter(Boolean).join(' · ')}</h3>
+      {check.status === 'below_cost' && (!summaryShowsLoss || health.checks.length > 1) && <p className="text-destructive">{t('Below purchase cost', '低于采购成本')}</p>}
+      {check.rates?.length ? <TextComparison sellingLabel={sellingLabel} rates={check.rates} currency={currency} /> : check.media_rates ? <dl className="grid grid-cols-2 gap-2">
+        <dt>{t('Purchase price', '采购价')}</dt><dd>{mediaPrice(check.media_rates.purchase, currency, t(check.media_rates.meter))}</dd>
+        <dt>{sellingLabel}</dt><dd>{mediaPrice(check.media_rates.selling, currency, t(check.media_rates.meter))}</dd>
+        <dt>{t('Unit spread', '单位价差')}</dt><dd>{formatSpread(mediaSpread(check.media_rates), currency)} / {t(check.media_rates.meter)}</dd>
+      </dl> : <p>{check.message && check.status !== 'below_cost' && check.status !== 'no_lower_unit_rates' ? t(check.message) : t('Purchase price unavailable', '采购价暂不可用')}</p>}
+    </section>)}
   </div>;
 }

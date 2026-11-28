@@ -1,21 +1,23 @@
 import { readLocale, useLocale as useUILocale } from '@/shell/ui-locale';
-import { currencySymbol, formatCompactRateMoney, formatFinancialMoney, formatRateMoney, formatStatementMoney } from '@/lib/money';
+import { currencySymbol, formatFinancialMoney, formatRateMoney, formatStatementMoney } from '@/lib/money';
 import { MetricStripSkeleton, TableSkeleton } from '@/components/PageSkeletons';
 import { fetchQuery, peekQuery } from '@/lib/query-cache';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useLocale } from '@/shell/ui-locale';
+import { workspacePathSegment } from '@/shell/workspace-route';
 import { providerPathSegment } from '@/shell/provider-route';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { IconCoin, IconArrowDownRight, IconArrowUpRight, IconCalendarStats, IconChevronDown, IconFileTypePdf, IconMinus, IconRefresh } from '@tabler/icons-react';
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { useBranding } from '@/shell/branding';
 import { request, VendorRequestError } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge'; import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { CommercialPosition, CommercialPositionRow, CustomerFinancialSummary } from '@niu-io/sdk/admin';
@@ -45,10 +47,80 @@ async function fetchPeriodBundle(
 ): Promise<{ position: CommercialPosition; summary: CustomerFinancialSummary }> {
   const query = new URLSearchParams({ currency, from: opts.from, until: opts.until });
   const [position, summary] = await Promise.all([
-    request<CommercialPosition>(token, '/api/v1/admin/finance/position?' + query, 'GET', undefined, signal),
+    request<CommercialPosition>(token, '/api/v1/admin/finance/position?pending_limit=5&' + query, 'GET', undefined, signal),
     request<CustomerFinancialSummary>(token, '/api/v1/admin/finance/summary?' + query, 'GET', undefined, signal),
   ]);
   return { position, summary };
+}
+
+function PendingAttempts({ row, from, until, token }: {
+  row: CommercialPositionRow; from: string; until: string; token: string;
+}) {
+  const { t: uiT } = useLocale();
+  const { workspaces } = useDashboardContext();
+  const first = row.pending_attempts ?? [];
+  const [rest, setRest] = useState<typeof first>([]);
+  const [finished, setFinished] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const pending = useRef<AbortController | null>(null);
+  useEffect(() => {
+    setRest([]); setFinished(false); setLoading(false); setError('');
+    return () => pending.current?.abort();
+  }, [row]);
+  const attempts = [...first, ...rest];
+  async function more() {
+    if (loading || !attempts.length) return;
+    pending.current?.abort();
+    const controller = new AbortController();
+    pending.current = controller;
+    setLoading(true); setError('');
+    try {
+      const params = new URLSearchParams({ currency: row.currency, from, until, supplier: row.supplier_id,
+        model: row.model_alias, pending_before: attempts[attempts.length - 1].attempt });
+      const page = await request<CommercialPosition>(token, '/api/v1/admin/finance/position?' + params, 'GET', undefined, controller.signal);
+      if (controller.signal.aborted) return;
+      const next = page.data[0]?.pending_attempts ?? [];
+      setRest(previous => [...previous, ...next]);
+      setFinished(next.length < 50);
+    } catch (cause) {
+      if (!controller.signal.aborted) setError(cause instanceof VendorRequestError ? cause.message : uiT("Could not load more requests.", "无法加载更多请求。"));
+    } finally { if (!controller.signal.aborted) setLoading(false); }
+  }
+  const hasMore = !finished && BigInt(attempts.length) < BigInt(row.unresolved_attempts);
+  return <Sheet onOpenChange={open => {
+    if (open && hasMore && rest.length === 0 && !error) void more();
+  }}>
+    <SheetTrigger asChild><Button variant="link" size="sm">{uiT("Pending (")}{row.unresolved_attempts} {uiT("unresolved)")}</Button></SheetTrigger>
+    <SheetContent className="overflow-y-auto">
+      <SheetHeader>
+        <SheetTitle>{uiT("Unresolved attempts", "待核对请求")}</SheetTitle>
+        <SheetDescription>{row.model_alias} · {row.supplier_name} · {row.currency}</SheetDescription>
+      </SheetHeader>
+      <div className="space-y-4 px-4 pb-4">
+        <ul className="divide-y">{attempts.map(attempt => {
+          const workspace = workspaces?.find(item => item.id === attempt.workspace_id);
+          const reference = attempt.reference || attempt.attempt;
+          return <li className="space-y-1 py-3" key={attempt.attempt}>
+            {workspace ? <Link className="break-all text-sm font-medium underline underline-offset-4"
+              to={`/workspaces/${encodeURIComponent(workspacePathSegment(workspace, workspaces))}/executions#gateway-attempt-${encodeURIComponent(reference)}`}>
+              {reference}
+            </Link> : <code className="break-all text-xs">{reference}</code>}
+            <p className="text-sm">{[
+              attempt.execution !== 'confirmed_completed' && uiT("Execution unconfirmed", "执行结果未确认"),
+              attempt.usage_confidence !== 'provider_reported' && uiT("Usage unconfirmed", "用量未确认"),
+              attempt.charge_missing && uiT("Customer charge missing", "缺少客户扣费"),
+              attempt.revenue_source_missing && uiT("Revenue source unverified", "收入来源未核定"),
+              attempt.payable_missing && uiT("Supplier payable missing", "缺少采购应付"),
+            ].filter(Boolean).join(' · ')}</p>
+          </li>;
+        })}</ul>
+        {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+        {hasMore &&
+          <Button variant="outline" size="sm" disabled={loading} onClick={() => void more()}>{error ? uiT("Retry") : uiT("Load more")}</Button>}
+      </div>
+    </SheetContent>
+  </Sheet>;
 }
 
 type CohortAggregates = {
@@ -86,7 +158,7 @@ function aggregateCohort(rows?: CommercialPositionRow[] | null): CohortAggregate
   let contributionKnown = true;
   let matchedAttempts = 0n;
   let unresolvedAttempts = 0n;
-  let activeModelCount = 0;
+  const activeModels = new Set<string>();
 
   for (const row of Array.isArray(rows) ? rows : []) {
     const hasActivity =
@@ -94,7 +166,7 @@ function aggregateCohort(rows?: CommercialPositionRow[] | null): CohortAggregate
       row.earning_nanos !== null ||
       BigInt(row.matched_attempts || '0') > 0n ||
       BigInt(row.unresolved_attempts || '0') > 0n;
-    if (hasActivity) activeModelCount++;
+    if (hasActivity) activeModels.add(row.model_alias);
 
     if (row.customer_charge_nanos !== null) nominalCharges += BigInt(row.customer_charge_nanos);
     if (row.customer_refunds_nanos !== null) refunds += BigInt(row.customer_refunds_nanos);
@@ -143,10 +215,10 @@ function aggregateCohort(rows?: CommercialPositionRow[] | null): CohortAggregate
     settledPayable,
     unpaidPayable,
     recordedUpstreamCost: hasRecordedUpstreamCost ? recordedUpstreamCost : null,
-    netContribution: contributionKnown ? netContribution : null,
+    netContribution: contributionKnown && unresolvedAttempts === 0n ? netContribution : null,
     matchedAttempts,
     unresolvedAttempts,
-    activeModelCount,
+    activeModelCount: activeModels.size,
   };
 }
 
@@ -176,17 +248,19 @@ function formatDeltaBadge(
     );
   }
   const isPositive = diff > 0n;
+  const exactChange = (isPositive ? '+' : '-') + formatRateMoney(absDiff, currency);
   if (absDiff < 100_000n) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span tabIndex={0} className="inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs text-muted-foreground tabular-nums">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button type="button" variant="link" className="h-auto gap-1 p-0 text-xs text-muted-foreground tabular-nums underline decoration-dotted underline-offset-2">
             {isPositive ? <IconArrowUpRight size={14} /> : <IconArrowDownRight size={14} />}
-            {isPositive ? '+' : '-'}{formatStatementMoney(absDiff, currency)}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>{uiT("Exact change:")}{" "} {isPositive ? '+' : '-'}{formatRateMoney(absDiff, currency)}</TooltipContent>
-      </Tooltip>
+            <span className="print:hidden">{isPositive ? '+' : '-'}{formatStatementMoney(absDiff, currency)}</span>
+            <span className="hidden print:inline">{exactChange}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact change:")}{" "} {exactChange}</PopoverContent>
+      </Popover>
     );
   }
   const pct =
@@ -200,22 +274,22 @@ function formatDeltaBadge(
   const good = invertSentiment ? !isPositive : isPositive;
   const badge = (
     <span
-      tabIndex={absDiff % 100_000n !== 0n ? 0 : undefined}
       className={`inline-flex items-center gap-1 whitespace-nowrap shrink-0 text-xs font-medium tabular-nums ${
         good ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
       }`}
     >
       {isPositive ? <IconArrowUpRight size={14} /> : <IconArrowDownRight size={14} />}
-      <span>{signedMoney}</span>
+      <span className="print:hidden">{signedMoney}</span>
+      <span className="hidden print:inline">{exactChange}</span>
       <span className="text-muted-foreground font-normal">({pct})</span>
     </span>
   );
   if (absDiff % 100_000n !== 0n) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>{badge}</TooltipTrigger>
-        <TooltipContent>{uiT("Exact change:")}{" "} {isPositive ? '+' : '-'}{formatRateMoney(absDiff, currency)}</TooltipContent>
-      </Tooltip>
+      <Popover>
+        <PopoverTrigger asChild><Button type="button" variant="link" className="h-auto p-0 underline decoration-dotted underline-offset-2">{badge}</Button></PopoverTrigger>
+        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact change:")}{" "} {exactChange}</PopoverContent>
+      </Popover>
     );
   }
   return badge;
@@ -226,16 +300,18 @@ function StatementMoney({ amount, currency }: { amount: bigint; currency: string
   const abs = amount < 0n ? -amount : amount;
   const display = formatStatementMoney(amount, currency);
   if (abs === 0n || abs % 100_000n === 0n) return <>{display}</>;
+  const exact = formatFinancialMoney(amount, currency);
   return (
-    <Tooltip>
-      <TooltipTrigger
+    <Popover>
+      <PopoverTrigger asChild><Button variant="link"
         type="button"
-        className="inline border-0 bg-transparent p-0 font-inherit text-inherit cursor-help underline decoration-dotted underline-offset-2"
+        className="inline h-auto border-0 bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-2"
       >
-        {display}
-      </TooltipTrigger>
-      <TooltipContent>{uiT("Exact amount:")}{" "}{formatFinancialMoney(amount, currency)}</TooltipContent>
-    </Tooltip>
+        <span className="print:hidden">{display}</span>
+        <span className="hidden print:inline">{exact}</span>
+      </Button></PopoverTrigger>
+      <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] text-sm tabular-nums" collisionPadding={16}>{uiT("Exact amount:")}{" "}{exact}</PopoverContent>
+    </Popover>
   );
 }
 
@@ -243,9 +319,7 @@ function StatementMoney({ amount, currency }: { amount: bigint; currency: string
 export default function CommercialPositionPage() {
   const { token } = useDashboardContext();
   return (
-    <TooltipProvider>
       <CommercialStatement key={token} token={token} />
-    </TooltipProvider>
   );
 }
 
@@ -256,7 +330,8 @@ function CommercialStatement({ token }: { token: string }) {
   const { settings: branding, logo } = useBranding();
   const [search, setSearch] = useSearchParams();
   const [refresh, setRefresh] = useState(0);
-  const asOf = useMemo(() => new Date(), [search, refresh]);
+  // Tabs and model details inspect the same financial snapshot.
+  const asOf = useMemo(() => new Date(), [refresh]);
   const months = useMemo(() => buildRecentMonths(12, asOf, locale, uiF), [asOf, locale]);
   const normalizedSearch = useMemo(() => {
     const next = new URLSearchParams(search);
@@ -398,13 +473,13 @@ function CommercialStatement({ token }: { token: string }) {
     summary?.recognized_revenue_nanos != null
       ? BigInt(summary.recognized_revenue_nanos)
       : summary
-        ? BigInt(summary.known_revenue_subtotal_nanos)
+        ? null
         : currentCohort.netRevenue;
   const priorRecognizedRevenue =
     priorSummary?.recognized_revenue_nanos != null
       ? BigInt(priorSummary.recognized_revenue_nanos)
       : priorSummary
-        ? BigInt(priorSummary.known_revenue_subtotal_nanos)
+        ? null
         : priorCohort?.netRevenue ?? null;
 
   const nominalConsumption = summary ? BigInt(summary.nominal_consumption_nanos) : currentCohort.nominalCharges;
@@ -430,12 +505,8 @@ function CommercialStatement({ token }: { token: string }) {
         ? BigInt(priorSummary.known_gift_allowance_subtotal_nanos)
         : priorCohort?.giftAllowance ?? null;
 
-  const netContribution =
-    recognizedRevenue !== null ? recognizedRevenue - currentCohort.providerPayable : currentCohort.netContribution;
-  const priorNetContribution =
-    priorRecognizedRevenue !== null && priorCohort
-      ? priorRecognizedRevenue - priorCohort.providerPayable
-      : priorCohort?.netContribution ?? null;
+  const netContribution = currentCohort.netContribution;
+  const priorNetContribution = priorCohort?.netContribution ?? null;
 
   const verifiedCashReceipts =
     summary?.verified_cash_receipts_nanos != null ? BigInt(summary.verified_cash_receipts_nanos) : null;
@@ -493,8 +564,29 @@ function CommercialStatement({ token }: { token: string }) {
     [sortedRows],
   );
 
-  const displayedRows =
-    modelFilter === 'active' ? activeRows : sortedRows;
+  const inspectedModel = search.get('model');
+  const section = search.get('tab');
+  const selectedSection = section === 'cash' || section === 'operations' || section === 'unit-economics'
+    ? section : inspectedModel ? 'unit-economics' : 'operations';
+  const economicsHeading = useRef<HTMLHeadingElement>(null);
+  const focusEconomics = useRef(false);
+  useEffect(() => {
+    if (focusEconomics.current && selectedSection === 'unit-economics' && economicsHeading.current) {
+      focusEconomics.current = false;
+      economicsHeading.current.focus();
+      economicsHeading.current.scrollIntoView({ block: 'start' });
+    }
+  }, [selectedSection, loading]);
+  function showSection(value: string) {
+    setSearch(params => {
+      const next = new URLSearchParams(params);
+      next.set('tab', value);
+      return next;
+    });
+  }
+
+  const displayedRows = inspectedModel ? sortedRows.filter(row => row.model_alias === inspectedModel)
+    : modelFilter === 'active' ? activeRows : sortedRows;
 
   const priorRowMap = useMemo(() => {
     const map = new Map<string, CommercialPositionRow>();
@@ -767,7 +859,7 @@ function CommercialStatement({ token }: { token: string }) {
 
       {position && (
         <>
-          <Tabs defaultValue="operations" className="min-w-0 space-y-4">
+          <Tabs value={selectedSection} onValueChange={showSection} className="min-w-0 space-y-4">
             <div className="max-w-full overflow-x-auto overflow-y-hidden commercial-print-hide">
               <TabsList variant="line" aria-label={uiT("Financial statement sections")}>
                 <TabsTrigger value="operations">{uiT("Statement of operations")}</TabsTrigger>
@@ -776,7 +868,7 @@ function CommercialStatement({ token }: { token: string }) {
               </TabsList>
             </div>
           {/* Layer 1: Executive Financial KPI Cards with Period-over-Period Comparison */}
-          <div className="commercial-kpi-grid grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {!inspectedModel && <div className="commercial-kpi-grid grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <article className="min-w-0 rounded-xl bg-card p-5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-muted-foreground">{uiT("Net recognized revenue")}</span>
@@ -821,20 +913,28 @@ function CommercialStatement({ token }: { token: string }) {
 
             <article className="min-w-0 rounded-xl bg-card p-5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-muted-foreground">{uiT("Platform net contribution")}</span>
+                <span className="text-xs font-medium text-muted-foreground">{uiT("Request contribution", "请求净贡献")}</span>
                 <Badge variant="secondary">
-                  {formatMarginPercent(netContribution, recognizedRevenue)}{" "}{uiT("margin")}</Badge>
+                  {formatMarginPercent(netContribution, currentCohort.netRevenue)}{" "}{uiT("margin")}</Badge>
               </div>
               <div className="text-xl xl:text-[22px] font-semibold tracking-tight tabular-nums">
-                {netContribution === null ? uiT("Unavailable") : <StatementMoney amount={netContribution} currency={currency} />}
+                {netContribution === null ? uiT("Pending reconciliation", "待核定") : <StatementMoney amount={netContribution} currency={currency} />}
               </div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 pt-0.5">
                 {formatDeltaBadge(uiT, netContribution, priorNetContribution, currency)}
                 <span className="whitespace-nowrap text-xs text-muted-foreground">{uiT("vs")}{" "}{interval.comparisonLabel}</span>
               </div>
               <p className="text-xs text-muted-foreground pt-1 tabular-nums">
-                {currentCohort.matchedAttempts.toString()}{" "}{uiT("settled requests ·")}{' '}
-                {uiF('{0} active models', [currentCohort.activeModelCount])}
+                {currentCohort.unresolvedAttempts > 0n && <><Button variant="link" size="sm" className="h-auto p-0 text-xs underline" onClick={() => {
+                  if (selectedSection === 'unit-economics') {
+                    economicsHeading.current?.focus();
+                    economicsHeading.current?.scrollIntoView({ block: 'start' });
+                  } else {
+                    focusEconomics.current = true;
+                    showSection('unit-economics');
+                  }
+                }}>{uiF("{0} unresolved", [currentCohort.unresolvedAttempts.toString()])}</Button> · </>}{uiF("Matched charges and payables ({0})", [currentCohort.matchedAttempts.toString()])} ·{' '}
+                {uiF('Active models: {0}', [currentCohort.activeModelCount])}
               </p>
             </article>
 
@@ -861,7 +961,7 @@ function CommercialStatement({ token }: { token: string }) {
                     : uiT("Unavailable")}
               </p>
             </article>
-          </div>
+          </div>}
 
             <TabsContent value="operations" forceMount className="data-[state=inactive]:hidden print:data-[state=inactive]:block">
             <div className="min-w-0 rounded-xl bg-card p-5 space-y-3">
@@ -875,7 +975,7 @@ function CommercialStatement({ token }: { token: string }) {
                   {uiT("Amounts in")}{" "}{currency} ({currencySymbol(currency)})
                 </span>
               </div>
-              <Table aria-label={uiT("Statement of operations")} className="table-auto">
+              <Table aria-label={uiT("Statement of operations")} className="commercial-statement-table table-auto">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[40%]">{uiT("Line item")}</TableHead>
@@ -911,11 +1011,17 @@ function CommercialStatement({ token }: { token: string }) {
                     negateDisplay
                   />
                   <StatementRow
-                    label={uiT("Net recognized customer revenue")}
+                    label={uiT("Net revenue posted in period", "本期入账净收入")}
                     current={recognizedRevenue}
                     prior={priorRecognizedRevenue}
                     currency={currency}
                     strong
+                  />
+                  <StatementRow
+                    label={uiT("Net revenue from requests in period", "本期请求净收入")}
+                    current={currentCohort.netRevenue}
+                    prior={priorCohort?.netRevenue ?? null}
+                    currency={currency}
                   />
                   <StatementRow
                     label={uiT("Less: Provider payable (Cost of model supply)")}
@@ -935,7 +1041,7 @@ function CommercialStatement({ token }: { token: string }) {
                     muted
                   />
                   <StatementRow
-                    label={uiT("Platform net contribution (Gross profit)")}
+                    label={uiT("Request contribution", "请求净贡献")}
                     current={netContribution}
                     prior={priorNetContribution}
                     currency={currency}
@@ -944,15 +1050,15 @@ function CommercialStatement({ token }: { token: string }) {
                   <TableRow className="bg-muted/30 font-medium">
                     <TableCell>{uiT("Effective gross margin (%)")}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatMarginPercent(netContribution, recognizedRevenue)}
+                      {formatMarginPercent(netContribution, currentCohort.netRevenue)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums hidden sm:table-cell text-muted-foreground">
-                      {formatMarginPercent(priorNetContribution, priorRecognizedRevenue)}
+                      {formatMarginPercent(priorNetContribution, priorCohort?.netRevenue ?? null)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
                       {currentCohort.unresolvedAttempts > 0n
                         ? uiF("{0} unresolved", [currentCohort.unresolvedAttempts.toString()])
-                        : uiT("Fully resolved")}
+                        : netContribution === null ? uiT("Pending reconciliation", "待核定") : uiT("Fully resolved")}
                     </TableCell>
                   </TableRow>
                 </TableBody>
@@ -972,7 +1078,7 @@ function CommercialStatement({ token }: { token: string }) {
                   {uiT("Amounts in")}{" "}{currency} ({currencySymbol(currency)})
                 </span>
               </div>
-              <Table aria-label={uiT("Customer financial posting summary")} className="table-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
+              <Table aria-label={uiT("Customer financial posting summary")} className="commercial-statement-table table-auto [&_th]:whitespace-normal [&_td]:whitespace-normal">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[40%]">{uiT("Measure")}</TableHead>
@@ -1100,38 +1206,38 @@ function CommercialStatement({ token }: { token: string }) {
           <div className="min-w-0 rounded-xl bg-card p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-[15px] font-semibold">{uiT("Unit economics by Provider & model")}</h2>
-                <p className="text-xs text-muted-foreground">
-                  {uiF("Models with traffic: {0} · Configured routes: {1}", [activeRows.length, sortedRows.length])}</p>
+                <h2 ref={economicsHeading} tabIndex={-1} className="sr-only print:not-sr-only">{uiT("Unit economics by Provider & model")}</h2>
               </div>
               <div className="commercial-print-hide flex flex-wrap items-center gap-1.5">
+                {inspectedModel && <span className="break-all text-sm">{inspectedModel}</span>}
                 <Button
                   size="sm"
                   variant="ghost"
-                  aria-pressed={modelFilter === 'active'}
-                  onClick={() => setModelFilter('active')}
+                  aria-pressed={!inspectedModel && modelFilter === 'active'}
+                  onClick={() => { setModelFilter('active'); if (inspectedModel) setSearch(params => { params.delete('model'); return params; }); }}
                 >
-                  {uiT("Active in period (")}{activeRows.length})
+                  {uiF("Active in period ({0})", [activeRows.length])}
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
-                  aria-pressed={modelFilter === 'all'}
-                  onClick={() => setModelFilter('all')}
+                  aria-pressed={!inspectedModel && modelFilter === 'all'}
+                  onClick={() => { setModelFilter('all'); if (inspectedModel) setSearch(params => { params.delete('model'); return params; }); }}
                 >
-                  {uiT("All configured (")}{sortedRows.length})
+                  {uiF("All configured ({0})", [sortedRows.length])}
                 </Button>
               </div>
             </div>
 
             {displayedRows.length === 0 ? (
               <Empty className="min-h-36 py-7"><EmptyHeader><EmptyMedia variant="icon"><IconCalendarStats size={18} aria-hidden="true" /></EmptyMedia><EmptyDescription>
-                {modelFilter === 'active' ? uiT("No models had activity in this period.") : uiT("No models are configured for this currency.")}</EmptyDescription></EmptyHeader></Empty>
+                {inspectedModel ? uiT('No report row for this model and period.', '该模型在本期暂无报表记录。') : modelFilter === 'active' ? uiT("No models had activity in this period.") : uiT("No models are configured for this currency.")}</EmptyDescription></EmptyHeader></Empty>
             ) : (
               <div className="table-wrap"><Table className="commercial-position-table" aria-label={uiT("Provider commercial positions")}>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{uiT("Provider / model")}</TableHead>
+                    <TableHead className="text-right">{uiT("Net contribution")}</TableHead>
                     <TableHead className="hidden md:table-cell">{uiT("Agreed offer quote")}</TableHead>
                     <TableHead className="text-right">{uiT("Gross charges")}</TableHead>
                     <TableHead className="text-right">{uiT("Net revenue")}</TableHead>
@@ -1139,7 +1245,6 @@ function CommercialStatement({ token }: { token: string }) {
                     <TableHead className="text-right">{uiT("Customer unpaid credit")}</TableHead>
                     <TableHead className="text-right">{uiT("Provider payable")}</TableHead>
                     <TableHead className="text-right">{uiT("Recorded upstream cost")}</TableHead>
-                    <TableHead className="text-right">{uiT("Net contribution")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1183,7 +1288,7 @@ function CommercialStatement({ token }: { token: string }) {
 
                     return (
                       <TableRow key={row.supplier_id + ':' + row.model_alias + ':' + row.currency}>
-                        <TableCell className="align-top whitespace-normal">
+                        <TableCell data-label={uiT("Provider / model")} className="align-top whitespace-normal">
                           <div className="font-medium text-foreground">{row.model_alias}</div>
                           <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                             <Link
@@ -1195,7 +1300,25 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                         </TableCell>
 
-                        <TableCell className="align-top whitespace-normal hidden md:table-cell text-xs max-w-[240px]">
+                        <TableCell data-label={uiT("Net contribution")} className="text-right align-top whitespace-nowrap tabular-nums">
+                          {rowContrib !== null ? (
+                            <div>
+                              <div className="font-medium">
+                                <StatementMoney amount={rowContrib} currency={row.currency} />
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatMarginPercent(rowContrib, rowNetRev)}
+                              </div>
+                            </div>
+                          ) : unresolved > 0n ? (
+                            row.pending_attempts?.length && position ? <PendingAttempts key={[position.from, position.until, row.currency, row.supplier_id, row.model_alias, token].join('|')}
+                              row={row} from={position.from} until={position.until} token={token} /> : <Badge variant="outline">{uiT("Pending (")}{unresolved.toString()} {uiT("unresolved)")}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
+                          )}
+                        </TableCell>
+
+                        <TableCell data-label={uiT("Agreed offer quote")} className="align-top whitespace-normal hidden md:table-cell text-xs max-w-[240px]">
                           {row.offers.length === 0 ? (
                             <span className="text-muted-foreground">{uiT("No quote in")}{" "}{row.currency}</span>
                           ) : (
@@ -1206,27 +1329,10 @@ function CommercialStatement({ token }: { token: string }) {
                               >
                                 <span className="text-muted-foreground">
                                   {offer.rate_kind === 'text' ? (
-                                    (() => {
-                                      const compact = uiF("In {0} · Out {1} / 1M", [
-                                        offer.prompt_rate == null ? '—' : formatCompactRateMoney(offer.prompt_rate, row.currency),
-                                        offer.completion_rate == null ? '—' : formatCompactRateMoney(offer.completion_rate, row.currency),
-                                      ]);
-                                      const exact = uiF("In {0} · Out {1} / 1M", [
-                                        offer.prompt_rate == null ? '—' : formatRateMoney(offer.prompt_rate, row.currency),
-                                        offer.completion_rate == null ? '—' : formatRateMoney(offer.completion_rate, row.currency),
-                                      ]);
-                                      return compact === exact ? compact : (
-                                        <Tooltip>
-                                          <TooltipTrigger
-                                            type="button"
-                                            className="inline border-0 bg-transparent p-0 text-left font-inherit text-inherit cursor-help underline decoration-dotted underline-offset-2"
-                                          >
-                                            {compact}
-                                          </TooltipTrigger>
-                                          <TooltipContent>{exact}</TooltipContent>
-                                        </Tooltip>
-                                      );
-                                    })()
+                                    uiF("In {0} · Out {1} / 1M", [
+                                      offer.prompt_rate == null ? '—' : formatRateMoney(offer.prompt_rate, row.currency),
+                                      offer.completion_rate == null ? '—' : formatRateMoney(offer.completion_rate, row.currency),
+                                    ])
                                   ) : offer.media_rates.length === 0
                                       ? uiT("Media rate")
                                       : offer.media_rates
@@ -1244,7 +1350,7 @@ function CommercialStatement({ token }: { token: string }) {
                           )}
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Gross charges")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowCharge === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
@@ -1262,7 +1368,7 @@ function CommercialStatement({ token }: { token: string }) {
                           )}
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Net revenue")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowNetRev === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
@@ -1279,7 +1385,7 @@ function CommercialStatement({ token }: { token: string }) {
                           )}
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Customer cash applied")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowCashApplied === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
@@ -1291,7 +1397,7 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Customer unpaid credit")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowUnpaidCredit === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>
@@ -1303,7 +1409,7 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Provider payable")} className="text-right align-top whitespace-nowrap tabular-nums">
                           {rowPayable === null ? (
                             <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
                           ) : (
@@ -1327,7 +1433,7 @@ function CommercialStatement({ token }: { token: string }) {
                           )}
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
+                        <TableCell data-label={uiT("Recorded upstream cost")} className="text-right align-top whitespace-nowrap tabular-nums">
                           <div>
                             {rowUpstreamCost === null ? (
                               <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
@@ -1337,22 +1443,6 @@ function CommercialStatement({ token }: { token: string }) {
                           </div>
                         </TableCell>
 
-                        <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
-                          {rowContrib !== null ? (
-                            <div>
-                              <div className="font-medium">
-                                <StatementMoney amount={rowContrib} currency={row.currency} />
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {formatMarginPercent(rowContrib, rowNetRev)}
-                              </div>
-                            </div>
-                          ) : unresolved > 0n ? (
-                            <Badge variant="outline">{uiT("Pending (")}{unresolved.toString()}{" "}{uiT("unresolved)")}</Badge>
-                          ) : (
-                            <span className="text-muted-foreground" aria-label={uiT("Unavailable")}>—</span>
-                          )}
-                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -1411,31 +1501,16 @@ function StatementRow({
   invertSentiment?: boolean;
 }) {
   const { t: uiT } = useUILocale();
-  const formatVal = (val: bigint | null) => {
-    if (val === null) return uiT('Unavailable');
-    if (negateDisplay && val > 0n) return `-${formatStatementMoney(val, currency)}`;
-    return formatStatementMoney(val, currency);
-  };
   return (
     <TableRow className={strong ? 'bg-muted/30 font-semibold' : muted ? 'text-muted-foreground text-xs' : undefined}>
       <TableCell className={`whitespace-normal ${indented ? 'pl-6 text-muted-foreground' : ''}`}>
         {label}
       </TableCell>
       <TableCell className="text-right align-top whitespace-nowrap tabular-nums">
-        {current === null ? formatVal(current) : (
-          <Tooltip>
-            <TooltipTrigger asChild><span tabIndex={0}>{formatVal(current)}</span></TooltipTrigger>
-            <TooltipContent>{uiT("Exact amount:")}{" "}{formatRateMoney(negateDisplay ? -current : current, currency)}</TooltipContent>
-          </Tooltip>
-        )}
+        {current === null ? uiT('Unavailable') : <StatementMoney amount={negateDisplay && current > 0n ? -current : current} currency={currency} />}
       </TableCell>
       <TableCell className="text-right align-top whitespace-nowrap tabular-nums hidden sm:table-cell text-muted-foreground">
-        {prior === null ? formatVal(prior) : (
-          <Tooltip>
-            <TooltipTrigger asChild><span tabIndex={0}>{formatVal(prior)}</span></TooltipTrigger>
-            <TooltipContent>{uiT("Exact amount:")}{" "}{formatRateMoney(negateDisplay ? -prior : prior, currency)}</TooltipContent>
-          </Tooltip>
-        )}
+        {prior === null ? uiT('Unavailable') : <StatementMoney amount={negateDisplay && prior > 0n ? -prior : prior} currency={currency} />}
       </TableCell>
       <TableCell className="text-right align-top whitespace-nowrap">
         {formatDeltaBadge(uiT, current, prior, currency, invertSentiment)}

@@ -68,6 +68,8 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
       data-slot="table-head"
       className={cn(
         "h-11 px-4 py-3 text-left align-middle font-medium whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        // Row headers live in <tbody>: they must match TableCell metrics, not column-header metrics.
+        "[&[scope=row]]:h-auto [&[scope=row]]:py-3.5 [&[scope=row]]:text-foreground",
         className
       )}
       {...props}

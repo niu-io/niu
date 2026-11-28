@@ -1,6 +1,6 @@
 {
   "name": "@niu-io/mcp",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Stdio MCP server that calls a Niu gateway with a workspace API key",
   "license": "MIT",
   "type": "module",

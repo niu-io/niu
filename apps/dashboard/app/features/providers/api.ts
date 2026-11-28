@@ -72,6 +72,7 @@ export type ProviderModel = {
   enabled: boolean;
   capabilities: ModelCapabilities;
   available?: boolean;
+  has_text_offer?: boolean;
   owner_funded?: boolean;
   pricing: Record<string, unknown> | null;
   revision: number;

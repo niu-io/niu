@@ -1,4 +1,4 @@
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { translateUI, readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState } from 'react';
@@ -11,24 +11,23 @@ import { useDashboardContext } from '@/shell/dashboard-context';
 import { request } from '@/features/providers/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 const categories: Record<PlatformAuditCategory | 'all', string> = {
   all: 'All events', authentication: 'Authentication', configuration: 'Configuration', access: 'Access', supplier: 'Provider',
 };
-function actionName(action: string) {
-  const names: Record<string, string> = {
+const names: Record<string, string> = {
     password_login_succeeded: 'Password login succeeded', session_created: 'Session issued',
     session_revoked: 'Session revoked', operator_created: 'Account created', operator_revoked: 'Account revoked',
     role_changed: 'Role changed', password_changed: 'Password changed', branding_updated: 'Branding updated',
     payment_gateway_updated: 'Payment gateway updated', platform_access_granted: 'Platform access granted',
     platform_access_revoked: 'Platform access revoked', vendor_created: 'Provider connection created',
-    vendor_updated: 'Provider connection updated', vendor_seeded: 'Provider connection imported',
+    vendor_retired: 'Provider connection retired', vendor_updated: 'Provider connection updated', vendor_seeded: 'Provider connection imported',
     vendor_model_created: 'Model route created', vendor_model_updated: 'Model route updated',
     vendor_model_seeded: 'Model route imported', provider_created: 'Provider created', supplier_associated: 'Provider associated', provider_associated: 'Provider associated',
   };
+function actionName(action: string) {
   const known = names[action];
   if (known) return translateUI(known);
   const cleaned = action.replace(/_/g, ' ').trim();
@@ -46,6 +45,22 @@ export default function AuditLogsPage() {
 
 function AuditLogs({ token }: { token: string }) {
   const { t: uiT } = useUILocale();
+  function targetName(event: PlatformAuditEvent) {
+    if (event.source !== 'vendor') return event.target_label;
+    const [connection, ...model] = event.target_label.split(' / ');
+    const reference = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(connection)
+      ? `ID ${connection}` : connection;
+    return [uiT("Provider connection", "供应商连接"), reference, ...model].join(' · ');
+  }
+  function eventAction(action: string) {
+    switch (action) {
+      case 'registration_preview_enabled': return uiT('Limited Preview registration enabled', '已开启有限预览注册');
+      case 'registration_disabled': return uiT('Self-registration closed', '已关闭自助注册');
+      case 'registration_approved': return uiT('Registration approved', '已批准注册申请');
+      case 'registration_rejected': return uiT('Registration rejected', '已拒绝注册申请');
+      default: return actionName(action);
+    }
+  }
   const scope = token || 'public';
   const [category, setCategory] = useState<PlatformAuditCategory | 'all'>('all');
   const initialPage = peekQuery<PlatformAuditPage>(scope, '/api/v1/admin/audit?limit=50');
@@ -53,21 +68,42 @@ function AuditLogs({ token }: { token: string }) {
   const [cursor, setCursor] = useState<string | null>(() => initialPage?.next_cursor ?? null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(() => !initialPage);
+  const [loadedPath, setLoadedPath] = useState('/api/v1/admin/audit?limit=50');
   const [revision, setRevision] = useState(0);
   const [query, setQuery] = useState('');
+  const [search, setSearch] = useState('');
+  const searchInput = useRef<HTMLInputElement>(null);
+  const filtered = category !== 'all' || Boolean(query.trim());
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearch(query.trim()), 220);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+  const params = new URLSearchParams({ limit: '50' });
+  if (category !== 'all') params.set('category', category);
+  if (search) {
+    params.set('search', search);
+    const labels = [
+      ...[...Object.keys(names), 'registration_preview_enabled', 'registration_disabled', 'registration_approved', 'registration_rejected']
+        .map(action => [`action:${action}`, eventAction(action)]),
+      ...Object.entries(categories).filter(([key]) => key !== 'all').map(([key, name]) => [`category:${key}`, uiT(name)]),
+      ['source:vendor', uiT('Provider connection', '供应商连接')],
+      ['actor:unknown', uiT('Not recorded')],
+      ['actor:installation', uiT('Installation administrator (recorded)')],
+    ].filter(([, label]) => label.toLowerCase().includes(search.toLowerCase())).map(([key]) => key);
+    if (labels.length) params.set('labels', labels.join(','));
+  }
+  const path = '/api/v1/admin/audit?' + params;
   const pending = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     pending.current?.abort(); pending.current = controller;
-    const query = new URLSearchParams({ limit: '50' });
-    if (category !== 'all') query.set('category', category);
-    const path = '/api/v1/admin/audit?' + query;
     const cached = peekQuery<PlatformAuditPage>(scope, path);
+    setLoadedPath(path);
     if (cached) {
       setRows(cached.data);
       setCursor(cached.next_cursor);
-      setLoading(revision > 0);
+      setLoading(true);
     } else {
       setRows(null);
       setCursor(null);
@@ -84,17 +120,16 @@ function AuditLogs({ token }: { token: string }) {
       .catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Audit logs could not be loaded.'); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => { controller.abort(); pending.current?.abort(); };
-  }, [scope, token, category, revision]);
+  }, [scope, token, path, revision]);
 
   async function loadMore() {
     if (!cursor || loading) return;
     const controller = new AbortController(); pending.current?.abort(); pending.current = controller;
     setLoading(true); setError('');
-    const query = new URLSearchParams({ limit: '50', cursor });
-    if (category !== 'all') query.set('category', category);
     try {
-      const page = await request<PlatformAuditPage>(token, '/api/v1/admin/audit?' + query, 'GET', undefined, controller.signal);
+      const page: PlatformAuditPage = await request(token, path + '&cursor=' + encodeURIComponent(cursor), 'GET', undefined, controller.signal);
       if (controller.signal.aborted) return;
+      if (page.next_cursor === cursor) throw new Error('Audit history did not advance.');
       setRows(previous => {
         const ids = new Set(previous?.map(event => event.id));
         return [...previous ?? [], ...page.data.filter(event => !ids.has(event.id))];
@@ -104,8 +139,6 @@ function AuditLogs({ token }: { token: string }) {
     finally { if (!controller.signal.aborted) setLoading(false); }
   }
 
-  const needle = query.trim().toLowerCase();
-  const visibleRows = rows?.filter(event => !needle || [actionName(event.action), actorName(event), event.target_label, translateUI(categories[event.category])].join(' ').toLowerCase().includes(needle));
   return <section className="empty-region space-y-5" aria-label={uiT("Platform audit logs")}>
     <PageHeader
       title={uiT("Audit logs")}
@@ -122,7 +155,6 @@ function AuditLogs({ token }: { token: string }) {
         </Button>
       }
     />
-    <p className="text-sm text-muted-foreground">{uiT("Recorded account, access, Provider, and configuration changes.")}</p>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <DropdownMenu>
         <DropdownMenuTrigger asChild><Button variant="outline" aria-label={uiT("Audit category")}>{translateUI(categories[category])}<IconChevronDown size={16} /></Button></DropdownMenuTrigger>
@@ -131,48 +163,37 @@ function AuditLogs({ token }: { token: string }) {
         </DropdownMenuRadioGroup></DropdownMenuContent>
       </DropdownMenu>
       <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size={query.trim() ? "sm" : "icon"}
-              aria-label={uiT("Search audit events")}
-              title={uiT("Search audit events")}
-              className={query.trim() ? "text-primary bg-accent" : undefined}
-            >
-              <IconSearch size={16} />
-              {query.trim() && <span className="max-w-32 truncate">{query.trim()}</span>}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-2">
-            <Input
-              autoFocus
-              type="search"
-              value={query}
-              onChange={event => setQuery(event.target.value)}
-              placeholder={uiT("Search events")}
-              aria-label={uiT("Search audit events")}
-            />
-            {query && (
-              <Button variant="ghost" size="sm" onClick={() => setQuery("")}>
-                {uiT("Clear search")}
-              </Button>
-            )}
-          </PopoverContent>
-        </Popover>
+        <div className="relative w-full sm:w-64">
+          <IconSearch size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="w-full pl-9"
+            ref={searchInput}
+            type="search" maxLength={256}
+            value={query}
+            onChange={event => setQuery(event.target.value)}
+            placeholder={uiT("Search events")}
+            aria-label={uiT("Search audit events")}
+          />
+        </div>
       </div>
     </div>
     {error && <p role="alert" className="text-sm text-destructive">{error} <Button variant="ghost" onClick={() => setRevision(value => value + 1)}>{uiT("Retry")}</Button></p>}
-    {rows === null ? loading && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : (visibleRows ?? []).length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconHistory size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{query.trim() ? uiT("No matching audit events") : uiT("No audit events yet")}</EmptyTitle><EmptyDescription>{query.trim() ? uiT("No audit events match this search.") : uiT("No audit events in this category.")}</EmptyDescription></EmptyHeader></Empty> : <Table>
+    {rows === null || loadedPath !== path || query.trim() !== search ? !error && <TableSkeleton columns={4} rows={6} label={uiT("Loading audit logs…")} /> : (rows ?? []).length === 0 ? <Empty className="min-h-48"><EmptyHeader><EmptyMedia variant="icon"><IconHistory size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>{filtered ? uiT("No matching audit events") : uiT("No audit events yet")}</EmptyTitle></EmptyHeader>
+      {filtered && <EmptyContent><Button variant="outline" onClick={() => {
+        setCategory('all');
+        setQuery('');
+        setSearch('');
+        searchInput.current?.focus();
+      }}>{uiT("Clear filters")}</Button></EmptyContent>}
+    </Empty> : <Table>
       <TableHeader><TableRow><TableHead className="w-48">{uiT("Time (UTC)")}</TableHead><TableHead>{uiT("Action")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Actor")}</TableHead><TableHead className="hidden md:table-cell">{uiT("Target")}</TableHead></TableRow></TableHeader>
-      <TableBody>{(visibleRows ?? []).map(event => <TableRow key={event.id}>
+      <TableBody>{(rows ?? []).map(event => <TableRow key={event.id}>
         <TableCell className="align-top whitespace-normal text-xs tabular-nums sm:whitespace-nowrap"><time dateTime={event.created_at}>{new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' }).format(new Date(event.created_at))}</time></TableCell>
-        <TableCell className="align-top whitespace-normal break-words"><span>{event.action === 'registration_preview_enabled' ? uiT('Limited Preview registration enabled', '已开启有限预览注册') : event.action === 'registration_disabled' ? uiT('Self-registration closed', '已关闭自助注册') : event.action === 'registration_approved' ? uiT('Registration approved', '已批准注册申请') : event.action === 'registration_rejected' ? uiT('Registration rejected', '已拒绝注册申请') : actionName(event.action)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + roleName(event.before_role) + ' → ' + roleName(event.after_role) : ''}</span><small className="mt-1 block text-muted-foreground">{translateUI(categories[event.category])}</small><dl className="mt-2 space-y-1 md:hidden"><div><dt className="inline text-xs text-muted-foreground">{uiT("Actor:")}{" "}</dt><dd className="inline">{actorName(event)}</dd></div><div><dt className="inline text-xs text-muted-foreground">{uiT("Target:")}{" "}</dt><dd className="inline">{event.target_label}</dd></div></dl></TableCell>
+        <TableCell className="align-top whitespace-normal break-words"><span>{eventAction(event.action)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + roleName(event.before_role) + ' → ' + roleName(event.after_role) : ''}</span><small className="mt-1 block text-muted-foreground">{translateUI(categories[event.category])}</small><dl className="mt-2 space-y-1 md:hidden"><div><dt className="inline text-xs text-muted-foreground">{uiT("Actor:")}{" "}</dt><dd className="inline">{actorName(event)}</dd></div><div><dt className="inline text-xs text-muted-foreground">{uiT("Target:")}{" "}</dt><dd className="inline">{targetName(event)}</dd></div></dl></TableCell>
         <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{actorName(event)}</TableCell>
-        <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{event.target_label}</TableCell>
+        <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{targetName(event)}</TableCell>
       </TableRow>)}</TableBody>
     </Table>}
-    {cursor && <div className="flex justify-center"><Button variant="outline" disabled={loading} onClick={() => void loadMore()}>{loading ? uiT("Loading…") : uiT("Load more")}</Button></div>}
+    {cursor && loadedPath === path && query.trim() === search && <div className="flex justify-center"><Button variant="outline" disabled={loading} onClick={() => void loadMore()}>{loading ? uiT("Loading…") : uiT("Load more")}</Button></div>}
   </section>;
 }

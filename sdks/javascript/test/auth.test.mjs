@@ -63,7 +63,7 @@ test('self password change rejects invalid credentials before dispatch and prese
   const client = new NiuAuthClient({fetch:async()=>{calls++;return Response.json({error:{message:'Changed during verification'}},{status:409});}});
   const good = {current_password:'current',password:'synthetic replacement passphrase'};
   assert.throws(()=>client.changePassword('',good),/bearer/);
-  assert.throws(()=>client.changePassword('session',{...good,password:'short'}),/15 characters/);
+  assert.throws(()=>client.changePassword('session',{...good,password:'shortpw'}),/8 characters/);
   assert.throws(()=>client.changePassword('session',{...good,current_password:'密'.repeat(342)}),/bounded/);
   assert.throws(()=>client.changePassword('session',{...good,password:'\u0000'.repeat(1024)}),/4096/);
   assert.equal(calls,0);
@@ -82,7 +82,7 @@ test('limited preview registration validates inputs locally and calls /auth/regi
   });
   assert.throws(() => client.submitRegistration({ name: '', email: 'user@example.test', password: 'synthetic preview passphrase' }), /Registration name/);
   assert.throws(() => client.submitRegistration({ name: 'Ada', email: 'not-an-email', password: 'synthetic preview passphrase' }), /email/);
-  assert.throws(() => client.submitRegistration({ name: 'Ada', email: 'user@example.test', password: 'short' }), /15 characters/);
+  assert.throws(() => client.submitRegistration({ name: 'Ada', email: 'user@example.test', password: 'shortpw' }), /8 characters/);
   assert.equal(calls.length, 0);
 
   const accepted = await client.submitRegistration({

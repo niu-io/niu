@@ -14,5 +14,8 @@ export interface PlatformAuditQuery {
     /** Opaque source-qualified reference returned by the previous page. */
     cursor?: string;
     category?: PlatformAuditCategory;
+    search?: string;
+    /** Field identifiers matching localized labels in the caller's UI. */
+    labels?: string[];
 }
 ```

@@ -5,7 +5,7 @@ import {
   lookupUpstreamPrice,
   type AdapterPricingResponse,
 } from '@/features/provider-business/upstream-pricing';
-export type RetailModelChoice = { model_alias: string; media: { channel: string; resolutions: string[]; reference_video: boolean; meter: string } | null };
+export type RetailModelChoice = { model_alias: string; text: boolean; media: { channel: string; resolutions: string[]; reference_video: boolean; meter: string } | null };
 /** Registration supports price preparation; never infer supply from this list. */
 export async function registeredRetailModelChoices(token: string, signal: AbortSignal): Promise<RetailModelChoice[]> {
   let after: string | null = null; const choices = new Map<string,RetailModelChoice>(), seen = new Set<string>();
@@ -21,8 +21,10 @@ export async function registeredRetailModelChoices(token: string, signal: AbortS
   } while (after);
   return [...choices.values()];
 }
-export async function registeredRetailModels(token: string, signal: AbortSignal): Promise<string[]> {
-  return (await registeredRetailModelChoices(token,signal)).map(row=>row.model_alias);
+export async function registeredTextModelChoices(token: string, signal: AbortSignal): Promise<RetailModelChoice[]> {
+  const choices = await registeredRetailModelChoices(token, signal);
+  if (choices.some(choice => typeof choice.text !== 'boolean')) throw new Error('Text pricing eligibility unavailable.');
+  return choices.filter(choice => choice.text);
 }
 
 export type RetailCustomer = { organization_id: string; organization_name: string; created_at: string };

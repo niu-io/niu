@@ -171,7 +171,7 @@ fn parse_expected_revision(raw: &str) -> Result<i64, ApiError> {
 ///   "operation": {
 ///     "operationId": "submitLimitedPreviewRegistration",
 ///     "summary": "Request a Limited Preview account pending administrator approval",
-///     "description": "Public capability gated by NIU_AUTH_PUBLIC_ORIGIN and the configured registration policy. Requires the configured HTTPS Origin header. Passwords are validated (minimum 15 characters, maximum 1024 UTF-8 bytes) and Argon2id-hashed at submission time; no plaintext password is stored. No email provider is required: once approved by an administrator, the applicant signs in immediately with the submitted email and password. Existing accounts and duplicate pending emails return the same 202 response without overwriting credentials. Responses use Cache-Control no-store.",
+///     "description": "Public capability gated by NIU_AUTH_PUBLIC_ORIGIN and the configured registration policy. Requires the configured HTTPS Origin header. Passwords are validated (minimum 8 characters, maximum 1024 UTF-8 bytes) and Argon2id-hashed at submission time; no plaintext password is stored. No email provider is required: once approved by an administrator, the applicant signs in immediately with the submitted email and password. Existing accounts and duplicate pending emails return the same 202 response without overwriting credentials. Responses use Cache-Control no-store.",
 ///     "security": [],
 ///     "x-niu-implementation": "implemented",
 ///     "parameters": [
@@ -188,7 +188,7 @@ fn parse_expected_revision(raw: &str) -> Result<i64, ApiError> {
 ///             "properties": {
 ///               "name": { "type": "string", "minLength": 1, "maxLength": 120 },
 ///               "email": { "type": "string", "maxLength": 254 },
-///               "password": { "type": "string", "minLength": 15, "maxLength": 1024, "writeOnly": true },
+///               "password": { "type": "string", "minLength": 8, "maxLength": 1024, "writeOnly": true },
 ///               "organization_name": { "type": "string", "maxLength": 120 },
 ///               "workspace_name": { "type": "string", "maxLength": 120 },
 ///               "note": { "type": "string", "maxLength": 500 }
@@ -241,7 +241,9 @@ pub async fn submit(
     if policy.mode != RegistrationMode::ApprovalRequired {
         return Err(ApiError::registration_disabled());
     }
-    if input.password.len() > 1024 || input.password.chars().count() < 15 {
+    if input.password.len() > 1024
+        || input.password.chars().count() < niu_storage::passwords::MIN_PASSWORD_CHARACTERS
+    {
         return Err(worker_error(niu_storage::PasswordWorkError::Credential(
             niu_storage::passwords::PasswordError::InvalidPassword,
         )));

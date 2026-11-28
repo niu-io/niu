@@ -60,8 +60,8 @@ export class NiuAuthClient {
     if (!email || encoder.encode(email).length > 254 || !email.includes('@')) {
       throw new TypeError('Registration requires a bounded email address');
     }
-    if (typeof input.password !== 'string' || [...input.password].length < 15 || encoder.encode(input.password).length > 1024) {
-      throw new TypeError('Registration password requires at least 15 characters and at most 1024 bytes');
+    if (typeof input.password !== 'string' || [...input.password].length < 8 || encoder.encode(input.password).length > 1024) {
+      throw new TypeError('Registration password requires at least 8 characters and at most 1024 bytes');
     }
     const payload: Record<string, string> = { name, email, password: input.password };
     if (input.organization_name !== undefined && input.organization_name.trim()) {
@@ -121,8 +121,8 @@ export class NiuAuthClient {
       throw new TypeError('A bounded member bearer session is required');
     }
     if (typeof input.current_password !== 'string' || new TextEncoder().encode(input.current_password).length > 1024
-      || typeof input.password !== 'string' || [...input.password].length < 15 || new TextEncoder().encode(input.password).length > 1024) {
-      throw new TypeError('Current password must be bounded; new password requires at least 15 characters and at most 1024 bytes');
+      || typeof input.password !== 'string' || [...input.password].length < 8 || new TextEncoder().encode(input.password).length > 1024) {
+      throw new TypeError('Current password must be bounded; new password requires at least 8 characters and at most 1024 bytes');
     }
     const body = JSON.stringify({current_password: input.current_password, password: input.password});
     if (new TextEncoder().encode(body).length > 4096) throw new TypeError('Password change request exceeds 4096 bytes');

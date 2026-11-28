@@ -26,10 +26,8 @@ In default **Internal use** mode (`NIU_OPERATING_MODE=internal`), internal works
 
 ## Create the customer and workspace
 
-Open **Admin → Customers → New customer**. Enter the company name and create it.
-The company uses the configured platform currency and starts with no funds or
-approved credit. A separate company has its own funds; adding another workspace
-to an existing company shares that company's funds.
+Open **Admin → Customers → New customer**, choose the **Account type** at the top (**Personal account**, **New organization**, or **Join organization**), and fill in the organization and sign-in details. Organization name and personal/owner name are kept separate so switching account types preserves any details already entered.
+Each standalone customer uses the configured platform currency and starts with no funds or approved credit unless an optional trial credit is granted. A separate organization has its own funds; adding another workspace or member to an existing organization shares that organization's funds.
 
 The setup dialog opens after creation. Create the customer's workspace, review
 its suggested **slug**, and save. Chinese names produce a pinyin suggestion. You
@@ -92,7 +90,7 @@ still incur real upstream costs, so keep the environment and API keys private.
 
 ## 创建客户公司与工作空间
 
-打开**管理后台 → 客户管理 → 新建客户**（**Admin → Customers → New customer**），输入公司名称并创建。该公司将使用已配置的平台结算币种，初始状态下没有资金或已批准的授信额度。独立的公司拥有各自独立的资金账户；而在现有公司下新增工作空间则会共享该公司的资金池。
+打开**管理后台 → 客户管理 → 新建客户**（**Admin → Customers → New customer**），首先在顶部选择**账号类型**（**个人账户**、**新建组织**或**加入已有组织**），然后填写组织名称与个人登录信息。组织名称与个人/负责人姓名相互独立，切换账号类型时不会清空已填写的个人信息。每个独立客户使用已配置的平台结算币种，除可选发放试用赠金外，初始状态下没有资金或已批准的授信额度。独立的组织拥有各自独立的资金账户；而在已有组织下新增工作空间或成员则会共享该组织的资金池。
 
 创建完成后会自动打开配置向导对话框。创建客户的工作空间，核对系统建议的 **slug**（可读路径标识）并保存。中文名称会自动生成拼音建议。您可以在保存前编辑该 slug；后续修改显示名称不会覆盖您已编辑过的 slug。
 

@@ -1833,6 +1833,26 @@ Each array entry is an alternative; schemes within one entry are required togeth
 }
 ```
 
+`after_model` (query, optional)
+
+When more is true, pass both cursor fields from the last returned model.
+
+```json
+{
+  "type": "string"
+}
+```
+
+`after_owner_funded` (query, optional)
+
+When more is true, pass both cursor fields from the last returned model.
+
+```json
+{
+  "type": "boolean"
+}
+```
+
 ### Responses
 
 HTTP 200: Workspace-scoped active incident projection
@@ -5503,8 +5523,8 @@ Content type: `application/json`.
     },
     "password": {
       "type": "string",
-      "minLength": 15,
-      "description": "Account password (at least 15 characters and at most 1024 bytes)."
+      "minLength": 8,
+      "description": "Account password (at least 8 characters and at most 1024 bytes)."
     },
     "currency": {
       "type": "string",
@@ -5619,6 +5639,27 @@ Opaque source-qualified next_cursor from the previous page; do not parse or disp
 {
   "type": "string",
   "maxLength": 100
+}
+```
+
+`search` (query, optional)
+
+Case-insensitive literal search over displayed event metadata, applied before pagination.
+
+```json
+{
+  "type": "string",
+  "maxLength": 256
+}
+```
+
+`labels` (query, optional)
+
+Comma-separated localized matches for action, actor, source or category identifiers, e.g. action:session_created. Combined with search using OR.
+
+```json
+{
+  "type": "string"
 }
 ```
 
@@ -6043,7 +6084,7 @@ HTTP 409: expected_revision does not match the saved profile; reload before retr
 
 `POST /api/v1/auth/registrations`
 
-Public capability gated by NIU_AUTH_PUBLIC_ORIGIN and the configured registration policy. Requires the configured HTTPS Origin header. Passwords are validated (minimum 15 characters, maximum 1024 UTF-8 bytes) and Argon2id-hashed at submission time; no plaintext password is stored. No email provider is required: once approved by an administrator, the applicant signs in immediately with the submitted email and password. Existing accounts and duplicate pending emails return the same 202 response without overwriting credentials. Responses use Cache-Control no-store.
+Public capability gated by NIU_AUTH_PUBLIC_ORIGIN and the configured registration policy. Requires the configured HTTPS Origin header. Passwords are validated (minimum 8 characters, maximum 1024 UTF-8 bytes) and Argon2id-hashed at submission time; no plaintext password is stored. No email provider is required: once approved by an administrator, the applicant signs in immediately with the submitted email and password. Existing accounts and duplicate pending emails return the same 202 response without overwriting credentials. Responses use Cache-Control no-store.
 
 Implementation: `implemented`. Operation: `submitLimitedPreviewRegistration`.
 
@@ -6088,7 +6129,7 @@ Content type: `application/json`.
     },
     "password": {
       "type": "string",
-      "minLength": 15,
+      "minLength": 8,
       "maxLength": 1024,
       "writeOnly": true
     },
@@ -9528,6 +9569,17 @@ Exact public model alias filter.
 }
 ```
 
+`pending_settlement` (query, optional)
+
+Restrict requests and summary to pending customer settlement before pagination.
+
+```json
+{
+  "type": "boolean",
+  "default": false
+}
+```
+
 `operation_id` (query, optional)
 
 Restrict attempts and summaries to one operation within the authorized workspace. Unknown or foreign operations yield an empty result; this does not authorize cross-workspace reads.
@@ -10312,6 +10364,51 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 ### Parameters
 
+`pending_limit` (query, optional)
+
+Maximum unresolved attempts per report row.
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 50,
+  "default": 50
+}
+```
+
+`supplier` (query, optional)
+
+Provide supplier, model and pending_before together to page unresolved attempts for one report row.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, optional)
+
+Provide supplier, model and pending_before together to page unresolved attempts for one report row.
+
+```json
+{
+  "type": "string"
+}
+```
+
+`pending_before` (query, optional)
+
+Provide supplier, model and pending_before together to page unresolved attempts for one report row.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 `currency` (query, required)
 
 ```json
@@ -10507,6 +10604,53 @@ Content type: `application/json`.
               "string",
               "null"
             ]
+          },
+          "pending_attempts": {
+            "type": "array",
+            "maxItems": 50,
+            "description": "Up to 50 unresolved attempt references in descending attempt ID order with the available execution, usage and ledger evidence for this Provider, model and period.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "attempt": {
+                  "type": "string"
+                },
+                "workspace_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "reference": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Customer-visible request reference."
+                },
+                "execution": {
+                  "type": "string"
+                },
+                "usage_confidence": {
+                  "type": "string"
+                },
+                "charge_missing": {
+                  "type": "boolean"
+                },
+                "revenue_source_missing": {
+                  "type": "boolean",
+                  "description": "The recorded charge or its refund lacks verified revenue allocation."
+                },
+                "payable_missing": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "attempt",
+                "execution",
+                "usage_confidence",
+                "charge_missing",
+                "payable_missing"
+              ]
+            }
           },
           "unresolved_attempts": {
             "type": "string",
@@ -13381,6 +13525,120 @@ HTTP 403: Platform administration required
 
 HTTP 409: Missing company cursor
 
+## Atomically onboard a customer account, Default workspace, optional owner sign-in, and optional trial credit
+
+`POST /api/v1/admin/customers`
+
+Explicit platform administration required. Commits the customer organization (or personal customer account), its currency balance account, optional Default workspace, optional owner sign-in credential (8 to 1024 bytes), and optional noncash trial credit grant in a single PostgreSQL transaction. Any validation or duplicate-email error rolls back completely without leaving partial organizations, workspaces, or operators. Supports Idempotency-Key for safe network retries.
+
+Implementation: `implemented`. Operation: `onboardPlatformCustomer`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`Idempotency-Key` (header, optional)
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 128,
+  "pattern": "^[!-~]+$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "account_kind": {
+      "type": "string",
+      "enum": [
+        "personal",
+        "organization"
+      ],
+      "default": "organization"
+    },
+    "create_default_workspace": {
+      "type": "boolean",
+      "default": true
+    },
+    "owner": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "email",
+        "password"
+      ],
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 200
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 254
+        },
+        "password": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 1024,
+          "writeOnly": true
+        }
+      }
+    },
+    "trial_credit_nanos": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[1-9][0-9]{0,18}$"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 201: Customer onboarded atomically (or identical idempotent replay returned)
+
+HTTP 400: Invalid customer name, email, password, or trial credit amount
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Owner email is already registered or Idempotency-Key reused with different input
+
 ## Read one customer company's overview, balances, workspaces, members, and recent billing activity
 
 `GET /api/v1/admin/customers/{customer}`
@@ -14258,7 +14516,7 @@ HTTP 422: Malformed JSON or unsupported schedule shape
 
 `GET /api/v1/admin/pricing/standard-prices`
 
-Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current selling revisions use one database snapshot, UUID keyset order. Advisory pricing_health compares those schedules with a subsequent current Provider quote snapshot; refresh after edits. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or numeric Provider costs; confidential relative cost diagnostics are platform-only. Internal references are API identifiers, never display names. Cache-Control: no-store.
+Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current selling revisions use one database snapshot, UUID keyset order. Advisory pricing_health compares those schedules with a subsequent current Provider quote snapshot; refresh after edits. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. For comparable text rates, pricing_health includes the exact selling and purchase amounts by token dimension and input band. Purchase rates are confidential platform-admin data. Internal references are API identifiers, never display names. Cache-Control: no-store.
 
 Implementation: `implemented`. Operation: `listRetailStandards`.
 
@@ -14985,11 +15243,17 @@ Content type: `application/json`.
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "model_alias"
+          "model_alias",
+          "text",
+          "media"
         ],
         "properties": {
           "model_alias": {
             "type": "string"
+          },
+          "text": {
+            "type": "boolean",
+            "description": "Eligible for a standard text tariff."
           },
           "media": {
             "type": [
@@ -52141,6 +52405,108 @@ Local `#/components/schemas/…` references resolve to these definitions.
           "message": {
             "type": "string"
           },
+          "rates": {
+            "type": "array",
+            "description": "Effective comparable token rates in currency nanounits per million tokens at each input threshold.",
+            "items": {
+              "type": "object",
+              "required": [
+                "dimension",
+                "minimum_input_tokens",
+                "selling",
+                "purchase"
+              ],
+              "properties": {
+                "dimension": {
+                  "type": "string"
+                },
+                "minimum_input_tokens": {
+                  "type": "string"
+                },
+                "selling": {
+                  "type": "string"
+                },
+                "purchase": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "media_rates": {
+            "type": "object",
+            "required": [
+              "meter",
+              "selling",
+              "purchase"
+            ],
+            "properties": {
+              "meter": {
+                "type": "string"
+              },
+              "selling": {
+                "type": "object",
+                "required": [
+                  "amount_units",
+                  "decimal_places",
+                  "per_quantity"
+                ],
+                "properties": {
+                  "amount_units": {
+                    "type": "string"
+                  },
+                  "decimal_places": {
+                    "type": "integer"
+                  },
+                  "per_quantity": {
+                    "type": "object",
+                    "required": [
+                      "numerator",
+                      "denominator"
+                    ],
+                    "properties": {
+                      "numerator": {
+                        "type": "string"
+                      },
+                      "denominator": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              "purchase": {
+                "type": "object",
+                "required": [
+                  "amount_units",
+                  "decimal_places",
+                  "per_quantity"
+                ],
+                "properties": {
+                  "amount_units": {
+                    "type": "string"
+                  },
+                  "decimal_places": {
+                    "type": "integer"
+                  },
+                  "per_quantity": {
+                    "type": "object",
+                    "required": [
+                      "numerator",
+                      "denominator"
+                    ],
+                    "properties": {
+                      "numerator": {
+                        "type": "string"
+                      },
+                      "denominator": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
           "dimensions": {
             "type": "array",
             "items": {
@@ -53783,6 +54149,11 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "type": "boolean",
       "readOnly": true,
       "description": "Configuration eligibility in the management list; not an upstream health or entitlement check."
+    },
+    "has_text_offer": {
+      "type": "boolean",
+      "readOnly": true,
+      "description": "A text Provider offer has a current revision for this model mapping."
     },
     "owner_funded": {
       "type": "boolean",

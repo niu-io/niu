@@ -36,7 +36,7 @@ WITH raw_bounds AS MATERIALIZED (
     JOIN vendor_supplier_ownership own ON own.vendor_id=v.id
     WHERE NOT EXISTS (SELECT 1 FROM personal_vendor_ownership p WHERE p.vendor_id=v.id)
 ), raw_traffic AS MATERIALIZED (
-    SELECT a.id, b.provider_id, a.resource_id AS model_alias,
+    SELECT a.id, a.project_id, a.public_reference, b.provider_id, a.resource_id AS model_alias,
            a.execution, a.usage_confidence, c.amount_nanos AS charge,
            e.amount_nanos AS earning, cost.cash_nanos AS cost,
            debit.id AS debit_id, debit.account_id AS debit_account_id,
@@ -113,7 +113,7 @@ WITH raw_bounds AS MATERIALIZED (
                 AND niu_simulated_payment(receipt.channel,receipt.payment_reference)) AS real_funding_only
     FROM (SELECT DISTINCT debit_account_id AS account_id FROM raw_traffic WHERE debit_account_id IS NOT NULL) active
 ), traffic AS MATERIALIZED (
-    SELECT r.id, r.provider_id, r.model_alias,
+    SELECT r.id, r.project_id, r.public_reference, r.provider_id, r.model_alias,
            r.execution, r.usage_confidence, r.charge,
            r.earning, r.cost,
            (r.charge=0 OR (r.allocation_source_coverage='known'
@@ -141,6 +141,14 @@ WITH raw_bounds AS MATERIALIZED (
            r.supplier_settled
     FROM raw_traffic r
     LEFT JOIN covered_accounts account_cov ON account_cov.account_id=r.debit_account_id
+), reconciliation AS (
+    SELECT traffic.*,
+           charge IS NOT NULL AND revenue_covered IS NOT TRUE AS revenue_source_missing,
+           (charge IS NOT NULL AND revenue_covered IS NOT TRUE)
+           OR (execution<>'confirmed_not_executed'
+               AND (execution<>'confirmed_completed' OR usage_confidence<>'provider_reported'
+                    OR charge IS NULL OR earning IS NULL)) AS needs_reconciliation
+    FROM traffic
 ), inventory AS (
     SELECT provider_id,model_alias FROM mappings
     UNION SELECT provider_id,model_alias FROM traffic
@@ -213,9 +221,7 @@ WITH raw_bounds AS MATERIALIZED (
                COALESCE(sum(earning) FILTER (WHERE supplier_settled),0)::text END AS settled_earning_nanos,
            CASE WHEN count(earning)>0 THEN
                COALESCE(sum(earning) FILTER (WHERE NOT supplier_settled),0)::text END AS unsettled_earning_nanos,
-           count(*) FILTER (WHERE execution<>'confirmed_not_executed'
-               AND (execution<>'confirmed_completed' OR usage_confidence<>'provider_reported'
-                    OR charge IS NULL OR earning IS NULL))::text AS unresolved_attempts,
+           count(*) FILTER (WHERE needs_reconciliation)::text AS unresolved_attempts,
            count(*) FILTER (WHERE charge IS NOT NULL AND earning IS NOT NULL)::text AS matched_attempts,
            count(*) FILTER (WHERE charge IS NOT NULL AND earning IS NOT NULL AND cost IS NOT NULL)::text AS cost_known_attempts,
            CASE WHEN count(*) FILTER (WHERE charge IS NOT NULL AND earning IS NOT NULL)>0
@@ -227,7 +233,21 @@ WITH raw_bounds AS MATERIALIZED (
                         OR charge IS NULL OR earning IS NULL))=0
                THEN sum(charge::numeric-earning::numeric)
                    FILTER (WHERE charge IS NOT NULL AND earning IS NOT NULL)::text END AS margin_nanos
-    FROM traffic GROUP BY provider_id,model_alias
+    FROM reconciliation GROUP BY provider_id,model_alias
+), pending AS (
+    SELECT id,project_id,public_reference,provider_id,model_alias,execution,usage_confidence,charge,earning,revenue_source_missing,
+           row_number() OVER (PARTITION BY provider_id,model_alias ORDER BY id DESC) AS ordinal
+    FROM reconciliation
+    WHERE ($7::uuid IS NULL OR id < $7)
+      AND ($5::uuid IS NULL OR (provider_id = $5 AND model_alias = $6::text))
+      AND needs_reconciliation
+), pending_examples AS (
+    SELECT provider_id,model_alias,jsonb_agg(jsonb_build_object(
+        'attempt',id::text,'workspace_id',project_id::text,'reference',public_reference,
+        'execution',execution,'usage_confidence',usage_confidence,
+        'charge_missing',charge IS NULL,'payable_missing',earning IS NULL,'revenue_source_missing',revenue_source_missing
+    ) ORDER BY ordinal) AS attempts
+    FROM pending WHERE ordinal<=$8::int GROUP BY provider_id,model_alias
 ), rows AS (
     SELECT inventory.provider_id,inventory.model_alias,
            jsonb_build_object('supplier_id',inventory.provider_id,'supplier_name',business.name,
@@ -249,11 +269,14 @@ WITH raw_bounds AS MATERIALIZED (
                'known_upstream_cost_subtotal_nanos',totals.known_upstream_cost_subtotal_nanos,
                'upstream_cost_recorded_attempts',COALESCE(totals.upstream_cost_recorded_attempts,'0'),
                'unresolved_attempts',COALESCE(totals.unresolved_attempts,'0'),
+               'pending_attempts',COALESCE(pending_examples.attempts,'[]'::jsonb),
                'matched_attempts',COALESCE(totals.matched_attempts,'0'),
                'cost_known_attempts',COALESCE(totals.cost_known_attempts,'0')) AS document
     FROM inventory JOIN provider_businesses business ON business.id=inventory.provider_id
     LEFT JOIN quotes USING(provider_id,model_alias)
     LEFT JOIN totals USING(provider_id,model_alias)
+    LEFT JOIN pending_examples USING(provider_id,model_alias)
+    WHERE $5::uuid IS NULL OR (inventory.provider_id = $5 AND inventory.model_alias = $6)
 )
 SELECT currency_known.known,
        jsonb_build_object('currency',$1,'days',COALESCE($2, GREATEST(1, ceil(extract(epoch FROM (bounds.until - bounds.since)) / 86400.0)::int)),'from',bounds.since,'until',bounds.until,

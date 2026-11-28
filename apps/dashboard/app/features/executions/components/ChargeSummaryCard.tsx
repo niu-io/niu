@@ -18,12 +18,11 @@ export type ChargeSummarySource = {
   }>;
 };
 
-/** Exclude explicit zero ledgers when unsettled, unpriced, or own-key exceptions remain. */
+/** Exclude explicit zero ledgers when unsettled or unpriced exceptions remain. */
 export function formatSettledChargeTotals(summary: ChargeSummarySource): string[] {
   const hasExceptions =
     (summary.unresolved_customer_charge_count ?? 0) > 0 ||
-    (summary.unpriced_request_count ?? 0) > 0 ||
-    (summary.owner_funded_request_count ?? 0) > 0;
+    (summary.unpriced_request_count ?? 0) > 0;
   const unitTotals = (summary.customer_unit_charges ?? [])
     .filter((item) => !hasExceptions || item.net_atoms !== '0')
     .map((item) =>
@@ -40,6 +39,8 @@ export type ChargeSummaryCardProps = {
   loadingCaption?: string;
   hasData: boolean;
   settledTotals: string[];
+  settledCount?: number;
+  notChargedCount?: number;
   unresolvedCount: number;
   unpricedCount: number;
   ownerFundedCount: number;
@@ -54,6 +55,8 @@ export default function ChargeSummaryCard({
   loadingCaption,
   hasData,
   settledTotals,
+  settledCount = 0,
+  notChargedCount = 0,
   unresolvedCount,
   unpricedCount,
   ownerFundedCount,
@@ -79,7 +82,7 @@ export default function ChargeSummaryCard({
               ? uiT('No Niu charge')
               : '—';
 
-  const hasExceptions = unresolvedCount > 0 || unpricedCount > 0 || ownerFundedCount > 0;
+  const hasExceptions = unresolvedCount > 0 || unpricedCount > 0 || ownerFundedCount > 0 || notChargedCount > 0;
   const linkClassName =
     'rounded-xs font-medium text-foreground underline decoration-muted-foreground/60 underline-offset-4 hover:text-primary hover:decoration-current focus-visible:outline-2 focus-visible:outline-ring';
 
@@ -172,8 +175,10 @@ export default function ChargeSummaryCard({
           loadingCaption ?? uiT('Loading activity…')
         ) : !hasData ? (
           uiT('Charge data unavailable for this gateway response')
-        ) : hasExceptions ? (
+        ) : hasExceptions || settledCount > 0 ? (
           <>
+            {settledCount > 0 && <span>{uiF('{0} settled', [settledCount.toLocaleString(locale)])}</span>}
+            {notChargedCount > 0 && <span>{uiF('{0} not billed', [notChargedCount.toLocaleString(locale)])}</span>}
             {unresolvedCount > 0 && (
               <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
                 <span>
@@ -204,13 +209,7 @@ export default function ChargeSummaryCard({
             )}
             {ownerFundedCount > 0 && (
               <span>
-                {ownerFundedCount === 1
-                  ? uiF('{0} without a Niu charge', [
-                      ownerFundedCount.toLocaleString(locale),
-                    ])
-                  : uiF('{0} without a Niu charge', [
-                      ownerFundedCount.toLocaleString(locale),
-                    ])}
+                {uiF('{0} upstream-funded', [ownerFundedCount.toLocaleString(locale)])}
               </span>
             )}
           </>

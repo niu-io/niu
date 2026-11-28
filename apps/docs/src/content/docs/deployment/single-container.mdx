@@ -71,8 +71,8 @@ Use `/installation` and the installation administrator credential for initial
 setup. After creating an organization and workspace, provision a member through
 `POST /api/v1/operators` with the saved organization/workspace references:
 `{"organization_id":"<organization_id>","project_id":"<workspace_id>","name":"Workspace owner","role":"owner","expires_in_seconds":3600}`.
-Then use `PUT /api/v1/operators/{operator_id}/password` with the member's
-`email` and a password of at least 15 characters and at most 1024 UTF-8 bytes.
+Then use `PUT /api/v1/members/{operator_id}/password` with the member's
+`email` and a password of at least 8 characters and at most 1024 UTF-8 bytes.
 Omit `expected_revision` for first provisioning; use the returned revision for
 later changes. Provisioning revokes the initially issued bearer session. The
 member can now sign in at `/login`; the dashboard restores the backend session
@@ -208,7 +208,7 @@ docker compose up -d --build niu
 
 初始设置请使用 `/installation` 和安装管理员凭据。创建组织和工作空间后，使用保存的组织/工作空间引用通过 `POST /api/v1/operators` 创建成员：
 `{"organization_id":"<organization_id>","project_id":"<workspace_id>","name":"Workspace owner","role":"owner","expires_in_seconds":3600}`。
-接着调用 `PUT /api/v1/operators/{operator_id}/password`，传入成员的 `email` 以及长度至少为 15 个字符且不超过 1024 个 UTF-8 字节的密码。首次配置时省略 `expected_revision`；后续修改请使用返回的版本号（revision）。配置密码会吊销初始签发的 Bearer 会话。随后成员可在 `/login` 登录；控制台会通过安全的 HttpOnly Cookie 恢复后端会话。请勿将密码和初始配置凭据留在共享的命令历史或日志中。[成员会话参考文档](/docs/reference/api/#operator-roles-and-sessions)详细说明了角色边界、限流和吊销机制。
+接着调用 `PUT /api/v1/members/{operator_id}/password`，传入成员的 `email` 以及长度至少为 8 个字符且不超过 1024 个 UTF-8 字节的密码。首次配置时省略 `expected_revision`；后续修改请使用返回的版本号（revision）。配置密码会吊销初始签发的 Bearer 会话。随后成员可在 `/login` 登录；控制台会通过安全的 HttpOnly Cookie 恢复后端会话。请勿将密码和初始配置凭据留在共享的命令历史或日志中。[成员会话参考文档](/docs/reference/api/#operator-roles-and-sessions)详细说明了角色边界、限流和吊销机制。
 
 配置密码登录后，限量预览（Limited Preview）注册默认采用需审批模式（`approval_required`，`POST /api/v1/auth/registrations`）：申请人在 `/register` 提交注册申请，平台管理员可在 `/admin/registrations` 批准或拒绝（或在 `/admin/settings/registration` 关闭注册）。批准后将原子化地创建组织、USD 余额账户、工作空间、所有者与密码凭据。开放式无审批自助注册和 OIDC/SAML 尚未实现。
 

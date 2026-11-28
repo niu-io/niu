@@ -7,10 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ProviderRequestError, request, writeMayHaveCommitted } from '@/features/providers/api';
-import { mediaAmount, mediaAmountUnits, mediaQuantity, mediaQuantityInput, mediaPriceExample } from '@/lib/media-price';
+import { compactMediaAmount, mediaAmountUnits, mediaQuantity, mediaQuantityInput, mediaPriceExample } from '@/lib/media-price';
 import { registeredRetailModelChoices, type RetailModelChoice } from './api';
 import { money } from '@/lib/money';
 import { Link } from 'react-router';
@@ -18,8 +18,8 @@ import type { RetailPriceRecord, RetailPublicationResult, RetailSchedule, Retail
 
 type MediaSchedule = Extract<RetailSchedule, { kind: 'media' }>;
 /** Explicit media dimensions and metering; price configuration is not qualification. */
-export function MediaStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean) => void; onSaved: () => void }) {
-  const { t: uiT, format: uiF } = useUILocale();
+export function MediaStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean, conflict?: boolean) => void; onSaved: () => void }) {
+  const { t: uiT } = useUILocale();
   const original = previous?.schedule.kind === 'media' ? previous.schedule : undefined;
   const [model, setModel] = useState(previous?.model_alias ?? initialModel);
   const {currency:platformCurrency}=usePlatformCurrency();
@@ -29,7 +29,7 @@ export function MediaStandardEditor({ token, previous, initialModel = '', open =
   const [models, setModels] = useState<RetailModelChoice[]>([]), [modelsError, setModelsError] = useState(''), [query, setQuery] = useState('');
   const [channel, setChannel] = useState(original?.dimensions.channel ?? ''), [resolution, setResolution] = useState(original?.dimensions.resolution ?? ''), [reference, setReference] = useState(original?.dimensions.reference_video ?? false);
   const [meter, setMeter] = useState(original?.meter ?? '');
-  const [price, setPrice] = useState(original ? mediaAmount(original.amount_units, original.decimal_places) : ''), [per, setPer] = useState(original ? mediaQuantityInput(original.per_quantity) : '1'), [minimum, setMinimum] = useState(original ? mediaQuantityInput(original.minimum_quantity) : '0');
+  const [price, setPrice] = useState(original ? compactMediaAmount(original.amount_units, original.decimal_places) : ''), [per, setPer] = useState(original ? mediaQuantityInput(original.per_quantity) : '1'), [minimum, setMinimum] = useState(original ? mediaQuantityInput(original.minimum_quantity) : '0');
   const rounding: MediaSchedule['rounding'] = original?.rounding ?? 'HalfEven';
   const fraction = /^\d+(?:\.(\d+))?$/.exec(price.trim())?.[1]?.replace(/0+$/, '') ?? '';
   const places = Math.min(9, Math.max(original?.decimal_places ?? 9, fraction.length));
@@ -55,13 +55,14 @@ export function MediaStandardEditor({ token, previous, initialModel = '', open =
     return () => controller.abort();
   }, [token, previous, modelsRevision]);
   const selected = models.find(item => item.model_alias === model)?.media;
+  const showFields = Boolean(previous || selected);
   const unitLabel = meter === 'video_tokens' ? uiT("video tokens") : meter === 'seconds' ? uiT("seconds") : meter;
   const exampleQuantity = meter === 'seconds' ? '10' : '1000000';
   let example = '';
   try { if (meter && price) example = mediaPriceExample(price, places, per, minimum, exampleQuantity, rounding); } catch { /* Invalid draft fields have no price example. */ }
   const locked = busy || !!attempt || conflict, identityLocked = locked || !!previous;
   async function publish(event: FormEvent) {
-    event.preventDefault(); if (busy || conflict) return;
+    event.preventDefault(); if (busy || conflict || confirmDiscard) return;
     let input = attempt;
     if (!input) {
       try {
@@ -86,20 +87,31 @@ export function MediaStandardEditor({ token, previous, initialModel = '', open =
       setError((failure instanceof Error ? failure.message : 'Publication outcome unavailable.') + (uncertain ? ' Retry this submission to confirm the original outcome before starting another publication.' : failure instanceof ProviderRequestError && failure.status === 409 ? ' Close and refresh current prices before editing again.' : ' Correct the fields and submit again. Your draft has been preserved.'));
     } finally { setBusy(false); }
   }
-  return <Dialog open={open} onOpenChange={value => { if (!value) onClose(!!attempt && !conflict); }}><DialogContent onCloseAutoFocus={onCloseAutoFocus} className="w-[calc(100vw-2rem)] sm:max-w-3xl"><DialogHeader><DialogTitle>{previous ? uiT("Revise media standard price") : uiT("Publish media standard price")}</DialogTitle><DialogDescription>{uiT("Set customer prices for the selected media specifications and units across workspaces. Existing requests and promotions keep their original prices. Model availability and access are managed separately.")}</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={event => void publish(event)}>
-    <div className="space-y-2"><Label>{uiT("Model")}</Label>{previous ? <p className="break-words">{model}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={locked || !modelsLoaded || !!modelsError} aria-label={uiT("Media standard model")}>{model || (modelsLoaded ? uiT("Choose media model") : uiT("Loading media models…"))}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><Input aria-label={uiT("Filter registered media models")} placeholder={uiT("Filter models")} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key.length === 1 || event.key === 'Backspace' || event.key === 'Delete') event.stopPropagation(); }} /><DropdownMenuRadioGroup value={model} onValueChange={value => { const choice=models.find(item=>item.model_alias===value)?.media; setModel(value);setChannel(choice?.channel ?? '');setMeter(choice?.meter ?? '');setResolution(choice?.resolutions.length===1?choice.resolutions[0]:'');setReference(false);setError(''); }}>{models.filter(item => item.model_alias.toLowerCase().includes(query.trim().toLowerCase())).map(item => <DropdownMenuRadioItem key={item.model_alias} value={item.model_alias}>{item.model_alias}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>{!models.length && <p className="p-2 text-sm">{uiT("No configured media models available.")}</p>}</DropdownMenuContent></DropdownMenu>}</div>
+  const [dirty, setDirty] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  function requestClose() {
+    if (busy) return;
+    if (dirty && !attempt && !conflict) setConfirmDiscard(true);
+    else onClose(!!attempt && !conflict, conflict);
+  }
+  return <Dialog open={open} onOpenChange={value => { if (!value) requestClose(); }}><DialogContent aria-describedby={undefined} onCloseAutoFocus={onCloseAutoFocus} className="w-[calc(100vw-2rem)] sm:max-w-3xl"><DialogHeader><DialogTitle>{previous ? uiT("Revise media standard price") : uiT("Publish media standard price")}</DialogTitle></DialogHeader><form onChange={() => setDirty(true)} className="space-y-4" onSubmit={event => void publish(event)}>
+    {(previous || !modelsLoaded || models.length > 0) && <div className="space-y-2"><Label>{uiT("Model")}</Label>{previous ? <p className="break-words">{model}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={locked || !modelsLoaded || !!modelsError} aria-label={uiT("Media standard model")}>{model || (modelsLoaded ? uiT("Choose media model") : uiT("Loading media models…"))}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><Input aria-label={uiT("Filter registered media models")} placeholder={uiT("Filter models")} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key.length === 1 || event.key === 'Backspace' || event.key === 'Delete') event.stopPropagation(); }} /><DropdownMenuRadioGroup value={model} onValueChange={value => { const choice=models.find(item=>item.model_alias===value)?.media; setModel(value);setChannel(choice?.channel ?? '');setMeter(choice?.meter ?? '');setResolution(choice?.resolutions.length===1?choice.resolutions[0]:'');setReference(false);setError(''); }}>{models.filter(item => item.model_alias.toLowerCase().includes(query.trim().toLowerCase())).map(item => <DropdownMenuRadioItem key={item.model_alias} value={item.model_alias}>{item.model_alias}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>{!models.length && <p className="p-2 text-sm">{uiT("No configured media models available.")}</p>}</DropdownMenuContent></DropdownMenu>}</div>}
     {modelsError && <Alert variant="destructive"><AlertDescription>{uiT(modelsError)}</AlertDescription></Alert>}
-    {!previous && modelsLoaded && !models.length && !modelsError && <Alert><AlertDescription>{uiT("Media pricing requires configured output specifications.")}{" "}<Link className="underline" to="/admin/providers" target="_blank" rel="noopener noreferrer">{uiT("Configure a Provider model (opens in a new tab)")}</Link>{uiT(", then refresh model choices here.")}</AlertDescription></Alert>}
-    <p className="text-sm text-muted-foreground">{uiT("Prices in")}{" "}{currency || uiT("the platform currency (configure in Admin)")}{unitLabel ? uiF(" per {0}", [unitLabel]) : ''}.</p>
-    <div className="space-y-2"><Label>{uiT("Resolution")}</Label>{previous ? <p>{resolution}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={!selected || identityLocked} aria-label={uiT("Media resolution")}>{resolution || uiT("Choose resolution")}<IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={resolution} onValueChange={setResolution}>{selected?.resolutions.map(value=><DropdownMenuRadioItem key={value} value={value}>{value}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}</div>
+    {!previous && modelsLoaded && !models.length && !modelsError && <Alert><AlertDescription>{uiT("No configured media models available.")}{" "}<Link className="underline" to="/admin/providers" aria-label={uiT("Configure a Provider model (opens in a new tab)")} target="_blank" rel="noopener noreferrer">{uiT("Configure model", "配置模型")}</Link></AlertDescription></Alert>}
     {!previous && <Button type="button" variant="outline" disabled={!modelsLoaded || locked} onClick={() => setModelsRevision(value => value + 1)}>{uiT("Refresh model choices")}</Button>}
+    {showFields && <>
+    <div className="space-y-2"><Label>{uiT("Resolution")}</Label>{previous ? <p>{resolution}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={!selected || identityLocked} aria-label={uiT("Media resolution")}>{resolution || uiT("Choose resolution")}<IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={resolution} onValueChange={setResolution}>{selected?.resolutions.map(value=><DropdownMenuRadioItem key={value} value={value}>{value}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}</div>
+
     {(previous || selected?.reference_video) && <div className="flex items-center gap-2"><Checkbox id="media-reference" checked={reference} disabled={identityLocked} onCheckedChange={value => setReference(value === true)} /><Label htmlFor="media-reference">{uiT("With reference video")}</Label></div>}
-    <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="media-price">{uiT("Selling price in")}{" "}{currency}</Label><Input id="media-price" inputMode="decimal" value={price} disabled={locked} onChange={event => { setPrice(event.target.value); setError(''); }} /></div><div className="space-y-2"><Label htmlFor="media-per">{uiT("Price per quantity")}</Label><Input id="media-per" value={per} disabled={locked} onChange={event => { setPer(event.target.value); setError(''); }} /></div><div className="space-y-2"><Label htmlFor="media-minimum">{uiT("Minimum quantity")}</Label><Input id="media-minimum" value={minimum} disabled={locked} onChange={event => { setMinimum(event.target.value); setError(''); }} /></div></div>
-    <p className="text-sm text-muted-foreground">{uiT("Set the charge for the number of billing units above. A minimum of zero applies no minimum quantity. Existing requests keep the price used when they started.")}</p>
+    <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="media-price">{uiT("Selling price in")}{" "}{currency}</Label><Input id="media-price" inputMode="decimal" value={price} disabled={locked} onChange={event => { setPrice(event.target.value); setError(''); }} /></div><div className="space-y-2"><Label htmlFor="media-per">{uiT("Billing quantity", "计费数量")}{unitLabel && ` (${unitLabel})`}</Label><Input id="media-per" value={per} disabled={locked} onChange={event => { setPer(event.target.value); setError(''); }} /></div><div className="space-y-2"><Label htmlFor="media-minimum">{uiT("Minimum quantity")}{unitLabel && ` (${unitLabel})`}</Label><Input id="media-minimum" value={minimum} disabled={locked} onChange={event => { setMinimum(event.target.value); setError(''); }} /></div></div>
     {example && <p className="text-sm" role="status">{uiT("Example charge for")}{" "}{meter === 'seconds' ? uiT("10 seconds") : `1,000,000 ${unitLabel}`}:  {money((BigInt(mediaAmountUnits(example, places)) * 10n ** BigInt(9 - places)).toString(), currency)}{uiT(". Includes the minimum quantity and rounding; excludes promotions.")}</p>}
     {original && places > original.decimal_places && <p className="text-sm text-muted-foreground">{uiT("The extra decimal places increase the precision used when calculating charges. The existing rounding rule is retained.")}</p>}
     <div className="space-y-2"><Label htmlFor="media-reason">{uiT("Note (optional)")}</Label><Input id="media-reason" maxLength={500} value={reason} disabled={locked} onChange={event => { setReason(event.target.value); setError(''); }} /></div>
+    </>}
     {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
-    <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" onClick={() => onClose(!!attempt && !conflict)}>{uiT("Close")}</Button><Button type="submit" disabled={busy || conflict || !model || (!previous && (!selected || !resolution))}>{busy ? uiT("Publishing…") : attempt ? uiT("Retry exact publication") : uiT("Publish media standard")}</Button></div>
+    {confirmDiscard ? <DialogFooter key="discard">
+      <Button type="button" variant="outline" onClick={() => onClose(false)}>{uiT("Discard changes", "放弃修改")}</Button>
+      <Button type="button" autoFocus onClick={() => setConfirmDiscard(false)}>{uiT("Keep editing", "继续编辑")}</Button>
+    </DialogFooter> : <DialogFooter key="publish"><Button type="button" variant="outline" onClick={requestClose}>{uiT("Close")}</Button>{showFields && <Button type="submit" disabled={busy || conflict || !model || (!previous && (!selected || !resolution))}>{busy ? uiT("Publishing…") : attempt ? uiT("Retry exact publication") : uiT("Publish media standard")}</Button>}</DialogFooter>}
   </form></DialogContent></Dialog>;
 }

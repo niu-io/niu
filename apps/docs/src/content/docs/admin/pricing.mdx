@@ -125,7 +125,7 @@ owner-funded behavior. Media admission continues to require its applicable
 customer and Provider rate-card snapshots and liability qualification.
 
 Platform **Customer pricing** shows **Price checks** for standard prices,
-workspace tariffs and promotion schedules. **Below Provider cost** identifies
+workspace tariffs and promotion schedules. **Below purchase cost** identifies
 lower input, output, cache read/write or reasoning unit rates, including context
 thresholds from either schedule. It is advisory: intentionally discounted prices
 can still be published. Fixed request fees, minimum charges and usage mix mean a
@@ -276,7 +276,7 @@ Use **Admin → Pricing → Existing media contracts** to select a company and i
 
 共享文本路由必须同时具备显式的模型供应商成本上限和适用的客户销售价目表。如果缺失配置，系统会在向上游分发前返回 `service_not_ready`；如果缺失客户销售价目表，则会回滚准入控制，且不产生任何额度预留或费用。显式配置的零价格仍然有效。由客户自有 API 密钥出资的个人路由则保留其独立的自付行为。媒体请求准入继续要求具备适用的客户与模型供应商价目卡快照以及责任上限资质验证。
 
-平台的**客户定价**（**Customer pricing**）页面会为标准价格、工作空间价目表和促销计划显示**价格检查**（**Price checks**）。**低于供应商成本**（**Below Provider cost**）会标识出低于供应商成本的输入、输出、缓存读/写或推理单价（包含任一价目表中的上下文阶梯阈值）。该提示仅作参考：有意打折的价格仍然可以正常发布。由于存在固定请求费、最低收费以及实际用量结构差异，单价较低并不证明每次请求都会亏损。对标准价格的检查不能替代对适用促销或工作空间价目表的检查。
+平台的**客户定价**（**Customer pricing**）页面会为标准价格、工作空间价目表和促销计划显示**价格检查**（**Price checks**）。**低于采购成本**（**Below purchase cost**）会标识出低于采购成本的输入、输出、缓存读/写或推理单价（包含任一价目表中的上下文阶梯阈值）。该提示仅作参考：有意打折的价格仍然可以正常发布。由于存在固定请求费、最低收费以及实际用量结构差异，单价较低并不证明每次请求都会亏损。对标准价格的检查不能替代对适用促销或工作空间价目表的检查。
 
 当媒体的币种、计量器、维度、最小起订数量及取整规则相互匹配时，系统可以使用精确的有理数单价进行比对。如果存在供应商折扣，或维度不兼容/缺失，则会显示**无法比对**（**Comparison unavailable**）。系统绝不会凭空捏造汇率、缺失的价格或缺失的计费类别。显示**无更低单价**（**No lower unit rates**）并不构成供应就绪或盈利能力的保证。这些比对基于当前的模型供应商配置，在编辑配置后必须刷新；它们不会授权请求分发，也不会对既有请求重新计价。与采购金额一样，相对成本诊断信息仅限平台管理员查看。
 

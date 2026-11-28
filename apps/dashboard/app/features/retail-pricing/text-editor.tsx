@@ -7,17 +7,18 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ProviderRequestError, request, writeMayHaveCommitted } from '@/features/providers/api';
 import { amountFromNanos, amountToNanos } from '@/lib/money';
-import { lookupProviderDefaultTextSchedule, registeredRetailModels } from './api';
+import { lookupProviderDefaultTextSchedule, registeredTextModelChoices } from './api';
 import type { RetailPriceRecord, RetailPublicationResult, RetailStandardPublication } from '@niu-io/sdk/admin';
 
-import { categories, ratesFrom, checkedRates, type Rates, type Tier } from './text-terms';
+import { ContextTierFields, TextRateBand } from './text-rate-band';
+import { tokenBand, ratesFrom, checkedRates, checkedTiers, type Rates, type Tier } from './text-terms';
 
 /** Full text selling terms; optional categories stay distinct from explicit zero. */
-export function TextStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean) => void; onSaved: () => void }) {
+export function TextStandardEditor({ token, previous, initialModel = '', open = true, onCloseAutoFocus, onClose, onSaved }: { token: string; previous: RetailPriceRecord | null; initialModel?: string; open?: boolean; onCloseAutoFocus?: (event: Event) => void; onClose: (pending: boolean, conflict?: boolean) => void; onSaved: () => void }) {
   const { t: uiT } = useUILocale();
   const original = previous?.schedule.kind === 'text' ? previous.schedule : undefined;
   const [model, setModel] = useState(previous?.model_alias ?? initialModel);
@@ -41,8 +42,8 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
   useEffect(() => {
     if (previous) return;
     const controller = new AbortController();
-    void registeredRetailModels(token, controller.signal)
-      .then(names => { if (!controller.signal.aborted) setModels(names); })
+    void registeredTextModelChoices(token, controller.signal)
+      .then(choices => { if (!controller.signal.aborted) setModels(choices.map(choice => choice.model_alias)); })
       .catch(failure => { if (!controller.signal.aborted) setModelsError(failure instanceof Error ? failure.message : 'Registered models unavailable.'); });
     return () => controller.abort();
   }, [token, previous]);
@@ -65,20 +66,22 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
     });
     return () => controller.abort();
   }, [token, previous, model, currency]);
+  const [dirty, setDirty] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  function requestClose() {
+    if (busy) return;
+    if (dirty && !attempt && !conflict) setConfirmDiscard(true);
+    else onClose(!!attempt && !conflict, conflict);
+  }
   const locked = busy || !!attempt || conflict;
   async function publish(event: FormEvent) {
-    event.preventDefault(); if (busy || conflict) return;
+    event.preventDefault(); if (busy || conflict || confirmDiscard) return;
     let input = attempt;
     if (!input) {
       try {
         const note = reason.trim();
         if (!model || !/^[A-Z]{3}$/.test(currency) || [...note].length > 500 || /[\u0000-\u001f\u007f-\u009f]/.test(note)) throw new Error('Choose a model, uppercase three-letter currency and an optional single-line note of up to 500 characters.');
-        let last = -1n;
-        const context_tiers = tiers.map(tier => {
-          if (!/^\d+$/.test(tier.minimum_input_tokens) || BigInt(tier.minimum_input_tokens) <= last || BigInt(tier.minimum_input_tokens) > 9_223_372_036_854_775_807n) throw new Error('Context thresholds must be increasing nonnegative integer token counts.');
-          last = BigInt(tier.minimum_input_tokens);
-          return { minimum_input_tokens: last.toString(), ...checkedRates(tier.rates) };
-        });
+        const context_tiers = checkedTiers(tiers);
         input = { model_alias: model, currency, schedule: { kind: 'text', ...checkedRates(rates), request_fee_nanos: amountToNanos(fee, true), minimum_charge_nanos: amountToNanos(minimum, true), context_tiers }, expected_version: previous?.version ?? '0', idempotency_key: key.current, reason: note };
       } catch (failure) { setError(failure instanceof Error ? failure.message : 'Invalid selling terms.'); return; }
     }
@@ -96,24 +99,21 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
       setError((failure instanceof Error ? failure.message : 'Publication outcome unavailable.') + (uncertain ? ' Retry this submission to confirm the original outcome before starting another publication.' : failure instanceof ProviderRequestError && failure.status === 409 ? ' Close and refresh current prices before editing again.' : ' Correct the fields and submit again. Your draft has been preserved.'));
     } finally { setBusy(false); }
   }
-  return <Dialog open={open} onOpenChange={value => { if (!value) onClose(!!attempt && !conflict); }}><DialogContent onCloseAutoFocus={onCloseAutoFocus} className="w-[calc(100vw-2rem)] sm:max-w-3xl"><DialogHeader><DialogTitle>{previous ? uiT("Revise text standard price") : uiT("Publish text standard price")}</DialogTitle><DialogDescription>{uiT("Customer selling terms in")}{" "}{currency || uiT("the platform currency")}{uiT(". These prices apply across workspaces. Existing requests and promotions keep their original prices. Model availability and access are managed separately.")}</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={event => void publish(event)}>
-    <div className="space-y-2"><Label>{uiT("Model")}</Label>{previous ? <p className="break-words">{model}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={locked || !!modelsError} aria-label={uiT("Standard price model")}>{model || uiT("Choose registered model")}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><Input aria-label={uiT("Filter registered models")} placeholder={uiT("Filter models")} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key.length === 1 || event.key === 'Backspace' || event.key === 'Delete') event.stopPropagation(); }} /><DropdownMenuRadioGroup value={model} onValueChange={setModel}>{models.filter(name => name.toLowerCase().includes(query.trim().toLowerCase())).map(name => <DropdownMenuRadioItem key={name} value={name}>{name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>{!models.length && <p className="p-2 text-sm">{uiT("No registered shared models loaded.")}</p>}</DropdownMenuContent></DropdownMenu>}</div>
+  return <Dialog open={open} onOpenChange={value => { if (!value) requestClose(); }}><DialogContent aria-describedby={undefined} onCloseAutoFocus={onCloseAutoFocus} className="w-[calc(100vw-2rem)] sm:max-w-3xl"><DialogHeader><DialogTitle>{previous ? uiT("Revise text standard price") : uiT("Publish text standard price")}</DialogTitle></DialogHeader><form onChange={() => setDirty(true)} className="space-y-4" onSubmit={event => void publish(event)}>
+    <div className="space-y-2"><Label>{uiT("Model")}</Label>{previous ? <p className="break-words">{model}</p> : <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" disabled={locked || !!modelsError} aria-label={uiT("Standard price model")}>{model || uiT("Choose registered model")}<IconChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="max-h-80 max-w-[calc(100vw-2rem)] overflow-y-auto"><Input aria-label={uiT("Filter registered models")} placeholder={uiT("Filter models")} value={query} onChange={event => setQuery(event.target.value)} onKeyDown={event => { if (event.key.length === 1 || event.key === 'Backspace' || event.key === 'Delete') event.stopPropagation(); }} /><DropdownMenuRadioGroup value={model} onValueChange={value => { setDirty(true); setModel(value); }}>{models.filter(name => name.toLowerCase().includes(query.trim().toLowerCase())).map(name => <DropdownMenuRadioItem key={name} value={name}>{name}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>{!models.length && <p className="p-2 text-sm">{uiT("No registered shared models loaded.")}</p>}</DropdownMenuContent></DropdownMenu>}</div>
     {modelsError && <Alert variant="destructive"><AlertDescription>{uiT(modelsError)}</AlertDescription></Alert>}
     <p className="text-sm text-muted-foreground">{uiT("Currency:")}{" "}{currency || uiT("configure in Admin")}</p>
-    <div className="grid gap-4 sm:grid-cols-2">{categories.map(([field, label]) => <div key={field} className="space-y-2"><Label htmlFor={'standard-' + field}>{uiT(label)}</Label><Input id={'standard-' + field} inputMode="decimal" value={rates[field]} disabled={locked} onChange={event => setRates(current => ({ ...current, [field]: event.target.value }))} /></div>)}</div><p className="text-sm text-muted-foreground">{uiT("Input and output are required. Optional blank categories use ordinary pricing; zero is an explicit rate.")}</p>
+    <h3 className="font-medium">{uiT("Base rates", "基础单价")}{tiers.length > 0 && ' · ' + tokenBand('0', tiers[0].minimum_input_tokens) + ' ' + uiT('Tokens')}</h3>
+    <TextRateBand id="standard" rates={rates} previous={original ? ratesFrom(original) : undefined}
+      disabled={locked} onChange={(field, value) => setRates(current => ({ ...current, [field]: value }))} />
+
+    <ContextTierFields tiers={tiers} setTiers={setTiers} previous={original?.context_tiers} locked={locked} onDirty={() => setDirty(true)} />
     <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="standard-fee">{uiT("Request fee")}</Label><Input id="standard-fee" value={fee} disabled={locked} inputMode="decimal" onChange={event => setFee(event.target.value)} /></div><div className="space-y-2"><Label htmlFor="standard-minimum">{uiT("Minimum charge")}</Label><Input id="standard-minimum" value={minimum} disabled={locked} inputMode="decimal" onChange={event => setMinimum(event.target.value)} /></div></div>
-    <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium">{uiT("Context tiers")}</p><Button type="button" variant="outline" disabled={locked || tiers.length >= 128} onClick={() => setTiers(current => [...current, { minimum_input_tokens: '', rates: ratesFrom() }])}>{uiT("Add tier")}</Button></div>{tiers.map((tier, index) => <section key={index} className="space-y-3 border-b pb-4"><div className="flex flex-wrap items-end gap-2"><div className="space-y-2"><Label htmlFor={'tier-threshold-' + index}>{uiT("Minimum input tokens")}</Label><Input id={'tier-threshold-' + index} inputMode="numeric" disabled={locked} value={tier.minimum_input_tokens} onChange={event => setTiers(current => current.map((value, i) => i === index ? { ...value, minimum_input_tokens: event.target.value } : value))} /></div><Button type="button" variant="outline" disabled={locked} onClick={() => setTiers(current => current.filter((_, i) => i !== index))}>{uiT("Remove tier")}{" "}{index + 1}</Button></div><div className="grid gap-4 sm:grid-cols-2">{categories.map(([field, label]) => <div key={field} className="space-y-2"><Label htmlFor={`tier-${index}-${field}`}>{uiT(label)}</Label><Input id={`tier-${index}-${field}`} inputMode="decimal" value={tier.rates[field]} disabled={locked} onChange={event => setTiers(current => current.map((value, i) => i === index ? { ...value, rates: { ...value.rates, [field]: event.target.value } } : value))} /></div>)}</div></section>)}</div>
     <div className="space-y-2"><Label htmlFor="standard-reason">{uiT("Note (optional)")}</Label><Input id="standard-reason" value={reason} maxLength={500} disabled={locked} onChange={event => setReason(event.target.value)} /></div>
     {hasZeroBaseRate && (
       <Alert variant="destructive">
         <IconAlertTriangle size={16} aria-hidden="true" />
         <AlertDescription className="space-y-3">
-          <p>
-            {uiT(
-              "Input or output rate is set to 0. Publishing this standard price will offer this model free to all workspaces even if the upstream Provider charges for usage.",
-              "输入或输出单价为 0。发布后所有工作空间将按免费单价调用此模型，即使上游供应商实际收费也会由平台承担全部成本。",
-            )}
-          </p>
           <div className="flex items-start gap-2">
             <Checkbox
               id="standard-confirm-zero"
@@ -122,13 +122,16 @@ export function TextStandardEditor({ token, previous, initialModel = '', open = 
               onCheckedChange={checked => setZeroConfirmed(checked === true)}
             />
             <Label htmlFor="standard-confirm-zero" className="text-sm font-medium text-foreground">
-              {uiT("I confirm this $0.00 (free) customer selling rate is intentional", "我确认有意将该模型的客户售价设为 0（免费）")}
+              {uiT("Confirm zero-priced base rates", "确认将上述零价基础费率按免费发布")}
             </Label>
           </div>
         </AlertDescription>
       </Alert>
     )}
     {error && <Alert variant="destructive"><AlertDescription>{uiT(error)}</AlertDescription></Alert>}
-    <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" onClick={() => onClose(!!attempt && !conflict)}>{uiT("Close")}</Button><Button type="submit" disabled={busy || conflict || !model || (hasZeroBaseRate && !zeroConfirmed)}>{busy ? uiT("Publishing…") : attempt ? uiT("Retry exact publication") : uiT("Publish standard price")}</Button></div>
+    {confirmDiscard ? <DialogFooter key="discard">
+      <Button type="button" variant="outline" onClick={() => onClose(false)}>{uiT("Discard changes", "放弃修改")}</Button>
+      <Button type="button" autoFocus onClick={() => setConfirmDiscard(false)}>{uiT("Keep editing", "继续编辑")}</Button>
+    </DialogFooter> : <DialogFooter key="publish"><Button type="button" variant="outline" onClick={requestClose}>{uiT("Close")}</Button><Button type="submit" disabled={busy || conflict || !model || (hasZeroBaseRate && !zeroConfirmed)}>{busy ? uiT("Publishing…") : attempt ? uiT("Retry exact publication") : uiT("Publish standard price")}</Button></DialogFooter>}
   </form></DialogContent></Dialog>;
 }

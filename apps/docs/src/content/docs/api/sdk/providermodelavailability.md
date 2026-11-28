@@ -11,5 +11,6 @@ description: "Generated TypeScript declaration for ProviderModelAvailability"
 export type ProviderModelAvailability = ProviderModel & {
     available: boolean;
     owner_funded: boolean;
+    has_text_offer?: boolean;
 };
 ```

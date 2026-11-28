@@ -56,12 +56,9 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
       </div>
     </div> : null}
     {section === 'members' && <section aria-label={scopedWorkspace ? t('Workspace members', '工作空间成员') : t('Organization members', '组织成员')} className="space-y-6">
-      {scopedWorkspace && <header className="space-y-2">
-        <h2 className="text-base font-semibold">{t('Workspace members', '工作空间成员')}</h2>
-        <p className="text-sm text-muted-foreground">{t(
-          'Members with access to {0}. Organization-wide access is shown as All workspaces.',
-          '可访问{0}的成员。组织范围访问权限显示为“全部工作空间”。',
-        ).replace('{0}', workspaceDisplayName(scopedWorkspace.name))}</p>
+      {scopedWorkspace && <header className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-base font-semibold">{t('Workspace members', '工作空间成员')} · {workspaceDisplayName(scopedWorkspace.name)}</h2>
+        {!lockedWorkspace && <Button asChild variant="ghost" size="sm"><Link replace state={location.state} to={settingsHref('members')}>{t('View all organization members', '查看全部成员')}</Link></Button>}
       </header>}
       {requestedWorkspace && !scopedWorkspace ? (
         context.workspaceLoading
@@ -71,20 +68,14 @@ export function SettingsContent({context, section}: {context: DashboardContext; 
               <Button asChild variant="secondary"><Link replace state={location.state} to={settingsHref('members')}>{t('View all organization members', '查看全部成员')}</Link></Button>
             </div>
       ) : context.session ? (
-        <>
-          {scopedWorkspace && !lockedWorkspace && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 p-3">
-            <p className="text-sm text-muted-foreground">{t('Showing members with access to this workspace.', '仅显示此工作空间的成员。')}</p>
-            <Button asChild variant="ghost" size="sm"><Link replace state={location.state} to={settingsHref('members')}>{t('View all organization members', '查看全部成员')}</Link></Button>
-          </div>}
-          <OperatorsView
-            key={`${context.token}:${context.organization?.id}:${scopedWorkspace?.id ?? 'organization'}`}
-            initialOrganization={context.organization?.id ?? context.workspace?.organization_id}
-            initialWorkspace={scopedWorkspace?.id}
-            token={context.token}
-            session={context.session}
-            refreshWorkspace={context.refreshWorkspace}
-          />
-        </>
+        <OperatorsView
+          key={`${context.token}:${context.organization?.id}:${scopedWorkspace?.id ?? 'organization'}`}
+          initialOrganization={context.organization?.id ?? context.workspace?.organization_id}
+          initialWorkspace={scopedWorkspace?.id}
+          token={context.token}
+          session={context.session}
+          refreshWorkspace={context.refreshWorkspace}
+        />
       ) : (
         <MetricStripSkeleton count={2} label={t('Loading organization members…', '加载成员…')} />
       )}

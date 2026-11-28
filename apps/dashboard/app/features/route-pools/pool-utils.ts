@@ -8,7 +8,7 @@ export type DiscoveredRoute = {
   providerName: string;
   upstreamModel: string;
   ownerFunded: boolean;
-  priced: boolean;
+  priced: boolean | undefined;
 };
 export type ProtocolOption = 'any' | 'chat' | 'responses' | 'messages' | 'embeddings' | 'generate_content';
 

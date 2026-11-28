@@ -20,7 +20,7 @@ type PlaygroundModelPickerDialogProps = {
   maxModels: number;
   unverifiedModels: string[];
   catalogModels?: Model[];
-  managedKey: boolean;
+  rateForModel: (alias: string) => string | null;
   modelsLoading: boolean;
   modelsError: string;
   query: string;
@@ -39,7 +39,7 @@ export default function PlaygroundModelPickerDialog({
   maxModels,
   unverifiedModels,
   catalogModels,
-  managedKey,
+  rateForModel,
   modelsLoading,
   modelsError,
   query,
@@ -182,9 +182,8 @@ export default function PlaygroundModelPickerDialog({
               const selected = selectedModels.includes(model);
               const modelObj = catalogModels?.find(item => item.id === model) ?? { id: model };
               const displayTitle = disambiguatedCatalogTitle(modelObj, catalogModels ?? []);
-              const billingSource = catalogModels?.find(item => item.id === model)?.billing_source;
+              const rate = rateForModel(model);
               const unverified = unverifiedModels.includes(model);
-              const showBilling = Boolean(managedKey && billingSource);
               return (
                 <Button
                   key={model}
@@ -201,14 +200,10 @@ export default function PlaygroundModelPickerDialog({
                       {displayTitle}
                       {displayTitle !== model && <span className="sr-only"> {model}</span>}
                     </span>
-                    {(showBilling || unverified) && (
+                    {(rate || unverified) && (
                       <span className="playground-model-option-meta">
-                        {showBilling && (
-                          <span>
-                            {billingSource === 'own_api_key' ? uiT("No Niu charge") : uiT("Niu credits")}
-                          </span>
-                        )}
-                        {showBilling && unverified && <span aria-hidden="true">·</span>}
+                        {rate && <span>{rate}</span>}
+                        {rate && unverified && <span aria-hidden="true">·</span>}
                         {unverified && (
                           <span className="playground-model-option-unverified">{uiT("Chat support unverified")}</span>
                         )}

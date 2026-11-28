@@ -54,7 +54,7 @@ export default function OperatorDirectory({ operators, organizations, projects, 
         ? <Empty className="operator-directory-empty"><EmptyHeader><EmptyMedia variant="icon"><IconUsers aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No members yet", "还没有成员")}</EmptyTitle><EmptyDescription>{uiT("Invite someone by email and choose their role and workspace access.", "通过邮箱邀请成员，并选择其角色与工作空间访问范围。")}</EmptyDescription></EmptyHeader><EmptyContent><Button type="button" variant="outline" disabled={disabled} onClick={onAdd}>{uiT("Invite first member", "邀请第一位成员")}</Button></EmptyContent></Empty>
         : matches.length === 0
           ? <Empty className="operator-directory-empty" role="status"><EmptyHeader><EmptyMedia variant="icon"><IconSearch aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching members", "没有匹配的成员")}</EmptyTitle><EmptyDescription>{uiT("Try another name, role, or status.")}</EmptyDescription></EmptyHeader><EmptyContent><Button type="button" variant="outline" onClick={() => { onSearchChange(''); searchTriggerRef?.current?.focus(); }}>{uiT("Clear search")}</Button></EmptyContent></Empty>
-          : <Table>
+          : <Table className="member-directory-table">
             <TableHeader><TableRow><TableHead>{uiT("Member", "成员")}</TableHead><TableHead>{uiT("Workspace")}</TableHead><TableHead>{uiT("Role")}</TableHead><TableHead className="hidden sm:table-cell">{uiT("Status")}</TableHead><TableHead className="w-12"><span className="sr-only">{uiT("Actions")}</span></TableHead></TableRow></TableHeader>
             <TableBody>{matches.map(operator => <TableRow key={operator.id}>
               <TableCell className="whitespace-normal">

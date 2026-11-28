@@ -67,21 +67,18 @@ describe('model developer and provider boundaries', () => {
     expect(modelDeveloper({id:'claude-sonnet-4'})?.id).toBe('anthropic');
     expect(modelDeveloper({id:'gpt-4.1-mini'})?.id).toBe('openai');
     expect(modelDeveloper({id:'gemini-2.5-pro'})?.id).toBe('google');
-    const imported = {id:'babelark/deepseek-v3', provider:'babelark'};
+    const imported = {id:'babelark/deepseek-v3', provider:'openai', provider_name:'BabelArk'};
     expect(modelDeveloper(imported)?.id).toBe('deepseek');
     expect(modelProviderName(imported)).toBe('BabelArk');
-    expect(modelProviderName({id:'babelark/third-party-model', provider:'babelark'})).toBe('BabelArk');
+    expect(modelProviderName({provider_name:'BabelArk'})).toBe('BabelArk');
     expect(modelDeveloper({id:'babelark/third-party-model', provider:'babelark'})).toBeUndefined();
     expect(modelDeveloper({id:'third-party-model', provider:'babelark'})).toBeUndefined();
     expect(modelDeveloper({id:'claude-sonnet-4', provider:'babelark'})?.id).toBe('anthropic');
   });
-  it('keeps access mode and identifiers out of provider names', () => {
-    expect(modelProviderName({provider:'byok'})).toBeUndefined();
-    expect(modelProviderName({provider:' BYOK '})).toBeUndefined();
-    expect(modelProviderName({provider:'00000000-0000-0000-0000-000000000001'})).toBeUndefined();
-    expect(modelProviderName({provider:'fastrouter'})).toBe('FastRouter');
-    expect(modelProviderName({provider:'openrouter'})).toBe('OpenRouter');
-    expect(modelProviderName({provider:'Team inference'})).toBe('Team inference');
+  it('uses only the recorded business name for Provider attribution', () => {
+    expect(modelProviderName({})).toBeUndefined();
+    expect(modelProviderName({provider_name:null})).toBeUndefined();
+    expect(modelProviderName({provider_name:' Team inference '})).toBe('Team inference');
   });
   it('formats catalog model slugs while preserving custom route aliases', () => {
     expect(catalogTitle('volcengine/doubao-seedance-2-0-fast-260128')).toBe('Doubao Seedance 2.0 Fast');

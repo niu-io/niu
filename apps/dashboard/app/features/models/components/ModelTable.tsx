@@ -1,5 +1,6 @@
 import { readLocale as readUILocale } from '@/shell/ui-locale';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
+import { categories, tokenBand } from '@/features/retail-pricing/text-terms';
 import { generationCapability } from '../generation-capabilities';
 import '../models.css';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -16,7 +17,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupContent, useSidebar } from '@/components/ui/sidebar';
 import ProviderLogo from '@/components/ProviderLogo';
-import { modelIdentity, modelDeveloper, modelProviderName, catalogTitle, disambiguatedCatalogTitle } from '@/lib/providers';
+import { modelIdentity, modelProviderName, catalogTitle, disambiguatedCatalogTitle } from '@/lib/providers';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +29,7 @@ import { capabilityGroups, capabilityValues, emptyCapabilities, matchesCapabilit
 import { Label } from '@/components/ui/label';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import { QuickKeyDialog, useQuickKeyProvisioner } from '@/features/generations/QuickKeyDialog';
-import type { Model } from '@/shell/dashboard-context';
+import type { CustomerPricing, CustomerUnitPricing, CustomerTokenRates, Model } from '@/shell/dashboard-context';
 
 function ModelFilterButton({ activeCount = 0 }: { activeCount?: number }) {
   const { t: uiT } = useUILocale();
@@ -75,7 +76,10 @@ function formatModalityList(values: string[], isZh: boolean): string {
 import { useDashboardContext } from '@/shell/dashboard-context';
 import { usePlatformCurrency } from '@/shell/platform-currency';
 import { useModelPopularity } from '@/shell/useModelPopularity';
-import { formatUnitAtoms, money } from '@/lib/money';
+import { requestCharges } from '@/lib/customer-tariff';
+import type { ModelMediaTariff } from '@/shell/dashboard-context';
+import { mediaQuantityInput } from '@/lib/media-price';
+import { formatExactUnitAtoms, money } from '@/lib/money';
 import { workspacePathSegment } from '@/shell/workspace-route';
 
 
@@ -116,6 +120,42 @@ function requestExample(baseUrl: string, model: Model) {
     '  -H "Content-Type: application/json"',
     `  -d '${JSON.stringify(body)}'`,
   ].join(` ${String.fromCharCode(92)}\n`);
+}
+
+function MediaUnitRate({ tariff }: { tariff: ModelMediaTariff }) {
+  const { t } = useUILocale();
+  return <>{formatExactUnitAtoms(tariff.price.amount_atoms, tariff.unit_name, tariff.display_precision)} / {mediaQuantityInput(tariff.price.per_quantity)} {t(tariff.price.meter === 'video_tokens' ? 'video tokens' : tariff.price.meter)}</>;
+}
+
+function zeroTokenRates(rates: CustomerTokenRates) {
+  return rates.prompt_rate === '0' && rates.completion_rate === '0' &&
+    [rates.cached_prompt_rate, rates.cache_write_prompt_rate, rates.reasoning_completion_rate]
+      .every(rate => rate == null || rate === '0');
+}
+
+function isFreeTariff(price?: CustomerPricing | CustomerUnitPricing | null) {
+  if (!price || !zeroTokenRates(price) || !price.context_tiers?.every(zeroTokenRates)) return false;
+  return 'unit_name' in price
+    ? price.request_fee_atoms === '0' && price.minimum_charge_atoms === '0'
+    : price.request_fee_nanos === '0' && price.minimum_charge_nanos === '0';
+}
+
+function ContextTariff({ price }: { price: CustomerPricing | CustomerUnitPricing }) {
+  const { t } = useUILocale();
+  const bands = [{ ...price, minimum_input_tokens: '0' }, ...(price.context_tiers ?? [])];
+  return <section className="space-y-2" aria-label={t('Context tiers')}>
+    <h3 className="font-medium">{t('Context tiers')}</h3>
+    {bands.map((band, index) => <div key={band.minimum_input_tokens} className="border-t py-2">
+      <h4 className="text-sm font-medium">{t('Input tokens')} · {tokenBand(band.minimum_input_tokens, bands[index + 1]?.minimum_input_tokens)}</h4>
+      <dl className="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm">{categories.map(([key, label]) => {
+        const value = band[key];
+        if (value == null) return null;
+        const amount = 'unit_name' in price
+          ? formatExactUnitAtoms(value, price.unit_name, price.display_precision) : money(value, price.currency);
+        return <div key={key}><dt className="text-muted-foreground">{t(label)}</dt><dd>{amount}</dd></div>;
+      })}</dl>
+    </div>)}
+  </section>;
 }
 
 export default function ModelTable(props: { models: Model[]; header?: ReactNode; publicMode?: boolean }) {
@@ -181,14 +221,6 @@ function catalogTier(model: Model): number {
 
 function ModelTableContent({ models, header, publicMode = false }: { models: Model[]; header?: ReactNode; publicMode?: boolean }) {
   const { t: uiT, format: uiF, isZh } = useUILocale();
-  function chooseAuthor(value: string) {
-    setAuthorsSelected(current => {
-      const nextAuthors = current.includes(value) ? current.filter(id => id !== value) : [...current, value];
-      syncCatalogUrl({ authors: nextAuthors });
-      return nextAuthors;
-    });
-    setLimit(20);
-  }
   const { token, workspace, workspaces, session, rememberChatKey, reloadWorkspaces } = useDashboardContext();
   const isPlatformAdmin = Boolean(session?.permissions?.platform_admin || (session?.kind === 'installation' && session?.permissions?.manage_operators !== false));
   const canWrite = session?.permissions?.write !== false;
@@ -210,7 +242,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
   const popularModels = ranked.models;
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [authorsSelected, setAuthorsSelected] = useState<string[]>(() => searchParams.getAll('dev').filter(Boolean));
   const [providersSelected, setProvidersSelected] = useState<string[]>(() => searchParams.getAll('provider').filter(Boolean));
   const [capabilities, setCapabilities] = useState<Record<CapabilityGroup, string[]>>(() => ({
     input: searchParams.getAll('input').filter(Boolean),
@@ -219,10 +250,8 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
   }));
   const hasCapabilities = Object.values(capabilities).some(values => values.length > 0);
   const activeFilterCount =
-    authorsSelected.length +
     providersSelected.length +
     Object.values(capabilities).reduce((sum, list) => sum + list.length, 0);
-  const [allAuthors, setAllAuthors] = useState(false);
   const [sort, setSort] = useState<'recommended' | 'name' | 'context'>(() => {
     const initial = searchParams.get('sort');
     return initial === 'name' || initial === 'context' ? initial : 'recommended';
@@ -230,13 +259,11 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
   function syncCatalogUrl(overrides: {
     query?: string;
     sort?: string;
-    authors?: string[];
     providers?: string[];
     capabilities?: Record<CapabilityGroup, string[]>;
   } = {}) {
     const nextQuery = overrides.query ?? query;
     const nextSort = overrides.sort ?? sort;
-    const nextAuthors = overrides.authors ?? authorsSelected;
     const nextProviders = overrides.providers ?? providersSelected;
     const nextCapabilities = overrides.capabilities ?? capabilities;
     const next = new URLSearchParams(location.search);
@@ -252,7 +279,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     next.delete('cap');
     for (const item of nextCapabilities.features) next.append('cap', item);
     next.delete('dev');
-    for (const item of nextAuthors) next.append('dev', item);
     next.delete('provider');
     for (const item of nextProviders) next.append('provider', item);
     next.delete('source');
@@ -275,17 +301,15 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
   }
   function clearAllFilters() {
     const cleared = emptyCapabilities();
-    setAuthorsSelected([]);
     setProvidersSelected([]);
     setCapabilities(cleared);
     setQuery('');
     setLimit(20);
-    syncCatalogUrl({ query: '', authors: [], providers: [], capabilities: cleared });
+    syncCatalogUrl({ query: '', providers: [], capabilities: cleared });
     searchInputRef.current?.focus();
   }
   const availableCapabilities = capabilityGroups.map(group => ({ ...group, options: group.options.filter(([value]) => models.some(model => capabilityValues(model, group.id).includes(value))) }));
   const providers = [...new Set(models.map(modelProviderName).filter((provider): provider is string => Boolean(provider)))].sort();
-  const authors = useMemo(() => [...new Map(models.flatMap(model => { const identity = modelDeveloper(model); return identity ? [[identity.id, identity] as const] : []; })).values()].sort((a, b) => a.name.localeCompare(b.name)), [models]);
   const [limit, setLimit] = useState(20);
   const requestedId = params['*'] || null;
   const selectedId = requestedId && !models.some(model => model.id === requestedId)
@@ -302,11 +326,10 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     for (const item of capabilities.input) sp.append('input', item);
     for (const item of capabilities.output) sp.append('output', item);
     for (const item of capabilities.features) sp.append('cap', item);
-    for (const item of authorsSelected) sp.append('dev', item);
     for (const item of providersSelected) sp.append('provider', item);
     const serialized = sp.toString();
     return serialized ? `?${serialized}` : '';
-  }, [query, sort, capabilities, authorsSelected, providersSelected]);
+  }, [query, sort, capabilities, providersSelected]);
   function generationHref(model: Model, kind: 'chat' | 'video', keyRef?: string) {
     const query = new URLSearchParams({new: kind === 'video' ? 'video' : '1', model: model.id});
     if (!publicMode && workspace) query.set('workspace', workspacePathSegment(workspace, workspaces ?? [workspace]));
@@ -349,10 +372,9 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
     const matches = popularModels.filter(
       model =>
         matchesCapabilities(model, capabilities) &&
-        (!authorsSelected.length || authorsSelected.includes(modelDeveloper(model)?.id ?? '')) &&
         (!providersSelected.length || providersSelected.includes(modelProviderName(model) ?? '')) &&
         (!value ||
-          `${model.id} ${model.catalog?.name ?? ''} ${model.catalog?.description ?? ''} ${model.provider ?? ''} ${model.upstream_model ?? ''} ${modelIdentity(model).name}`
+          `${model.id} ${model.catalog?.name ?? ''} ${model.catalog?.description ?? ''} ${modelProviderName(model) ?? ''} ${model.upstream_model ?? ''}`
             .toLowerCase()
             .includes(value)),
     );
@@ -363,10 +385,13 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
       return [...matches].sort((a, b) => (b.catalog?.context_length ?? -1) - (a.catalog?.context_length ?? -1) || (a.catalog?.name || a.id).localeCompare(b.catalog?.name || b.id, 'en', {numeric:true,sensitivity:'base'}));
     }
     return [...matches].sort((a, b) => catalogTier(a) - catalogTier(b));
-  }, [popularModels, query, authorsSelected, providersSelected, capabilities, sort]);
+  }, [popularModels, query, providersSelected, capabilities, sort]);
   const visible = filtered.slice(0, limit);
   const selected = models.find(model => model.id === selectedId) ?? null;
-  const showOriginalDescription = Boolean(selected?.catalog?.description) && (isZh ? !/\p{Script=Han}/u.test(selected?.catalog?.description ?? '') : /\p{Script=Han}/u.test(selected?.catalog?.description ?? ''));
+  const selectedPrice = selected && (showUnitPricing(selected) ? selected.customer_unit_pricing : selected.customer_pricing);
+  const selectedMedia = selected && showUnitPricing(selected) ? selected.customer_unit_pricing?.media_tariffs : undefined;
+  const tieredPrice = selectedPrice?.context_tiers?.length ? selectedPrice : null;
+  const showOriginalDescription = Boolean(selected?.catalog?.description) && (!publicMode || (isZh ? !/\p{Script=Han}/u.test(selected?.catalog?.description ?? '') : /\p{Script=Han}/u.test(selected?.catalog?.description ?? '')));
   const descriptionRef = useRef<HTMLDivElement>(null);
   const descriptionTriggerRef = useRef<HTMLButtonElement>(null);
   const previousDescription = useRef<{model:string|null; open:boolean}>({model:null,open:false});
@@ -455,12 +480,6 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
               </Label>)}</div>
             </CollapsibleContent>
           </Collapsible>)}
-          <Collapsible className="models-filter-group pt-2 mt-1" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Developer")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Inferred developer filters")}>
-          <p className="text-xs text-muted-foreground">{uiT("Inferred from model identifiers; not verified.")}</p><div className="models-filter-options">
-            {(allAuthors ? authors : authors.slice(0, 10)).map(identity => <Label key={identity.id}><Checkbox aria-label={identity.name} checked={authorsSelected.includes(identity.id)} onCheckedChange={() => chooseAuthor(identity.id)} />{identity.name}<span>{models.filter(model => modelDeveloper(model)?.id === identity.id).length}</span></Label>)}
-          </div>
-          {authors.length > 10 && <Button variant="ghost" size="sm" onClick={() => setAllAuthors(value => !value)}>{allAuthors ? uiT("Show fewer") : uiT("Show all developers")}</Button>}
-          </CollapsibleContent></Collapsible>
           {providers.length > 0 && <Collapsible className="models-filter-group" defaultOpen><CollapsibleTrigger asChild><Button variant="ghost" className="models-filter-trigger">{uiT("Providers")}<ChevronDown size={15} aria-hidden="true" /></Button></CollapsibleTrigger><CollapsibleContent className="models-filter-content" role="region" aria-label={uiT("Provider filters")}><div className="models-filter-options">
             {providers.map(provider => <Label key={provider}><Checkbox aria-label={provider} checked={providersSelected.includes(provider)} onCheckedChange={() => { setProvidersSelected(current => { const nextProviders = current.includes(provider) ? current.filter(id => id !== provider) : [...current, provider]; syncCatalogUrl({ providers: nextProviders }); return nextProviders; }); setLimit(20); }} />{provider}<span>{models.filter(model => modelProviderName(model) === provider).length}</span></Label>)}
           </div></CollapsibleContent></Collapsible>}
@@ -494,20 +513,20 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
           </div>
         </div>
 
-        {(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities) && <div className="flex flex-wrap gap-2 pt-3" aria-label={uiT("Active model filters")}>
+        {(providersSelected.length > 0 || hasCapabilities) && <div className="flex flex-wrap gap-2 pt-3" aria-label={uiT("Active model filters")}>
           {capabilityGroups.flatMap(group => group.options.filter(([value]) => capabilities[group.id].includes(value)).map(([value, label]) => <Button key={`${group.id}-${value}`} variant="secondary" size="sm" aria-label={isZh ? uiF("Remove {0} {1} filter", [uiT(label), group.id === 'input' ? '输入' : group.id === 'output' ? '输出' : '能力']) : uiF("Remove {0} {1} filter", [label, group.id])} onClick={() => toggleCapability(group.id, value)}>{group.id === 'features' ? uiT(label) : `${uiT(group.id === 'input' ? 'Input' : 'Output')}: ${uiT(label)}`}<X size={12} aria-hidden="true" /></Button>))}
-          {authors.filter(author => authorsSelected.includes(author.id)).map(author => <Button key={author.id} variant="secondary" size="sm" aria-label={uiF("Remove {0} developer filter", [author.name])} onClick={() => chooseAuthor(author.id)}>{uiT("Developer:")}{" "}{author.name}<X size={12} aria-hidden="true" /></Button>)}
           {providersSelected.map(provider => <Button key={provider} variant="secondary" size="sm" aria-label={uiF("Remove {0} provider filter", [provider])} onClick={() => { setProvidersSelected(current => { const nextProviders = current.filter(value => value !== provider); syncCatalogUrl({ providers: nextProviders }); return nextProviders; }); setLimit(20); }}>{uiT("Provider:")}{" "}{provider}<X size={12} aria-hidden="true" /></Button>)}
         </div>}
-        <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString(readUILocale())} {filtered.length === 1 ? uiT("model") : uiT("models")}</span>{filtered.length > 0 && (authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <Button variant="ghost" size="sm" onClick={clearAllFilters}>{uiT("Clear filters")}</Button>}</div>
-        {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle><EmptyDescription>{uiT("Try another search or remove a filter.")}</EmptyDescription></EmptyHeader>{(authorsSelected.length > 0 || providersSelected.length > 0 || hasCapabilities || query) && <EmptyContent><Button variant="outline" onClick={clearAllFilters}>{uiT("Clear filters")}</Button></EmptyContent>}</Empty> : <div className="models-cards">
+        <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString(readUILocale())} {filtered.length === 1 ? uiT("model") : uiT("models")}</span>{filtered.length > 0 && (providersSelected.length > 0 || hasCapabilities || query) && <Button variant="ghost" size="sm" onClick={clearAllFilters}>{uiT("Clear filters")}</Button>}</div>
+        {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>{uiT("No matching models")}</EmptyTitle><EmptyDescription>{uiT("Try another search or remove a filter.")}</EmptyDescription></EmptyHeader>{(providersSelected.length > 0 || hasCapabilities || query) && <EmptyContent><Button variant="outline" onClick={clearAllFilters}>{uiT("Clear filters")}</Button></EmptyContent>}</Empty> : <div className="models-cards">
           {visible.map(model => {
             const cardTitle = disambiguatedCatalogTitle(model, models);
             const rawDesc = model.catalog?.description;
             const hasHanDesc = /\p{Script=Han}/u.test(rawDesc ?? '');
-            const showDesc = Boolean(rawDesc && (isZh ? hasHanDesc : !hasHanDesc));
-            const isFreeUnit = showUnitPricing(model) && model.customer_unit_pricing?.prompt_rate === '0' && model.customer_unit_pricing?.completion_rate === '0';
-            const isFreeCurrency = !showUnitPricing(model) && model.customer_pricing != null && model.customer_pricing.prompt_rate === '0' && model.customer_pricing.completion_rate === '0';
+            const showDesc = publicMode && Boolean(rawDesc && (isZh ? hasHanDesc : !hasHanDesc));
+            const price = showUnitPricing(model) ? model.customer_unit_pricing : model.customer_pricing;
+            const media = showUnitPricing(model) ? model.customer_unit_pricing?.media_tariffs : undefined;
+            const free = !media?.length && !isVideoModel(model) && isFreeTariff(price);
             const contextText = model.catalog?.context_length != null
               ? `${new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(model.catalog.context_length)} ${uiT("context")}`
               : null;
@@ -523,7 +542,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
                 <div className="models-card-identity">
                   <div className="models-card-title-row">
                     <Link className="models-card-title text-foreground hover:underline" title={cardTitle} to={detailHref}>{cardTitle}</Link>
-                    {(isFreeUnit || isFreeCurrency) && !uncallable && <Badge variant="secondary" className="models-card-tag shrink-0 font-normal">{uiT("Free")}</Badge>}
+
                   </div>
                   {tags.length > 0 ? (
                     <div className="models-card-tags" aria-label={uiT("Model capabilities")}>
@@ -545,7 +564,9 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
 
               <div className="models-card-footer">
                 <div className="models-card-rates">
-                  {uncallable ? <span className="text-muted-foreground">{readinessBadgeText(model, uiT)}</span> : model.billing_source === 'own_api_key' ? <span>{uiT("No Niu charge")}</span> : isFreeUnit || isFreeCurrency ? <span>{uiT("Free")}</span> : showUnitPricing(model) ? <><span>{formatUnitAtoms(model.customer_unit_pricing?.prompt_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M input tokens")}</span><span>{formatUnitAtoms(model.customer_unit_pricing?.completion_rate ?? '0', model.customer_unit_pricing?.unit_name ?? uiT('credits'), model.customer_unit_pricing?.display_precision ?? 2)}{uiT("/M output tokens")}</span></> : model.customer_pricing != null ? <><span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}{uiT("/M input tokens")}</span><span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}{uiT("/M output tokens")}</span></> : null}
+                  {uncallable ? <span className="text-muted-foreground">{readinessBadgeText(model, uiT)}</span> : model.billing_source === 'own_api_key' ? <span>{uiT("No Niu charge")}</span> : price?.context_tiers?.length && !free ? <Link className="underline underline-offset-2" to={detailHref}>{uiT('Context tiers')}</Link> : free ? <span>{uiT("Free")}</span> : price?.prompt_rate != null && price.completion_rate != null ? <><span>{'unit_name' in price ? formatExactUnitAtoms(price.prompt_rate, price.unit_name, price.display_precision) : money(price.prompt_rate, price.currency)}{uiT("/M input tokens")}</span><span>{'unit_name' in price ? formatExactUnitAtoms(price.completion_rate, price.unit_name, price.display_precision) : money(price.completion_rate, price.currency)}{uiT("/M output tokens")}</span></> : null}
+                  {!uncallable && model.billing_source !== 'own_api_key' && !!media?.length && <Link className="underline underline-offset-2" to={detailHref}>{media.length === 1 ? <MediaUnitRate tariff={media[0]} /> : uiT("Media rates")}</Link>}
+                  {!uncallable && model.billing_source !== 'own_api_key' && requestCharges(price).map(charge => <span key={charge.label}>{uiT(charge.label)} · {charge.amount}</span>)}
                   {contextText && <span>{contextText}</span>}
                 </div>
 
@@ -590,7 +611,7 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
       <div className="flex min-w-0 flex-wrap items-center gap-2"><code className="min-w-0 break-all text-sm text-muted-foreground">{selected.id}</code><Button type="button" variant="ghost" size="sm" aria-label={uiT("Copy model ID", "复制模型 ID")} onClick={() => void copyModelId()}><Clipboard size={14} aria-hidden="true" />{modelIdFeedback?.model === selected.id && modelIdFeedback.copied ? uiT("Copied") : uiT("Copy")}</Button></div>
       {modelIdFeedback?.model === selected.id && !modelIdFeedback.copied && <p role="alert" className="error-text">{uiT("Clipboard access is unavailable. Select and copy the model ID instead.", "无法访问剪贴板，请选择并复制模型 ID。")}</p>}
       {selected.catalog?.description && (showOriginalDescription ? <Collapsible open={descriptionOpen} onOpenChange={open => setExpandedDescription(open ? selectedId : null)} className="space-y-2">
-        <CollapsibleTrigger asChild aria-controls="model-description"><Button ref={descriptionTriggerRef} variant="ghost" size="sm" className="px-0 scroll-mt-24">{descriptionOpen ? uiT('Hide original description', '收起原始说明') : uiT('Show original description', '查看原始说明')}<ChevronDown className={descriptionOpen ? 'rotate-180' : ''} size={14} aria-hidden="true" /></Button></CollapsibleTrigger>
+        <CollapsibleTrigger asChild aria-controls="model-description"><Button ref={descriptionTriggerRef} variant="ghost" size="sm" className="px-0 scroll-mt-24">{descriptionOpen ? uiT('Hide original description', '收起原始说明') : uiT('Upstream model description', '上游模型说明')}<ChevronDown className={descriptionOpen ? 'rotate-180' : ''} size={14} aria-hidden="true" /></Button></CollapsibleTrigger>
         <CollapsibleContent id="model-description" className="break-words leading-6 [&_p+p]:mt-3 [&_a]:underline [&_a]:underline-offset-2"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({children,href}) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>}}>{selected.catalog.description}</ReactMarkdown></CollapsibleContent>
       </Collapsible> : <Collapsible open={descriptionOpen} onOpenChange={open => setExpandedDescription(open ? selectedId : null)} className="space-y-2">
         <div ref={descriptionRef} id="model-description" className={`break-words leading-6 [&_p+p]:mt-3 [&_a]:underline [&_a]:underline-offset-2${descriptionOpen ? '' : ' line-clamp-2'}`}><ReactMarkdown remarkPlugins={[remarkGfm]} components={{a:({children,href}) => <a href={href} tabIndex={descriptionOpen ? undefined : -1} target="_blank" rel="noopener noreferrer">{children}</a>}}>{selected.catalog.description}</ReactMarkdown></div>
@@ -603,36 +624,40 @@ function ModelTableContent({ models, header, publicMode = false }: { models: Mod
             <p>{readinessDetailText(selected, isPlatformAdmin, uiT)}</p>
           </AlertDescription>
         </Alert>
-      ) : (
-        <p className="text-sm text-muted-foreground">{selected.billing_source === 'own_api_key'
-          ? uiT("No Niu charge")
-          : selected.billing_source === 'niu_credits'
-            ? isVideoModel(selected) && !hasChatOutput(selected)
-              ? uiT("Niu charges, when applicable, use workspace credits. Video cost depends on request settings. Open Video to estimate the cost before submitting; a valid estimate is required to generate.", "适用时，Niu 费用使用工作空间额度结算。视频费用取决于请求设置，请在提交前打开视频估算费用；生成需要有效估算。")
-              : uiT("Niu charges, when applicable, use workspace credits. Published prices do not guarantee model access or available supply; these are checked when you submit a request.", "适用时，Niu 费用使用工作空间额度结算。已发布价格不保证模型访问权限或供给可用，提交请求时会检查。")
-            : uiT("Billing information is unavailable. Refresh the catalog or ask your administrator to confirm how usage is billed before sending a request.")}</p>
-      )}
+      ) : selected.billing_source === 'own_api_key' ? (
+        <p className="text-sm text-muted-foreground">{uiT("No Niu charge")}</p>
+      ) : !selected.billing_source ? (
+        <p className="text-sm text-muted-foreground">{uiT("Billing information is unavailable. Refresh the catalog or ask your administrator to confirm how usage is billed before sending a request.")}</p>
+      ) : isVideoModel(selected) && !hasChatOutput(selected) && !selectedMedia?.length ? (
+        <p className="text-sm text-muted-foreground">{uiT("Video cost is estimated before generation.", "生成前可查看视频费用估算。")}</p>
+      ) : null}
       <dl className="model-route-facts">
-        {selected.billing_source !== 'own_api_key' && (!isVideoModel(selected) || hasChatOutput(selected)) && <><div><dt>{uiT("Input price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatUnitAtoms(selected.customer_unit_pricing!.prompt_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.prompt_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div>
-        {showUnitPricing(selected) && selected.customer_unit_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{formatUnitAtoms(selected.customer_unit_pricing.cached_prompt_rate, selected.customer_unit_pricing.unit_name, selected.customer_unit_pricing.display_precision)}{" "}{uiT("/M tokens")}</dd></div> : selected.customer_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{money(selected.customer_pricing.cached_prompt_rate, selected.customer_pricing.currency)}{" "}{uiT("/M tokens")}</dd></div> : null}
-        <div><dt>{uiT("Output price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatUnitAtoms(selected.customer_unit_pricing!.completion_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.completion_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div></>}
+        {!tieredPrice && (!selectedMedia?.length || selectedPrice?.prompt_rate != null) && selected.billing_source !== 'own_api_key' && (!isVideoModel(selected) || hasChatOutput(selected)) && <><div><dt>{uiT("Input price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatExactUnitAtoms(selected.customer_unit_pricing!.prompt_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.prompt_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div>
+        {showUnitPricing(selected) && selected.customer_unit_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{formatExactUnitAtoms(selected.customer_unit_pricing.cached_prompt_rate, selected.customer_unit_pricing.unit_name, selected.customer_unit_pricing.display_precision)}{" "}{uiT("/M tokens")}</dd></div> : selected.customer_pricing?.cached_prompt_rate != null ? <div><dt>{uiT("Cache read price")}</dt><dd>{money(selected.customer_pricing.cached_prompt_rate, selected.customer_pricing.currency)}{" "}{uiT("/M tokens")}</dd></div> : null}
+        <div><dt>{uiT("Output price")}</dt><dd>{showUnitPricing(selected) ? uiF("{0} /M tokens", [formatExactUnitAtoms(selected.customer_unit_pricing!.completion_rate, selected.customer_unit_pricing!.unit_name, selected.customer_unit_pricing!.display_precision)]) : selected.customer_pricing != null ? uiF("{0} /M tokens", [money(selected.customer_pricing.completion_rate, selected.customer_pricing.currency)]) : uiT("Not published")}</dd></div></>}
+        {selected.billing_source !== 'own_api_key' && selectedMedia?.map(tariff => <div key={JSON.stringify([tariff.channel, tariff.resolution, tariff.reference_video])}>
+          <dt>{tariff.channel} · {tariff.resolution} · {uiT(tariff.reference_video ? 'With reference video' : 'No reference video')}</dt>
+          <dd><MediaUnitRate tariff={tariff} /></dd>
+        </div>)}
+        {selected.billing_source !== 'own_api_key' && requestCharges(showUnitPricing(selected) ? selected.customer_unit_pricing : selected.customer_pricing).map(charge =>
+          <div key={charge.label}><dt>{uiT(charge.label)}</dt><dd>{charge.amount}</dd></div>)}
         {selected.catalog?.context_length != null && <div><dt>{uiT("Context length")}</dt><dd>{selected.catalog.context_length.toLocaleString(readUILocale())}{" "}{uiT("tokens")}</dd></div>}
         {selected.catalog?.max_completion_tokens != null && <div><dt>{uiT("Maximum output")}</dt><dd>{selected.catalog.max_completion_tokens.toLocaleString(readUILocale())}{" "}{uiT("tokens")}</dd></div>}
         {!!selected.catalog?.input_modalities?.length && <div><dt>{uiT("Input modalities")}</dt><dd>{formatModalityList(selected.catalog.input_modalities, isZh)}</dd></div>}
         {!!capabilityValues(selected,'output').length && <div><dt>{uiT("Output modalities")}</dt><dd>{formatModalityList(capabilityValues(selected,'output'), isZh)}</dd></div>}
 
-        {modelDeveloper(selected) && <div><dt>{uiT("Developer")}</dt><dd>{modelDeveloper(selected)!.name}</dd></div>}
         {modelProviderName(selected) && <div><dt>{uiT("Provider")}</dt><dd>{modelProviderName(selected)}</dd></div>}
         {selected.upstream_model && selected.upstream_model !== selected.id && <div><dt>{uiT("Upstream model")}</dt><dd>{selected.upstream_model}</dd></div>}
       </dl>
+      {tieredPrice && selected.billing_source !== 'own_api_key' && <ContextTariff price={tieredPrice} />}
       {isUncallable(selected) ? (
         isPlatformAdmin ? <div className="model-route-cta">
           {readinessIssues(selected).includes('procurement_pricing_missing') && <Button asChild variant={readinessIssues(selected).includes('selling_price_missing') ? 'outline' : 'default'}><Link to="/admin/providers">{uiT("Complete Provider rate")}</Link></Button>}
           {(readinessIssues(selected).includes('selling_price_missing') || !readinessIssues(selected).includes('procurement_pricing_missing')) && <Button asChild><Link to={pricingSetupHref(selected)}>{uiT("Publish selling price")}</Link></Button>}
         </div> : null
       ) : <>
-        {canTryUnverifiedChat(selected) && Boolean(selected.catalog?.output_modalities?.length) && <p className="text-sm text-muted-foreground">{uiT("Support unverified")}</p>}
-        {!hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{selected.catalog?.output_modalities?.length ? uiT("This model is not configured for a supported generation preview.") : uiT("Upstream did not declare input or output modalities for this model.", "上游未提供此模型的输入/输出模态说明。")}</p>}
+        {canTryUnverifiedChat(selected) ? <p className="text-sm text-muted-foreground">{uiT("Support unverified")}</p>
+          : !hasGenerationOutput(selected) && <p className="text-sm text-muted-foreground">{uiT("This model is not configured for a supported generation preview.")}</p>}
         {needsApiKey && (
           <p className="text-sm text-muted-foreground" role="status">
             {canWrite

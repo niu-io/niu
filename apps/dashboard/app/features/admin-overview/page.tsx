@@ -29,6 +29,10 @@ type ProviderSummary = ProviderSetup & {
 
 type GatewayVerification = {
   gateway: string;
+  account_verified?: boolean | null;
+  callback_verified?: boolean;
+  currency_supported?: boolean;
+  checkout_enabled?: boolean;
   ready: boolean;
 };
 
@@ -57,6 +61,7 @@ type OverviewSnapshot = {
   unitTariffsCount: number | null;
   unitTariffsError: boolean;
   verifiedGateways: number | null;
+  pendingGateways?: GatewayVerification[];
   configuredGateways: number | null;
   bankConfigured: boolean | null;
   paymentsError: boolean;
@@ -161,6 +166,8 @@ export default function AdminOverviewPage() {
       standardPricesError: !isInternal && pricesRes.status === 'rejected',
       unitTariffsCount,
       unitTariffsError: !isInternal && unitsRes.status === 'rejected',
+      pendingGateways: paymentCfg?.verification?.gateways.filter(proof =>
+        !proof.ready && paymentCfg.payment_gateways.some(item => item.configured && item.name.toLowerCase() === proof.gateway.toLowerCase())),
       verifiedGateways: paymentCfg?.verification?.gateways
         ? paymentCfg.verification.gateways.filter(item => item.ready).length
         : paymentCfg
@@ -369,6 +376,14 @@ export default function AdminOverviewPage() {
     });
 
     const hasVerifiedPayment = Boolean((snapshot?.verifiedGateways ?? 0) > 0 || snapshot?.bankConfigured);
+    const missingPaymentChecks = snapshot?.pendingGateways?.flatMap(proof => {
+      const checks: string[] = [];
+      if (proof.gateway.toLowerCase() === 'stripe' && proof.account_verified !== true) checks.push(t('Merchant account', '商户账户'));
+      if (proof.callback_verified === false) checks.push(t('Payment notifications', '支付通知'));
+      if (proof.checkout_enabled === false) checks.push(t('Checkout', '收款开关'));
+      if (proof.currency_supported === false) checks.push(t('Currency', '币种'));
+      return checks.length ? [`${proof.gateway} · ${checks.join(' / ')}`] : [];
+    }) ?? [];
     steps.push({
       id: 'payments',
       step: t('5. Configure & verify payment collection', '5. 配置并验证收款渠道'),
@@ -380,7 +395,7 @@ export default function AdminOverviewPage() {
               snapshot?.bankConfigured ? t('configured', '已配置') : t('not configured', '未配置'),
             ])
           : (snapshot?.configuredGateways ?? 0) > 0
-            ? format('{0} payment gateways configured, awaiting callback verification. You can also configure bank transfer or fund customers manually.', [snapshot?.configuredGateways ?? 0])
+            ? missingPaymentChecks.length ? missingPaymentChecks.join(' · ') : t('Open payment settings to check account and notification readiness.', '请在收款配置中核对商户账户与支付通知状态。')
             : t('Verify an online payment gateway or configure bank transfer details so customers can top up balances.', '验证在线支付网关或配置对公转账资料，以便客户自助充值（也可在客户管理中手工授信/发放赠金）。'),
       status: snapshot?.paymentsError
         ? 'unavailable'
@@ -421,7 +436,7 @@ export default function AdminOverviewPage() {
             ? t('Active', '已开通')
             : t('Ready', '可开户'),
       actionLabel: (snapshot?.pendingRegistrations ?? 0) > 0 ? t('Review registrations', '审批注册') : t('Manage customers', '管理客户'),
-      to: (snapshot?.pendingRegistrations ?? 0) > 0 ? '/admin/registrations' : '/admin/customers',
+      to: (snapshot?.pendingRegistrations ?? 0) > 0 ? '/admin/customers?tab=registrations' : '/admin/customers',
     });
   }
 
@@ -473,7 +488,7 @@ export default function AdminOverviewPage() {
               {format('{0} registration requests awaiting approval.', [snapshot?.pendingRegistrations ?? 0])}
             </span>
             <Button asChild variant="outline" size="sm">
-              <Link to="/admin/registrations">{t('Review requests', '前往审批')}</Link>
+              <Link to="/admin/customers?tab=registrations">{t('Review requests', '前往审批')}</Link>
             </Button>
           </AlertDescription>
         </Alert>

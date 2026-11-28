@@ -2,11 +2,10 @@ import type { ProviderServiceDescriptor } from '@niu-io/sdk';
 import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
-import { IconKey as KeyRound } from "@tabler/icons-react";
 import { IconPlus as Plus } from "@tabler/icons-react";
 import { IconPlugConnected as Router } from "@tabler/icons-react";
-import { IconShieldCheck as ShieldCheck } from "@tabler/icons-react";
 import { Button } from '@/components/ui/button';
+import { DialogClose, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -64,10 +63,6 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
         return !ownerId || ownerId === providerId || ownerId === targetSupplierId;
       })
     : [];
-  const inheritedConnection =
-    scopedConnections.find(candidate => candidate.enabled && candidate.has_credential) ??
-    scopedConnections[0] ??
-    null;
   const resolvedSlug = (
     providerSlug ||
     selectedProvider?.slug ||
@@ -75,6 +70,10 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
   )
     .trim()
     .toLowerCase();
+  const compatibleConnections = scopedConnections.filter(candidate =>
+    !isBuiltinBrandIntegration(resolvedSlug) || resolvedSlug === 'openrouter' || candidate.adapter !== 'openrouter');
+  const inheritedConnection = compatibleConnections.find(candidate => candidate.enabled && candidate.has_credential)
+    ?? compatibleConnections[0] ?? null;
   const cachedPresets =
     isScopedToProvider && !activeConnection && token
       ? peekCachedGet<{ data: ProviderServiceDescriptor[] }>(token, '/api/v1/admin/providers/presets')?.data ?? null
@@ -264,19 +263,9 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
         </div>
       </div>
 
-      <div className="vendor-editor-notes">
-        <span><ShieldCheck size={15} />{uiT("Public HTTPS or localhost HTTP only.")}</span>
-        <span><KeyRound size={15} />{uiT("Credentials are stored encrypted and never shown again.")}</span>
-        {matchingActivePoolCount > 0 && (
-          <span>
-            <Router size={15} />
-            {uiF(
-              "Matches {0} active key(s) on this endpoint — joins their shared pool automatically for load-balancing and failover without re-importing models.",
-              [matchingActivePoolCount],
-            )}
-          </span>
-        )}
-      </div>
+      {matchingActivePoolCount > 0 && <p className="text-sm text-muted-foreground">
+        {uiF("Joins this endpoint’s key pool ({0} active).", [matchingActivePoolCount])}
+      </p>}
 
       {activeConnection && <label className="vendor-enabled-toggle">
         <Checkbox checked={enabled} disabled={disabled} onCheckedChange={value => { setEnabled(value === true); setConfirmDisable(false); }} />
@@ -298,12 +287,12 @@ export default function ProviderEditor({ token, initialProviderId, initialSuppli
         </div>
       </div>}
 
-      <div className="vendor-editor-footer">
-        <p>{activeConnection ? uiT("API format cannot be changed after creation.") : uiT("Use a public HTTPS URL. Loopback HTTP works for local development.")}</p>
+      <DialogFooter>
+        <DialogClose asChild><Button type="button" variant="outline" disabled={disabled}>{uiT("Cancel")}</Button></DialogClose>
         <Button type="submit" disabled={disabled || ownershipUnavailable || !name.trim() || !apiBase.trim() || (!activeConnection && !apiKey)}>
           {!activeConnection ? <Plus /> : null}{disabled ? uiT("Saving…") : !activeConnection ? providerId ? uiT("Add API key") : uiT("Create provider") : !activeConnection.enabled && enabled ? uiT("Enable API key") : activeConnection.enabled && !enabled ? uiT("Review disable") : uiT("Save changes")}
         </Button>
-      </div>
+      </DialogFooter>
     </form>
   </section>;
 }

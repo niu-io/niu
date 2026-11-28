@@ -14,12 +14,11 @@ import { useLocale as useUILocale } from '@/shell/ui-locale';
 import { workspaceSlugFromName } from '@/shell/workspace-route';
 import type { CompanyMetadata, NiuAdminClient } from '@niu-io/sdk/admin';
 import { clearPending, readPending, savePending, type PendingCreation } from './pending';
-
 import { generateStrongPassword, type Company, isPersonalCustomer, customerDisplayName, memberRoleLabel } from './customer-shared';
 
 const TRIAL_CREDIT_PRESETS = ['5', '10', '20'] as const;
 
-type CustomerAccountMode = 'personal' | 'existing' | 'organization';
+type CustomerAccountMode = 'personal' | 'organization' | 'existing';
 type MemberRoleOption = 'owner' | 'admin' | 'viewer';
 
 function fallbackNameFromEmail(email: string): string {
@@ -31,6 +30,7 @@ type CreatedCustomerHandoff = {
   company: CompanyMetadata;
   mode: CustomerAccountMode;
   workspaceName: string;
+  personName: string;
   email: string;
   password: string;
   trialCreditFormatted: string;
@@ -56,6 +56,7 @@ export function CreateCompany({
     options?: {
       completedSetup?: boolean;
       workspaceCreated?: boolean;
+      ownerName?: string;
       ownerEmail?: string;
       accountKind?: 'personal' | 'organization';
       joinedExisting?: boolean;
@@ -76,8 +77,15 @@ export function CreateCompany({
     grantKey?: string;
     grantIssued?: boolean;
   }>({});
-  const [mode, setMode] = useState<CustomerAccountMode>(() => (pending.current ? 'organization' : 'personal'));
-  const [name, setName] = useState(pending.current?.name ?? '');
+  const [mode, setMode] = useState<CustomerAccountMode>(() =>
+    pending.current ? (pending.current.accountKind === 'personal' ? 'personal' : 'organization') : 'personal',
+  );
+  const [organizationName, setOrganizationName] = useState(() =>
+    pending.current && pending.current.accountKind !== 'personal' ? pending.current.name : '',
+  );
+  const [personName, setPersonName] = useState(() =>
+    pending.current?.accountKind === 'personal' ? pending.current.name : '',
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -107,17 +115,20 @@ export function CreateCompany({
 
   const effectiveAccountName =
     mode === 'organization'
-      ? name.trim()
-      : name.trim() || fallbackNameFromEmail(email);
+      ? organizationName.trim()
+      : personName.trim() || fallbackNameFromEmail(email);
 
   const wantsLogin = mode !== 'organization' || Boolean(email.trim() || password);
   const wantsTrialCredit = mode !== 'existing' && Boolean(trialAmount.trim());
   const oneStepOnboard = mode !== 'organization' || wantsLogin || wantsTrialCredit;
+  const modeLocked =
+    busy || Boolean(progressRef.current.company) || Boolean(progressRef.current.ownerId) || Boolean(pending.current);
 
   function resetDialogState() {
     progressRef.current = {};
     setMode('personal');
-    setName('');
+    setOrganizationName('');
+    setPersonName('');
     setEmail('');
     setPassword('');
     setShowPassword(false);
@@ -137,7 +148,7 @@ export function CreateCompany({
   }
 
   function switchMode(nextMode: CustomerAccountMode) {
-    if (busy || progressRef.current.company || progressRef.current.ownerId) return;
+    if (modeLocked) return;
     setMode(nextMode);
     setError('');
     if (nextMode === 'existing' && !targetCompanyId && existingCompanies.length > 0) {
@@ -161,11 +172,11 @@ export function CreateCompany({
         setError(uiT('Enter a login email to create a sign-in account.', '请填写登录邮箱以创建登录账号。'));
         return;
       }
-      if (Array.from(password).length < 15) {
-        setError(uiT('Password must be at least 15 characters (or click Generate).', '初始密码至少 15 位（可点击右侧随机生成）。'));
+      if (Array.from(password).length < 8) {
+        setError(uiT('Password must be at least 8 characters (or click Generate).', '初始密码至少 8 位（可点击右侧随机生成）。'));
         return;
       }
-      const memberDisplayName = name.trim() || fallbackNameFromEmail(normalizedEmail);
+      const memberDisplayName = personName.trim() || fallbackNameFromEmail(normalizedEmail);
       setBusy(true);
       setError('');
       try {
@@ -198,6 +209,7 @@ export function CreateCompany({
         onCreated(companyMeta, {
           completedSetup: true,
           workspaceCreated: false,
+          ownerName: memberDisplayName,
           ownerEmail: normalizedEmail,
           joinedExisting: true,
         });
@@ -205,6 +217,7 @@ export function CreateCompany({
           company: companyMeta,
           mode: 'existing',
           workspaceName: '',
+          personName: memberDisplayName,
           email: normalizedEmail,
           password,
           trialCreditFormatted: '',
@@ -223,8 +236,8 @@ export function CreateCompany({
         setError(uiT('Enter a login email to create a sign-in account.', '请填写登录邮箱以创建登录账号。'));
         return;
       }
-      if (Array.from(password).length < 15) {
-        setError(uiT('Password must be at least 15 characters (or click Generate).', '初始密码至少 15 位（可点击右侧随机生成）。'));
+      if (Array.from(password).length < 8) {
+        setError(uiT('Password must be at least 8 characters (or click Generate).', '初始密码至少 8 位（可点击右侧随机生成）。'));
         return;
       }
     }
@@ -240,11 +253,10 @@ export function CreateCompany({
     }
 
     const accountKind: 'personal' | 'organization' = mode === 'personal' ? 'personal' : 'organization';
-    pending.current ??= { name: effectiveAccountName, key: crypto.randomUUID() };
+    pending.current ??= { name: effectiveAccountName, key: crypto.randomUUID(), accountKind };
     setBusy(true);
     setError('');
     try {
-      // Step 1: Create standalone customer billing account (idempotent, never attaches admin caller)
       let saved = progressRef.current.company;
       if (!saved) {
         savePending('company', pending.current);
@@ -264,7 +276,6 @@ export function CreateCompany({
         return;
       }
 
-      // Step 2: Auto-create Default workspace so the customer can immediately issue API keys
       if (!progressRef.current.workspaceName) {
         const baseSlug = workspaceSlugFromName(saved.name) || 'workspace';
         progressRef.current.workspaceKey ??= crypto.randomUUID();
@@ -291,13 +302,13 @@ export function CreateCompany({
         }
       }
 
-      // Step 3: Create login account & set sign-in password
+      const ownerDisplayName =
+        mode === 'personal' ? saved.name : personName.trim() || fallbackNameFromEmail(normalizedEmail);
       if (wantsLogin) {
-        const ownerName = mode === 'personal' ? saved.name : (name.trim() || fallbackNameFromEmail(normalizedEmail));
         if (!progressRef.current.ownerId) {
           progressRef.current.ownerKey ??= crypto.randomUUID();
           const ownerRes = await client.createOperatorIdentity(
-            { organization_id: saved.id, project_id: null, name: ownerName, role: 'owner' },
+            { organization_id: saved.id, project_id: null, name: ownerDisplayName, role: 'owner' },
             { idempotencyKey: progressRef.current.ownerKey },
           );
           if (!ownerRes.operator?.id) throw new Error('Could not create customer owner account.');
@@ -313,7 +324,6 @@ export function CreateCompany({
         }
       }
 
-      // Step 4: Optional trial credit grant
       let trialCreditFormatted = '';
       if (wantsTrialCredit && grantNanos && token) {
         if (!progressRef.current.grantIssued) {
@@ -335,6 +345,7 @@ export function CreateCompany({
       onCreated(saved, {
         completedSetup: true,
         workspaceCreated: true,
+        ownerName: wantsLogin ? ownerDisplayName : undefined,
         ownerEmail: wantsLogin ? normalizedEmail : undefined,
         accountKind,
       });
@@ -343,6 +354,7 @@ export function CreateCompany({
         company: saved,
         mode,
         workspaceName: progressRef.current.workspaceName ?? 'Default',
+        personName: wantsLogin ? ownerDisplayName : '',
         email: normalizedEmail,
         password,
         trialCreditFormatted,
@@ -383,13 +395,6 @@ export function CreateCompany({
         .join('\n')
     : '';
 
-  const modeLabel =
-    mode === 'personal'
-      ? uiT('Personal account (default)', '个人账户（默认）')
-      : mode === 'existing'
-        ? uiT('Join existing organization', '加入已有组织')
-        : uiT('New organization', '新建组织');
-
   const canSubmit =
     mode === 'existing'
       ? Boolean(!busy && selectedExistingCompany && email.trim() && password)
@@ -418,10 +423,18 @@ export function CreateCompany({
             <div className="space-y-3 rounded-xl bg-muted/50 p-4 text-sm">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">
-                  {handoff.mode === 'existing' ? uiT('Organization', '所属组织') : uiT('Customer', '客户')}
+                  {handoff.mode === 'personal' ? uiT('Customer', '客户') : uiT('Organization', '所属组织')}
                 </span>
                 <span className="font-medium">{handoff.company.name}</span>
               </div>
+              {handoff.personName && handoff.mode !== 'personal' && (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">
+                    {handoff.mode === 'existing' ? uiT('Member', '成员姓名') : uiT('Owner', '负责人')}
+                  </span>
+                  <span className="font-medium">{handoff.personName}</span>
+                </div>
+              )}
               {handoff.trialCreditFormatted && (
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">{uiT('Trial credit', '试用赠金')}</span>
@@ -471,27 +484,68 @@ export function CreateCompany({
         ) : (
           <>
             <DialogHeader className="text-left">
-              <DialogTitle>{uiT("New customer")}</DialogTitle>
+              <DialogTitle>{uiT('New customer')}</DialogTitle>
               <DialogDescription>
                 {mode === 'personal'
-                  ? uiT("Creates a personal account with a Default workspace so the customer can sign in and create API keys right away.", "默认创建独立个人账户与默认工作空间，客户登录后即可创建多个工作空间与 API 密钥。")
+                  ? uiT('Creates a personal account with a Default workspace so the customer can sign in and create API keys right away.', '创建独立个人账户与默认工作空间，客户登录后即可创建工作空间与 API 密钥。')
                   : mode === 'existing'
-                    ? uiT("Adds a login account directly to an existing organization without creating a new one.", "直接在已有组织下新增登录账号，无需新建组织。")
-                    : uiT("Creates a new organization and Default workspace. Add an email and password to issue an owner login in one step.", "创建新的组织与默认工作空间；填写邮箱与密码可一步开通负责人登录账号。")}
+                    ? uiT('Adds a login account directly to an existing organization without creating a new one.', '直接在已有组织下新增登录账号，无需新建组织。')
+                    : uiT('Creates a new organization and Default workspace. Add an email and password to issue an owner login in one step.', '创建新的组织与默认工作空间；填写邮箱与密码可一步开通负责人登录账号。')}
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={submit} className="space-y-4">
+              <div className="grid gap-2">
+                <Label>{uiT('Account type', '账号类型')}</Label>
+                <fieldset
+                  aria-label={uiT('Account type', '账号类型')}
+                  className={`grid grid-cols-1 gap-2 border-0 p-0 m-0 ${existingCompanies.length > 0 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}
+                >
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-pressed={mode === 'personal'}
+                    disabled={modeLocked}
+                    onClick={() => switchMode('personal')}
+                  >
+                    {uiT('Personal account', '个人账户')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-pressed={mode === 'organization'}
+                    disabled={modeLocked}
+                    onClick={() => switchMode('organization')}
+                  >
+                    {uiT('New organization', '新建组织')}
+                  </Button>
+                  {existingCompanies.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-pressed={mode === 'existing'}
+                      disabled={modeLocked}
+                      onClick={() => switchMode('existing')}
+                    >
+                      {uiT('Join organization', '加入已有组织')}
+                    </Button>
+                  )}
+                </fieldset>
+              </div>
+
               {mode === 'organization' && (
                 <div className="grid gap-2">
-                  <Label htmlFor="customer-name">{uiT("Organization name", "组织名称")}</Label>
+                  <Label htmlFor="customer-organization-name">{uiT('Organization name', '组织名称')}</Label>
                   <Input
-                    id="customer-name"
+                    id="customer-organization-name"
                     required
                     maxLength={200}
-                    placeholder={uiT("e.g. Acme Corp", "例如：Acme Corp")}
-                    value={name}
+                    placeholder={uiT('e.g. Acme Corp', '例如：Acme Corp')}
+                    value={organizationName}
                     disabled={busy || Boolean(progressRef.current.company)}
-                    onChange={event => setName(event.target.value)}
+                    onChange={event => setOrganizationName(event.target.value)}
                   />
                 </div>
               )}
@@ -499,20 +553,20 @@ export function CreateCompany({
               {mode === 'existing' && (
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="grid gap-2">
-                    <Label>{uiT("Target organization", "所属组织")}</Label>
+                    <Label>{uiT('Target organization', '所属组织')}</Label>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
                           type="button"
                           variant="outline"
                           disabled={busy || Boolean(progressRef.current.ownerId)}
-                          aria-label={uiT("Target organization", "所属组织")}
+                          aria-label={uiT('Target organization', '所属组织')}
                           className="justify-between font-normal"
                         >
                           <span className="truncate">
                             {selectedExistingCompany
                               ? customerDisplayName(selectedExistingCompany, uiT)
-                              : uiT("Select organization", "选择组织")}
+                              : uiT('Select organization', '选择组织')}
                           </span>
                           <IconChevronDown size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
                         </Button>
@@ -520,8 +574,8 @@ export function CreateCompany({
                       <DropdownMenuContent align="start" className="max-h-72 w-72 overflow-y-auto p-1.5">
                         <Input
                           value={companyFilter}
-                          placeholder={uiT("Filter organizations…", "搜索组织或邮箱…")}
-                          aria-label={uiT("Filter organizations", "筛选组织")}
+                          placeholder={uiT('Filter organizations…', '搜索组织或邮箱…')}
+                          aria-label={uiT('Filter organizations', '筛选组织')}
                           className="mb-1.5 h-8 text-xs"
                           onChange={event => setCompanyFilter(event.target.value)}
                           onKeyDown={event => {
@@ -546,14 +600,14 @@ export function CreateCompany({
                     </DropdownMenu>
                   </div>
                   <div className="grid gap-2">
-                    <Label>{uiT("Role")}</Label>
+                    <Label>{uiT('Role')}</Label>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
                           type="button"
                           variant="outline"
                           disabled={busy || Boolean(progressRef.current.ownerId)}
-                          aria-label={uiT("Member role", "成员角色")}
+                          aria-label={uiT('Member role', '成员角色')}
                           className="justify-between font-normal"
                         >
                           <span>{memberRoleLabel(memberRole, uiT)}</span>
@@ -577,7 +631,7 @@ export function CreateCompany({
 
               <div className="grid gap-2">
                 <Label htmlFor="customer-login-email">
-                  {mode === 'organization' ? uiT("Owner email (optional)", "负责人邮箱（选填）") : uiT("Login email", "登录邮箱")}
+                  {mode === 'organization' ? uiT('Owner email (optional)', '负责人邮箱（选填）') : uiT('Login email', '登录邮箱')}
                 </Label>
                 <Input
                   id="customer-login-email"
@@ -592,24 +646,24 @@ export function CreateCompany({
                 />
               </div>
 
-              {mode !== 'organization' && (
-                <div className="grid gap-2">
-                  <Label htmlFor="customer-name">{uiT("Name (optional)", "姓名 / 称呼（选填）")}</Label>
-                  <Input
-                    id="customer-name"
-                    maxLength={200}
-                    placeholder={uiT("Defaults to email prefix", "留空自动取邮箱前缀")}
-                    value={name}
-                    disabled={busy || Boolean(progressRef.current.company) || Boolean(progressRef.current.ownerId)}
-                    onChange={event => setName(event.target.value)}
-                  />
-                </div>
-              )}
+              <div className="grid gap-2">
+                <Label htmlFor="customer-person-name">
+                  {mode === 'organization' ? uiT('Owner name (optional)', '负责人姓名（选填）') : uiT('Name (optional)', '姓名 / 称呼（选填）')}
+                </Label>
+                <Input
+                  id="customer-person-name"
+                  maxLength={200}
+                  placeholder={uiT('Defaults to email prefix', '留空自动取邮箱前缀')}
+                  value={personName}
+                  disabled={busy || (mode === 'personal' && Boolean(progressRef.current.company)) || Boolean(progressRef.current.ownerId)}
+                  onChange={event => setPersonName(event.target.value)}
+                />
+              </div>
 
               <div className="grid gap-2">
                 <div className="flex items-center justify-between gap-2">
                   <Label htmlFor="customer-login-password">
-                    {mode === 'organization' ? uiT("Initial password (optional)", "初始密码（选填）") : uiT("Initial password", "初始密码")}
+                    {mode === 'organization' ? uiT('Initial password (optional)', '初始密码（选填）') : uiT('Initial password', '初始密码')}
                   </Label>
                   <Button
                     type="button"
@@ -623,7 +677,7 @@ export function CreateCompany({
                     }}
                   >
                     <IconSparkles size={13} aria-hidden="true" />
-                    <span>{uiT("Generate", "随机生成")}</span>
+                    <span>{uiT('Generate', '随机生成')}</span>
                   </Button>
                 </div>
                 <div className="relative">
@@ -633,7 +687,7 @@ export function CreateCompany({
                     required={mode !== 'organization'}
                     maxLength={256}
                     autoComplete="new-password"
-                    placeholder={uiT("At least 15 characters", "至少 15 位，可点右上角随机生成")}
+                    placeholder={uiT('At least 8 characters', '至少 8 位，可点右上角随机生成')}
                     className="pr-9 font-mono text-sm"
                     value={password}
                     disabled={busy || Boolean(progressRef.current.passwordSaved)}
@@ -644,7 +698,7 @@ export function CreateCompany({
                     variant="ghost"
                     size="icon-sm"
                     className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground"
-                    aria-label={showPassword ? uiT("Hide password", "隐藏密码") : uiT("Show password", "显示密码")}
+                    aria-label={showPassword ? uiT('Hide password', '隐藏密码') : uiT('Show password', '显示密码')}
                     onClick={() => setShowPassword(value => !value)}
                   >
                     {showPassword ? <IconEyeOff size={15} aria-hidden="true" /> : <IconEye size={15} aria-hidden="true" />}
@@ -656,86 +710,50 @@ export function CreateCompany({
                 const trimmedTrial = trialAmount.trim();
                 const isCustomTrial = Boolean(trimmedTrial) && !(TRIAL_CREDIT_PRESETS as readonly string[]).includes(trimmedTrial);
                 return (
-                <div className="grid gap-2">
-                  <Label htmlFor="customer-trial-credit">{uiF("Trial credit ({0}, optional)", [currency])}</Label>
-                  <fieldset className="flex flex-wrap items-center gap-1.5" aria-label={uiF("Trial credit ({0}, optional)", [currency])}>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      aria-pressed={!trimmedTrial}
-                      disabled={busy || Boolean(progressRef.current.grantIssued)}
-                      onClick={() => setTrialAmount('')}
-                    >
-                      {uiT("None", "不发")}
-                    </Button>
-                    {TRIAL_CREDIT_PRESETS.map(preset => (
+                  <div className="grid gap-2">
+                    <Label htmlFor="customer-trial-credit">{uiF('Trial credit ({0}, optional)', [currency])}</Label>
+                    <fieldset className="flex flex-wrap items-center gap-1.5" aria-label={uiF('Trial credit ({0}, optional)', [currency])}>
                       <Button
-                        key={preset}
                         type="button"
                         size="sm"
                         variant="outline"
-                        aria-pressed={trimmedTrial === preset}
+                        aria-pressed={!trimmedTrial}
                         disabled={busy || Boolean(progressRef.current.grantIssued)}
-                        onClick={() => setTrialAmount(preset)}
+                        onClick={() => setTrialAmount('')}
                       >
-                        {currency === 'USD' ? `$${preset}` : `${preset} ${currency}`}
+                        {uiT('None', '不发')}
                       </Button>
-                    ))}
-                    <Input
-                      id="customer-trial-credit"
-                      inputMode="decimal"
-                      placeholder={uiT("Custom", "自定义")}
-                      className={`h-8 w-24 text-sm tabular-nums ${isCustomTrial ? 'border-[var(--choice-active-border)] bg-[var(--choice-active-bg)] dark:bg-[var(--choice-active-bg)] text-[var(--choice-active-fg)] font-semibold' : ''}`}
-                      value={trialAmount}
-                      disabled={busy || Boolean(progressRef.current.grantIssued)}
-                      onChange={event => setTrialAmount(event.target.value)}
-                    />
-                  </fieldset>
-                </div>
+                      {TRIAL_CREDIT_PRESETS.map(preset => (
+                        <Button
+                          key={preset}
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          aria-pressed={trimmedTrial === preset}
+                          disabled={busy || Boolean(progressRef.current.grantIssued)}
+                          onClick={() => setTrialAmount(preset)}
+                        >
+                          {currency === 'USD' ? `$${preset}` : `${preset} ${currency}`}
+                        </Button>
+                      ))}
+                      <Input
+                        id="customer-trial-credit"
+                        inputMode="decimal"
+                        placeholder={uiT('Custom', '自定义')}
+                        className={`h-8 w-24 text-sm tabular-nums ${isCustomTrial ? 'border-[var(--choice-active-border)] bg-[var(--choice-active-bg)] dark:bg-[var(--choice-active-bg)] text-[var(--choice-active-fg)] font-semibold' : ''}`}
+                        value={trialAmount}
+                        disabled={busy || Boolean(progressRef.current.grantIssued)}
+                        onChange={event => setTrialAmount(event.target.value)}
+                      />
+                    </fieldset>
+                  </div>
                 );
               })()}
-
-              <div className="grid gap-2 border-t border-border/60 pt-3">
-                <Label>{uiT("Organization (optional)", "归属组织（可选）")}</Label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={busy || Boolean(progressRef.current.company) || Boolean(progressRef.current.ownerId)}
-                      aria-label={uiT("Account organization", "归属组织")}
-                      className="justify-between font-normal"
-                    >
-                      <span>{modeLabel}</span>
-                      <IconChevronDown size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuRadioGroup
-                      value={mode}
-                      onValueChange={value => switchMode(value as CustomerAccountMode)}
-                    >
-                      <DropdownMenuRadioItem value="personal">
-                        {uiT("Personal account (default)", "个人账户（默认）")}
-                      </DropdownMenuRadioItem>
-                      {existingCompanies.length > 0 && (
-                        <DropdownMenuRadioItem value="existing">
-                          {uiT("Join existing organization", "加入已有组织")}
-                        </DropdownMenuRadioItem>
-                      )}
-                      <DropdownMenuRadioItem value="organization">
-                        {uiT("New organization", "新建组织")}
-                      </DropdownMenuRadioItem>
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
 
               {mode !== 'existing' && currencyError && (
                 <Alert>
                   <AlertDescription>
-                    {uiT(currencyError)} <Link to="/admin/settings" className="underline">{uiT("Open Settings")}</Link>
+                    {uiT(currencyError)} <Link to="/admin/settings" className="underline">{uiT('Open Settings')}</Link>
                   </AlertDescription>
                 </Alert>
               )}
@@ -743,7 +761,7 @@ export function CreateCompany({
               {mode !== 'existing' && pending.current && effectiveAccountName !== pending.current.name && (
                 <Alert>
                   <AlertDescription>
-                    {uiT("The previous request may have succeeded. Check the saved list before starting a new request; otherwise you may create a duplicate.")}{" "}
+                    {uiT('The previous request may have succeeded. Check the saved list before starting a new request; otherwise you may create a duplicate.')}{' '}
                     <Button
                       type="button"
                       variant="outline"
@@ -754,21 +772,21 @@ export function CreateCompany({
                         setPendingVersion(value => value + 1);
                       }}
                     >
-                      {uiT("Start a new request")}
+                      {uiT('Start a new request')}
                     </Button>
                   </AlertDescription>
                 </Alert>
               )}
               <DialogFooter>
-                <Button type="button" variant="outline" disabled={busy} onClick={closeDialog}>{uiT("Close")}</Button>
+                <Button type="button" variant="outline" disabled={busy} onClick={closeDialog}>{uiT('Close')}</Button>
                 <Button disabled={!canSubmit}>
                   {busy
-                    ? uiT("Creating…")
+                    ? uiT('Creating…')
                     : progressRef.current.company || pending.current
-                      ? uiT("Retry creation")
+                      ? uiT('Retry creation')
                       : mode === 'existing'
-                        ? uiT("Add account", "添加账号")
-                        : uiT("Create customer", "创建客户")}
+                        ? uiT('Add account', '添加账号')
+                        : uiT('Create customer', '创建客户')}
                 </Button>
               </DialogFooter>
             </form>

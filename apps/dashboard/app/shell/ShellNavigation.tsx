@@ -1,6 +1,7 @@
 import {
   IconArrowLeft,
   IconBook,
+  IconChartLine,
   IconLayoutSidebarLeftCollapse as PanelLeftClose,
   IconLayoutSidebarLeftExpand as PanelLeftOpen,
   IconShieldLock,
@@ -63,25 +64,25 @@ export function ShellNavigation({
       setPendingRegistrations(0);
       return;
     }
-    let cancelled = false;
-    const loadCount = () => {
-      void request<PlatformRegistrationQueuePage>(
-        adminToken,
-        '/api/v1/admin/registrations?status=pending&limit=1',
-        'GET',
-      )
-        .then(page => {
-          if (!cancelled) setPendingRegistrations(page.counts.pending);
-        })
-        .catch(() => {
-          // Leave badge absent when pending count cannot be read.
-        });
+    const controller = new AbortController();
+    void request<PlatformRegistrationQueuePage>(
+      adminToken,
+      '/api/v1/admin/registrations?status=pending&limit=1',
+      'GET',
+      undefined,
+      controller.signal,
+    ).then(page => {
+      if (!controller.signal.aborted) setPendingRegistrations(page.counts.pending);
+    }).catch(() => {
+      // The queue reports load failures. Keep its last known badge value here.
+    });
+    const onUpdated = (event: Event) => {
+      controller.abort();
+      setPendingRegistrations((event as CustomEvent<number>).detail);
     };
-    loadCount();
-    const onUpdated = () => loadCount();
     window.addEventListener('niu:registrations-updated', onUpdated);
     return () => {
-      cancelled = true;
+      controller.abort();
       window.removeEventListener('niu:registrations-updated', onUpdated);
     };
   }, [adminScope, adminToken]);
@@ -214,6 +215,13 @@ export function ShellAccount() {
       : [];
   return <SidebarFooter className="gap-2 p-3 group-data-[collapsible=icon]:px-0">
     <SidebarMenu>
+      {workspaceAreas && value.context.token && !adminScope && <SidebarMenuItem>
+        <SidebarMenuButton asChild tooltip={t('Account activity', '账户活动')} isActive={pathname === '/activity' || pathname.startsWith('/activity/')}>
+          <ProductRailLink to="/activity" aria-label={t('Account activity', '账户活动')}>
+            <IconChartLine aria-hidden="true" /><span className="truncate group-data-[collapsible=icon]:hidden">{t('Account activity', '账户活动')}</span>
+          </ProductRailLink>
+        </SidebarMenuButton>
+      </SidebarMenuItem>}
       {workspaceAreas && !adminScope && <SidebarMenuItem><AgentConnection sidebar /></SidebarMenuItem>}
       <SidebarMenuItem>
         <SidebarMenuButton asChild tooltip={docsLinkLabel}>

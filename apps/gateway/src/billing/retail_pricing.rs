@@ -767,6 +767,108 @@ pub struct PreviewQuery {
 ///               "message": {
 ///                 "type": "string"
 ///               },
+///               "rates": {
+///                 "type": "array",
+///                 "description": "Effective comparable token rates in currency nanounits per million tokens at each input threshold.",
+///                 "items": {
+///                   "type": "object",
+///                   "required": [
+///                     "dimension",
+///                     "minimum_input_tokens",
+///                     "selling",
+///                     "purchase"
+///                   ],
+///                   "properties": {
+///                     "dimension": {
+///                       "type": "string"
+///                     },
+///                     "minimum_input_tokens": {
+///                       "type": "string"
+///                     },
+///                     "selling": {
+///                       "type": "string"
+///                     },
+///                     "purchase": {
+///                       "type": "string"
+///                     }
+///                   }
+///                 }
+///               },
+///               "media_rates": {
+///                 "type": "object",
+///                 "required": [
+///                   "meter",
+///                   "selling",
+///                   "purchase"
+///                 ],
+///                 "properties": {
+///                   "meter": {
+///                     "type": "string"
+///                   },
+///                   "selling": {
+///                     "type": "object",
+///                     "required": [
+///                       "amount_units",
+///                       "decimal_places",
+///                       "per_quantity"
+///                     ],
+///                     "properties": {
+///                       "amount_units": {
+///                         "type": "string"
+///                       },
+///                       "decimal_places": {
+///                         "type": "integer"
+///                       },
+///                       "per_quantity": {
+///                         "type": "object",
+///                         "required": [
+///                           "numerator",
+///                           "denominator"
+///                         ],
+///                         "properties": {
+///                           "numerator": {
+///                             "type": "string"
+///                           },
+///                           "denominator": {
+///                             "type": "string"
+///                           }
+///                         }
+///                       }
+///                     }
+///                   },
+///                   "purchase": {
+///                     "type": "object",
+///                     "required": [
+///                       "amount_units",
+///                       "decimal_places",
+///                       "per_quantity"
+///                     ],
+///                     "properties": {
+///                       "amount_units": {
+///                         "type": "string"
+///                       },
+///                       "decimal_places": {
+///                         "type": "integer"
+///                       },
+///                       "per_quantity": {
+///                         "type": "object",
+///                         "required": [
+///                           "numerator",
+///                           "denominator"
+///                         ],
+///                         "properties": {
+///                           "numerator": {
+///                             "type": "string"
+///                           },
+///                           "denominator": {
+///                             "type": "string"
+///                           }
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               },
 ///               "dimensions": {
 ///                 "type": "array",
 ///                 "items": {
@@ -814,7 +916,7 @@ pub async fn publish_standard(
 ///   "operation": {
 ///     "operationId": "listRetailStandards",
 ///     "summary": "List current platform standard prices",
-///     "description": "Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current selling revisions use one database snapshot, UUID keyset order. Advisory pricing_health compares those schedules with a subsequent current Provider quote snapshot; refresh after edits. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or numeric Provider costs; confidential relative cost diagnostics are platform-only. Internal references are API identifiers, never display names. Cache-Control: no-store.",
+///     "description": "Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current selling revisions use one database snapshot, UUID keyset order. Advisory pricing_health compares those schedules with a subsequent current Provider quote snapshot; refresh after edits. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. For comparable text rates, pricing_health includes the exact selling and purchase amounts by token dimension and input band. Purchase rates are confidential platform-admin data. Internal references are API identifiers, never display names. Cache-Control: no-store.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1686,12 +1788,13 @@ pub struct RegisteredModelPage {
 ///                     "type": "object",
 ///                     "additionalProperties": false,
 ///                     "required": [
-///                       "model_alias"
+///                       "model_alias", "text", "media"
 ///                     ],
 ///                     "properties": {
 ///                       "model_alias": {
 ///                         "type": "string"
 ///                       },
+///                       "text": {"type":"boolean","description":"Eligible for a standard text tariff."},
 ///                       "media": {
 ///                         "type": ["object", "null"],
 ///                         "additionalProperties": false,

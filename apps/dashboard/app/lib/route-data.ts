@@ -15,6 +15,7 @@ import {
   peekQuery,
   prefetchQuery,
 } from './query-cache';
+import { formatUserFacingError } from './user-facing-error';
 import type { Workspace } from '@/shell/dashboard-context';
 import {
   readRouterSessionSnapshot,
@@ -286,7 +287,7 @@ export function loadCriticalRouteEndpoint<T = unknown>(
         authorityKey: snapshot.authorityKey,
         workspaceId: workspace?.id ?? null,
         endpoint,
-        error: error instanceof Error ? error.message : 'Request failed.',
+        error: formatUserFacingError(error, 'Request failed.'),
       };
     }
   })();

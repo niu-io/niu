@@ -486,13 +486,15 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
   // never prevents either mutation form from opening or submitting.
   const activeNotice: KeyRequestNotice | null = requestNotice ?? (activePending ? {kind:'uncertain', pending:activePending} : null);
 
-  const emptyCollection = Boolean(workspace && !workspaceLoading && !isPending && !error && keyStatusFilter === "all" && !visibleKeys.length);
+  const emptyResult = Boolean(workspace && !workspaceLoading && !isPending && !error && !visibleKeys.length);
+  const emptyCollection = emptyResult && keyStatusFilter === "all";
+  const showCreateInEmptyState = emptyResult && keyStatusFilter !== "inactive";
   const usageExample = issued ? `curl "${baseUrl()}/models" ${String.fromCharCode(92)}
   -H "Authorization: Bearer ${issued.token}"` : '';
   const invocationAllowed = issued?.key?.invocation_allowed !== false;
 
   return <div className="keys-page">
-    <PageHeader title={uiT("Keys")} action={<>{workspace && <Button ref={refreshButtonRef} type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh keys")} title={uiT("Refresh")} disabled={isPending} onClick={() => void reload()}><RefreshCw size={16} className={isPending ? 'animate-spin' : undefined} /></Button>}{canIssue && !emptyCollection && <Button className="header-icon-action" aria-label={uiT("New key")} title={uiT("New key")} onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New key")}</span></Button>}</>} />
+    <PageHeader title={uiT("Keys")} action={<>{workspace && <Button ref={refreshButtonRef} type="button" variant="ghost" size="icon-sm" aria-label={uiT("Refresh keys")} title={uiT("Refresh")} disabled={isPending} onClick={() => void reload()}><RefreshCw size={16} className={isPending ? 'animate-spin' : undefined} /></Button>}{canIssue && !showCreateInEmptyState && <Button size="sm" aria-label={uiT("New key")} title={uiT("New key")} onClick={event => {dialogReturnFocus.current=event.currentTarget;openCreate();}}><Plus size={16} aria-hidden="true" /><span>{uiT("New key")}</span></Button>}</>} />
     {activeNotice && (() => {
       const noticeError = 'error' in activeNotice ? activeNotice.error : '';
       const pendingAction = 'pending' in activeNotice ? activeNotice.pending.action : null;
@@ -561,7 +563,7 @@ export default function KeysView({ token, models, canWrite, initialScope, loader
             <dl className="key-row-facts">
               <div className="key-fact key-fact-models"><dt>{uiT("Model access")}</dt><dd>{modelAccess ?? <Popover><PopoverTrigger asChild><Button type="button" variant="link" size="sm" className="key-access-trigger">{modelAliases.length} {uiT("models")}<ChevronDown size={13} aria-hidden="true" /></Button></PopoverTrigger><PopoverContent align="start" className="w-72 max-w-[calc(100vw-2rem)]"><p className="mb-2 text-xs font-medium text-muted-foreground">{uiT("Model access")}</p><ul className="key-access-list">{modelAliases.map(alias => <li key={alias}>{alias}</li>)}</ul></PopoverContent></Popover>}</dd></div>
               <div className="key-fact"><dt>{uiT("Limits")}</dt><dd>{keyLimitsSummary(key)}</dd></div>
-              <div className="key-fact"><dt>{uiT("Expires")}</dt><dd>{key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))}</dd></div>
+              <div className="key-fact"><dt>{uiT("Expires")}</dt><dd>{key.revoked ? '—' : key.expires_at_ms === null ? uiT("Never") : new Intl.DateTimeFormat(readUILocale(), { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))}</dd></div>
               <div className="key-fact"><dt>{uiT("Last used")}</dt><dd>{keyLastUsed(key)}</dd></div>
             </dl>
           </li>;

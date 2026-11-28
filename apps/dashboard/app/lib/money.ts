@@ -23,6 +23,7 @@ const MAX_NANOS = 9_223_372_036_854_775_807n;
 
 /** Parse currency units exactly; zero is opt-in for approved credit policies. */
 export function amountToNanos(amount: string, allowZero = false): string {
+  if (/^\d+\.$/.test(amount.trim())) throw new Error('Enter digits after the decimal point.');
   const match = /^(\d+)(?:\.(\d{1,9}))?$/.exec(amount.trim());
   if (!match) throw new Error('Enter an amount with no more than 9 decimal places.');
   const whole = BigInt(match[1]);
@@ -104,6 +105,14 @@ export function formatStatementMoney(nanos: bigint | string, currency: string, d
  */
 export function formatCompactRateMoney(nanos: bigint | string, currency: string, maxDecimals = 6): string {
   return formatRoundedCommaMoney(nanos, currency, maxDecimals, 2, true);
+}
+
+/**
+ * Headline balance formatter: rounds to at most 4 decimals (min 2) so micro-charge residue such as
+ * `$3.95999767` reads `$3.96`. Pair with `title={money(...)}` to keep the exact value inspectable.
+ */
+export function formatBalanceMoney(nanos: bigint | string, currency: string): string {
+  return formatRoundedCommaMoney(nanos, currency, 4, 2, true);
 }
 
 /**

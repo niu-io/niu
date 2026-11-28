@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Niu Platform & Provider Administration API",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "description": "Model inference and management APIs for Niu. Browse the resource groups in the sidebar,\nsearch by operation or path, and expand the request and response schemas for exact fields.\n\n## Getting started\nUse the [HTTP quickstart](/docs/guides/api-quickstart/) for your first model request,\nor the [JavaScript SDK guide](/docs/guides/sdk-quickstart/) for typed clients.\n[Download the complete OpenAPI 3.1 document](/docs/openapi/public.json).\n\n## Authentication and scope\nInference uses a workspace API key. Management operations require the member session,\nplatform authority, explicit delegated workspace capability or Provider membership stated by that operation. These credentials\nare not interchangeable. See each operation's security scheme and access description.\nLegacy `project` path segments refer to workspaces; legacy `provider` paths refer to Providers.\n\n## Requests and responses\nSend the documented Content-Type and use the declared request schema. Response status codes,\nerror bodies and pagination fields are operation-specific. Follow the returned cursor rather\nthan assuming a list is complete. Streaming operations document their event format separately.\n\nMonetary amounts and large counters use the exact string representation in their schemas.\nPreserve currency and rate units; Provider purchase rates and customer charges are separate.\n\n## Writes and retries\nWhere an operation documents an idempotency key, retry an uncertain outcome with the same\nkey and identical input. Preserve expected revisions for configuration updates; reload after\na conflict. A timeout does not prove that a write or an upstream generation did not execute.\nRead the individual operation's retry and reconciliation behavior before resubmitting.\n"
   },
   "servers": [
@@ -7104,11 +7104,17 @@
                         "type": "object",
                         "additionalProperties": false,
                         "required": [
-                          "model_alias"
+                          "model_alias",
+                          "text",
+                          "media"
                         ],
                         "properties": {
                           "model_alias": {
                             "type": "string"
+                          },
+                          "text": {
+                            "type": "boolean",
+                            "description": "Eligible for a standard text tariff."
                           },
                           "media": {
                             "type": [
@@ -7254,7 +7260,7 @@
       "get": {
         "operationId": "listRetailStandards",
         "summary": "List current platform standard prices",
-        "description": "Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current selling revisions use one database snapshot, UUID keyset order. Advisory pricing_health compares those schedules with a subsequent current Provider quote snapshot; refresh after edits. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. No customer usage, credentials or numeric Provider costs; confidential relative cost diagnostics are platform-only. Internal references are API identifiers, never display names. Cache-Control: no-store.",
+        "description": "Explicit platform administration required; ordinary customer/Provider membership does not grant access. Current selling revisions use one database snapshot, UUID keyset order. Advisory pricing_health compares those schedules with a subsequent current Provider quote snapshot; refresh after edits. Pass next_after unchanged; null means complete. Prices do not establish qualified inventory. For comparable text rates, pricing_health includes the exact selling and purchase amounts by token dimension and input band. Purchase rates are confidential platform-admin data. Internal references are API identifiers, never display names. Cache-Control: no-store.",
         "security": [
           {
             "bearerAuth": []
@@ -9170,6 +9176,126 @@
           "required_capability": "read",
           "scope": "platform"
         }
+      },
+      "post": {
+        "operationId": "onboardPlatformCustomer",
+        "summary": "Atomically onboard a customer account, Default workspace, optional owner sign-in, and optional trial credit",
+        "description": "Explicit platform administration required. Commits the customer organization (or personal customer account), its currency balance account, optional Default workspace, optional owner sign-in credential (8 to 1024 bytes), and optional noncash trial credit grant in a single PostgreSQL transaction. Any validation or duplicate-email error rolls back completely without leaving partial organizations, workspaces, or operators. Supports Idempotency-Key for safe network retries.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[!-~]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "account_kind": {
+                    "type": "string",
+                    "enum": [
+                      "personal",
+                      "organization"
+                    ],
+                    "default": "organization"
+                  },
+                  "create_default_workspace": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "owner": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "additionalProperties": false,
+                    "required": [
+                      "email",
+                      "password"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 200
+                      },
+                      "email": {
+                        "type": "string",
+                        "maxLength": 254
+                      },
+                      "password": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 1024,
+                        "writeOnly": true
+                      }
+                    }
+                  },
+                  "trial_credit_nanos": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[1-9][0-9]{0,18}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Customer onboarded atomically (or identical idempotent replay returned)"
+          },
+          "400": {
+            "description": "Invalid customer name, email, password, or trial credit amount"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform administration required"
+          },
+          "409": {
+            "description": "Owner email is already registered or Idempotency-Key reused with different input"
+          }
+        },
+        "tags": [
+          "Customer balances"
+        ],
+        "x-niu-authority": {
+          "audience": "platform",
+          "principals": [
+            "platform_admin",
+            "installation_admin"
+          ],
+          "required_capability": "platform_admin",
+          "scope": "platform"
+        }
       }
     },
     "/api/v1/admin/customers/{customer}": {
@@ -9797,6 +9923,43 @@
         ],
         "parameters": [
           {
+            "name": "pending_limit",
+            "in": "query",
+            "description": "Maximum unresolved attempts per report row.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
+          },
+          {
+            "name": "supplier",
+            "in": "query",
+            "description": "Provide supplier, model and pending_before together to page unresolved attempts for one report row.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "description": "Provide supplier, model and pending_before together to page unresolved attempts for one report row.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pending_before",
+            "in": "query",
+            "description": "Provide supplier, model and pending_before together to page unresolved attempts for one report row.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
             "name": "currency",
             "in": "query",
             "required": true,
@@ -9987,6 +10150,53 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "pending_attempts": {
+                            "type": "array",
+                            "maxItems": 50,
+                            "description": "Up to 50 unresolved attempt references in descending attempt ID order with the available execution, usage and ledger evidence for this Provider, model and period.",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "attempt": {
+                                  "type": "string"
+                                },
+                                "workspace_id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "reference": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "Customer-visible request reference."
+                                },
+                                "execution": {
+                                  "type": "string"
+                                },
+                                "usage_confidence": {
+                                  "type": "string"
+                                },
+                                "charge_missing": {
+                                  "type": "boolean"
+                                },
+                                "revenue_source_missing": {
+                                  "type": "boolean",
+                                  "description": "The recorded charge or its refund lacks verified revenue allocation."
+                                },
+                                "payable_missing": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "attempt",
+                                "execution",
+                                "usage_confidence",
+                                "charge_missing",
+                                "payable_missing"
+                              ]
+                            }
                           },
                           "unresolved_attempts": {
                             "type": "string",
@@ -12653,6 +12863,23 @@
             "description": "Opaque source-qualified next_cursor from the previous page; do not parse or display."
           },
           {
+            "name": "search",
+            "in": "query",
+            "description": "Case-insensitive literal search over displayed event metadata, applied before pagination.",
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "labels",
+            "in": "query",
+            "description": "Comma-separated localized matches for action, actor, source or category identifiers, e.g. action:session_created. Combined with search using OR.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "category",
             "in": "query",
             "schema": {
@@ -12886,8 +13113,8 @@
                   },
                   "password": {
                     "type": "string",
-                    "minLength": 15,
-                    "description": "Account password (at least 15 characters and at most 1024 bytes)."
+                    "minLength": 8,
+                    "description": "Account password (at least 8 characters and at most 1024 bytes)."
                   },
                   "currency": {
                     "type": "string",
@@ -13565,7 +13792,7 @@
                   },
                   "password": {
                     "type": "string",
-                    "minLength": 15,
+                    "minLength": 8,
                     "maxLength": 1024,
                     "description": "At most 1024 UTF-8 bytes; spaces and Unicode are preserved."
                   },
@@ -13574,7 +13801,7 @@
                       "integer",
                       "null"
                     ],
-                    "minimum": 1
+                    "minimum": 0
                   }
                 }
               }
@@ -25552,6 +25779,11 @@
             "readOnly": true,
             "description": "Configuration eligibility in the management list; not an upstream health or entitlement check."
           },
+          "has_text_offer": {
+            "type": "boolean",
+            "readOnly": true,
+            "description": "A text Provider offer has a current revision for this model mapping."
+          },
           "owner_funded": {
             "type": "boolean",
             "readOnly": true,
@@ -25638,6 +25870,24 @@
             "type": "integer",
             "minimum": 60,
             "maximum": 31536000
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 254,
+            "description": "Optional sign-in email when issue_session is false; requires password."
+          },
+          "password": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 8,
+            "maxLength": 1024,
+            "writeOnly": true,
+            "description": "Optional sign-in password (8–1024 bytes) committed atomically with the member when issue_session is false."
           }
         }
       },
@@ -26345,6 +26595,108 @@
                 },
                 "message": {
                   "type": "string"
+                },
+                "rates": {
+                  "type": "array",
+                  "description": "Effective comparable token rates in currency nanounits per million tokens at each input threshold.",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "dimension",
+                      "minimum_input_tokens",
+                      "selling",
+                      "purchase"
+                    ],
+                    "properties": {
+                      "dimension": {
+                        "type": "string"
+                      },
+                      "minimum_input_tokens": {
+                        "type": "string"
+                      },
+                      "selling": {
+                        "type": "string"
+                      },
+                      "purchase": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "media_rates": {
+                  "type": "object",
+                  "required": [
+                    "meter",
+                    "selling",
+                    "purchase"
+                  ],
+                  "properties": {
+                    "meter": {
+                      "type": "string"
+                    },
+                    "selling": {
+                      "type": "object",
+                      "required": [
+                        "amount_units",
+                        "decimal_places",
+                        "per_quantity"
+                      ],
+                      "properties": {
+                        "amount_units": {
+                          "type": "string"
+                        },
+                        "decimal_places": {
+                          "type": "integer"
+                        },
+                        "per_quantity": {
+                          "type": "object",
+                          "required": [
+                            "numerator",
+                            "denominator"
+                          ],
+                          "properties": {
+                            "numerator": {
+                              "type": "string"
+                            },
+                            "denominator": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "purchase": {
+                      "type": "object",
+                      "required": [
+                        "amount_units",
+                        "decimal_places",
+                        "per_quantity"
+                      ],
+                      "properties": {
+                        "amount_units": {
+                          "type": "string"
+                        },
+                        "decimal_places": {
+                          "type": "integer"
+                        },
+                        "per_quantity": {
+                          "type": "object",
+                          "required": [
+                            "numerator",
+                            "denominator"
+                          ],
+                          "properties": {
+                            "numerator": {
+                              "type": "string"
+                            },
+                            "denominator": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
                 },
                 "dimensions": {
                   "type": "array",

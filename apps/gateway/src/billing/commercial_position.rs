@@ -9,6 +9,10 @@ pub struct PositionQuery {
     days: Option<i32>,
     from: Option<String>,
     until: Option<String>,
+    supplier: Option<uuid::Uuid>,
+    model: Option<String>,
+    pending_before: Option<uuid::Uuid>,
+    pending_limit: Option<i32>,
 }
 
 /// ```openapi
@@ -26,6 +30,10 @@ pub struct PositionQuery {
 ///       }
 ///     ],
 ///     "parameters": [
+///       {"name":"pending_limit","in":"query","description":"Maximum unresolved attempts per report row.","schema":{"type":"integer","minimum":1,"maximum":50,"default":50}},
+///       {"name": "supplier", "in": "query", "description": "Provide supplier, model and pending_before together to page unresolved attempts for one report row.", "schema": {"type": "string", "format": "uuid"}},
+///       {"name": "model", "in": "query", "description": "Provide supplier, model and pending_before together to page unresolved attempts for one report row.", "schema": {"type": "string"}},
+///       {"name": "pending_before", "in": "query", "description": "Provide supplier, model and pending_before together to page unresolved attempts for one report row.", "schema": {"type": "string", "format": "uuid"}},
 ///       {
 ///         "name": "currency",
 ///         "in": "query",
@@ -212,6 +220,50 @@ pub struct PositionQuery {
 ///                           "null"
 ///                         ]
 ///                       },
+///                       "pending_attempts": {
+///                         "type": "array",
+///                         "maxItems": 50,
+///                         "description": "Up to 50 unresolved attempt references in descending attempt ID order with the available execution, usage and ledger evidence for this Provider, model and period.",
+///                         "items": {
+///                           "type": "object",
+///                           "properties": {
+///                             "attempt": {
+///                               "type": "string"
+///                             },
+///                             "workspace_id": {
+///                               "type": "string",
+///                               "format": "uuid"
+///                             },
+///                             "reference": {
+///                               "type": ["string", "null"],
+///                               "description": "Customer-visible request reference."
+///                             },
+///                             "execution": {
+///                               "type": "string"
+///                             },
+///                             "usage_confidence": {
+///                               "type": "string"
+///                             },
+///                             "charge_missing": {
+///                               "type": "boolean"
+///                             },
+///                             "revenue_source_missing": {
+///                               "type": "boolean",
+///                               "description": "The recorded charge or its refund lacks verified revenue allocation."
+///                             },
+///                             "payable_missing": {
+///                               "type": "boolean"
+///                             }
+///                           },
+///                           "required": [
+///                             "attempt",
+///                             "execution",
+///                             "usage_confidence",
+///                             "charge_missing",
+///                             "payable_missing"
+///                           ]
+///                         }
+///                       },
 ///                       "unresolved_attempts": {
 ///                         "type": "string",
 ///                         "pattern": "^[0-9]+$"
@@ -310,13 +362,22 @@ pub async fn read(
     Query(query): Query<PositionQuery>,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
     state.authorize_platform_headers(&headers).await?;
+    let pending = match (query.supplier, query.model.as_deref(), query.pending_before) {
+        (None, None, None) => None,
+        (Some(supplier), Some(model), Some(before)) if !model.is_empty() && model.len() <= 200 => {
+            Some((supplier, model, before))
+        }
+        _ => return Err(ApiError::from_store(niu_storage::StoreError::InvalidPrice)),
+    };
     let position = state
         .store
-        .commercial_position_interval(
+        .commercial_position_page(
             &query.currency,
             query.days,
             query.from.as_deref(),
             query.until.as_deref(),
+            pending,
+            query.pending_limit.unwrap_or(50),
         )
         .await
         .map_err(ApiError::from_store)?;

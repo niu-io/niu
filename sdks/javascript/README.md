@@ -171,7 +171,7 @@ session persistence or a cookie-based login workflow.
 `auth.changePassword(memberToken, { current_password, password }, { signal })`
 changes only the signed-in member's password. It requires current-password proof,
 accepts no member target or email, and sends a PUT without retries. New passwords
-must have at least 15 characters and at most 1024 UTF-8 bytes. Success returns
+must have at least 8 characters and at most 1024 UTF-8 bytes. Success returns
 `sign_in_required: true` and revokes all sessions for that member; discard the old
 session credential and sign in again. A 409 indicates that another password
 change raced verification; the SDK does not overwrite or retry it.

@@ -1,6 +1,7 @@
 //! Platform financial account discovery; never reused by customer routes.
 use super::{ApiError, AppState, HeaderMap, Json, Path, Query, State, Uuid, Value};
-use niu_storage::{CustomerPricingItemInput, OperatorAuditActor};
+use axum::http::StatusCode;
+use niu_storage::{CustomerOwnerOnboarding, CustomerPricingItemInput, OperatorAuditActor};
 use serde::Deserialize;
 use serde_json::json;
 #[derive(Deserialize)]
@@ -264,6 +265,210 @@ pub async fn list(
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(result))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OnboardCustomerOwnerInput {
+    #[serde(default)]
+    name: Option<String>,
+    email: String,
+    password: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OnboardCustomerInput {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    account_kind: Option<String>,
+    #[serde(default = "default_true")]
+    create_default_workspace: bool,
+    #[serde(default)]
+    owner: Option<OnboardCustomerOwnerInput>,
+    #[serde(default)]
+    trial_credit_nanos: Option<String>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+/// ```openapi
+/// {
+///   "path": "/api/v1/admin/customers",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "onboardPlatformCustomer",
+///     "summary": "Atomically onboard a customer account, Default workspace, optional owner sign-in, and optional trial credit",
+///     "description": "Explicit platform administration required. Commits the customer organization (or personal customer account), its currency balance account, optional Default workspace, optional owner sign-in credential (8 to 1024 bytes), and optional noncash trial credit grant in a single PostgreSQL transaction. Any validation or duplicate-email error rolls back completely without leaving partial organizations, workspaces, or operators. Supports Idempotency-Key for safe network retries.",
+///     "x-niu-implementation": "implemented",
+///     "security": [{ "bearerAuth": [] }],
+///     "parameters": [
+///       {
+///         "in": "header",
+///         "name": "Idempotency-Key",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 128,
+///           "pattern": "^[!-~]+$"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "properties": {
+///               "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+///               "account_kind": { "type": "string", "enum": ["personal", "organization"], "default": "organization" },
+///               "create_default_workspace": { "type": "boolean", "default": true },
+///               "owner": {
+///                 "type": ["object", "null"],
+///                 "additionalProperties": false,
+///                 "required": ["email", "password"],
+///                 "properties": {
+///                   "name": { "type": ["string", "null"], "maxLength": 200 },
+///                   "email": { "type": "string", "maxLength": 254 },
+///                   "password": { "type": "string", "minLength": 8, "maxLength": 1024, "writeOnly": true }
+///                 }
+///               },
+///               "trial_credit_nanos": {
+///                 "type": ["string", "null"],
+///                 "pattern": "^[1-9][0-9]{0,18}$"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "201": {
+///         "description": "Customer onboarded atomically (or identical idempotent replay returned)"
+///       },
+///       "400": { "description": "Invalid customer name, email, password, or trial credit amount" },
+///       "401": { "description": "Authentication required" },
+///       "403": { "description": "Platform administration required" },
+///       "409": { "description": "Owner email is already registered or Idempotency-Key reused with different input" }
+///     }
+///   }
+/// }
+/// ```
+pub async fn onboard_customer(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<OnboardCustomerInput>,
+) -> Result<(StatusCode, Json<Value>), ApiError> {
+    let actor = actor(&state, &headers).await?;
+    let creation_key = crate::admin::creation_idempotency_key(&headers)?;
+    let account_kind = match input.account_kind.as_deref() {
+        None | Some("organization") => "organization",
+        Some("personal") => "personal",
+        Some(_) => {
+            return Err(ApiError::invalid_request(
+                "account_kind must be personal or organization",
+            ));
+        }
+    };
+    let currency = state
+        .store
+        .platform_currency()
+        .await
+        .map_err(ApiError::from_store)?
+        .unwrap_or_else(|| "USD".to_owned());
+
+    let trial_credit_nanos = match input.trial_credit_nanos.as_deref() {
+        None | Some("") => None,
+        Some(raw) => {
+            if raw.starts_with('0') {
+                return Err(ApiError::invalid_request(
+                    "trial_credit_nanos must be a positive exact integer without leading zeroes",
+                ));
+            }
+            let nanos = super::exact_nonnegative_integer(raw)?;
+            if nanos <= 0 {
+                return Err(ApiError::invalid_request(
+                    "trial_credit_nanos must be positive",
+                ));
+            }
+            Some(nanos)
+        }
+    };
+
+    let explicit_name = input
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    let prepared_owner = match input.owner {
+        Some(owner_in) => {
+            let trimmed_email = owner_in.email.trim();
+            if !niu_storage::is_valid_email_address(trimmed_email) {
+                return Err(ApiError::invalid_request("Enter a valid email address"));
+            }
+            let email_prefix = trimmed_email
+                .split('@')
+                .next()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .unwrap_or(trimmed_email);
+            let owner_name = owner_in
+                .name
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .or(explicit_name)
+                .unwrap_or(email_prefix)
+                .to_owned();
+            let password_hash = crate::admin::passwords::hash_member_password_for_admin(
+                &state,
+                &headers,
+                owner_in.password,
+            )
+            .await?;
+            Some((owner_name, trimmed_email.to_owned(), password_hash))
+        }
+        None => None,
+    };
+
+    let customer_name = explicit_name
+        .map(str::to_owned)
+        .or_else(|| {
+            prepared_owner
+                .as_ref()
+                .map(|(owner_name, _, _)| owner_name.clone())
+        })
+        .ok_or_else(|| ApiError::invalid_request("Customer name is required"))?;
+
+    let created = state
+        .store
+        .onboard_platform_customer(
+            &customer_name,
+            account_kind,
+            &currency,
+            input.create_default_workspace,
+            prepared_owner
+                .as_ref()
+                .map(|(name, email, password_hash)| CustomerOwnerOnboarding {
+                    name,
+                    email,
+                    password_hash,
+                }),
+            trial_credit_nanos,
+            creation_key.as_deref(),
+            actor,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+
+    Ok((StatusCode::CREATED, Json(json!({ "data": created }))))
 }
 
 /// ```openapi

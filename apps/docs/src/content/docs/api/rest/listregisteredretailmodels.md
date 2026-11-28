@@ -86,11 +86,17 @@ Content type: `application/json`.
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "model_alias"
+          "model_alias",
+          "text",
+          "media"
         ],
         "properties": {
           "model_alias": {
             "type": "string"
+          },
+          "text": {
+            "type": "boolean",
+            "description": "Eligible for a standard text tariff."
           },
           "media": {
             "type": [

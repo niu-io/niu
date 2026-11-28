@@ -239,6 +239,27 @@ export type MemberPasswordConfiguration =
   | { configured: false; email: null; revision: null }
   | { configured: true; email: string; revision: number };
 export type MemberPasswordInput = { email: string; password: string; expected_revision?: number | null };
+export type PlatformCustomerOnboardingInput = {
+  name?: string;
+  account_kind?: 'personal' | 'organization';
+  create_default_workspace?: boolean;
+  owner?: { name?: string | null; email: string; password: string } | null;
+  trial_credit_nanos?: string | null;
+};
+export type OnboardedPlatformCustomer = {
+  id: string;
+  slug: string;
+  name: string;
+  account_kind: 'personal' | 'organization' | string;
+  currency: string;
+  workspace_id: string | null;
+  workspace_name: string | null;
+  workspace_slug: string | null;
+  owner_id: string | null;
+  owner_name: string | null;
+  owner_email: string | null;
+  trial_credit_nanos: string | null;
+};
 export type OperatorRoleUpdate = { role: OperatorAccessRole; expected_role: OperatorAccessRole };
 export type OperatorAccessView = {
   id: string; name: string; role: OperatorAccessRole;
@@ -447,7 +468,7 @@ export type ProviderModel = {
   pricing: Record<string, unknown> | null; revision: number;
 };
 export type SupplierModel = ProviderModel;
-export type ProviderModelAvailability = ProviderModel & { available: boolean; owner_funded: boolean };
+export type ProviderModelAvailability = ProviderModel & { available: boolean; owner_funded: boolean; has_text_offer?: boolean };
 export type SupplierModelAvailability = ProviderModelAvailability;
 /** Catalog reachability only; this does not prove inference or billing readiness. */
 export type ProviderModelCheck = {
@@ -1395,6 +1416,7 @@ export type GatewayChargeSummary = {
 };
 export type GatewayActivityPage = { data: GatewayActivityEntry[]; next_cursor: string | null; summary: GatewayActivitySummary };
 export type GatewayActivityQuery = {
+  pendingSettlement?: boolean;
   /** Case-insensitive search of customer-visible request metadata. */
   q?: string;
   limit?: number; after?: string; fromMs?: number; toMs?: number;
@@ -1583,6 +1605,7 @@ export interface RoutingRegistryStatus {
 
 /** Confidential platform comparison. Customer charge is not an external cash receipt. */
 export type CommercialPositionRow = {
+  pending_attempts?: Array<{ attempt: string; workspace_id?: string; reference?: string | null; execution: string; usage_confidence: string; charge_missing: boolean; revenue_source_missing?: boolean; payable_missing: boolean }>;
   supplier_id: string; supplier_name: string; model_alias: string; currency: string;
   offers: Array<{
     offer_id: string; route_alias: string; revision: string; rate_kind: 'text' | 'media';
@@ -1701,6 +1724,7 @@ export type RetailPromotionPublication = {
 };
 export type RetailPromotionRetirement = { effective_until: string; expected_version: string; idempotency_key: string; reason: string };
 /** Confidential platform-only advice; never a realized margin or dispatch authorization. */
+type ComparableMediaAmount = { amount_units: string; decimal_places: number; per_quantity: { numerator: string; denominator: string } };
 export type PlatformPricingHealth = {
   advisory: boolean;
   supply_status?: 'active' | 'inactive' | 'unconfigured';
@@ -1711,6 +1735,8 @@ export type PlatformPricingHealth = {
     status: 'below_cost' | 'missing_provider_price' | 'comparison_unavailable' | 'no_lower_unit_rates';
     message?: string;
     dimensions: Array<{ dimension: string; minimum_input_tokens: string }>;
+    rates?: Array<{ dimension: string; minimum_input_tokens: string; selling: string; purchase: string }>;
+    media_rates?: { meter: string; selling: ComparableMediaAmount; purchase: ComparableMediaAmount };
   }>;
 };
 export type RetailPriceRecord = RetailPublicationResult & { model_alias: string; currency: string; schedule: RetailSchedule; published_at: string; pricing_health?: PlatformPricingHealth };
@@ -1804,10 +1830,13 @@ export class NiuAdminClient {
   /** Owner-only scoped role change. Preserves sessions/scope; reload after a stale-role409.
    * Rejects self changes and protected actors. Never issues a replacement token.
    */
-  /** Durable identity-only creation. Replay returns the same user, never a new session or token. */
-  createOperatorIdentity(input: { organization_id: string; project_id?: string | null; name: string; role: OperatorAccessRole }, options: RequestOptions & { idempotencyKey: string }): Promise<{ operator: OperatorAccessView; session: null; token: null }> {
+  /** Durable identity-only creation (with optional atomic sign-in email/password). Replay returns the same user, never a new session or token. */
+  createOperatorIdentity(input: { organization_id: string; project_id?: string | null; name: string; role: OperatorAccessRole; email?: string; password?: string }, options: RequestOptions & { idempotencyKey: string }): Promise<{ operator: OperatorAccessView; session: null; token: null }> {
     if (!options.idempotencyKey) throw new TypeError('An idempotency key is required for user creation');
-    return this.request('/members', { organization_id: uuid(input.organization_id), project_id: input.project_id ? uuid(input.project_id) : null, name: input.name, role: input.role, issue_session: false }, options, 'POST');
+    const body: Record<string, unknown> = { organization_id: uuid(input.organization_id), project_id: input.project_id ? uuid(input.project_id) : null, name: input.name, role: input.role, issue_session: false };
+    if (input.email !== undefined) body.email = input.email;
+    if (input.password !== undefined) body.password = input.password;
+    return this.request('/members', body, options, 'POST');
   }
 
   /** Create a one-time invitation and return its link secret exactly once. */
@@ -2181,6 +2210,11 @@ export class NiuAdminClient {
   /** Atomic company/account creation; retain idempotencyKey on uncertain responses. */
   createCompany(input: CompanyCreationInput, options?: CompanyCreateOptions): Promise<CreatedCompany> {
     return this.request('/organizations', input, options, 'POST');
+  }
+
+  /** Atomically onboard a customer account, Default workspace, optional owner sign-in, and optional trial credit in one transaction. */
+  onboardPlatformCustomer(input: PlatformCustomerOnboardingInput, options?: CompanyCreateOptions): Promise<{ data: OnboardedPlatformCustomer }> {
+    return this.apiRequest('/admin/customers', input, options, 'POST');
   }
 
   /** Rename an organization while preserving its immutable slug and UUID. */
@@ -3064,7 +3098,7 @@ export class NiuAdminClient {
   }
 
   /** Registered shared aliases, including disabled configuration; not supply readiness. */
-  listRegisteredRetailModels(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { model_alias: string }[]; next_after: string | null }> {
+  listRegisteredRetailModels(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { model_alias: string; text: boolean; media: { channel: string; resolutions: string[]; reference_video: boolean; meter: string } | null }[]; next_after: string | null }> {
     const query = new URLSearchParams();
     if (page.after !== undefined) {
       if (!page.after || new TextEncoder().encode(page.after).length > 200) throw new TypeError('A model cursor of at most 200 bytes is required');
@@ -3532,8 +3566,10 @@ export class NiuAdminClient {
   }
 
   /** Models with recorded active incidents in this authorized workspace only. */
-  listWorkspaceIncidents(workspaceId: string, options?: RequestOptions): Promise<{ data: { model: string; owner_funded: boolean }[]; more: boolean; notifications: WorkspaceIncidentNotifications }> {
-    return this.request(`/workspaces/${uuid(workspaceId)}/incidents`, undefined, options);
+  listWorkspaceIncidents(workspaceId: string, options?: RequestOptions & { after?: { model: string; owner_funded: boolean } }): Promise<{ data: { model: string; owner_funded: boolean }[]; more: boolean; notifications: WorkspaceIncidentNotifications }> {
+    const { after, ...requestOptions } = options ?? {};
+    const cursor = after ? '?' + new URLSearchParams({ after_model: after.model, after_owner_funded: String(after.owner_funded) }) : '';
+    return this.request(`/workspaces/${uuid(workspaceId)}/incidents${cursor}`, undefined, requestOptions);
   }
 
   listConnectionIncidents(page: { status?: 'active' | 'resolved'; before?: string } = {}, options?: RequestOptions): Promise<{ data: PlatformConnectionIncident[]; next_before: string | null; coverage: { request_observed: true; proactive_probe: 'not_configured' } }> {
@@ -4584,6 +4620,7 @@ export class NiuAdminClient {
 
 function gatewayActivityParameters(query: GatewayActivityQuery): URLSearchParams {
   const parameters = new URLSearchParams();
+  if (query.pendingSettlement) parameters.set('pending_settlement', 'true');
   if (query.q?.trim()) parameters.set('q', query.q.trim());
   if (query.httpStatus !== undefined) {
     if (query.httpStatus !== 'unknown' && (!Number.isInteger(query.httpStatus) || query.httpStatus < 100 || query.httpStatus > 599)) throw new Error('httpStatus must be an integer from 100 to 599 or unknown');

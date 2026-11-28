@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { amountFromNanos, amountToNanos, formatCompactRateMoney, formatDisplayUnitAtoms, formatFinancialMoney, formatRateMoney, formatStatementMoney, money } from '../../app/lib/money.ts';
+import { amountFromNanos, amountToNanos, formatBalanceMoney, formatCompactRateMoney, formatDisplayUnitAtoms, formatFinancialMoney, formatRateMoney, formatStatementMoney, money } from '../../app/lib/money.ts';
 
 describe('money formatting', () => {
   it('retains nanounits beyond Number precision', () => {
@@ -35,6 +35,7 @@ describe('cash amount input', () => {
   it('converts decimal amounts to exact nanounits', () => {
     expect(amountToNanos('9007199.254740993')).toBe('9007199254740993');
     expect(amountToNanos('0.000000001')).toBe('1');
+    expect(() => amountToNanos('0.', true)).toThrow('Enter digits after the decimal point.');
     expect(amountToNanos('1250.12')).toBe('1250120000000');
   });
 
@@ -52,5 +53,14 @@ describe('customer-facing unit display', () => {
     expect(formatDisplayUnitAtoms('1', 'Credits')).toBe('< 0.01 Credits');
     expect(formatDisplayUnitAtoms('1234567890', 'Credits', 0)).toBe('1 Credits');
     expect(formatDisplayUnitAtoms('-10123456789', 'Credits')).toBe('-10.12 Credits');
+  });
+});
+
+describe('headline balance formatting', () => {
+  it('rounds micro-charge residue while keeping a 2-decimal floor', () => {
+    expect(formatBalanceMoney('3999999270', 'USD')).toBe('$4.00');
+    expect(formatBalanceMoney('3959997670', 'USD')).toBe('$3.96');
+    expect(formatBalanceMoney('0', 'USD')).toBe('$0.00');
+    expect(formatBalanceMoney('1500000000', 'USD')).toBe('$1.50');
   });
 });

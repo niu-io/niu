@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RegistrationRequestsQueue } from '@/features/platform-settings/registration-review';
 import { cachedGet, markCachedStale, peekCachedGet, request } from '@/features/providers/api';
 import { invalidateQueries } from '@/lib/query-cache';
-import { formatRateMoney } from '@/lib/money';
+import { formatBalanceMoney, formatRateMoney } from '@/lib/money';
 import { NiuAdminClient, type CompanyMetadata, type CustomerBalance, type PlatformRegistrationQueuePage } from '@niu-io/sdk/admin';
 import CustomerSetup from './setup';
 import { GrantEditor, GrantHistory } from './grants';
@@ -74,6 +74,7 @@ export function Customers({
   const initialPage = token ? peekCachedGet<AccountPage>(token, CUSTOMER_ACCOUNTS_PATH) : undefined;
   const initialValid = initialPage && Array.isArray(initialPage.data) ? initialPage : undefined;
   const [companies, setCompanies] = useState<Company[]>(() => initialValid?.data ?? []);
+  const [hasUnfilteredCustomers, setHasUnfilteredCustomers] = useState(Boolean(initialValid?.data.length));
   const [cursor, setCursor] = useState<string | null>(() => initialValid?.next_after ?? null);
   const [loading, setLoading] = useState(() => Boolean(token && !initialValid));
   const [error, setError] = useState('');
@@ -119,6 +120,7 @@ export function Customers({
       if (!Array.isArray(page.data) || page.next_after === after) {
         throw new Error('Account page did not advance. Refresh accounts.');
       }
+      if (!after && !hasFilter) setHasUnfilteredCustomers(page.data.length > 0);
       setCompanies(current =>
         after
           ? [...current, ...page.data.filter(row => !current.some(saved => saved.organization_id === row.organization_id))]
@@ -154,7 +156,7 @@ export function Customers({
   }, [query, kindFilter]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || activeTab === 'registrations') return;
     const controller = new AbortController();
     void request<PlatformRegistrationQueuePage>(
       token,
@@ -170,7 +172,7 @@ export function Customers({
         // Ignore badge prefetch errors; opening Registrations surfaces failures.
       });
     return () => controller.abort();
-  }, [token, refreshTick]);
+  }, [token, refreshTick, activeTab]);
 
   const filteredCompanies = useMemo(() => {
     const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
@@ -240,8 +242,8 @@ export function Customers({
     const extraCurrencies = Math.max(0, company.accounts.length - 1);
     return (
       <div className="space-y-0.5">
-        <p className={`whitespace-nowrap font-medium tabular-nums ${!unlimited && balanceNanos < 0n ? 'text-destructive' : ''}`}>
-          {formatRateMoney(account.balance_nanos, account.currency)}
+        <p title={formatRateMoney(account.balance_nanos, account.currency)} className={`whitespace-nowrap font-medium tabular-nums ${!unlimited && balanceNanos < 0n ? 'text-destructive' : ''}`}>
+          {formatBalanceMoney(account.balance_nanos, account.currency)}
         </p>
         {unlimited ? (
           <p className="whitespace-nowrap text-xs text-muted-foreground">
@@ -325,29 +327,29 @@ export function Customers({
             <DropdownMenuItem asChild className="sm:hidden">
               <Link to={detailHref}>{uiT("Manage", "管理")}</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'topup', company, account })}>
-              {uiT("Top up balance")}
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'credit', company, account })}>
-              {uiT("Set credit")}
-            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to={`${detailHref}?tab=pricing`}>{uiT("Customer pricing", "专属价格")}</Link>
-            </DropdownMenuItem>
-            {canSetup && (
-              <DropdownMenuItem onSelect={() => openSetup(company)}>
-                {uiT("Set up")}
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'grant', company, account })}>
-              {uiT("Grant noncash balance")}
             </DropdownMenuItem>
             {account && (
               <DropdownMenuItem onSelect={() => openEditor({ kind: 'history', company, account })}>
                 {uiT("Noncash grant history")}
               </DropdownMenuItem>
             )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'topup', company, account })}>
+              {uiT("Top up balance")}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'credit', company, account })}>
+              {uiT("Set credit")}
+            </DropdownMenuItem>
+            {canSetup && (
+              <DropdownMenuItem onSelect={() => openSetup(company)}>
+                {uiT("Set up")}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem disabled={!canTransact} onSelect={() => openEditor({ kind: 'grant', company, account })}>
+              {uiT("Grant noncash balance")}
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => openEditor({ kind: 'units', company, account })}>
               {uiT("Manage Branded Credits")}
             </DropdownMenuItem>
@@ -378,7 +380,7 @@ export function Customers({
           action={
             activeTab === 'customers' ? (
               <>
-                {(companies.length > 0 || query.trim().length > 0 || kindFilter !== 'all') && (
+                {(hasUnfilteredCustomers || companies.length > 0 || query.trim().length > 0 || kindFilter !== 'all') && (
                   <>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -415,12 +417,13 @@ export function Customers({
                           ref={searchTriggerRef}
                           type="button"
                           variant="ghost"
-                          size="icon"
-                          aria-label={uiT("Search customers", "搜索客户")}
-                          title={uiT("Search customers", "搜索客户")}
+                          size={query.trim() ? "sm" : "icon"}
+                          aria-label={[uiT("Search customers", "搜索客户"), query.trim()].filter(Boolean).join(" · ")}
+                          title={query.trim() || uiT("Search customers", "搜索客户")}
                           className={query ? "text-primary bg-accent" : undefined}
                         >
                           <IconSearch size={17} />
+                          {query.trim() && <span className="max-w-20 truncate sm:max-w-36">{query.trim()}</span>}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-2">
@@ -446,12 +449,16 @@ export function Customers({
                 </Button>
                 {canSetup && (
                   <Button aria-label={uiT("New customer")} onClick={event => { opener.current = event.currentTarget; setCreate(true); }}>
-                    <IconPlus size={16} />
-                    <span className="hidden sm:inline">{uiT("New customer")}</span>
+                    <IconPlus size={16} aria-hidden="true" />
+                    <span>{uiT("New customer")}</span>
                   </Button>
                 )}
               </>
-            ) : undefined
+            ) : (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/admin/settings?tab=registration">{uiT("Registration policy", "注册策略")}</Link>
+              </Button>
+            )
           }
         />
 
@@ -483,23 +490,6 @@ export function Customers({
             </Alert>
           )}
 
-          {query.trim() && filteredCompanies.length > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-              <span>{uiF('Showing {0} of {1} customers matching "{2}"', [filteredCompanies.length, companies.length, query.trim()])}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setQuery('');
-                  searchTriggerRef.current?.focus();
-                }}
-              >
-                {uiT("Clear search")}
-              </Button>
-            </div>
-          )}
-
           {loading && !companies.length && <TableSkeleton columns={5} rows={5} label={uiT("Loading customer balances…")} />}
 
           {!loading && !error && !companies.length && !query.trim() && kindFilter === 'all' && (
@@ -524,16 +514,13 @@ export function Customers({
             </Empty>
           )}
 
-          {!loading && (companies.length > 0 || query.trim().length > 0 || kindFilter !== 'all') && filteredCompanies.length === 0 && (
+          {!loading && !error && (companies.length > 0 || query.trim().length > 0 || kindFilter !== 'all') && filteredCompanies.length === 0 && (
             <Empty role="status">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <IconSearch size={20} aria-hidden="true" />
                 </EmptyMedia>
                 <EmptyTitle>{uiT("No matching customers", "没有匹配的客户")}</EmptyTitle>
-                <EmptyDescription>
-                  {uiT("Try another name, email, or customer type.", "请尝试其他名称、邮箱或客户类型。")}
-                </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
                 <Button
@@ -545,7 +532,7 @@ export function Customers({
                     searchTriggerRef.current?.focus();
                   }}
                 >
-                  {uiT("Clear search")}
+                  {kindFilter === "all" ? uiT("Clear search") : uiT("Clear filters")}
                 </Button>
               </EmptyContent>
             </Empty>
@@ -617,6 +604,7 @@ export function Customers({
           <RegistrationRequestsQueue
             token={token}
             showPolicySection={false}
+            onCountsChange={counts => setPendingRegistrations(counts.pending)}
             onApproved={() => {
               onWorkspaceCreated();
               refresh();
@@ -643,7 +631,7 @@ export function Customers({
               organization_id: company.id,
               organization_name: company.name,
               account_kind: options?.accountKind ?? 'organization',
-              owner: options?.ownerEmail ? { name: company.name, email: options.ownerEmail } : null,
+              owner: options?.ownerEmail ? { name: options.ownerName || company.name, email: options.ownerEmail } : null,
               workspace_count: options?.workspaceCreated ? 1 : 0,
               member_count: options?.ownerEmail ? 1 : 0,
               custom_price_count: 0,

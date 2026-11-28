@@ -415,19 +415,15 @@ impl Store {
             }
         }
         let alias_list: Vec<String> = aliases.into_iter().collect();
-        let rows = sqlx::query(
+        let rows = sqlx::query(concat!(
             "SELECT m.capabilities,m.pricing,o.organization_id,o.access_scope, \
-                    EXISTS( \
-                        SELECT 1 FROM provider_offers po \
-                        JOIN provider_offer_revisions por ON por.id = po.current_revision \
-                        WHERE po.model_alias = m.alias \
-                          AND po.vendor_id = m.vendor_id \
-                          AND por.rate_kind = 'text' \
-                    ) AS has_text_offer \
+                    ",
+            include_str!("route_has_text_offer.sql"),
+            " AS has_text_offer \
              FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id \
              LEFT JOIN personal_vendor_ownership o ON o.vendor_id=v.id \
              WHERE m.alias = ANY($1) ORDER BY v.id, m.alias FOR SHARE OF v,m",
-        )
+        ))
         .bind(&alias_list)
         .fetch_all(&mut *tx)
         .await?;
@@ -448,9 +444,11 @@ impl Store {
             if (owner != input.organization_id
                 && !(input.organization_id.is_some() && internal_shared))
                 || caps.get("video_schema").is_some()
-                || (owner.is_none() && pricing.is_none() && !has_text_offer)
             {
                 return Err(StoreError::InvalidVendor);
+            }
+            if owner.is_none() && pricing.is_none() && !has_text_offer {
+                return Err(StoreError::CandidatePriceMissing);
             }
         }
         let revision = input.revision + 1;

@@ -35,6 +35,51 @@ curl --fail-with-body -X GET "$NIU_ORIGIN/api/v1/admin/finance/position" \
 
 ## Parameters
 
+### pending_limit
+
+Location: **query**. Optional. Maximum unresolved attempts per report row.
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 50,
+  "default": 50
+}
+```
+
+### supplier
+
+Location: **query**. Optional. Provide supplier, model and pending_before together to page unresolved attempts for one report row.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### model
+
+Location: **query**. Optional. Provide supplier, model and pending_before together to page unresolved attempts for one report row.
+
+```json
+{
+  "type": "string"
+}
+```
+
+### pending_before
+
+Location: **query**. Optional. Provide supplier, model and pending_before together to page unresolved attempts for one report row.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 ### currency
 
 Location: **query**. **Required.**
@@ -244,6 +289,53 @@ Content type: `application/json`.
               "string",
               "null"
             ]
+          },
+          "pending_attempts": {
+            "type": "array",
+            "maxItems": 50,
+            "description": "Up to 50 unresolved attempt references in descending attempt ID order with the available execution, usage and ledger evidence for this Provider, model and period.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "attempt": {
+                  "type": "string"
+                },
+                "workspace_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "reference": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Customer-visible request reference."
+                },
+                "execution": {
+                  "type": "string"
+                },
+                "usage_confidence": {
+                  "type": "string"
+                },
+                "charge_missing": {
+                  "type": "boolean"
+                },
+                "revenue_source_missing": {
+                  "type": "boolean",
+                  "description": "The recorded charge or its refund lacks verified revenue allocation."
+                },
+                "payable_missing": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "attempt",
+                "execution",
+                "usage_confidence",
+                "charge_missing",
+                "payable_missing"
+              ]
+            }
           },
           "unresolved_attempts": {
             "type": "string",

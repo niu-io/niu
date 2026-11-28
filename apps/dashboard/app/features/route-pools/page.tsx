@@ -1,4 +1,4 @@
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyContent } from '@/components/ui/empty';
 import { translateUI, useLocale, useLocale as useUILocale } from '@/shell/ui-locale';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
@@ -11,7 +11,6 @@ import {
   IconPlus,
   IconRefresh,
   IconRoute,
-  IconSearch,
   IconSparkles,
   IconTrash,
 } from '@tabler/icons-react';
@@ -103,6 +102,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
   const [historyPool, setHistoryPool] = useState<ModelRoutePool | null>(null);
   const [previewPool, setPreviewPool] = useState<ModelRoutePool | null>(null);
   const [auditPool, setAuditPool] = useState<ModelRoutePool | null>(null);
+  const filterInput = useRef<HTMLInputElement>(null);
   const activeRequest = useRef<AbortController | null>(null);
   const dialogTriggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -153,6 +153,10 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
     return () => activeRequest.current?.abort();
   }, [token]);
 
+  useEffect(() => {
+    if (cursor && !loading && !error && (filter.trim() || scopeFilter !== 'all')) void loadPools(cursor);
+  }, [cursor, loading, error, filter, scopeFilter]);
+
   const visiblePools = useMemo(() => {
     const query = filter.trim().toLowerCase();
     return pools.filter(pool => {
@@ -195,13 +199,6 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
           </div>
         }
       />
-      <p className="text-sm text-muted-foreground">
-        {t(
-          'Optional: combine multiple Provider model routes into one callable custom model alias with conditional routing rules, priority/weight failover, unified or pass-through billing, and strategy auditing. Direct Provider models work without creating custom models.',
-          '可选能力：将多个 Provider 模型路由组合为一个可直接调用的自定义模型别名，支持条件分流规则、优先级与权重容灾、统一定价或按命中模型计费以及策略审计。若只需直连单个模型，可跳过此页。',
-        )}
-      </p>
-
       {(pools.length > 0 || Boolean(filter.trim()) || scopeFilter !== 'all') && <div className="flex flex-wrap items-center gap-3">
         <Popover>
           <PopoverTrigger asChild>
@@ -231,35 +228,15 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
             </p>
           </PopoverContent>
         </Popover>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant={filter.trim() ? 'secondary' : 'outline'}
-              size={filter.trim() ? 'sm' : 'icon'}
-              aria-label={filter.trim() ? `${t("Filter custom models", "筛选自定义模型")}: ${filter.trim()}` : uiT("Filter custom models", "筛选自定义模型")}
-              title={t('Filter custom models', '筛选自定义模型')}
-            >
-              <IconSearch size={16} aria-hidden="true" />
-              {filter.trim() && <span className="max-w-36 truncate">{filter.trim()}</span>}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 space-y-2">
-            <Input
-              autoFocus
+        <Input
+              ref={filterInput}
+              className="w-full sm:w-64"
               type="search"
               aria-label={uiT("Filter custom models", "筛选自定义模型")}
               placeholder={t('Filter by custom model or candidate alias', '按自定义模型名称或候选模型筛选')}
               value={filter}
               onChange={event => setFilter(event.target.value)}
             />
-            {filter && (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setFilter('')}>
-                {t('Reset search', '重置筛选')}
-              </Button>
-            )}
-          </PopoverContent>
-        </Popover>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -306,17 +283,17 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
       {loading && pools.length === 0 ? (
         <TableSkeleton columns={5} rows={5} label={t('Loading custom models…', '正在加载自定义模型…')} />
       ) : visiblePools.length > 0 ? (
-        <Table aria-label={uiT("Custom models", "自定义模型")}>
-          <TableHeader className="max-sm:sr-only">
+        <div className="@container"><Table className="@max-[64rem]:block" aria-label={uiT("Custom models", "自定义模型")}>
+          <TableHeader className="@max-[64rem]:sr-only">
             <TableRow>
               <TableHead>{t('Custom model alias & identity', '自定义模型别名与标识')}</TableHead>
-              <TableHead className="hidden md:table-cell">{t('Scope & billing', '范围与计费策略')}</TableHead>
+              <TableHead className="hidden @[64rem]:table-cell">{t('Scope & billing', '范围与计费策略')}</TableHead>
               <TableHead>{t('Routing & candidate routes', '分流规则与候选模型')}</TableHead>
-              <TableHead className="hidden sm:table-cell">{t('Status', '状态')}</TableHead>
-              <TableHead className="sm:w-64">{t('Actions', '操作')}</TableHead>
+              <TableHead className="hidden @[64rem]:table-cell">{t('Status', '状态')}</TableHead>
+              <TableHead className="@[64rem]:w-64">{t('Actions', '操作')}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="max-sm:block max-sm:divide-y">
+          <TableBody className="@max-[64rem]:block @max-[64rem]:divide-y">
             {visiblePools.map(pool => {
               const sortedCandidates = [...pool.candidates].sort(
                 (a, b) => b.priority - a.priority || b.weight - a.weight || a.alias.localeCompare(b.alias),
@@ -335,8 +312,8 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                   ? t('Per-candidate billing', '按命中模型分别计费')
                   : t('Unified custom model price', '按自定义模型统一定价');
               return (
-                <TableRow key={pool.alias} className="max-sm:block max-sm:space-y-2.5 max-sm:py-3.5">
-                  <TableCell className="align-top whitespace-normal max-sm:block max-sm:border-b-0 max-sm:p-0">
+                <TableRow key={pool.alias} className="@max-[64rem]:block @max-[64rem]:space-y-2.5 @max-[64rem]:py-3.5">
+                  <TableCell className="align-top whitespace-normal @max-[64rem]:block @max-[64rem]:border-b-0 @max-[64rem]:p-0">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <IconRoute size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -344,7 +321,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                       </div>
                       <Badge
                         variant={pool.enabled && enabledCandidates > 0 ? 'secondary' : 'outline'}
-                        className="sm:hidden"
+                        className="@[64rem]:hidden"
                       >
                         {statusLabel}
                       </Badge>
@@ -353,7 +330,7 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                       <p className="mt-0.5 text-xs font-medium text-foreground/80">{pool.display_name}</p>
                     )}
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className="md:hidden"> · {scopeName}</span>
+                      <span className="@[64rem]:hidden">{scopeName} · {billingLabel}</span>
                       {!pool.organization_id && pool.public_catalog && (
                         <Badge variant="secondary" className="text-[11px] font-normal">
                           {t('Public catalog', '公开目录')}
@@ -361,22 +338,16 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="hidden align-top whitespace-normal md:table-cell">
+                  <TableCell className="hidden align-top whitespace-normal @[64rem]:table-cell">
                     <div className="flex flex-wrap gap-1.5">
                       <Badge variant="outline">{scopeName}</Badge>
                       <Badge variant="secondary" className="font-normal">
                         {billingLabel}
                       </Badge>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {pool.organization_id
-                        ? t('Private to organization', '仅限该企业内调用')
-                        : pool.billing_mode === 'candidate_tariff'
-                          ? t('Charges each request by the selected candidate tariff', '按实际命中的候选模型售价计费')
-                          : t('Charges requests using this custom model tariff', '作为独立自定义模型统一计费')}
-                    </p>
+
                   </TableCell>
-                  <TableCell className="align-top whitespace-normal max-sm:block max-sm:border-b-0 max-sm:p-0">
+                  <TableCell className="align-top whitespace-normal @max-[64rem]:block @max-[64rem]:border-b-0 @max-[64rem]:p-0">
                     <div className="flex flex-wrap gap-1.5">
                       {enabledRules > 0 && (
                         <Badge variant="secondary" className="font-normal">
@@ -411,12 +382,12 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
                         ` · ${t('Rejects requests when no rule matches', '未命中规则时拒绝请求')}`}
                     </p>
                   </TableCell>
-                  <TableCell className="hidden align-top whitespace-normal sm:table-cell">
+                  <TableCell className="hidden align-top whitespace-normal @[64rem]:table-cell">
                     <Badge variant={pool.enabled && enabledCandidates > 0 ? 'secondary' : 'outline'}>
                       {statusLabel}
                     </Badge>
                   </TableCell>
-                  <TableCell className="align-top max-sm:block max-sm:p-0">
+                  <TableCell className="align-top @max-[64rem]:block @max-[64rem]:p-0">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <Button
                         variant="outline"
@@ -476,24 +447,21 @@ function RoutePoolsView({ token, organizations }: { token: string; organizations
               );
             })}
           </TableBody>
-        </Table>
+        </Table></div>
       ) : (
-        !error && (
+        !error && !cursor && (
           <Empty>
             <EmptyHeader><EmptyMedia variant="icon"><IconRoute size={20} aria-hidden="true" /></EmptyMedia><EmptyTitle>
               {pools.length > 0
                 ? t('No custom models match the current filter.', '没有符合当前筛选条件的自定义模型。')
                 : t('No custom models configured yet.', '尚未配置任何自定义模型。')}
             </EmptyTitle>
-            <EmptyDescription>
-              {pools.length > 0
-                ? t('Try clearing the search query or switching the scope filter.', '请尝试清空搜索关键词或切换范围筛选。')
-                : t('Start by choosing the Provider model routes this custom model should use.', '首先选择该自定义模型要组合的 Provider 模型路由。')}
-            </EmptyDescription></EmptyHeader>
+            </EmptyHeader>
             {pools.length > 0 && <EmptyContent>
               <Button variant="outline" onClick={() => {
                 setFilter('');
                 setScopeFilter('all');
+                filterInput.current?.focus();
               }}>
                 {t('Clear filters', '清空筛选')}
               </Button>
@@ -618,6 +586,15 @@ function RoutePoolEditorDialog({
   const [discoveryIncomplete, setDiscoveryIncomplete] = useState(false);
   const [discoveryAttempt, setDiscoveryAttempt] = useState(0);
   const [discovering, setDiscovering] = useState(true);
+  const rejectedCandidates = useRef<string[]>([]);
+  const [missingPriceAlias, setMissingPriceAlias] = useState('');
+
+  useEffect(() => {
+    if (!missingPriceAlias) return;
+    const control = document.querySelector<HTMLElement>('[aria-describedby="candidate-price-error"]');
+    control?.focus({ preventScroll: true });
+    control?.scrollIntoView({ block: 'center', behavior: 'instant' });
+  }, [missingPriceAlias]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -648,7 +625,7 @@ function RoutePoolEditorDialog({
                   providerName: provider.name,
                   upstreamModel: model.upstream_model,
                   ownerFunded: Boolean(model.owner_funded ?? provider.owner_funded),
-                  priced: model.pricing !== null && model.pricing !== undefined,
+                  priced: model.pricing != null || model.has_text_offer,
                 }));
             } catch {
               return null;
@@ -664,6 +641,15 @@ function RoutePoolEditorDialog({
           if (!byAlias.has(row.alias)) byAlias.set(row.alias, row);
         }
         setDiscoveredRoutes([...byAlias.values()].sort((a, b) => a.alias.localeCompare(b.alias)));
+        const missing = rejectedCandidates.current.find(alias => {
+          const route = byAlias.get(alias);
+          return route && !route.ownerFunded && route.priced === false;
+        });
+        rejectedCandidates.current = [];
+        if (missing) {
+          setMissingPriceAlias(missing);
+          setFormError('');
+        }
         setDiscoveryIncomplete(incomplete);
       } catch {
         if (!controller.signal.aborted) setDiscoveryIncomplete(true);
@@ -677,6 +663,7 @@ function RoutePoolEditorDialog({
   const winningShares = useMemo(() => computeWinningTierShares(candidates), [candidates]);
 
   function updateCandidate(index: number, patch: Partial<ModelRoutePoolCandidate>) {
+    if (patch.alias && candidates[index]?.alias === missingPriceAlias) setMissingPriceAlias('');
     setCandidates(current => current.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)));
   }
 
@@ -809,6 +796,12 @@ function RoutePoolEditorDialog({
         setFormError(t('Every candidate model must specify a valid model mapping alias.', '每个候选模型都必须指定有效的模型映射别名。'));
         return;
       }
+      const route = discoveredRoutes.find(item => item.alias === candidateAlias);
+      if (route && !route.ownerFunded && route.priced === false) {
+        setMissingPriceAlias(candidateAlias);
+        setFormError('');
+        return;
+      }
       if (seenAliases.has(candidateAlias)) {
         setFormError(t(`Duplicate candidate alias "${candidateAlias}". Each candidate in a custom model must be unique.`, `候选模型别名 "${candidateAlias}" 重复。同一自定义模型中的候选模型必须唯一。`));
         return;
@@ -931,6 +924,10 @@ function RoutePoolEditorDialog({
           ),
         );
       } else {
+        if (reason instanceof ProviderRequestError && reason.errorType === 'candidate_price_missing') {
+          rejectedCandidates.current = normalizedCandidates.map(candidate => candidate.alias);
+          setDiscoveryAttempt(previous => previous + 1);
+        }
         setFormError(reason instanceof Error ? reason.message : t('Could not save custom model.', '无法保存自定义模型。'));
       }
     } finally {
@@ -1211,6 +1208,8 @@ function RoutePoolEditorDialog({
                         <DropdownMenuTrigger asChild>
                           <Button
                             id={`candidate-model-${index}`}
+                            aria-invalid={!!missingPriceAlias && candidate.alias === missingPriceAlias}
+                            aria-describedby={missingPriceAlias && candidate.alias === missingPriceAlias ? 'candidate-price-error' : undefined}
                             type="button"
                             variant="outline"
                             className="w-full min-w-0 justify-between"
@@ -1231,7 +1230,7 @@ function RoutePoolEditorDialog({
                               onKeyDown={event => {
                                 if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                                   event.preventDefault();
-                                  const items = event.currentTarget.closest('[role="menu"]')?.querySelectorAll<HTMLElement>('[role="menuitemradio"], [role="menuitem"]');
+                                  const items = event.currentTarget.closest('[role="menu"]')?.querySelectorAll<HTMLElement>('[role="menuitemradio"]:not([data-disabled]), [role="menuitem"]:not([data-disabled])');
                                   if (items?.length) items[event.key === 'ArrowDown' ? 0 : items.length - 1].focus();
                                 }
                               }}
@@ -1250,11 +1249,12 @@ function RoutePoolEditorDialog({
                               <DropdownMenuRadioItem
                                 key={route.alias}
                                 value={route.alias}
+                                disabled={!route.ownerFunded && route.priced === false}
                                 onSelect={() => updateCandidate(index, { alias: route.alias })}
                               >
                                 <span className="min-w-0">
                                   <span className="block truncate font-medium">{route.alias}</span>
-                                  <span className="block truncate text-xs text-muted-foreground">{route.providerName} · {route.upstreamModel}</span>
+                                  <span className="block truncate text-xs text-muted-foreground">{!route.ownerFunded && route.priced === false ? t('Purchase price not configured', '采购价未配置') : `${route.providerName} · ${route.upstreamModel}`}</span>
                                 </span>
                               </DropdownMenuRadioItem>
                             ))}
@@ -1274,6 +1274,9 @@ function RoutePoolEditorDialog({
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      {missingPriceAlias && candidate.alias === missingPriceAlias && (
+                        <p id="candidate-price-error" role="alert" className="text-sm text-destructive">{t('Purchase price not configured', '采购价未配置')}</p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">

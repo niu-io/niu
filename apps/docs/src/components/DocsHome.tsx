@@ -142,7 +142,7 @@ function DocsHomeContent({ locale }: { locale: Locale }) {
   return (
     <div className="docs-home not-content">
       <header className="docs-home-launchpad-header">
-        <h1 id="_top">
+        <h1 id={locale === 'en' ? '_top' : undefined}>
           {t('The Model Platform for Agents', '面向 Agent 的模型平台')}
         </h1>
         <p className="docs-home-lead">

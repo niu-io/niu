@@ -45,6 +45,26 @@ Location: **path**. **Required.**
 }
 ```
 
+### after_model
+
+Location: **query**. Optional. When more is true, pass both cursor fields from the last returned model.
+
+```json
+{
+  "type": "string"
+}
+```
+
+### after_owner_funded
+
+Location: **query**. Optional. When more is true, pass both cursor fields from the last returned model.
+
+```json
+{
+  "type": "boolean"
+}
+```
+
 ## Request body
 
 No request body is declared.

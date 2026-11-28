@@ -15,7 +15,7 @@ import { FormSectionSkeleton } from '@/components/PageSkeletons';
 import { invalidateForMutation } from '@/lib/query-cache';
 import type { AdminSession } from '@/shell/dashboard-context';
 import { Button } from '@/components/ui/button';
-import { cachedGet, peekCachedGet, ProviderRequestError, writeMayHaveCommitted, request, providerAdapterApiLabels, type ProviderConnection, type ProviderConnectionWrite } from '../api';
+import { isBuiltinBrandIntegration, cachedGet, peekCachedGet, ProviderRequestError, writeMayHaveCommitted, request, providerAdapterApiLabels, type ProviderConnection, type ProviderConnectionWrite } from '../api';
 import ProviderEditor, { type ProviderConnectionCreate } from './ProviderEditor';
 import CredentialRequestLimit from './CredentialRequestLimit';
 import CredentialCooldown from './CredentialCooldown';
@@ -51,6 +51,13 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
   const [disableTarget, setDisableTarget] = useState<ProviderConnection | null>(null);
   const [disconnectTarget, setDisconnectTarget] = useState<ProviderConnection | null>(null);
   const [rateLimitTarget, setRateLimitTarget] = useState<ProviderConnection | null>(null);
+  const credentialTrigger = useRef<HTMLButtonElement>(null);
+  function restoreCredentialFocus(event: Event) {
+    if (credentialTrigger.current?.isConnected) {
+      event.preventDefault();
+      credentialTrigger.current.focus();
+    }
+  }
   const rateLimitTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -340,7 +347,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
             <Button type="button" size="icon-sm" variant="ghost" aria-label={uiT("Refresh API keys", "刷新 API 密钥")} title={uiT("Refresh API keys", "刷新 API 密钥")} disabled={busy || loadingConnections} onClick={() => void refreshConnections()}>
               <IconRefresh size={15} className={loadingConnections ? 'animate-spin' : undefined} aria-hidden="true" />
             </Button>
-            <Button type="button" size="sm" variant={connections.some(c => c.enabled && c.has_credential) ? 'outline' : 'default'} onClick={() => { setError(''); setAddingConnection(true); }}>
+            <Button type="button" size="sm" variant={connections.some(c => c.enabled && c.has_credential) ? 'outline' : 'default'} onClick={event => { credentialTrigger.current = event.currentTarget; setError(''); setAddingConnection(true); }}>
               <IconPlus size={15} aria-hidden="true" />
               <span>{providerId ? uiT("Add API key") : uiT("Add provider")}</span>
             </Button>
@@ -358,7 +365,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
                 <IconRefresh size={15} aria-hidden="true" />
                 <span>{uiT("Refresh")}</span>
               </Button>
-              <Button type="button" size="sm" onClick={() => { setError(''); setAddingConnection(true); }}>
+              <Button type="button" size="sm" onClick={event => { credentialTrigger.current = event.currentTarget; setError(''); setAddingConnection(true); }}>
                 <IconPlus size={15} aria-hidden="true" />
                 <span>{providerId ? uiT("Add API key") : uiT("Add provider")}</span>
               </Button>
@@ -396,7 +403,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
             <EmptyDescription>{uiT("Configure an API key to connect this Provider and import models.", "配置 API 密钥以接入此供应商并自动导入模型。")}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button type="button" onClick={() => setAddingConnection(true)}>{uiT("Configure API key", "配置 API 密钥")}</Button>
+            <Button type="button" onClick={event => { credentialTrigger.current = event.currentTarget; setAddingConnection(true); }}>{uiT("Configure API key", "配置 API 密钥")}</Button>
           </EmptyContent>
         </Empty>
       )
@@ -404,6 +411,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
       <ul className="space-y-3" aria-label={uiT("Provider API keys", "供应商 API 密钥")}>
         {connections.map(connection => {
           const needsKey = !connection.has_credential;
+          const legacyAdapter = Boolean(needsKey && providerSlug && isBuiltinBrandIntegration(providerSlug) && providerSlug !== 'openrouter' && connection.adapter === 'openrouter');
           const isReady = connection.enabled && connection.has_credential;
           const activePoolCount = pooledConnectionsFor(connection, connections).filter(
             candidate => candidate.enabled && candidate.has_credential,
@@ -439,14 +447,16 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
                       type="button"
                       size="sm"
                       disabled={busy}
-                      onClick={() => {
+                      onClick={event => {
+                        credentialTrigger.current = event.currentTarget;
                         setError('');
+                        if (legacyAdapter) { setAddingConnection(true); return; }
                         setReconnectApiKey('');
                         setReconnectingConnection(connection);
                       }}
                     >
                       <IconKey size={15} aria-hidden="true" />
-                      <span>{uiT("Enter API key & enable", "配置 API 密钥并启用")}</span>
+                      <span>{legacyAdapter ? uiT("Set up Provider connection", "使用供应商预设配置") : uiT("Enter API key & enable", "配置 API 密钥并启用")}</span>
                     </Button>
                   ) : !connection.enabled ? (
                     <Button
@@ -476,7 +486,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
                       </Button>
                     </>
                   )}
-                  <Button
+                  {!needsKey && <Button
                     type="button"
                     size="sm"
                     variant="outline"
@@ -488,21 +498,22 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
                   >
                     <IconGauge size={14} aria-hidden="true" />
                     <span>{uiT("Rate limit & cooldown", "限流与冷却")}</span>
-                  </Button>
-                  <Button
+                  </Button>}
+                  {!legacyAdapter && <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     disabled={busy}
-                    onClick={() => {
+                    onClick={event => {
+                      credentialTrigger.current = event.currentTarget;
                       setError('');
                       setActiveConnectionId(connection.id);
                       setEditingConnection(true);
                     }}
                   >
                     <Pencil size={14} aria-hidden="true" />
-                    <span>{uiT("Edit key")}</span>
-                  </Button>
+                    <span>{needsKey ? uiT("Edit endpoint", "修改接口地址") : uiT("Edit key")}</span>
+                  </Button>}
                   {connection.enabled && (
                     <Button
                       type="button"
@@ -520,7 +531,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
 
               {needsKey && (
                 <p className="text-sm text-muted-foreground" role="status">
-                  {uiT("API key not configured for this connection. Enter an API key to enable it.", "此连接尚未配置 API 密钥，请填写 API 密钥以启用。")}
+                  {legacyAdapter ? uiT("This saved connection uses another Provider’s API format. Use the Provider preset to configure a new key.", "这条历史连接使用其他供应商的 API 格式。请通过当前供应商预设配置新密钥。") : uiT("API key not configured for this connection. Enter an API key to enable it.", "此连接尚未配置 API 密钥，请填写 API 密钥以启用。")}
                 </p>
               )}
             </li>
@@ -560,11 +571,11 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
 
     {/* Quick reconnect modal for disconnected keys */}
     <Dialog open={Boolean(reconnectingConnection)} onOpenChange={open => { if (!open && !busy) { setReconnectingConnection(null); setReconnectApiKey(''); } }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onCloseAutoFocus={restoreCredentialFocus}>
         <DialogHeader>
           <DialogTitle>{uiT("Enter API key & enable", "填写 API 密钥并启用")}</DialogTitle>
           <DialogDescription>
-            {reconnectingConnection?.name} · <span className="font-mono">{reconnectingConnection?.api_base}</span>
+            {providerSlug ?? reconnectingConnection?.name} · {uiT("Credential destination", "密钥发送至")} <span className="font-mono break-all">{reconnectingConnection?.api_base}</span>
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={event => void submitReconnect(event)} className="space-y-4">
@@ -593,7 +604,7 @@ export default function ProvidersView({ token, session, refreshWorkspace, catalo
 
     {/* Add / full edit modal */}
     <Dialog open={addingConnection || editingConnection} onOpenChange={open => { if (!open && !busy) { setAddingConnection(false); setEditingConnection(false); } }}>
-      <DialogContent className="niu-modal vendor-dialog" showCloseButton={false}>
+      <DialogContent className="niu-modal vendor-dialog" showCloseButton={false} onCloseAutoFocus={restoreCredentialFocus}>
         <DialogHeader className="niu-modal-heading flex-row text-left">
           <div>
             <DialogTitle>{addingConnection ? uiT("Add Provider API key") : uiF("Edit {0}", [activeConnection?.name ?? uiT("API key")])}</DialogTitle>

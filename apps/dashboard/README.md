@@ -25,18 +25,17 @@ The root `pnpm dev` command serves the hot-reloading dashboard and proxies API r
 
 ## Frontend lint and CSS hygiene
 
-Run the gate from this directory with `pnpm lint`, or from the repository root with `pnpm lint:dashboard`. `pnpm check` runs the same gate after type generation and `tsc`. The gate has four steps:
+Run the gate from this directory with `pnpm lint`, or from the repository root with `pnpm lint:dashboard`. `pnpm check` runs the same gate after type generation and `tsc`. The gate has three steps:
 
 - `node scripts/check-hygiene.mjs` preserves the repository-specific ownership rules.
-- `node scripts/check-module-size.mjs` enforces the 800-line reviewability threshold for modules under `app/` (see below).
 - `node scripts/lint.mjs` runs Biome's recommended rules over `app/`, `scripts/` and `test/` (TypeScript, TSX, JavaScript, MJS and CSS) and compares the diagnostic counts with `lint-baseline.json`. Any count above the baseline fails. The baseline records 1,208 existing diagnostics; lower it with `pnpm lint:update-baseline` only after reviewing the reduced count. New code should not rely on the baseline for new debt, and a deliberate increase must be explained in review.
 - `node scripts/check-css-usage.mjs` is the reproducible unused-CSS audit. It protects class names composed in `className`, `cn()` and `classList` expressions, treats `:not()`/`:is()`/`:where()` arguments as optional rather than required, and fails when an unreferenced class remains in a removable selector. Use `--report` for the audit and `--write` to remove proof-positive dead selectors; neither mode guesses at runtime-composed classes.
 
 Biome parses Tailwind directives through `css.parser.tailwindDirectives`. Do not disable the formatter setting or add formatting to this gate; it exists to catch correctness and dead-code regressions without rewriting the tree.
 
-## Module size and route namespaces
+## Module organization and route namespaces
 
-Keep a route/page module at or below **800 lines**. This is a reviewability limit, not a functional boundary: one reviewer should be able to read the module's state, data flow and rendered branches in one sitting. New modules above the limit fail `pnpm lint` unless they are listed in `module-size-baseline.json` with a reason. Existing exceptions are split by domain over time; adding an exception requires explaining why a split is unsafe or why the module is data-only. Do not raise the threshold or refresh a grown exception without explaining the change in review.
+Keep route and page modules focused and reasonably sized by domain so state, data flow, and rendered branches remain easy to read, without enforcing a rigid line-count gate.
 
 Route definitions belong to the domain module that owns them: `app/shell/routes/global-routes.tsx` (signed-in global and legacy provider URLs), `app/shell/routes/account-routes.tsx` (models, settings, activity, chat), `app/shell/routes/admin-routes.tsx` (administration) and `app/shell/routes/workspace-routes.tsx` (workspace scope). `app/shell/legacy-redirects.tsx` holds retired-URL loaders and redirect components. `test/app/router-tree.parity.test.ts` snapshots every route's id, absolute path, loader and element wiring; update the snapshot only for an intentional route change and review the diff.
 

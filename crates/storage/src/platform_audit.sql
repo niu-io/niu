@@ -1,7 +1,9 @@
 -- Project only audited operation metadata. Never select configuration payloads,
 -- credentials, purchase prices, or customer request content.
 -- Bound each indexed source before the final merge; sixteen bounded pages are sorted.
-WITH events AS (
+WITH search_filter AS (
+ SELECT lower($6::text) AS needle, $7::text[] AS labels
+), events AS (
  (SELECT * FROM (
  SELECT 'procurement_configuration'::text AS source, e.id::text AS event_id,
    'configuration'::text AS category, e.action, e.actor_kind,
@@ -12,6 +14,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
  UNION ALL
  (SELECT * FROM (
@@ -28,16 +33,23 @@ WITH events AS (
  AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
  UNION ALL
  (SELECT * FROM (
  SELECT 'vendor', e.id::text, 'configuration', e.action, e.actor_kind,
    CASE WHEN e.actor_kind='installation' THEN 'Installation administrator (recorded)' ELSE 'Unknown actor' END,
-   CASE WHEN e.model_alias IS NULL THEN v.name ELSE v.name || ' / ' || e.model_alias END,
+   concat_ws(' / ', COALESCE(e.vendor_name,
+       CASE WHEN v.updated_at <= e.created_at THEN v.name END, e.vendor_id::text), e.model_alias),
    e.revision, NULL::text, NULL::text, e.created_at FROM vendor_audit_events e JOIN vendors v ON v.id=e.vendor_id
  WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
  UNION ALL
  (SELECT * FROM (
@@ -51,6 +63,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='supplier') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
  UNION ALL
  (SELECT * FROM (
@@ -62,6 +77,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
  UNION ALL
  (SELECT * FROM (
@@ -72,6 +90,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
  UNION ALL
  (SELECT * FROM (
@@ -82,6 +103,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='access') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
  UNION ALL
  (SELECT * FROM (
@@ -101,6 +125,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
 
  UNION ALL
@@ -112,6 +139,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
 
  UNION ALL
@@ -123,6 +153,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
 
  UNION ALL
@@ -134,6 +167,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
 
  UNION ALL
@@ -145,6 +181,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
 
  UNION ALL
@@ -156,6 +195,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='supplier') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
 
  UNION ALL
@@ -170,6 +212,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
 
  UNION ALL
@@ -181,6 +226,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
 
  UNION ALL
@@ -194,6 +242,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='configuration') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
 
  UNION ALL
@@ -205,6 +256,9 @@ WITH events AS (
  WHERE ($1::text IS NULL OR $1='access') AND ($2::text IS NULL OR e.created_at<=$2::text::timestamptz)
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,before_role,after_role,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))
+ AND EXISTS (SELECT 1 FROM search_filter f WHERE f.needle IS NULL
+   OR strpos(lower(concat_ws(' ',replace(action,'_',' '),actor_label,target_label,category)),f.needle)>0
+   OR ARRAY['action:'||action,'actor:'||actor_kind,'source:'||source,'category:'||category] && f.labels)
  ORDER BY created_at DESC,event_id DESC LIMIT $5)
 
 )

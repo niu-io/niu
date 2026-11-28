@@ -100,6 +100,13 @@ fn compare(sell: &Value, currency: &str, cost: &Value) -> Value {
             json!("No managed Provider price is available for this route comparison.");
         return result;
     }
+    if sell["kind"] == "media" && cost["rate_kind"] == "media" {
+        return compare_media(sell, currency, cost, result);
+    }
+    if sell["kind"] == "media" || cost["rate_kind"] == "media" {
+        result["message"] = json!("The selling and purchase prices use different billing meters.");
+        return result;
+    }
     if cost["schedule"].is_null() {
         result["status"] = json!("missing_provider_price");
         result["message"] = json!("Configure a Provider price before dispatch.");
@@ -108,9 +115,6 @@ fn compare(sell: &Value, currency: &str, cost: &Value) -> Value {
     if cost["currency"].as_str() != Some(currency) {
         result["message"] = json!("Currencies differ; no exchange rate is assumed.");
         return result;
-    }
-    if sell["kind"] == "media" || cost["rate_kind"] == "media" {
-        return compare_media(sell, currency, cost, result);
     }
     let buy = &cost["schedule"];
     let mut boundaries = BTreeSet::from([0]);
@@ -123,6 +127,7 @@ fn compare(sell: &Value, currency: &str, cost: &Value) -> Value {
         }
     }
     let mut dimensions = Vec::new();
+    let mut rates = Vec::new();
     for input in boundaries {
         let selling = at(sell, input);
         let purchase = at(buy, input);
@@ -144,9 +149,11 @@ fn compare(sell: &Value, currency: &str, cost: &Value) -> Value {
                 result["message"] = json!("A required price dimension is missing.");
                 return result;
             };
-            // Ignore a single-nanounit sentinel rate (1 nanounit / 1M, i.e. $0.000000001 / 1M)
-            // often used as a minimal positive placeholder on zero-priced routes.
-            if s < c && c > 1 {
+            rates.push(json!({
+                "dimension": label, "minimum_input_tokens": input.to_string(),
+                "selling": s.to_string(), "purchase": c.to_string()
+            }));
+            if s < c {
                 dimensions
                     .push(json!({"dimension":label,"minimum_input_tokens":input.to_string()}));
             }
@@ -158,6 +165,7 @@ fn compare(sell: &Value, currency: &str, cost: &Value) -> Value {
         "below_cost"
     });
     result["dimensions"] = json!(dimensions);
+    result["rates"] = json!(rates);
     result["message"] = json!(
         "Unit-rate comparison only. Fixed fees, minimum charges, usage mix and promotions affect the final request margin. Supply eligibility is checked separately."
     );
@@ -230,6 +238,26 @@ fn compare_media(sell: &Value, currency: &str, cost: &Value, mut result: Value) 
     result["message"] = json!(
         "Matching effective media unit rates. Supply eligibility and actual request charges are checked separately."
     );
+    // Stored media cards may encode integer amounts as JSON numbers. Preserve their
+    // precision across the JavaScript boundary, including in older revisions.
+    let integer_string = |value: &Value| {
+        value
+            .as_str()
+            .map(str::to_owned)
+            .unwrap_or_else(|| value.to_string())
+    };
+    let unit_price = |tariff: &Value| {
+        json!({
+            "amount_units": integer_string(&tariff["amount_units"]),
+            "decimal_places": tariff["decimal_places"],
+            "per_quantity": {
+                "numerator": integer_string(&tariff["per_quantity"]["numerator"]),
+                "denominator": integer_string(&tariff["per_quantity"]["denominator"])
+            }
+        })
+    };
+    result["media_rates"] =
+        json!({"meter":sell["meter"],"selling":unit_price(sell),"purchase":unit_price(buy)});
     if below {
         result["dimensions"] = json!([{ "dimension":sell["meter"], "minimum_input_tokens":"0" }]);
     }
@@ -311,7 +339,7 @@ mod tests {
             "route": "sora-v1",
             "provider": "Video Provider",
             "configured": true,
-            "currency": "USD",
+            "currency": null,
             "rate_kind": "media",
             "schedule": {},
             "media_cards": [{
@@ -344,7 +372,7 @@ mod tests {
     }
 
     #[test]
-    fn ignores_single_nanounit_placeholder_provider_quote_on_free_model() {
+    fn compares_the_smallest_recorded_positive_provider_quote() {
         let sell = json!({
             "kind": "text",
             "prompt_rate": "0",
@@ -354,7 +382,7 @@ mod tests {
             "reasoning_completion_rate": null,
             "context_tiers": []
         });
-        let placeholder_cost = json!({
+        let quoted_cost = json!({
             "route": "qiniu/conatus-free",
             "provider": "Qiniu",
             "configured": true,
@@ -369,14 +397,15 @@ mod tests {
                 "context_tiers": []
             }
         });
+        assert_eq!(compare(&sell, "USD", &quoted_cost)["status"], "below_cost");
+
+        let mut free_cost = quoted_cost;
+        free_cost["schedule"]["prompt_rate"] = json!("0");
+        free_cost["schedule"]["completion_rate"] = json!("0");
         assert_eq!(
-            compare(&sell, "USD", &placeholder_cost)["status"],
+            compare(&sell, "USD", &free_cost)["status"],
             "no_lower_unit_rates"
         );
-
-        let mut real_cost = placeholder_cost;
-        real_cost["schedule"]["prompt_rate"] = json!("1000");
-        assert_eq!(compare(&sell, "USD", &real_cost)["status"], "below_cost");
     }
 
     #[test]
