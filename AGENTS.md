@@ -267,6 +267,8 @@ When a mobile sheet opens a separate dialog, hand off focus after the sheet clos
 
 Routing forms open on the rule name. Keep priority and weight ranges with their advanced fields and preserve their values across disclosure changes.
 
+Provider analytics shows one empty state when all reported usage, balance and payment lists are empty. Preserve available figures when only some lists are empty.
+
 Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.
 
 Promotion lists keep dates, scope, and actions visible when a quote is expanded. Give the comparison the full row width inside the dialog at desktop, tablet, and phone sizes.

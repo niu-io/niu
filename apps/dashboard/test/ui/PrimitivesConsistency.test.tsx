@@ -613,6 +613,12 @@ describe('Shared UI primitives layout safeguards', () => {
   });
 });
 
+it('requires complete empty usage and ledger lists for the shared provider placeholder', () => {
+  const source = readFileSync(resolve('app/features/provider-business/admin.tsx'), 'utf8');
+  expect(source).toContain('data?.balances?.length === 0 && data?.settlements?.length === 0');
+  expect(source).toMatch(/data\?\.consumption\?\.length === 0 &&\s*data\?\.media_consumption\?\.length === 0 && \(internal \|\| emptyLedger\)/);
+});
+
 it('keeps model mapping actions outside the scrollable advanced settings', () => {
   const form = readFileSync(resolve(process.cwd(), 'app/features/providers/components/ModelMappingForm.tsx'), 'utf8');
   expect(form).not.toContain('model-form-heading');
