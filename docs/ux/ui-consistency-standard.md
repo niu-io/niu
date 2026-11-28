@@ -214,6 +214,8 @@ Workspace spending-limit feedback uses the parsed amount. Show the consequences 
 
 When a mobile sheet opens a separate dialog, hand off focus after the sheet closes. Immediate dismissal of the dialog must return focus to its original action in the reopened sheet.
 
+Routing forms open on the rule name. Keep priority and weight ranges with their advanced fields and preserve their values across disclosure changes.
+
 Provider model directories size rows to their available container. Keep model identity, status and row actions visible together, including inside the model browser. Secondary actions belong in the row menu.
 
 Promotion lists keep dates, scope, and actions visible when a quote is expanded. Give the comparison the full row width inside the dialog at desktop, tablet, and phone sizes.

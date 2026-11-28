@@ -1384,7 +1384,7 @@ function RoutingView({
           }
         }}
       >
-        <DialogContent onCloseAutoFocus={(event) => {
+        <DialogContent aria-describedby={undefined} onCloseAutoFocus={(event) => {
           if (poolEditorTriggerRef.current?.isConnected) {
             event.preventDefault();
             poolEditorTriggerRef.current.focus();
@@ -1396,45 +1396,11 @@ function RoutingView({
                 ? t('Edit routing rule', '编辑路由规则')
                 : t('Create routing rule', '创建路由规则')}
             </DialogTitle>
-            <DialogDescription>
-              {t(
-                'Configure conditional routing rules and prioritized fallback candidates. Requests can invoke this rule directly as a custom model ID.',
-                '配置条件路由分流规则与按优先级/权重排列的候选模型。请求可直接将该规则作为自定义模型 ID 调用。',
-              )}
-            </DialogDescription>
           </DialogHeader>
           <form
             onSubmit={(event) => void submitPoolForm(event)}
             className="space-y-4"
           >
-            <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-muted/30 p-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium">
-                  {editingPool ? t('Review saved routing settings', '检查已保存的路由设置') : t('Start with one model', '先从一个模型开始')}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {editingPool ? t(
-                    'Review model choices and routing settings before saving changes. Advanced settings show the strategy, routing rules, priorities, and weights.',
-                    '保存更改前，请检查模型选择和路由设置。高级设置展示选择策略、路由规则、优先级和权重。',
-                  ) : t(
-                    'Niu routes to the first enabled candidate, then falls back in order. Show advanced settings to add routing rules, choose a selection strategy, or adjust priority and weight.',
-                    'Niu 会先路由到第一个启用的候选模型，再按顺序回退。需要条件分流规则、选择策略或调整优先级/权重时，再展开高级设置。',
-                  )}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={savingPool}
-                aria-expanded={advancedPool}
-                onClick={() => setAdvancedPool((value) => !value)}
-              >
-                {advancedPool
-                  ? t('Hide advanced settings', '收起高级设置')
-                  : t('Advanced settings', '高级设置')}
-              </Button>
-            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="pool-name">{t('Name', '路由规则名称')}</Label>
@@ -1554,6 +1520,18 @@ function RoutingView({
                 </Label>
               </div>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={savingPool}
+              aria-expanded={advancedPool}
+              onClick={() => setAdvancedPool((value) => !value)}
+            >
+              {advancedPool
+                ? t('Hide advanced settings', '收起高级设置')
+                : t('Advanced settings', '高级设置')}
+            </Button>
             <div className={advancedPool ? 'space-y-4' : 'hidden'}>
               <PoolStrategyFields
                 draft={poolStrategy}
@@ -1722,12 +1700,12 @@ function RoutingView({
                   <Label>
                     {t('Candidate models', '默认候选模型与回退顺序')}
                   </Label>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  {advancedPool && <p className="mt-0.5 text-xs text-muted-foreground">
                     {t(
                       'Higher priority (-1000 to 1000) is routed first; weight (1 to 10000) balances equally ranked candidates.',
                       '优先级（-1000 至 1000）越高越先路由；权重（1 至 10000）用于在同优先级候选模型间分配流量。',
                     )}
-                  </p>
+                  </p>}
                   {availableModels.length === 0 && (
                     <p className="mt-1 text-xs text-muted-foreground">
                       {t(
@@ -1736,12 +1714,7 @@ function RoutingView({
                       )}
                     </p>
                   )}
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t(
-                      'Model details show catalog capabilities; availability and customer prices can differ. Inspect each candidate before saving.',
-                      '模型详情展示目录能力；可用性与客户价格可能不同，保存前请逐个查看。',
-                    )}
-                  </p>
+
                 </div>
                 <Button
                   type="button"
