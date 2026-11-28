@@ -642,6 +642,11 @@ it('preserves visited panel state without mounting unvisited panels', () => {
   expect(draft.value).toBe('unfinished');
 });
 
+it('fills the route body when the empty state is its direct child', () => {
+  const css = readFileSync(resolve('app/styles/surfaces.css'), 'utf8');
+  expect(css).toMatch(/\.gateway-route-content > div:not\(\[hidden\]\) > \[data-slot="empty"\],[^{]*\{[^}]*flex: 1 0 auto/);
+});
+
 it('keeps tbody row headers on cell metrics and fills 404 empty states', () => {
   const appDir = resolve(process.cwd(), 'app');
   const table = readFileSync(join(appDir, 'components/ui/table.tsx'), 'utf8');

@@ -223,6 +223,7 @@
 .page-content > .gateway-route-content > [data-slot="tabs"] { min-width: 0; max-width: 100%; }
 .page-content > .gateway-route-content > div > :has(> [data-slot="empty"]),
 .empty-region:has([data-slot="empty"]) { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; }
+.page-content > .gateway-route-content > div:not([hidden]) > [data-slot="empty"],
 .page-content > .gateway-route-content > div > :has(> [data-slot="empty"]) > [data-slot="empty"],
 .empty-region > [data-slot="empty"],
 .empty-region > .empty-region:has([data-slot="empty"]),
