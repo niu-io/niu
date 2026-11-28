@@ -147,7 +147,7 @@ describe('Provider standard pricing alignment & below_cost prevention', () => {
 
   it('never renders Below purchase cost warning when rates match (no_lower_unit_rates) or when supply is inactive', () => {
     const equalRender = render(
-      <PriceComparison modelAlias="openrouter/gpt-4o" currency="USD"
+      <PriceComparison sellingLabel="Standard selling price" modelAlias="openrouter/gpt-4o" currency="USD"
         health={{
           advisory: true,
           supply_status: 'active',
@@ -170,10 +170,11 @@ describe('Provider standard pricing alignment & below_cost prevention', () => {
     expect(equalRender.container.textContent).not.toContain('低于采购成本');
     expect(equalRender.container.textContent).toContain('$1.2');
     expect(equalRender.getByRole('heading', { level: 3 }).textContent).toBe('OpenRouter');
+    expect(equalRender.container.querySelector('[data-label="Standard selling price"]')?.textContent).toContain('$1.2');
     equalRender.unmount();
 
     render(
-      <PriceComparison currency="USD"
+      <PriceComparison sellingLabel="Standard selling price" currency="USD"
         health={{
           advisory: true,
           supply_status: 'inactive',

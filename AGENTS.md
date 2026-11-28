@@ -259,6 +259,8 @@ Tiered price forms focus the first invalid token threshold on submit and recompu
 
 Tariff editors submit the revision observed when opened. On a revision conflict, preserve the draft, prevent stale resubmission and refresh the current tariffs for inspection.
 
+Purchase comparisons identify the selling rate as standard or promotional in both desktop headers and mobile field labels.
+
 Price editors show the billing unit and quantity basis in titles or field labels. Surface decimal precision limits when an amount needs correction.
 
 Pricing editors show a single decision footer. When confirming draft dismissal, focus Keep editing, offer Discard changes, and prevent publication until editing resumes.
